@@ -5,7 +5,7 @@
   "homepage": "https://rasdaman.org/",
   "license": "https://rasdaman.org/wiki/License",
   "dependencies": {
-    "bower": "^1.6.3",
+    "bower": "^1.8.9",
     "tsd": "^0.6.5",
     "typescript": "^1.6.2"
   }

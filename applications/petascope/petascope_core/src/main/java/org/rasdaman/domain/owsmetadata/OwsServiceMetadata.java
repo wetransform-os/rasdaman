@@ -21,6 +21,7 @@
  */
 package org.rasdaman.domain.owsmetadata;
 
+import java.net.URL;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -68,6 +69,9 @@ public class OwsServiceMetadata {
     @JoinColumn(name = ServiceProvider.COLUMN_ID)
     private ServiceProvider serviceProvider;
 
+    @Column(name = "metadata_url")
+    private URL metadataUrl;
+
     public OwsServiceMetadata() {
 
     }
@@ -86,6 +90,14 @@ public class OwsServiceMetadata {
 
     public void setServiceProvider(ServiceProvider serviceProvider) {
         this.serviceProvider = serviceProvider;
+    }
+
+    public URL getMetadataUrl() {
+        return metadataUrl;
+    }
+
+    public void setMetadataUrl(URL metadataUrl) {
+        this.metadataUrl = metadataUrl;
     }
     
     /**

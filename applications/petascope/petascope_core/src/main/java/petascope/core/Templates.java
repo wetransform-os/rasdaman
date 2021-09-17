@@ -100,6 +100,7 @@ public class Templates {
     public static final String WMS_GET_CAPABILITIES_CAPABILITY_ELEMENT = "%CapabilityElement%";
     public static final String WMS_GET_CAPABILITIES_CAPABILITY_GET_MAP_ELEMENT = "%GetMapElement%";
     public static final String WMS_GET_CAPABILITIES_CAPABILITY_EXCEPTION_ELEMENT = "%ExceptionElement%";
+    public static final String WMS_GET_CAPABILITIES_CAPABILITY_EXTENDED_CAPABILITIES_ELEMENT = "%ExtendedCapabilitiesElement%";
     public static final String WMS_GET_CAPABILITIES_CAPABILITY_LAYER_ELEMENTS = "%LayerElements%";
 
     /**

@@ -397,16 +397,18 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         String layerAbstract = layer.getLayerAbstract();        
         abstractElement.appendChild(layerAbstract);
         layerElement.appendChild(abstractElement);
-        
+
+
         Coverage coverage = null;
         try {
             coverage = this.coverageRepositoryService.readCoverageBasicMetadataByIdFromCache(layer.getName());
-            if (coverage != null) {
-                Element customizedMetadataElement = this.wcsGMLGetCapabilitiesBuild.createCustomizedCoverageMetadataElement(coverage);
-                if (customizedMetadataElement != null) {
-                    layerElement.appendChild(customizedMetadataElement);
-                }
-            }
+            // The WMS capabilities schema does not allow a customized metadata element here or anywhere else
+            // if (coverage != null) {
+            //     Element customizedMetadataElement = this.wcsGMLGetCapabilitiesBuild.createCustomizedCoverageMetadataElement(coverage);
+            //     if (customizedMetadataElement != null) {
+            //         layerElement.appendChild(customizedMetadataElement);
+            //     }
+            // }
         } catch (PetascopeException ex) {
             if (ex.getExceptionCode().equals(ExceptionCode.NoSuchCoverage)) {
                 // The associated coverage with the layer was changed, log an warning instead of throwing exception

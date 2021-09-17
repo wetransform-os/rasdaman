@@ -69,6 +69,8 @@ public interface XMLSymbols {
     String PREFIX_CRS = "crs";
     String PREFIX_PROCESS_COVERAGE = "proc";
     String PREFIX_INT = "int"; // wcs interpolation
+    String PREFIX_INSPIRE_COMMON = "inspire_common";
+    String PREFIX_INSPIRE_VS = "inspire_vs";
 
     // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
@@ -93,6 +95,8 @@ public interface XMLSymbols {
     String NAMESPACE_CRS = "http://www.opengis.net/wcs/service-extension/crs/1.0";
     String NAMESPACE_PROCESS_COVERAGE = "http://www.opengis.net/wcs/processing/2.0";
     String NAMESPACE_INTERPOLATION = "http://www.opengis.net/wcs/interpolation/1.0";
+    String NAMESPACE_INSPIRE_COMMON = "http://inspire.ec.europa.eu/schemas/common/1.0";
+    String NAMESPACE_INSPIRE_VS = "http://inspire.ec.europa.eu/schemas/inspire_vs/1.0";
 
     // XML requests WCS elements
     String LABEL_GET_CAPABILITIES = "GetCapabilities";
@@ -197,6 +201,14 @@ public interface XMLSymbols {
     String LABEL_WMS_SOUTH_BOUND_LATITUDE = "southBoundLatitude";
     String LABEL_WMS_NORTH_BOUND_LATITUDE = "northBoundLatitude";
     String LABEL_WMS_BOUNDING_BOX = "BoundingBox";
+    String LABEL_WMS_EXTENDED_CAPABILITIES = PREFIX_INSPIRE_VS + ":ExtendedCapabilities";
+    String LABEL_WMS_EXTENDED_CAPABILITIES_METADATAURL = PREFIX_INSPIRE_COMMON + ":MetadataUrl";
+    String LABEL_WMS_EXTENDED_CAPABILITIES_METADATAURL_URL = PREFIX_INSPIRE_COMMON + ":URL";
+    String LABEL_WMS_EXTENDED_CAPABILITIES_METADATAURL_MEDIATYPE = PREFIX_INSPIRE_COMMON + ":MediaType";
+    String LABEL_WMS_EXTENDED_CAPABILITIES_SUPPORTED_LANGUAGES = PREFIX_INSPIRE_COMMON + ":SupportedLanguages";
+    String LABEL_WMS_EXTENDED_CAPABILITIES_DEFAULT_LANGUAGE = PREFIX_INSPIRE_COMMON + ":DefaultLanguage";
+    String LABEL_WMS_EXTENDED_CAPABILITIES_RESPONSE_LANGUAGE = PREFIX_INSPIRE_COMMON + ":ResponseLanguage";
+    String LABEL_WMS_EXTENDED_CAPABILITIES_LANGUAGE = PREFIX_INSPIRE_COMMON + ":Language";
     String ATT_WMS_MIN_X = "minx";
     String ATT_WMS_MIN_Y = "miny";
     String ATT_WMS_MAX_X = "maxx";
@@ -336,6 +348,8 @@ public interface XMLSymbols {
     String LABEL_ACCEPT_FORMATS = "AcceptFormats";
     String LABEL_ACCEPT_LANGUAGES = "AcceptLanguages";
     String ATT_VALUE_POST_ENDCODING = "PostEncoding";
+
+    String LABEL_EXTENDED_CAPABILITIES = "ExtendedCapabilities";
 
     // // ServiceMetadata
     String LABEL_SERVICE_METADATA = "ServiceMetadata";

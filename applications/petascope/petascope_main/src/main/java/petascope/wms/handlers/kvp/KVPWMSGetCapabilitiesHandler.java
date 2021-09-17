@@ -324,6 +324,12 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         // Replace the exception element replacement text in template
         capability = capability.replace(Templates.WMS_GET_CAPABILITIES_CAPABILITY_EXCEPTION_ELEMENT, exceptionElement.toXML());
 
+        Element extendedCapabilitiesElement = wcsGMLGetCapabilitiesBuild.buildInspireExtendedCapabilitiesElement(owsServiceMetadata);
+        capability = capability.replace(Templates.WMS_GET_CAPABILITIES_CAPABILITY_EXTENDED_CAPABILITIES_ELEMENT, extendedCapabilitiesElement.toXML());
+
+        // Replace the INSPIRE extended capabilities element replacement text in template
+        capability = capability.replace(Templates.WMS_GET_CAPABILITIES_CAPABILITY_EXCEPTION_ELEMENT, extendedCapabilitiesElement.toXML());
+
         // Replace the layer replacement text in template
         String layers = this.buildLayers();
         capability = capability.replace(Templates.WMS_GET_CAPABILITIES_CAPABILITY_LAYER_ELEMENTS, layers);

@@ -568,7 +568,7 @@ public class GMLGetCapabilitiesBuilder {
     /**
      * Build the ows:OperationsMetadata element
      */
-    private Element buildOperationsMetadataElement(OwsServiceMetadata owsServiceMetadata) throws PetascopeException {
+    private Element buildOperationsMetadataElement() throws PetascopeException {
         
         Element operationsMetadataElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_OPERATIONS_METADATA), NAMESPACE_OWS);
         
@@ -582,61 +582,13 @@ public class GMLGetCapabilitiesBuilder {
         Element operationGetCoverageElement = this.buildOperationElement(LABEL_GET_COVERAGE);
         
         Element constraintElement = this.buildConstraintElement();
-
-        Element extendedCapabilitiesElement = this.buildExtendedCapabilitiesElement(owsServiceMetadata);
                 
         operationsMetadataElement.appendChild(operationGetCapabilitiesElement);
         operationsMetadataElement.appendChild(operationDescribeCoverageElement);
         operationsMetadataElement.appendChild(operationGetCoverageElement);
         operationsMetadataElement.appendChild(constraintElement);
-        operationsMetadataElement.appendChild(extendedCapabilitiesElement);
         
         return operationsMetadataElement;
-    }
-
-    /**
-     * Build the ows:ExtendedCapabilities element
-     */
-    private Element buildExtendedCapabilitiesElement(OwsServiceMetadata owsServiceMetadata) {
-        Element extendedCapabilitiesElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, XMLSymbols.LABEL_EXTENDED_CAPABILITIES), NAMESPACE_OWS);
-
-        extendedCapabilitiesElement.appendChild(this.buildInspireExtendedCapabilitiesElement(owsServiceMetadata));
-
-        return extendedCapabilitiesElement;
-    }
-
-    /**
-     * Build the INSPIRE Extended Capabilities element
-     */
-    public Element buildInspireExtendedCapabilitiesElement(OwsServiceMetadata owsServiceMetadata) {
-        Element inspireExtendedCapabilitiesElement = new Element(XMLSymbols.LABEL_WMS_EXTENDED_CAPABILITIES, XMLSymbols.NAMESPACE_INSPIRE_VS);
-        inspireExtendedCapabilitiesElement.addNamespaceDeclaration(XMLSymbols.PREFIX_INSPIRE_VS, XMLSymbols.NAMESPACE_INSPIRE_VS);
-        inspireExtendedCapabilitiesElement.addNamespaceDeclaration(XMLSymbols.PREFIX_INSPIRE_COMMON, XMLSymbols.NAMESPACE_INSPIRE_COMMON);
-
-        if (owsServiceMetadata.getMetadataUrl() != null) {
-            Element metadataUrlElement = new Element(XMLSymbols.LABEL_WMS_EXTENDED_CAPABILITIES_METADATAURL, XMLSymbols.NAMESPACE_INSPIRE_COMMON);
-            Element metadataUrlUrlElement = new Element(XMLSymbols.LABEL_WMS_EXTENDED_CAPABILITIES_METADATAURL_URL, XMLSymbols.NAMESPACE_INSPIRE_COMMON);
-            metadataUrlUrlElement.appendChild(owsServiceMetadata.getMetadataUrl().toString());
-            metadataUrlElement.appendChild(metadataUrlUrlElement);
-            inspireExtendedCapabilitiesElement.appendChild(metadataUrlElement);
-        }
-
-        Element supportedLanguagesElement = new Element(XMLSymbols.LABEL_WMS_EXTENDED_CAPABILITIES_SUPPORTED_LANGUAGES, XMLSymbols.NAMESPACE_INSPIRE_COMMON);
-        Element defaultLanguageElement = new Element(XMLSymbols.LABEL_WMS_EXTENDED_CAPABILITIES_DEFAULT_LANGUAGE, XMLSymbols.NAMESPACE_INSPIRE_COMMON);
-        Element defaultLanguageLanguageElement = new Element(XMLSymbols.LABEL_WMS_EXTENDED_CAPABILITIES_LANGUAGE, XMLSymbols.NAMESPACE_INSPIRE_COMMON);
-        // TODO Make language element configurable
-        defaultLanguageLanguageElement.appendChild("ger");
-        defaultLanguageElement.appendChild(defaultLanguageLanguageElement);
-        supportedLanguagesElement.appendChild(defaultLanguageElement);
-        inspireExtendedCapabilitiesElement.appendChild(supportedLanguagesElement);
-
-        Element responseLanguageElement = new Element(XMLSymbols.LABEL_WMS_EXTENDED_CAPABILITIES_RESPONSE_LANGUAGE, XMLSymbols.NAMESPACE_INSPIRE_COMMON);
-        Element responseLanguageLanguageElement = new Element(XMLSymbols.LABEL_WMS_EXTENDED_CAPABILITIES_LANGUAGE, XMLSymbols.NAMESPACE_INSPIRE_COMMON);
-        responseLanguageLanguageElement.appendChild("ger");
-        responseLanguageElement.appendChild(responseLanguageLanguageElement);
-        inspireExtendedCapabilitiesElement.appendChild(responseLanguageElement);
-
-        return inspireExtendedCapabilitiesElement;
     }
 
     /**
@@ -865,7 +817,7 @@ public class GMLGetCapabilitiesBuilder {
         
         Element serviceIdentificationElement = this.buildServiceIdentification(owsServiceMetadata);
         Element serviceProviderElement = this.buildServiceProvider(owsServiceMetadata);
-        Element operationsMetadataElement = this.buildOperationsMetadataElement(owsServiceMetadata);
+        Element operationsMetadataElement = this.buildOperationsMetadataElement();
         Element serviceMetadataElement = this.buildServiceMetadataElement(version);
         Element contentsElement = this.buildContentsElement(version);
         

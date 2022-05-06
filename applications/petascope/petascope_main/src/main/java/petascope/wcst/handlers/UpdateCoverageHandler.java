@@ -27,6 +27,9 @@
  */
 package petascope.wcst.handlers;
 
+import com.rasdaman.accesscontrol.service.AuthenticationService;
+import com.rasdaman.admin.layer.service.AdminCreateOrUpdateLayerService;
+
 import petascope.core.Pair;
 import petascope.core.XMLSymbols;
 import petascope.core.gml.cis10.GMLCIS10ParserService;
@@ -65,6 +68,7 @@ import org.rasdaman.config.ConfigManager;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.Axis;
 import org.rasdaman.domain.cis.AxisExtent;
+import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.cis.GeneralGridCoverage;
 import org.rasdaman.domain.cis.GeoAxis;
 import org.rasdaman.domain.cis.IndexAxis;
@@ -82,7 +86,6 @@ import petascope.core.gml.metadata.service.CoverageMetadataService;
 import static petascope.core.service.CrsComputerService.GRID_POINT_EPSILON_WCPS;
 import petascope.exceptions.ExceptionCode;
 import org.rasdaman.admin.pyramid.service.PyramidService;
-import org.rasdaman.domain.cis.CoveragePyramid;
 
 import petascope.wcst.exceptions.WCSTCoverageParameterNotFound;
 import petascope.wcst.exceptions.WCSTInvalidXML;
@@ -91,6 +94,9 @@ import static petascope.util.ras.RasConstants.RASQL_BOUND_SEPARATION;
 import static petascope.util.ras.RasConstants.RASQL_OPEN_SUBSETS;
 import static petascope.util.ras.RasConstants.RASQL_CLOSE_SUBSETS;
 
+import org.rasdaman.repository.service.WMSRepostioryService;
+import petascope.controller.PetascopeController;
+
 @Service
 public class UpdateCoverageHandler {
 
@@ -98,6 +104,8 @@ public class UpdateCoverageHandler {
     
     @Autowired
     private CoverageRepositoryService persistedCoverageService;
+    @Autowired
+    private WMSRepostioryService wmsRepostioryService;
     @Autowired
     private GMLCISParserService gmlCISParserService;
     @Autowired
@@ -111,7 +119,11 @@ public class UpdateCoverageHandler {
     @Autowired
     private CoverageMetadataService coverageMetadataService;
     @Autowired
-    private CoverageRepositoryService coverageRepostioryService;
+    private AdminCreateOrUpdateLayerService createOrUpdateLayerService;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+    @Autowired
+    private PetascopeController petascopeController;
 
     @Autowired
     private RemoteCoverageUtil remoteCoverageUtil;
@@ -124,8 +136,11 @@ public class UpdateCoverageHandler {
      * @return empty response.
      */
     public Response handle(UpdateCoverageRequest request)
-            throws WCSTCoverageParameterNotFound, WCSTInvalidXML, PetascopeException, SecoreException {
+            throws WCSTCoverageParameterNotFound, WCSTInvalidXML, PetascopeException, SecoreException, Exception {
         log.debug("Handling coverage update...");
+        
+        this.petascopeController.validateWriteRequestFromIP(httpServletRequest);
+        
         // persisted coverage
         Coverage currentCoverage = persistedCoverageService.readCoverageByIdFromDatabase(request.getCoverageId());
         String coverageId = request.getCoverageId();
@@ -142,17 +157,17 @@ public class UpdateCoverageHandler {
         Coverage inputCoverage = gmlCISParserService.parseDocumentToCoverage(gmlInputCoverageDocument);
         inputCoverage.setId(currentCoverage.getId());
 
-	try {
-            this.handleUpdateCoverageRequest(request, currentCoverage, inputCoverage, gmlInputCoverageDocument);
-	} catch (IOException ex) {
-            throw new PetascopeException(ExceptionCode.InternalComponentError,
-		                     "Cannot handle UpdateCoverage request. Reason: " + ex.getMessage(), ex);
-	}
+	this.handleUpdateCoverageRequest(request, currentCoverage, inputCoverage, gmlInputCoverageDocument);
         
         persistedCoverageService.createCoverageExtent(currentCoverage);
         
         // Now, we can persist the updated current coverage from input slice
         persistedCoverageService.save(currentCoverage);
+        
+        // If this coverage has an existing associated WMS layer, then update the coverage -> update the layer as well
+        if (this.wmsRepostioryService.isInLocalCache(coverageId)) {
+            this.createOrUpdateLayerService.save(coverageId, null);
+        }
 
         Response response = new Response();
         response.setCoverageID(coverageId);
@@ -335,27 +350,27 @@ public class UpdateCoverageHandler {
      * Then, the geo domain of this axis from input slice needs to be shifted by an offset value and this input slice could be imported
      * to Petascope instead of throwing exception from validator because grid domains don't match.
      */
-    private void shiftRegularAxesByOffsets(Coverage currentCoverage, List<AbstractSubsetDimension> dimensionSubsets, Coverage inputCoverage) throws PetascopeException, SecoreException {
+    private void shiftRegularAxesByOffsets(Coverage currentCoverage, List<AbstractSubsetDimension> inputDimensionSubsets, Coverage inputCoverage) throws PetascopeException, SecoreException {
         
-        for (AbstractSubsetDimension dimensionSubset : dimensionSubsets) {
+        for (AbstractSubsetDimension inputDimensionSubset : inputDimensionSubsets) {
             
-            if (dimensionSubset instanceof SlicingSubsetDimension) {
+            if (inputDimensionSubset instanceof SlicingSubsetDimension) {
                 continue;
             }
             
-            String axisLabel = dimensionSubset.getDimensionName();
-            GeoAxis axis = ((GeneralGridCoverage) currentCoverage).getGeoAxisByName(axisLabel);
+            String axisLabel = inputDimensionSubset.getDimensionName();
+            GeoAxis geoAxis = ((GeneralGridCoverage) currentCoverage).getGeoAxisByName(axisLabel);
             
-            if (axis instanceof org.rasdaman.domain.cis.RegularAxis) {
-                ParsedSubset<BigDecimal> subsetDomain = CrsComputerService.parseSubsetDimensionToNumbers(axis.getSrsName(), axis.getUomLabel(), dimensionSubset);
+            if (geoAxis instanceof org.rasdaman.domain.cis.RegularAxis) {
+                ParsedSubset<BigDecimal> subsetDomain = CrsComputerService.parseSubsetDimensionToNumbers(geoAxis.getSrsName(), geoAxis.getUomLabel(), inputDimensionSubset);
                 // NOTE: Only support this feature if axis is regular
-                BigDecimal currentLowerBound = axis.getLowerBoundNumber();
-                BigDecimal currentUpperBound = axis.getUpperBoundNumber();
+                BigDecimal currentGeoLowerBound = geoAxis.getLowerBoundNumber();
+                BigDecimal currentGeoUpperBound = geoAxis.getUpperBoundNumber();
                 
-                BigDecimal inputLowerBound = subsetDomain.getLowerLimit();
-                BigDecimal inputUpperBound = subsetDomain.getUpperLimit();
+                BigDecimal inputGeoLowerBound = subsetDomain.getLowerLimit();
+                BigDecimal inputGeoUpperBound = subsetDomain.getUpperLimit();
                 
-                BigDecimal axisResolution = axis.getResolution();                
+                BigDecimal axisResolution = geoAxis.getResolution();                
                 BigDecimal lowerGeoOffSet = BigDecimal.ZERO;
                 BigDecimal upperGeoOffSet = BigDecimal.ZERO;
                 
@@ -366,8 +381,8 @@ public class UpdateCoverageHandler {
                     positiveAxisDirection = false;
                 }
                 
-                GeoAxis currentAxis = ((GeneralGridCoverage) currentCoverage).getGeoAxisByName(axisLabel);
-                GeoAxis inputAxis = ((GeneralGridCoverage) inputCoverage).getGeoAxisByName(axisLabel);
+                GeoAxis currentGeoAxis = ((GeneralGridCoverage) currentCoverage).getGeoAxisByName(axisLabel);
+                GeoAxis inputGeoAxis = ((GeneralGridCoverage) inputCoverage).getGeoAxisByName(axisLabel);
                 
                 BigDecimal gridLowerDistance = BigDecimal.ZERO;
                 BigDecimal gridUpperDistance = BigDecimal.ZERO;
@@ -379,118 +394,118 @@ public class UpdateCoverageHandler {
                     // e.g: Long axis with positive direction
                     
                     // NOTE: don't need to shift anything if origin from current imported coverage's geo domain is the same as from input geo domain
-                    if (inputLowerBound.compareTo(currentLowerBound) == 0) {
+                    if (inputGeoLowerBound.compareTo(currentGeoLowerBound) == 0) {
                         continue;
                     }
                     
                     // First, find the new origin between input subset and current subet (for positive axis, lowerBound is origin)
-                    if (inputLowerBound.compareTo(currentLowerBound) < 0) {
+                    if (inputGeoLowerBound.compareTo(currentGeoLowerBound) < 0) {
                         // In this case, ***coverage's domain*** must be shifted by an offset as the origin belongs to the input subset    
-                        gridLowerDistance = (currentLowerBound.subtract(inputLowerBound)).divide(axisResolution, MathContext.DECIMAL64);
-                        origin = inputLowerBound;
+                        gridLowerDistance = (currentGeoLowerBound.subtract(inputGeoLowerBound)).divide(axisResolution, MathContext.DECIMAL64);
+                        origin = inputGeoLowerBound;
                         
                         BigDecimal shiftedGridLowerDistance = this.shiftToRoundedNumber(gridLowerDistance);
                         lowerGeoOffSet = (shiftedGridLowerDistance.subtract(gridLowerDistance)).multiply(axisResolution);
 
-                        currentAxis.setLowerBound(currentLowerBound.add(lowerGeoOffSet).toPlainString());
+                        currentGeoAxis.setLowerBound(currentGeoLowerBound.add(lowerGeoOffSet).toPlainString());
                     } else {
                         // In this case, ***input subset domain*** must be shifted by tan offset as the origin belongs to the coverage's domain
-                        gridLowerDistance = (inputLowerBound.subtract(currentLowerBound)).divide(axisResolution.abs(), MathContext.DECIMAL64);     
-                        origin = currentLowerBound;
+                        gridLowerDistance = (inputGeoLowerBound.subtract(currentGeoLowerBound)).divide(axisResolution.abs(), MathContext.DECIMAL64);     
+                        origin = currentGeoLowerBound;
                         
                         BigDecimal shiftedGridLowerDistance = this.shiftToRoundedNumber(gridLowerDistance);
                         lowerGeoOffSet = (shiftedGridLowerDistance.subtract(gridLowerDistance)).multiply(axisResolution);
 
-                        if (dimensionSubset instanceof TrimmingSubsetDimension) {
-                            ((TrimmingSubsetDimension)dimensionSubset).setLowerBound(inputLowerBound.add(lowerGeoOffSet).toPlainString());
+                        if (inputDimensionSubset instanceof TrimmingSubsetDimension) {
+                            ((TrimmingSubsetDimension)inputDimensionSubset).setLowerBound(inputGeoLowerBound.add(lowerGeoOffSet).toPlainString());
                         } else {
-                            ((SlicingSubsetDimension)dimensionSubset).setBound(inputLowerBound.add(lowerGeoOffSet).toPlainString());
+                            ((SlicingSubsetDimension)inputDimensionSubset).setBound(inputGeoLowerBound.add(lowerGeoOffSet).toPlainString());
                         }
 
-                        if (inputAxis != null) {
-                            inputAxis.setLowerBound(inputLowerBound.add(lowerGeoOffSet).toPlainString());
+                        if (inputGeoAxis != null) {
+                            inputGeoAxis.setLowerBound(inputGeoLowerBound.add(lowerGeoOffSet).toPlainString());
                         }
                     }
                     
-                    if (!origin.equals(currentLowerBound)) {
+                    if (!origin.equals(currentGeoLowerBound)) {
                          // In this case, ***coverage's domain*** must be shifted by an offset as the origin belongs to the input subset 
-                        gridUpperDistance = (currentUpperBound.subtract(origin)).divide(axisResolution, MathContext.DECIMAL64);
+                        gridUpperDistance = (currentGeoUpperBound.subtract(origin)).divide(axisResolution, MathContext.DECIMAL64);
                         if (!BigDecimalUtil.integer(gridUpperDistance)) {
                             BigDecimal shiftedGridUpperDistance = this.shiftToRoundedNumber(gridUpperDistance);
                             upperGeoOffSet = (shiftedGridUpperDistance.subtract(gridUpperDistance)).multiply(axisResolution);
                             
-                            currentAxis.setUpperBound(currentUpperBound.add(upperGeoOffSet).toPlainString());
+                            currentGeoAxis.setUpperBound(currentGeoUpperBound.add(upperGeoOffSet).toPlainString());
                         }
                     } else {
                         // In this case, ***input subset domain*** must be shifted by tan offset as the origin belongs to the coverage's domain
-                        gridUpperDistance = (inputUpperBound.subtract(origin)).divide(axisResolution, MathContext.DECIMAL64);
+                        gridUpperDistance = (inputGeoUpperBound.subtract(origin)).divide(axisResolution, MathContext.DECIMAL64);
                         BigDecimal shiftedGridUpperDistance = this.shiftToRoundedNumber(gridUpperDistance);
                         upperGeoOffSet = (shiftedGridUpperDistance.subtract(gridUpperDistance)).multiply(axisResolution);
 
-                        if (dimensionSubset instanceof TrimmingSubsetDimension) {
-                            ((TrimmingSubsetDimension)dimensionSubset).setUpperBound(inputUpperBound.add(upperGeoOffSet).toPlainString());
+                        if (inputDimensionSubset instanceof TrimmingSubsetDimension) {
+                            ((TrimmingSubsetDimension)inputDimensionSubset).setUpperBound(inputGeoUpperBound.add(upperGeoOffSet).toPlainString());
                         }
 
-                        if (inputAxis != null) {
-                            inputAxis.setUpperBound(inputUpperBound.add(upperGeoOffSet).toPlainString());
+                        if (inputGeoAxis != null) {
+                            inputGeoAxis.setUpperBound(inputGeoUpperBound.add(upperGeoOffSet).toPlainString());
                         }
                     }
                 } else {
                     // e.g: Lat Axis with nagative direction
                     
                     // NOTE: don't need to shift anything if origin from current imported coverage's geo domain is the same as from input geo domain
-                    if (inputUpperBound.compareTo(currentUpperBound) == 0) {
+                    if (inputGeoUpperBound.compareTo(currentGeoUpperBound) == 0) {
                         continue;
                     }
                     
                     // First, find the new origin between input subset and current subet (for positive axis, lowerBound is origin)
-                    if (inputUpperBound.compareTo(currentUpperBound) > 0) {
+                    if (inputGeoUpperBound.compareTo(currentGeoUpperBound) > 0) {
                         // In this case, ***coverage's domain*** must be shifted by an offset as the origin belongs to the input subset
-                        gridUpperDistance = (currentUpperBound.subtract(inputUpperBound)).divide(axisResolution, MathContext.DECIMAL64);  
-                        origin = inputUpperBound;
+                        gridUpperDistance = (currentGeoUpperBound.subtract(inputGeoUpperBound)).divide(axisResolution, MathContext.DECIMAL64);  
+                        origin = inputGeoUpperBound;
                         
                         BigDecimal shiftedGridUpperDistance = this.shiftToRoundedNumber(gridUpperDistance);                                            
                         upperGeoOffSet = (shiftedGridUpperDistance.subtract(gridUpperDistance)).multiply(axisResolution);
 
-                        currentAxis.setUpperBound(currentUpperBound.add(upperGeoOffSet).toPlainString());
+                        currentGeoAxis.setUpperBound(currentGeoUpperBound.add(upperGeoOffSet).toPlainString());
                     } else {
                         // In this case, ***input subset domain*** must be shifted by tan offset as the origin belongs to the coverage's domain
-                        gridUpperDistance = (inputUpperBound.subtract(currentUpperBound)).divide(axisResolution, MathContext.DECIMAL64);     
-                        origin = currentUpperBound;
+                        gridUpperDistance = (inputGeoUpperBound.subtract(currentGeoUpperBound)).divide(axisResolution, MathContext.DECIMAL64);     
+                        origin = currentGeoUpperBound;
                         
                         BigDecimal shiftedGridUpperDistance = this.shiftToRoundedNumber(gridUpperDistance);
                         upperGeoOffSet = (shiftedGridUpperDistance.subtract(gridUpperDistance)).multiply(axisResolution);
 
-                        if (dimensionSubset instanceof TrimmingSubsetDimension) {
-                            ((TrimmingSubsetDimension)dimensionSubset).setUpperBound(inputUpperBound.add(upperGeoOffSet).toPlainString());
+                        if (inputDimensionSubset instanceof TrimmingSubsetDimension) {
+                            ((TrimmingSubsetDimension)inputDimensionSubset).setUpperBound(inputGeoUpperBound.add(upperGeoOffSet).toPlainString());
                         } else {
-                            ((SlicingSubsetDimension)dimensionSubset).setBound(inputUpperBound.add(upperGeoOffSet).toPlainString());
+                            ((SlicingSubsetDimension)inputDimensionSubset).setBound(inputGeoUpperBound.add(upperGeoOffSet).toPlainString());
                         }
 
-                        if (inputAxis != null) {
-                            inputAxis.setUpperBound(inputUpperBound.add(upperGeoOffSet).toPlainString());
+                        if (inputGeoAxis != null) {
+                            inputGeoAxis.setUpperBound(inputGeoUpperBound.add(upperGeoOffSet).toPlainString());
                         }
                     }
                     
-                    if (!origin.equals(currentUpperBound)) {
+                    if (!origin.equals(currentGeoUpperBound)) {
                         // In this case, ***coverage's domain*** must be shifted by an offset as the origin belongs to the input subset
-                        gridLowerDistance = (currentLowerBound.subtract(origin)).divide(axisResolution, MathContext.DECIMAL64);
+                        gridLowerDistance = (currentGeoLowerBound.subtract(origin)).divide(axisResolution, MathContext.DECIMAL64);
                         BigDecimal shiftedGridLowerDistance = this.shiftToRoundedNumber(gridLowerDistance);
                         lowerGeoOffSet = (shiftedGridLowerDistance.subtract(gridLowerDistance)).multiply(axisResolution);
 
-                        currentAxis.setLowerBound(currentLowerBound.add(lowerGeoOffSet).toPlainString());
+                        currentGeoAxis.setLowerBound(currentGeoLowerBound.add(lowerGeoOffSet).toPlainString());
                     } else {
                         // In this case, ***input subset domain*** must be shifted by an offset as the origin belongs to the coverage's domain
-                        gridLowerDistance = (inputLowerBound.subtract(origin)).divide(axisResolution, MathContext.DECIMAL64);
+                        gridLowerDistance = (inputGeoLowerBound.subtract(origin)).divide(axisResolution, MathContext.DECIMAL64);
                         BigDecimal shiftedGridLowerDistance = this.shiftToRoundedNumber(gridLowerDistance);
                         lowerGeoOffSet = (shiftedGridLowerDistance.subtract(gridLowerDistance)).multiply(axisResolution);
 
-                        if (dimensionSubset instanceof TrimmingSubsetDimension) {
-                            ((TrimmingSubsetDimension)dimensionSubset).setLowerBound(inputLowerBound.add(lowerGeoOffSet).toPlainString());
+                        if (inputDimensionSubset instanceof TrimmingSubsetDimension) {
+                            ((TrimmingSubsetDimension)inputDimensionSubset).setLowerBound(inputGeoLowerBound.add(lowerGeoOffSet).toPlainString());
                         }
 
-                        if (inputAxis != null) {
-                            inputAxis.setLowerBound(inputLowerBound.add(lowerGeoOffSet).toPlainString());
+                        if (inputGeoAxis != null) {
+                            inputGeoAxis.setLowerBound(inputGeoLowerBound.add(lowerGeoOffSet).toPlainString());
                         }
                     }
                 }
@@ -923,7 +938,7 @@ public class UpdateCoverageHandler {
      * @return the GML coverage representation.
      * @throws WCSException
      */
-    private String getGmlCoverageFromRequest(UpdateCoverageRequest request) throws WCSException {
+    private String getGmlCoverageFromRequest(UpdateCoverageRequest request) throws PetascopeException {
         String gmlCoverage = "";
         if (request.getInputCoverage() != null) {
             gmlCoverage = request.getInputCoverage();
@@ -946,7 +961,7 @@ public class UpdateCoverageHandler {
         Element dataBlock = GMLCIS10ParserService.parseDataBlock(rangeSet);
         String collectionName = coverage.getCoverageId();
         Pair<String, List<String>> collectionType = TypeResolverUtil.guessCollectionType(collectionName, coverage.getNumberOfBands(), coverage.getNumberOfDimensions(),
-                coverage.getAllUniqueNullValues(), pixelDataType);
+                coverage.getNilValues(), pixelDataType);
 
         // Only support GeneralGridCoverage now
         List<IndexAxis> indexAxes = ((GeneralGridCoverage) coverage).getIndexAxes();

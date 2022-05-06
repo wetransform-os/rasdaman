@@ -26,10 +26,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,7 +40,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.servlet.ServletException;
@@ -54,9 +51,12 @@ import nu.xom.Element;
 import nu.xom.ParsingException;
 import nu.xom.ValidityException;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.gdal.osr.SpatialReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.rasdaman.config.ConfigManager;
+import static org.rasdaman.config.ConfigManager.SECORE_INTERNAL;
 import org.rasdaman.secore.Resolver;
 import org.rasdaman.secore.db.DbManager;
 import org.rasdaman.secore.db.DbSecoreVersion;
@@ -125,9 +125,14 @@ public class CrsUtil {
 
     // TODO: do not rely on a static set of auths, but ask SECORE to return the supported authorities: ./def/crs/
     public static final String EPSG_AUTH = "EPSG";
+    public static final String EPSG_4326_AUTHORITY_CODE = EPSG_AUTH + ":4326";
     public static final String ISO_AUTH = "ISO";
     public static final String AUTO_AUTH = "AUTO";
     public static final String OGC_AUTH = "OGC";
+    // rotated-CRS netCDF
+    public static final String COSMO_AUTH = "COSMO";
+    // COSMO 101 CRS
+    public static final String COSMO_101_AUTHORITY_CODE = COSMO_AUTH + ":101";
     //public static final String IAU_AUTH  = "IAU2000";
     //public static final String UMC_AUTH  = "UMC";
     public static final List<String> SUPPORTED_AUTHS = Arrays.asList(EPSG_AUTH, ISO_AUTH, AUTO_AUTH, OGC_AUTH); // IAU_AUTH, UMC_AUTH);
@@ -138,11 +143,16 @@ public class CrsUtil {
     // e.g: <identifier>http://localhost:8080/def/crs/EPSG/0/4326</identifier>
     public static final String SECORE_IDENTIFIER_PATTERN = "<identifier>(.+?)</identifier>";
     
+    private static final String REGEX = "localhost(:[0-9]+)?/def";
+    private static final Pattern localhostPattern = Pattern.compile(REGEX, Pattern.CASE_INSENSITIVE);
+    
 
     /* CACHES: avoid EPSG db and SECORE redundant access */
     private static Map<String, CrsDefinition> parsedCRSs = new HashMap<String, CrsDefinition>();        // CRS definitions
     private static Map<List<String>, Boolean> crsComparisons = new HashMap<List<String>, Boolean>();        // CRS equality tests
     private static Map<List<String>, Long[]> gridIndexConversions = new HashMap<List<String>, Long[]>();         // subset2gridIndex conversions
+    
+    private static Map<String, String> crsWKTCache = new HashMap<>();
 
     private static final Logger log = LoggerFactory.getLogger(CrsUtil.class);
     
@@ -150,34 +160,63 @@ public class CrsUtil {
     private static final String APPLICATION_PROPERTIES_FILE = "application.properties";
     private static final String KEY_SECORE_CONF_DIR = "secore.confDir";
     
+    // NOTE: this is the hard-coded WKT of rorated CRS from https://github.com/Geomatys/MetOceanDWG/blob/main/MetOceanDWG%20Projects/Authority%20Codes%20for%20CRS/RotatedPole.xml
+    private static final String COSMO_CRS_101_WKT = "GEODCRS[\"COSMO-DWD rotated pole grid\",\n" +
+                                                    "  BASEGEODCRS[\"COSMO DWD base geodetic CRS (Spherical)\",\n" +
+                                                    "    DATUM[\"COSMO DWD geodetic datum (Spherical)\",\n" +
+                                                    "      ELLIPSOID[\"DWD Models Sphere\", 6371229.0, 0.0, LENGTHUNIT[\"metre\", 1]]],\n" +
+                                                    "      PRIMEM[\"Greenwich\", 0.0, ANGLEUNIT[\"degree\", 0.017453292519943295]]],\n" +
+                                                    "  DERIVINGCONVERSION[\"COSMO-DE pole rotation\",\n" +
+                                                    "    METHOD[\"Pole rotation (netCDF CF convention)\"],\n" +
+                                                    "    PARAMETER[\"Grid north pole latitude (netCDF CF convention)\", 40.0, ANGLEUNIT[\"degree\", 0.017453292519943295]],\n" +
+                                                    "    PARAMETER[\"Grid north pole longitude (netCDF CF convention)\", -170.0, ANGLEUNIT[\"degree\", 0.017453292519943295]],\n" +
+                                                    "    PARAMETER[\"North pole grid longitude (netCDF CF convention)\", 0.0, ANGLEUNIT[\"degree\", 0.017453292519943295]]],\n" +
+                                                    "  CS[ellipsoidal, 2],\n" +
+                                                    "    AXIS[\"Rotated latitude (B)\", north, ORDER[1]],\n" +
+                                                    "    AXIS[\"Rotated longitude (L)\", east, ORDER[2]],\n" +
+                                                    "    ANGLEUNIT[\"degree\", 0.017453292519943295],\n" +
+                                                    "  SCOPE[\"Atmospheric model data.\"],\n" +
+                                                    "  AREA[\"Central Germany.\"],\n" +
+                                                    "  BBOX[47.00, 5.00, 55.00, 15.00],\n" +
+                                                    "  ID[\"COSMO\", 101],\n" +
+                                                    "  REMARK[\"Used with grid spacing of 0.025 degree in rotated coordinates.\"]]";
+    
+    private static boolean isSECOREloaded = false;
+    
     /**
      * Invoke embedded SECORE in petascope before petascope starts to migrate 
      * 
      */
     public static void loadInternalSecore(boolean embedded, String webappsDir) throws IOException, org.rasdaman.secore.util.SecoreException, SecoreException {
+        
+        if (isSECOREloaded == false) {
 
-        Properties properties = new Properties();
-        InputStream resourceStream = new ClassPathResource(APPLICATION_PROPERTIES_FILE).getInputStream();
-        properties.load(resourceStream);
+            Properties properties = new Properties();
+            InputStream resourceStream = new ClassPathResource(APPLICATION_PROPERTIES_FILE).getInputStream();
+            properties.load(resourceStream);
 
-        PropertySourcesPlaceholderConfigurer propertyResourcePlaceHolderConfigurer = new PropertySourcesPlaceholderConfigurer();
-        File initialFile = new File(properties.getProperty(KEY_SECORE_CONF_DIR) + "/" + org.rasdaman.secore.ConfigManager.SECORE_PROPERTIES_FILE);
-        propertyResourcePlaceHolderConfigurer.setLocation(new FileSystemResource(initialFile));
+            PropertySourcesPlaceholderConfigurer propertyResourcePlaceHolderConfigurer = new PropertySourcesPlaceholderConfigurer();
+            File initialFile = new File(properties.getProperty(KEY_SECORE_CONF_DIR) + "/" + org.rasdaman.secore.ConfigManager.SECORE_PROPERTIES_FILE);
+            propertyResourcePlaceHolderConfigurer.setLocation(new FileSystemResource(initialFile));
 
-        String confDir = properties.getProperty(KEY_SECORE_CONF_DIR);
-        try {
-            org.rasdaman.secore.ConfigManager.initInstance(confDir, embedded, webappsDir);
-            //  Create (first time load) or Get the BaseX database from caches.
-            DbManager dbManager = DbManager.getInstance();
+            String confDir = properties.getProperty(KEY_SECORE_CONF_DIR);
+            try {
+                org.rasdaman.secore.ConfigManager.initInstance(confDir, embedded, webappsDir);
+                //  Create (first time load) or Get the BaseX database from caches.
+                DbManager dbManager = DbManager.getInstance();
 
-            // NOTE: we need to check current version of Secoredb first, if it is not latest, then run the update definition files with the current version to the newest versionNumber from files.
-            // in $RMANHOME/share/rasdaman/secore.
-            // if current version of Secoredb is empty then add SecoreVersion element to BaseX database and run all the db_updates files.
-            DbSecoreVersion dbSecoreVersion = new DbSecoreVersion(dbManager.getDb());
-            dbSecoreVersion.handle();
-            log.debug("Initialzed BaseX dbs successfully.");
-        } catch (Exception ex) {
-            throw new SecoreException(ExceptionCode.InternalComponentError, "Cannot initialize database manager", ex);
+                // NOTE: we need to check current version of Secoredb first, if it is not latest, then run the update definition files with the current version to the newest versionNumber from files.
+                // in $RMANHOME/share/rasdaman/secore.
+                // if current version of Secoredb is empty then add SecoreVersion element to BaseX database and run all the db_updates files.
+                DbSecoreVersion dbSecoreVersion = new DbSecoreVersion(dbManager.getDb());
+                dbSecoreVersion.handle();
+                log.debug("Initialzed BaseX dbs successfully.");
+                
+                isSECOREloaded = true;
+            } catch (Exception ex) {
+                throw new SecoreException(ExceptionCode.InternalComponentError, "Cannot initialize internal SECORE database manager. Reason: " + ex.getMessage(), ex);
+            }
+            
         }
     }
     
@@ -275,7 +314,7 @@ public class CrsUtil {
      * Check if the crs should go to the internal SECORE or not
      */
     public static boolean isInternalSecoreURL(String url) {
-        if (url.contains(LOCALHOST)) {
+        if (url.contains(LOCALHOST + ":" + ConfigManager.EMBEDDED_PETASCOPE_PORT)) {
             // If SECORE url is localhost, then check it should be resolved internally by petascope or not
             String tmpCRS = url.replace(ConfigManager.DEFAULT_PETASCOPE_PORT, ConfigManager.EMBEDDED_PETASCOPE_PORT);
             return url.startsWith(ConfigManager.DEFAULT_SECORE_INTERNAL_URL) || url.startsWith(tmpCRS);
@@ -323,6 +362,9 @@ public class CrsUtil {
     public static CrsDefinition getCrsDefinition(String givenCrsUri) throws PetascopeException {
         CrsDefinition crs = null;
         List<List<String>> axes = new ArrayList<>();
+        
+        // replace any $SECORE_URL$ for some cases it still exists when running multiple DescribeCoverage in parallel
+        givenCrsUri = CrsUtil.CrsUri.fromDbRepresentation(givenCrsUri);
 
         // Remove any possible slicing suffixes:
         givenCrsUri = givenCrsUri.replaceAll(SLICED_AXIS_SEPARATOR + ".*$", "").trim();
@@ -337,12 +379,10 @@ public class CrsUtil {
 
         // Check if the URI syntax is valid
         if (!CrsUri.isValid(givenCrsUri)) {
-            log.warn(givenCrsUri + " definition seems not valid.");
-            throw new PetascopeException(ExceptionCode.InvalidMetadata, givenCrsUri + " definition seems not valid.");
+            throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + givenCrsUri + "' definition seems not valid.");
         }
 
         // Need to parse the XML
-        String uom = "";
         String datumOrigin = ""; // for TemporalCRSs
 
         // Prepare fallback URIs in case of service unavailablilty of given resolver
@@ -373,14 +413,12 @@ public class CrsUtil {
                 // Catch some exception in the GML
                 Element exEl = XMLUtil.firstChildRecursivePattern(root, ".*" + XMLSymbols.LABEL_EXCEPTION_TEXT);
                 if (exEl != null) {
-                    log.error(crsUri + ": " + exEl.getValue());
-                    throw new SecoreException(ExceptionCode.ResolverError, exEl.getValue());
+                    throw new SecoreException(ExceptionCode.ResolverError, "Failed to get CRS definition from URL '" + crsUri + "'. Given error message: " + exEl.getValue());
                 }
 
                 // Check if it exists:
                 if (!root.getLocalName().matches(".*" + XMLSymbols.CRS_GMLSUFFIX)) {
-                    log.error(crsUri + " does not seem to be a CRS definition");
-                    throw new PetascopeException(ExceptionCode.InvalidMetadata, "Invalid CRS URI: " + crsUri);
+                    throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + crsUri + "' does not seem to be a CRS definition.");
                 }
 
                 // This value will be then stored in the CrsDefinition
@@ -388,11 +426,19 @@ public class CrsUtil {
                 log.debug("CRS element found: '" + crsType + "'.");
 
                 // Get the *CS element: **don't** look recursive otherwise you can getinto the underlying geodetic CRS of a projected one (eg EPSG:32634)
+                // e.g. ellipsoidalCS or CartesianCS element
                 Element csEl = XMLUtil.firstChildPattern(root, ".*" + XMLSymbols.CS_GMLSUFFIX);
                 // Check if it exists
                 if (csEl == null) {
-                    log.error(crsUri + ": missing the Coordinate System element.");
-                    throw new PetascopeException(ExceptionCode.InvalidMetadata, "Invalid CRS definition: " + crsUri);
+                    // NOTE: in case, e.g. ellipsoidalCS element doesn't exist as the first child of root element, but deep down in root's child elements,
+                    // then try this recursive method before throwing error
+                    // for COSMO 101 CRS, the real CRS gml:EllipsoidalCS inside gml:coordinateSystem element
+                    Element coordinateSystemElement = XMLUtil.firstChildRecursive(root, XMLSymbols.LABEL_COORDINATE_SYSTEM);
+                    csEl = XMLUtil.firstChildRecursive(coordinateSystemElement, XMLSymbols.LABEL_ELLIPSOIDALS_CS);
+                    
+                    if (csEl == null) {
+                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + crsUri + "' missing the Coordinate System element.");
+                    }
                 }
                 log.debug("CS element found: " + csEl.getLocalName());
 
@@ -413,8 +459,7 @@ public class CrsUtil {
 
                 // Check if there is at least one axis definition
                 if (axesList.isEmpty()) {
-                    log.error(crsUri + ": missing the axis element(s).");
-                    throw new PetascopeException(ExceptionCode.InvalidMetadata, "Invalid CRS definition: " + crsUri);
+                    throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + crsUri + "' missing the axis element(s).");
                 }
 
                 for (Element axisEl : axesList) {
@@ -422,8 +467,7 @@ public class CrsUtil {
                     // Get CoordinateSystemAxis mandatory element
                     Element csaEl = XMLUtil.firstChildRecursive(axisEl, XMLSymbols.LABEL_CSAXIS);
                     if (csaEl == null) {
-                        log.error(crsUri + ": missing the CoordinateSystemAxis element.");
-                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "Invalid CRS definition: " + crsUri);
+                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + crsUri + "' missing the CoordinateSystemAxis element.");
                     }
 
                     // Get abbreviation
@@ -432,8 +476,7 @@ public class CrsUtil {
 
                     // Check if they are defined: otherwise exception must be thrown
                     if (axisAbbrevEl == null | axisDirEl == null) {
-                        log.error(crsUri + ": axis definition misses abbreviation and/or direction.");
-                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "Invalid CRS definition: " + crsUri);
+                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + crsUri + "' misses  abbreviation and/or direction in axis definition.");
                     }
                     String axisAbbrev = axisAbbrevEl.getValue();
                     String axisDir = axisDirEl.getValue();
@@ -460,32 +503,36 @@ public class CrsUtil {
                         if (!uomCrsUrlTmp.startsWith(HTTP_PREFIX)) {
                             uomName = uomAtt.getValue().split(" ")[0]; // UoM is meant as one word only
                         } else {
-                            // Need to parse a new XML definition
                             uomUrl = new URL(uomCrsUrlTmp);
-                            try {
-                                Element uomRoot = crsDefUrlToXml(uomCrsUrlTmp);
-                                if (uomRoot != null) {
+                            if (uomCrsUrlTmp.contains(TimeUtil.UCUM) || uomCrsUrlTmp.contains(INDEX_UOM)) {
+                                // e.g. http://crs.rasdaman.com/def/uom/UCUM/0/d which is reirected to non-existing link http://opengis.net/def/uom/UCUM/0/d 
+                                // hence, it returns d from URL
+                                uomName = extractUomNameFromUri(uomUrl);
+                            } else {
+                                // Need to parse a new XML definition
+                                try {
+                                    Element uomRoot = crsDefUrlToXml(uomCrsUrlTmp);
+                                    if (uomRoot != null) {
 
-                                    // Catch some exception in the GML
-                                    Element uomExEl = XMLUtil.firstChildRecursive(uomRoot, XMLSymbols.LABEL_EXCEPTION_TEXT);
-                                    if (uomExEl != null) {
-                                        log.error(crsUri + ": " + uomExEl.getValue());
-                                        throw new SecoreException(ExceptionCode.ResolverError, uomExEl.getValue());
-                                    }
+                                        // Catch some exception in the GML
+                                        Element uomExEl = XMLUtil.firstChildRecursive(uomRoot, XMLSymbols.LABEL_EXCEPTION_TEXT);
+                                        if (uomExEl != null) {
+                                            throw new SecoreException(ExceptionCode.ResolverError, "UoM of CRS '" + crsUri + "' is not valid. Given: " + uomExEl.getValue());
+                                        }
 
-                                    // Get the UoM value
-                                    Element uomNameEl = XMLUtil.firstChildRecursive(uomRoot, XMLSymbols.LABEL_NAME);
-                                    if (uomNameEl == null) {
-                                        log.error(uom + ": UoM definition misses name.");
-                                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "Invalid UoM definition: " + uom);
+                                        // Get the UoM value
+                                        Element uomNameEl = XMLUtil.firstChildRecursive(uomRoot, XMLSymbols.LABEL_NAME);
+                                        if (uomNameEl == null) {
+                                            throw new PetascopeException(ExceptionCode.InvalidMetadata, "UoM definition of CRS '" + crsUri + "' missses name element.");
+                                        }
+                                        uomName = uomNameEl.getValue().split(" ")[0]; // Some UoM might have further comments after actual UoM (eg EPSG:4326)
+                                    } else {
+                                        uomName = extractUomNameFromUri(uomUrl);
                                     }
-                                    uomName = uomNameEl.getValue().split(" ")[0]; // Some UoM might have further comments after actual UoM (eg EPSG:4326)
-                                } else {
+                                } catch (Exception ex) {
+                                    // In case UOM CRS doesn't exist, just extract the uom label from the last part of the crs
                                     uomName = extractUomNameFromUri(uomUrl);
                                 }
-                            } catch (Exception ex) {
-                                // In case UOM CRS doesn't exist, just extract the uom label from the last part of the crs
-                                uomName = extractUomNameFromUri(uomUrl);
                             }
                         }
                     }
@@ -512,8 +559,7 @@ public class CrsUtil {
 
                     Element datumEl = XMLUtil.firstChildRecursivePattern(root, ".*" + XMLSymbols.DATUM_GMLSUFFIX);
                     if (datumEl == null) {
-                        log.warn(crsUri + ": missing the datum element.");
-                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "Invalid CRS definition: " + crsUri);
+                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + crsUri + "' missing datum element.");
                     }
 
                     log.debug("Datum element found: '" + datumEl.getLocalName() + "'.");
@@ -521,8 +567,7 @@ public class CrsUtil {
                     // Get the origin of the datum
                     Element datumOriginEl = XMLUtil.firstChildRecursive(datumEl, XMLSymbols.LABEL_ORIGIN);
                     if (datumOriginEl == null) {
-                        log.warn(crsUri + ": missing the origin of the datum.");
-                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "Invalid CRS definition: " + crsUri);
+                        throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + crsUri + "' missing the origin of the datum.");
                     }
                     datumOrigin = datumOriginEl.getValue();
 
@@ -534,25 +579,25 @@ public class CrsUtil {
                 break; // fallback only on IO problems
             } catch (MalformedURLException ex) {
                 log.error("Malformed URI: " + ex.getMessage());
-                throw new PetascopeException(ExceptionCode.InvalidMetadata, ex);
+                throw new PetascopeException(ExceptionCode.IOConnectionError, ex);
             } catch (ValidityException ex) {
                 throw new PetascopeException(ExceptionCode.InternalComponentError,
-                        (null == uomUrl ? crsUri : uomUrl) + " definition is not valid.", ex);
+                        (null == uomUrl ? crsUri : uomUrl) + " definition is not valid. Reason: " + ex.getMessage(), ex);
             } catch (ParsingException ex) {
-                log.error(ex.getMessage() + "\n at line " + ex.getLineNumber() + ", column " + ex.getColumnNumber());
+                String errorMessage = ex.getMessage() + "\n at line " + ex.getLineNumber() + ", column " + ex.getColumnNumber();
                 throw new PetascopeException(ExceptionCode.InternalComponentError,
-                        (null == uomUrl ? crsUri : uomUrl) + " definition is malformed.", ex);
+                        (null == uomUrl ? crsUri : uomUrl) + " definition is malformed. Reason: " + errorMessage, ex);
             } catch (IOException ex) {
                 if (crsUri.equals(lastUri) || null != uomUrl) {
                     throw new PetascopeException(ExceptionCode.InternalComponentError,
-                            (null == uomUrl ? crsUri : uomUrl) + ": resolver exception: " + ex.getMessage(), ex);
+                            (null == uomUrl ? crsUri : uomUrl) + " has IO error. Reason: " + ex.getMessage(), ex);
                 } else {
                     log.warn("Connection problem with " + (null == uomUrl ? crsUri : uomUrl) + ": " + ex.getMessage());
                     log.warn("Attempting to fetch the CRS definition via fallback resolver.");
                 }
             } catch (Exception ex) {
                 throw new PetascopeException(ExceptionCode.InternalComponentError,
-                        (null == uomUrl ? crsUri : uomUrl) + ": general exception while parsing definition. Reason: " + ex.getMessage(), ex);
+                        (null == uomUrl ? crsUri : uomUrl) + " has general exception while parsing definition. Reason: " + ex.getMessage(), ex);
             }
         }
 
@@ -611,13 +656,6 @@ public class CrsUtil {
             return true;
         }
         return false;
-    }
-    
-    /**
-     * Simple check if CRS URI is EPSG
-     */
-    public static boolean isEPSGCrs(String axisCrs) {
-        return axisCrs.contains(EPSG_AUTH);
     }
 
     /**
@@ -1002,21 +1040,25 @@ public class CrsUtil {
     public static String getResolverUri() {
         return ConfigManager.SECORE_URLS.get(0);
     }
-
-    /**
-     * Utility to get the epsg code from CRS URI
-     * e.g: http://opengis.net/def/crs/EPSG/0/4326 -> EPSG:4326
-     */
-    public static String getEPSGCode(String crs) {
-        return EPSG_AUTH + ":" + getCode(crs);
+    
+    public static String getEPSG4326FullURL() {
+        return getResolverUri() + "/crs/EPSG/0/4326";
     }
 
     /**
      * Return the opengis full uri for EPSG code, e.g: EPSG:4326 ->
      * http://www.opengis.net/def/crs/EPSG/0/4326
      */
-    public static String getEPSGFullUri(String epsgCode) {
-        return getEPSGVersion0CRS() + "/" + epsgCode.split(":")[1];
+    public static String getFullCRSURLByAuthorityCode(String authorityCode) {
+        // e.g. EPSG:4326
+        String[] tmps = authorityCode.split(":");
+        // e.g. EPSG
+        String authortiy = tmps[0];
+        // e.g. 4326
+        String code = tmps[1];
+        
+        // e.g. http://localhost:8080/def/crs/EPSG/0/4326
+        return getResolverUri() + "/crs/" + authortiy + "/0/" + code;
     }
     
     /**
@@ -1030,67 +1072,109 @@ public class CrsUtil {
      * Ultility to get the code from CRS (e.g: EPSG:4326 -> 4326)
      */
     public static String getCode(String crs) {
-        if (crs.contains(EPSG_AUTH + ":")) {
+        if (crs.contains(":")) {
             return crs.split(":")[1];
         }
         return CrsUri.getCode(crs);
     }
 
     /**
-     * e.g: localhost:8080/def/crs/EPSG/0/4326 -> EPSG:4326
+     * Given a CRS URL or Authority:Code, return authority:code
+     * e.g: http://localhost:8080/def/crs/EPSG/0/4326 -> EPSG:4326
      */
-    public static String getAuthorityCodeFormat(String crs) {
+    public static String getAuthorityCode(String crs) {
+        crs = crs.trim();
+        
+        if (isAuthorityCode(crs)) {
+            return crs;
+        }
+        
         String prefix = "/crs/";
         String[] values = crs.substring(crs.indexOf(prefix), crs.length()).replace(prefix, "").split("/");
         String result = values[0] + ":" + values[2];
         return result;
     }    
-
     
     /**
-     * Ultility to get the code from CRS (e.g: "EPSG:4326" -> 4326).
-     * or ("http://opengis.net/def/crs/EPSG/0/4326" -> 4326)
+     * Given a CRS URL, return the WKT content of this CRS
+     * 
+     * @param crs a CRS URL or AuthorityCode e.g. EPSG:4326
      */
-    public static int getEpsgCodeAsInt(String crs) throws PetascopeException {
-        String code = CrsUtil.getCode(crs);
-        if (code == null || code.equals("")) {
-            throw new PetascopeException(ExceptionCode.InvalidRequest, 
-                    "Failed extracting EPSG code from CRS: " + crs);
+    public static String getWKT(String crs) throws PetascopeException {
+        if (!CrsProjectionUtil.isValidTransform(crs)) {
+            return null;
         }
-        try {
-            return Integer.valueOf(code);
-        } catch (Exception ex) {
-            throw new PetascopeException(ExceptionCode.InvalidRequest, 
-                    "Invalid EPSG code '" + code + "' extracted from CRS '" + crs + "'");
+        
+         // OGRSpatialReference is expensive, cache CRS
+        if (crsWKTCache.containsKey(crs)) {
+            return crsWKTCache.get(crs);
         }
+        
+        String wkt = null;
+        SpatialReference spatialReference = new SpatialReference();
+        
+        // e.g. EPSG:4326 or COSMO:101
+        String authorityCode = getAuthorityCode(crs);
+        if (authorityCode.contains(EPSG_AUTH)) {
+            // e.g. EPSG:4326 -> 4326
+            int epsgCode = Integer.valueOf(authorityCode.split(":")[1]);
+            spatialReference.ImportFromEPSG(epsgCode);
+            wkt = spatialReference.ExportToWkt();
+        } else if (authorityCode.contains(COSMO_101_AUTHORITY_CODE)) {
+            // COSMO:101
+            wkt = getWKTCOSMO101CRS();
+        } else {
+            throw new PetascopeException(ExceptionCode.NoApplicableCode, "Getting WKT from CRS '" + crs + "' is not supported.");
+        }
+        
+        String result = wkt.trim();
+        crsWKTCache.put(crs, result);
+        
+        return result;
     }
-
+    
     /**
-     * Check if 2D geo-referenced CRS is valid to transform
-     *
-     * @param uri
-     * @return
+     * Check if two input CRSs (AuthorityCode) or fullCRS have the same WKT string
      */
-    public static boolean isValidTransform(String uri) {
-        if (CrsUtil.isGridCrs(uri)) {
-            return false;
-        } else if (CrsUtil.isIndexCrs(uri)) {
-            return false;
-        } else if (!CrsUtil.CrsUri.getAuthority(uri).equals(EPSG_AUTH)) {
-            // Not EPSG CRS so cannot transform
-            return false;
-        }
-
-        return true;
+    public static boolean equalsWKT(String sourceWKT, String targetWKT) throws PetascopeException {
+        return StringUtils.normalizeSpace(sourceWKT).equalsIgnoreCase(targetWKT);
     }
+    
+    /**
+     * Get the WKT for rotated CRS COSMO 101 (Juelich) CRS.
+     * @TODO: it is hard-coded for now as no possibility for converting GML to
+     */
+    private static String getWKTCOSMO101CRS() {
+        return COSMO_CRS_101_WKT;
+    }
+    
+    /**
+     * Given a CRS URL, return a EPSG:code (e.g. EPSG:4326) or a WKT of the CRS (for non-EPSG CRS)
+     * if possible of the input CRS.
+     */
+    public static String getAuthorityEPSGCodeOrWKT(String crs) throws PetascopeException {
+        // e.g. EPSG:4326 or COSMO:101
+        String authorityCode = getAuthorityCode(crs);
+        String result = null;
+        if (authorityCode.contains(EPSG_AUTH)) {
+            result = authorityCode;
+        } else if (authorityCode.contains(COSMO_AUTH)) {
+            result = getWKTCOSMO101CRS();
+        } else {
+            throw new PetascopeException(ExceptionCode.NoApplicableCode, "Not supported for getting EPSG authority code or WKT from CRS '" + crs + "'.");
+        }
+        
+        return result;
+    }
+
     /**
      * return true if both axis labels are longitude axes
      */
     private static boolean isLongitudeAxis(String axisLabel1, String axisLabel2) {
-        if (axisLabel1.equals(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85) 
-           || axisLabel1.equals(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0)) {
-            if (axisLabel2.equals(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85)
-                || axisLabel2.equals(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0)) {
+        if (axisLabel1.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85) 
+           || axisLabel1.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0)) {
+            if (axisLabel2.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85)
+                || axisLabel2.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0)) {
                return true;
             }
         }
@@ -1137,6 +1221,8 @@ public class CrsUtil {
      * Return true if aixs labels have same name ("Long" or "Lon" is also accepted).
      */
     public static boolean axisLabelsMatch(String axisLabel1, String axisLabel2) {
+        axisLabel1 = axisLabel1.toLowerCase();
+        axisLabel2 = axisLabel2.toLowerCase();
         if (axisLabel1.equals(axisLabel2)
            || isLongitudeAxis(axisLabel1, axisLabel2)) {
             return true;
@@ -1146,10 +1232,10 @@ public class CrsUtil {
     }
     
     /**
-     * Check if input string contains EPSG:CODE pattern (e.g: EPSG:4326)
+     * Check if input string contains Authority:CODE pattern (e.g: EPSG:4326)
      */
-    public static boolean isEPSGIdentifier(String input) {
-        return input.contains(EPSG_AUTH + ":");
+    public static boolean isAuthorityCode(String input) {
+        return input.contains(":") && !input.contains("/");
     }
     
     /**
@@ -1157,14 +1243,14 @@ public class CrsUtil {
      * @param uri URL to CRS definition from SECORE
      */
     public static boolean isXYAxesOrder(String uri) throws PetascopeException {
-        if (isEPSGIdentifier(uri)) {
-            // e.g: EPSG:4326
-            uri = getEPSGFullUri(uri);
+        if (isAuthorityCode(uri)) {
+            // e.g: EPSG:4326 -> http://localhost:8080/def/crs/EPSG/0/4326
+            uri = getFullCRSURLByAuthorityCode(uri);
         }
         List<CrsDefinition.Axis> axes = new ArrayList<>();
         axes = CrsUtil.getCrsDefinition(uri).getAxes();
         if (axes.isEmpty()) {
-            throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS does not contain any axis, given '" + uri + "'.");
+            throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS does not contain any axis. Given: '" + uri + "'.");
         } else if (axes.get(0).getType().equals(AxisTypes.Y_AXIS)) {
             // YX order
             return false;
@@ -1195,6 +1281,26 @@ public class CrsUtil {
         return isXAxis(axisType) || isYAxis(axisType);
     }
     
+    public static boolean isTimeAxis(String axisType) {
+        return axisType.equals(AxisTypes.T_AXIS);
+    }
+    
+    /**
+     * e.g. if input crsURL is http://localhost:8080/def/crs/EPSG/0/4326 -> http://localhost:8080/rasdaman/def/crs/EPSG/0/4326
+     */
+    public static String replaceOldURLWithNewURL(String crsURL) {
+        String result = crsURL;
+        
+        if (result != null) {
+            Matcher m = localhostPattern.matcher(crsURL);
+            if (m.find()) {
+                result = result.replace("/def", "/rasdaman/def");
+            }
+        }
+        
+        return result;
+    }
+    
     /**
      * Return X and Y crs axes from a CRS URI.
      * NOTE: The axes order is dependent from the CRS definition.
@@ -1217,25 +1323,29 @@ public class CrsUtil {
     }
     
     /**
-     * Check if SECORE urls configured in petascope.properties work when petascope starts
+     * Check if user has secore_urls=http://localhost:8080/def in petascope.properties
+     * to migrate to secore_urls=internal
+     * 
      */
-    public static boolean isSecoreAvailable() {
-        boolean secoreRunning = false;
-        for (String secoreURL : ConfigManager.SECORE_URLS) {
+    public static void checkSECOREURLsForInternalMigration() throws PetascopeException {
+        
+        
+        // e.g. http://localhost:8080/rasdaman/def
+        final String internalSECOREURL = ConfigManager.getInstance(ConfigManager.CONF_DIR).getInternalSecoreURL();
+        
+        for (int i = 0; i < ConfigManager.SECORE_URLS.size(); i++) {
+            String url = ConfigManager.SECORE_URLS.get(i);
             
-            String testURL = secoreURL + "/crs/EPSG/0/4326";
-            log.info("Checking if SECORE is running at '" + secoreURL + "'");
-            
-            try {
-                CrsUtil.getCrsDefinition(testURL);
-                secoreRunning = true;
-                break;
-            } catch (Exception ex) {
-                log.warn("SECORE request '" + testURL + "' failed, reason: " + ex.getMessage() + ".");
+            if (url.trim().equals(SECORE_INTERNAL)) {
+                ConfigManager.SECORE_URLS.set(i, internalSECOREURL);
+            } else {
+                Matcher m = localhostPattern.matcher(url);
+                if (m.find()) {
+                    ConfigManager.SECORE_URLS.set(i, internalSECOREURL);
+                    log.warn("Please set secore_urls=internal in petascope.properties, as http://localhost:8080/def is not valid anymore.");
+                }
             }
         }
-        
-        return secoreRunning;
     }
 
     /**
@@ -1466,7 +1576,7 @@ public class CrsUtil {
                 }
 
                 if (null == equal) {
-                    throw new SecoreException(ExceptionCode.InternalComponentError,
+                    throw new SecoreException(ExceptionCode.ResolverError,
                             "None of the configured CRS URIs resolvers seems available: please check network or add further fallback endpoints. Please see server logs for further info.");
                 }
 
@@ -1533,14 +1643,14 @@ public class CrsUtil {
 
                 } catch (ValidityException ex) {
                     throw new SecoreException(ExceptionCode.InternalComponentError,
-                            equalityUri + " returned an invalid document.", ex);
+                            "CRS '" + equalityUri + "' returned an invalid document. Reason: " + ex.getMessage(), ex);
                 } catch (ParsingException ex) {
                     throw new PetascopeException(ExceptionCode.XmlNotValid.locator(
                             "line: " + ex.getLineNumber() + ", column:" + ex.getColumnNumber()),
                             ex.getMessage(), ex);
                 } catch (IOException ex) {
                     throw new SecoreException(ExceptionCode.InternalComponentError,
-                            equalityUri + ": resolver exception: " + ex.getMessage(), ex);
+                            "CRS '" + equalityUri + "' has IO error. Reason: " + ex.getMessage(), ex);
                 } catch (SecoreException ex) {
                     throw ex;
                 } catch (Exception ex) {

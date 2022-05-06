@@ -67,7 +67,7 @@ module rasdaman {
             $scope.checkPetascopeEnableAuthentication = function(): angular.IPromise<any> {
 
                 var result = $q.defer();
-                var requestUrl = settings.contextPath + "/CheckEnableAuthentication";
+                var requestUrl = settings.contextPath + "/admin/authisactive";
 
                 $http.get(requestUrl)
                     .then(function(dataObj: any) {
@@ -89,7 +89,7 @@ module rasdaman {
              * Check if username and password of rasdaman user are valid
              */
             $scope.checkRadamanCredentials = function(): void {
-                  
+                 
                 // check if stored credentials are usable                        
                 var credentialsDict = credentialService.credentialsDict;
                 if (credentialsDict != null) {
@@ -100,16 +100,13 @@ module rasdaman {
 
                         $http.get(requestUrl, {
                                 headers: credentialService.createBasicAuthenticationHeader(credential.username, credential.password)
-                            }).then(function(dataObj: any) {
-                                var data = JSON.parse(dataObj.data);                                
-                                if (data) {                                    
-                                    // Valid stored credentials
-                                    $rootScope.homeLoggedIn = true;
-                                    $rootScope.usernameLoggedIn = credential.username;
+                            }).then(function(dataObj: any) {                                
+                                // Valid stored credentials
+                                $rootScope.homeLoggedIn = true;
+                                $rootScope.usernameLoggedIn = credential.username;
 
-                                    $scope.showView($scope.wsclient, "services");
-                                    return;
-                                }                                    
+                                $scope.showView($scope.wsclient, "services");
+                                return;                                
                             }, function(errorObj) {
                                 errorHandlingService.handleError(errorObj);
                             });

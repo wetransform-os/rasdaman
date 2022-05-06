@@ -12,3 +12,8 @@
 155-irr-cube-1.test
 # Oracle needs to be updated as this is no longer an error
 256-clip_polygon_geo_coordinates_duplicate_vertices.error.test
+
+# Feature is not supported in rasql (operand of complex type)
+470-let_clause_clip.test
+
+347-corridor_2D_linestring_E_N_source_CRS_4326_on_3Dcoverage_as_gml.test

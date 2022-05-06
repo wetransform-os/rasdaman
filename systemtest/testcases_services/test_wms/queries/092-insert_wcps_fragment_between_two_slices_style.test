@@ -1,0 +1,4 @@
+COVERAGEID=test_wms_wcps_styles_between_two_slices&
+STYLEID=wcps_fragment_between_two_slices&
+abstract=RGB&
+wcpsQueryFragment=$c[ansi("2020-12-30T23:54:58.500Z")] - $c[ansi("2021-01-04T00:15:04.500Z")] * 0.5

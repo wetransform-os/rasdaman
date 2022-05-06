@@ -106,6 +106,17 @@ whereClause: WHERE (LEFT_PARENTHESIS)? coverageExpression (RIGHT_PARENTHESIS)?
 returnClause: RETURN (LEFT_PARENTHESIS)? processingExpression (RIGHT_PARENTHESIS)?
 #ReturnClauseLabel;
 
+
+/**
+e.g: imageCrsdomain(c) returns (0:5,0:20,0:60)
+imageCrsdomain(c, ansi) returns (0:5)
+imageCrsdomain(c, Lat).lo returns 0
+imageCrsdomain(c, Long).hi returns 60
+**/
+sdomExtraction: LOWER_BOUND | UPPER_BOUND;
+
+domainIntervals: (domainExpression | imageCrsDomainExpression | imageCrsDomainByDimensionExpression) (DOT sdomExtraction)?;
+
 /**
  * Example
  * $coverageName;
@@ -206,7 +217,8 @@ for c in (rgb) return encode(switch case c > 1000 return {red: c.0, green: c.1, 
 */
 booleanSwitchCaseCoverageExpression: (LEFT_PARENTHESIS)* coverageExpression (RIGHT_PARENTHESIS)*
 						numericalComparissonOperator
-				     (LEFT_PARENTHESIS)* coverageExpression (RIGHT_PARENTHESIS)*;
+				     (LEFT_PARENTHESIS)* coverageExpression (RIGHT_PARENTHESIS)*
+                    | coverageExpression IS (NOT)? NULL ;
 
 /*
  Combine multiple booleanSwitchCaseCoverageExpression
@@ -280,14 +292,6 @@ Lat:http://.../4326 http://.../Index3D
 */
 coverageCrsSetExpression: CRSSET LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS                                        #CoverageCrsSetExpressionLabel;
 
-/**
-e.g: imageCrsdomain(c) returns (0:5,0:20,0:60)
-imageCrsdomain(c, ansi) returns (0:5)
-imageCrsdomain(c, Lat).lo returns 0
-imageCrsdomain(c, Long).hi returns 60
-**/
-sdomExtraction: (LOWER_BOUND | UPPER_BOUND);
-
 /*
 domain()
 The domain of coverage with the specific axis and its CRS (geo-referenced CRS or grid CRS)
@@ -295,7 +299,7 @@ The domain of coverage with the specific axis and its CRS (geo-referenced CRS or
 for $c in (eobstest) return domain(c, Lat, "http://.../Index2D")
 return (-25:75)
 */
-domainExpression: DOMAIN LEFT_PARENTHESIS coverageExpression COMMA axisName (COMMA crsName)? RIGHT_PARENTHESIS
+domainExpression: DOMAIN LEFT_PARENTHESIS coverageExpression ( COMMA axisName (COMMA crsName)? )? RIGHT_PARENTHESIS
 #DomainExpressionLabel;
 
 
@@ -348,8 +352,6 @@ describeCoverageExpression: DESCRIBE_COVERAGE LEFT_PARENTHESIS
                             RIGHT_PARENTHESIS     
                            #DescribeCoverageExpressionLabel;
 
-domainIntervals: (domainExpression | imageCrsDomainExpression | imageCrsDomainByDimensionExpression) (sdomExtraction)?; 
-
 positionalParamater: POSITIONAL_PARAMETER;
 extraParams: STRING_LITERAL | EXTRA_PARAMS;
 
@@ -377,8 +379,12 @@ decodeCoverageExpression: DECODE LEFT_PARENTHESIS
  */
 coverageExpression: coverageExpression booleanOperator coverageExpression
                     #CoverageExpressionLogicLabel
+
 		          | domainIntervals
                     #CoverageExpressionDomainIntervalsLabel
+                  | coverageExpression DOT fieldName
+                    #CoverageExpressionRangeSubsettingLabel
+
 		          | coverageConstructorExpression
                     #CoverageExpressionConstructorLabel
                   | coverageExpression coverageArithmeticOperator coverageExpression
@@ -421,12 +427,12 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
   		            #CoverageExpressionMaxBinaryLabel
 		          | unaryPowerExpression
                     #CoverageExpressionPowerLabel
+		          | unaryModExpression
+                    #CoverageExpressionModLabel
                   | unaryBooleanExpression
                     #CoverageExpressionUnaryBooleanLabel
                   | castExpression
                     #CoverageExpressionCastLabel
-                  | coverageExpression DOT fieldName
-                    #CoverageExpressionRangeSubsettingLabel
                   | rangeConstructorExpression
                     #CoverageExpressionRangeConstructorLabel
                   | clipWKTExpression
@@ -552,6 +558,9 @@ exponentialExpression: exponentialExpressionOperator LEFT_PARENTHESIS coverageEx
 */
 unaryPowerExpression: POWER LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
 #UnaryPowerExpressionLabel;
+
+unaryModExpression: MOD LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
+#UnaryModExpressionLabel;
 
 /**
 encode(max(c, c1), "csv") from test_mr as c, test_mr as c1

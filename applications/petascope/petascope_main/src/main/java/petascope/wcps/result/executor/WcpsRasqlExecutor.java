@@ -21,6 +21,7 @@
  */
 package petascope.wcps.result.executor;
 
+import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +30,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.servlet.http.HttpServletRequest;
 import nu.xom.Element;
-import org.rasdaman.AuthenticationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.core.Pair;
@@ -40,6 +40,7 @@ import petascope.util.ras.RasUtil;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.result.WcpsResult;
 import petascope.util.MIMEUtil;
+import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
 import petascope.util.CrsUtil;
 import petascope.util.ListUtil;
@@ -199,11 +200,9 @@ public class WcpsRasqlExecutor implements WcpsExecutor<WcpsResult> {
         String tupleList = new String(arrayData);
         tupleList = this.rasJsonToTupleList(tupleList);
 
-        Element gmlGetCoverageElement = this.gmlWCSRequestResultBuilder.buildGetCoverageResult(wcpsCoverageMetadata, tupleList);
-        String gml = gmlGetCoverageElement.toXML();
-                
+        Element gmlGetCoverageElement = this.gmlWCSRequestResultBuilder.buildGetCoverageResult(wcpsCoverageMetadata, tupleList);              
         // format the output with indentation
-        gml = XMLUtil.formatXML(gml);
+        String gml = XMLUtil.formatXML(gmlGetCoverageElement);
 
         return gml.getBytes();
     }

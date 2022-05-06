@@ -108,14 +108,7 @@ public interface KVPSymbols {
 
     // WMS
     // Not standard request (only Rasdaman supports)    
-    String VALUE_WMS_INSERT_WCS_LAYER = "InsertWCSLayer";
-    String VALUE_WMS_UPDATE_WCS_LAYER = "UpdateWCSLayer";
-    // Delete a WMS layer but not delete the associated WCS coverage
-    String VALUE_WMS_DELETE_LAYER = "DeleteLayer";
-    String VALUE_WMS_DESCRIBE_LAYER = "DescribeLayer";
-    String VALUE_WMS_INSERT_STYLE = "InsertStyle";
-    String VALUE_WMS_UPDATE_STYLE = "UpdateStyle";
-    String VALUE_WMS_DELETE_STYLE = "DeleteStyle";
+    String VALUE_WMS_GET_LEGEND_GRAPHIC = "GetLegendGraphic";
     String VALUE_WMS_GET_MAP = "GetMap";
     String KEY_WMS_LAYER = "layer";
     String KEY_WMS_LAYER_NAME = "layerName";
@@ -137,6 +130,8 @@ public interface KVPSymbols {
     String KEY_WMS_BGCOLOR = "bgcolor";
     String KEY_WMS_COLOR_TABLE_TYPE = "ColorTableType";
     String KEY_WMS_COLOR_TABLE_DEFINITION = "ColorTableDefinition";
+    String KEY_WMS_DEFAULT_STYLE = "default";
+    String KEY_WMS_LEGEND_GRAPHIC = "legendGraphic";
 
     // used for non XY axes, time axis, elevation axis, (e.g: dim_pressure with axis name is pressure) 
     String KEY_WMS_DIM_PREFIX = "dim_";
@@ -200,19 +195,31 @@ public interface KVPSymbols {
     
     // Update coverage's id by new id
     String KEY_COVERAGE_ID = "coverageId";
-    String KEY_NEW_ID = "newId";
+    String KEY_NEW_COVERAGE_ID = "newCoverageId";
+    String KEY_LAYER_ID = "layerId";
+    String KEY_SOAP = "SOAP";
+
+    // Style name of a layer
+    String KEY_STYLE_ID = "styleId";
+    String KEY_NEW_STYLE_ID = "newstyleId";
+    
+    // Update coverage's metadata
+    String KEY_METADATA = "metadata";
     
     
     // -- pyramid admin services
     
     String VALUE_CREATE_PYRAMID_MEMBER = "CreatePyramidMember";
-    String KEY_BASE = "Base";
-    String KEY_SCALE_FACTOR = "ScaleFactor";
+    String KEY_SCALE_VECTOR = "ScaleVector";
     String KEY_MEMBER = "Member";
+    String KEY_MEMBERS = "Members";
     
     String VALUE_ADD_PYRAMID_MEMBER = "AddPyramidMember";
     // default is false when adding pyramid member to a base coverage
     String KEY_PYRAMID_HARVESTING = "harvesting";
     String VALUE_REMOVE_PYRAMID_MEMBER = "RemovePyramidMember";
     String VALUE_LIST_PYRAMID_MEMBERS = "ListPyramidMembers";
+    
+    String KEY_INSPIRE_COVERAGE_ID = "CoverageId";
+    String KEY_INSPIRE_METADATA_URL = "MetadataURL";
 }

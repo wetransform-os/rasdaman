@@ -50,6 +50,11 @@
 # --- CONSTANTS -----------------------------------------------------
 
 PROG=$(basename "$0")
+
+# load configuration file if it exists
+#config_file="/etc/default/rasdaman"
+#[ -f "$config_file" ] && . "$config_file"
+
 VERSION="@VERSION_FULL@"
 BUILD="@GIT_HASH@"
 
@@ -77,6 +82,9 @@ ENABLE_JAVA=@ENABLE_JAVA@
 # rasadmin/rasadmin
 DEFAULT_RASCONTROL_LOGIN=rasadmin:d293a15562d3e70b6fdc5ee452eaed40
 [ -z "$RASLOGIN" ] && export RASLOGIN=$DEFAULT_RASCONTROL_LOGIN
+
+# set default memory limit of 4GB for embedded petascope
+[ -z "$JAVA_OPTS" ] && JAVA_OPTS="-Xmx4000m"
 
 log()  { echo "$PROG: $*"; }
 logn() { printf "%s" "$PROG: $*"; }
@@ -194,19 +202,23 @@ start_embedded()
 usage()
 {
     cat <<EOF
-Start the rasdaman server if not already running.
+Start the rasdaman server if it is not already running.
 
 Usage:
   start_rasdaman.sh [OPTION]...
 
 Options:
   --service <svc>       start a particular service <svc> only; allowed values 
-                        for <svc> are: core, petascope, secore. By default all
+                        for <svc> are: core, petascope. By default all
                         services are started.
 
   -p, --port <port>     specify the port on which rasmgr will listen. By default
                         this is 7001, it is recommended to avoid changing this
                         value unless really necessary.
+  
+  --allow-root          allow starting rasdaman (i.e. running this script) with
+                        root; otherwise, by default start_rasdaman.sh will exit
+                        with an error if it is executed with root.
 
   <N1> <N2> ...         start only the specified rasservers, as named in 
                         etc/rasmgr.conf. By default all configured rasservers 
@@ -221,13 +233,14 @@ set_all_options()
 {
     start_rasmgr_rasservers=$1
     start_embedded_petascope=$1
-    start_embedded_secore=$1
     start_all_services=$1
 }
 
 log "starting rasdaman $VERSION build $BUILD...";
 
 set_all_options true
+service_already_reset=false
+allow_root=false
 
 servers=""
 # Iterate all input arguments (it can contain server names (N1 N2 ...) and some options (--service petascope ...)
@@ -236,12 +249,16 @@ for i in "$@"; do
     if [ -n "$option" ]; then
         # Get option value for --service
         if [ "$option" = "--service" ]; then
-            set_all_options false
+            # reset the start options only once; this allows to specify multiple
+            # --service values
+            if [ $service_already_reset = false ]; then
+                set_all_options false
+                service_already_reset=true
+            fi
             case "$i" in
               core)      start_rasmgr_rasservers=true;;
               petascope) start_embedded_petascope=true;;
-              secore)    start_embedded_secore=true;;
-              *)         error "Value for option $option must be core|petascope|secore. Given: $i";;
+              *)         error "Value for option $option must be core|petascope. Given: $i";;
             esac
         elif [ "$option" = "--port" ] || [ "$option" = "-p" ]; then
             set_rasmgr_port "$i"
@@ -252,6 +269,7 @@ for i in "$@"; do
         case $i in
           --service)      option="$i";;
           --port|-p)      option="$i";;
+          --allow-root)   allow_root=true;;
           --help|-h)      usage;;
           -*)             error "unknown option: $i";;
           *)              servers="$servers $i";;
@@ -259,7 +277,24 @@ for i in "$@"; do
     fi
 done
 
-# --- start rasmgr: -------------------------------------------------
+# --- check user running this script --------------------------------
+
+if [ "$allow_root" = false ]; then
+  user_id=$(id -u)
+  if [ "$user_id" -eq 0 ]; then
+    error "starting rasdaman with root user is not recommended, please run $PROG \
+with a non-root user. If you insist to run with root, $PROG must be executed with \
+the --allow-root option."
+  fi
+fi
+
+if [ -n "$http_proxy" ]; then
+  log "Note: env variable http_proxy is set to \"$http_proxy\", and generally it breaks proper \
+function of rasdaman; it will be unset before starting rasdaman processes."
+  unset -v http_proxy
+fi
+
+# --- start rasmgr --------------------------------------------------
 
 # check if rasmgr exists
 [ -f "$rasmgr_bin" ] || \
@@ -269,6 +304,7 @@ done
 if [ ! -d "$log_path" ]; then
   log "$log_path not found, will be created."
   mkdir "$log_path" || error "Failed creating log dir, invalid permissions?"
+  chmod 750 "$log_path" # readable only for owner and group
 fi
 cd "$log_path" || error "$log_path not found."
 
@@ -288,13 +324,13 @@ if [ "$start_rasmgr_rasservers" = true ]; then
     rm -f nohup.out
 
 
-    # start rasdaman server manager as demon; log will go into nohup.out
-    # the manager is started in quiet mode
+    # --- start rasmgr -------------------------------------------------
+    # start rasdaman server manager as a daemon; log will go into nohup.out
     logn "  starting rasmgr... "
     nohup "$rasmgr_bin" --port "$RASMGR_PORT" > nohup.out 2>&1 &
     check_process "rasmgr" 1
 
-    # --- wait for rasmgr to initialize---------------------------------
+    # wait for rasmgr to initialize
     count=1
     timeout=6 # sec
     while [ $count -le $timeout ]; do
@@ -309,8 +345,8 @@ if [ "$start_rasmgr_rasservers" = true ]; then
         log "  Warning: rasmgr does not respond to commands, it may have failed to start properly."
     fi
 
-    # --- start servers: -------------------------------------------------
-    # if no input servers provided, check if environmental variable $RASSERVERS exists
+    # --- start servers ------------------------------------------------
+    # if no input servers provided, check environmental variable $RASSERVERS
     if [ -z "$servers" ]; then
         servers="$RASSERVERS"
     fi
@@ -330,11 +366,7 @@ if [ "$start_rasmgr_rasservers" = true ]; then
 
 fi
 
-# start embedded petascope and secore if needed
-if [ "$start_embedded_secore" = true ]; then
-    start_embedded "$secore_props" "secore" "def.war"
-fi
-
+# start embedded petascope
 if [ "$start_embedded_petascope" = true ]; then
     start_embedded "$petascope_props" "petascope" "rasdaman.war"
 fi

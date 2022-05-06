@@ -50,7 +50,7 @@ module rasdaman {
             var credentials:login.Credential = this.adminService.getPersistedAdminUserCredentials();
             if (credentials != null) {
                 // If petascope admin user logged in, then use its credentials for GetCapabilities intead to view blacklisted coverages
-                requestHeaders = this.adminService.getAuthentcationHeaders();
+                requestHeaders = this.adminService.getAuthenticationHeaders();
             } else {
                 requestHeaders = this.credentialService.createRequestHeader(this.settings.wmsEndpoint, {});
             }
@@ -75,51 +75,24 @@ module rasdaman {
 
             return result.promise;
         }      
-
-        /**
-         *
-         * @param query wcs.ProcessCoverages query that will be serialized and sent to the server.
-         * @returns {IPromise<T>}
-         */
-        public updateLayerStyleRequest(updateLayerStyle:wms.UpdateLayerStyle):angular.IPromise<any> {
-            var result = this.$q.defer();                                               
-            var requestUrl = this.settings.wmsEndpoint;
-            var currentHeaders = {"Content-Type": "application/x-www-form-urlencoded"};
-
-            var request:angular.IRequestConfig = {
-                method: 'POST',
-                url: requestUrl,
-                //Removed the transformResponse to prevent angular from parsing non-JSON objects.
-                transformResponse: null,
-                headers: this.credentialService.createRequestHeader(this.settings.wmsEndpoint, currentHeaders),
-                data: this.settings.wmsServiceNameVersion + "&" + updateLayerStyle.toKVP()
-            };
-
-            // send request to Petascope and get response (headers and contents)
-            this.$http(request).then(function (data:any) {
-                result.resolve(data);
-            }, function (error) {
-                result.reject(error);
-            });
-
-            return result.promise;
-        }        
      
         // ******** Layer's style management ********
 
         // Insert the specified style's data to databasee
         public insertLayerStyleRequest(insertLayerStyle:wms.InsertLayerStyle):angular.IPromise<any> {
             var result = this.$q.defer();                                               
-            var requestUrl = this.settings.wmsEndpoint;
-            var currentHeaders = {"Content-Type": "application/x-www-form-urlencoded"};
+            var requestUrl = this.settings.adminEndpoint + "/layer/style/add";
+
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
+            requestHeaders["Content-Type"] = "application/x-www-form-urlencoded";
 
             var request:angular.IRequestConfig = {
                 method: 'POST',
                 url: requestUrl,
                 //Removed the transformResponse to prevent angular from parsing non-JSON objects.
                 transformResponse: null,
-                headers: this.credentialService.createRequestHeader(this.settings.wmsEndpoint, currentHeaders),
-                data: this.settings.wmsServiceNameVersion + "&" + insertLayerStyle.toKVP()
+                headers: requestHeaders,
+                data: insertLayerStyle.toKVP()
             };
 
             // send request to Petascope and get response (headers and contents)
@@ -132,15 +105,46 @@ module rasdaman {
             return result.promise;
         }
 
+        /**
+         *
+         * @param query wcs.ProcessCoverages query that will be serialized and sent to the server.
+         * @returns {IPromise<T>}
+         */
+        public updateLayerStyleRequest(updateLayerStyle:wms.UpdateLayerStyle):angular.IPromise<any> {
+            var result = this.$q.defer();                                               
+            var requestUrl = this.settings.adminEndpoint + "/layer/style/update";
+
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
+            requestHeaders["Content-Type"] = "application/x-www-form-urlencoded";
+
+            var request:angular.IRequestConfig = {
+                method: 'POST',
+                url: requestUrl,
+                //Removed the transformResponse to prevent angular from parsing non-JSON objects.
+                transformResponse: null,
+                headers: requestHeaders,
+                data: updateLayerStyle.toKVP()
+            };
+
+            // send request to Petascope and get response (headers and contents)
+            this.$http(request).then(function (data:any) {
+                result.resolve(data);
+            }, function (error) {
+                result.reject(error);
+            });
+
+            return result.promise;
+        }      
+
         // Delete the specified style's data from databasee
         public deleteLayerStyleRequest(request:wms.DeleteLayerStyle):angular.IPromise<any> {
             var result = this.$q.defer();
             // Build the request URL
-            var requestUrl = this.settings.wmsFullEndpoint + "&" + request.toKVP();
-            var currentHeaders = {};
+            var requestUrl = this.settings.adminEndpoint + "/layer/style/remove" + "?" + request.toKVP();            
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
 
             this.$http.get(requestUrl, {
-                headers: this.credentialService.createRequestHeader(this.settings.wmsEndpoint, currentHeaders),
+                headers: requestHeaders,
             }).then(function (data:any) {
                     try {                                                
                         result.resolve("");
@@ -160,11 +164,17 @@ module rasdaman {
         public listPyramidMembersRequest(request:wms.ListPyramidMembers):angular.IPromise<any> {
             var result = this.$q.defer();
             // Build the request URL
-            var requestUrl = this.wcsSettings.adminEndpoint + "?" + request.toKVP();
-            var currentHeaders = {};
+            var requestUrl = this.wcsSettings.adminEndpoint + "/coverage/pyramid/list" + "?" + request.toKVP();
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
 
+            if ($.isEmptyObject(requestHeaders)) {
+                // In case user doesn't log in with admin user in tab Admin, then use the credentials which he logged in in login form
+                var currentHeaders = {};
+                requestHeaders = this.credentialService.createRequestHeader(this.wcsSettings.wcsEndpoint, currentHeaders);
+            }
+                        
             this.$http.get(requestUrl, {
-                headers: this.credentialService.createRequestHeader(this.settings.wmsEndpoint, currentHeaders),
+                headers: requestHeaders,
             }).then(function (response:any) {
                 try {                                                
                     result.resolve(response.data);
@@ -182,11 +192,11 @@ module rasdaman {
         public createPyramidMemberRequest(request:wms.CreatePyramidMember):angular.IPromise<any> {
             var result = this.$q.defer();
             // Build the request URL
-            var requestUrl = this.wcsSettings.adminEndpoint + "?" + request.toKVP();
-            var currentHeaders = {};
+            var requestUrl = this.wcsSettings.adminEndpoint + "/coverage/pyramid/create" + "?" + request.toKVP();
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
 
             this.$http.get(requestUrl, {
-                headers: this.credentialService.createRequestHeader(this.settings.wmsEndpoint, currentHeaders),
+                headers: requestHeaders,
             }).then(function (data:any) {
                 try {                                                
                     result.resolve("");
@@ -204,11 +214,11 @@ module rasdaman {
         public removePyramidMemberRequest(request:wms.RemovePyramidMember):angular.IPromise<any> {
             var result = this.$q.defer();
             // Build the request URL
-            var requestUrl = this.wcsSettings.adminEndpoint + "?" + request.toKVP();
-            var currentHeaders = {};
+            var requestUrl = this.wcsSettings.adminEndpoint + "/coverage/pyramid/remove" + "?" + request.toKVP();
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
 
             this.$http.get(requestUrl, {
-                headers: this.credentialService.createRequestHeader(this.settings.wmsEndpoint, currentHeaders),
+                headers: requestHeaders,
             }).then(function (data:any) {
                     try {                                                
                         result.resolve("");
@@ -228,8 +238,8 @@ module rasdaman {
         public blackListOneLayer(layerName:string):angular.IPromise<any> {
             var result = this.$q.defer();
             
-            var requestUrl = this.wcsSettings.adminEndpoint + "?SERVICE=WMS&REQUEST=BlackList&LAYERS=" + layerName;
-            var requestHeaders = this.adminService.getAuthentcationHeaders();
+            var requestUrl = this.wcsSettings.adminEndpoint + "/wms/blacklist?LAYERLIST=" + layerName;
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders
@@ -246,8 +256,8 @@ module rasdaman {
         public blackListAllLayers():angular.IPromise<any> {
             var result = this.$q.defer();
             
-            var requestUrl = this.wcsSettings.adminEndpoint + "?SERVICE=WMS&REQUEST=BlackListAll";
-            var requestHeaders = this.adminService.getAuthentcationHeaders();
+            var requestUrl = this.wcsSettings.adminEndpoint + "/wms/blacklistall";
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders
@@ -266,8 +276,8 @@ module rasdaman {
         public whiteListOneLayer(layerName:string):angular.IPromise<any> {
             var result = this.$q.defer();
           
-            var requestUrl = this.wcsSettings.adminEndpoint + "?SERVICE=WMS&REQUEST=WhiteList&LAYERS=" + layerName;
-            var requestHeaders = this.adminService.getAuthentcationHeaders();
+            var requestUrl = this.wcsSettings.adminEndpoint + "/wms/whitelist?LAYERLIST=" + layerName;
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders
@@ -284,8 +294,8 @@ module rasdaman {
         public whiteListAllLayers():angular.IPromise<any> {
             var result = this.$q.defer();
             
-            var requestUrl = this.wcsSettings.adminEndpoint + "?SERVICE=WMS&REQUEST=WhiteListAll";
-            var requestHeaders = this.adminService.getAuthentcationHeaders();
+            var requestUrl = this.wcsSettings.adminEndpoint + "/wms/whitelistall";
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders

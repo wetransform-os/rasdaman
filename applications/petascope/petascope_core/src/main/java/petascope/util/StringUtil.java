@@ -29,7 +29,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,6 +46,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.gdal.ogr.Geometry;
+import org.gdal.ogr.ogr;
+import static org.rasdaman.config.ConfigManager.OWS;
+import petascope.exceptions.ExceptionCode;
+import petascope.exceptions.PetascopeException;
 
 /**
  * String utilities.
@@ -69,11 +73,18 @@ public class StringUtil {
     
     public static final String POST_STRING_CONTENT_TYPE = "application/x-www-form-urlencoded";
     public static final String POST_TEXT_PLAIN_CONTENT_TYPE = "text/plain";
+
+    public static final String POST_XML_CONTENT_TYPE = "text/xml";
+    public static final String POST_XML_SOAP_CONTENT_TYPE = "application/soap+xml";
+
+    
+    public static final Pattern squareBracketsPattern = Pattern.compile("\\[(.*?)\\]");
     
     /**
      * For coverages created temporarily, used for WCPS decode() from uploaded files
      */
     public static final String TEMP_COVERAGE_PREFIX = "WCPS_TEMP_COV";
+
 
     private static String COMMA = ",";
 
@@ -367,10 +378,14 @@ public class StringUtil {
      *
      * @param aString
      */
-    private static String escapeAmpersands(String aString) {
+    public static String escapeAmpersands(String aString) {
         return aString.replace("&", "&" + XMLSymbols.PREDEFINED_ENTITY_AMPERSAND + ";");
     }
-
+    
+    public static String escapeQuotes(String str) {
+        return str.replace("\"", "\\\"");
+    }
+    
     /**
      * Replaces all <tt>'\''</tt> characters with <tt>'&apos;'</tt>
      *
@@ -396,15 +411,6 @@ public class StringUtil {
      */
     private static String escapeGreaterThanSigns(String aString) {
         return aString.replace(">", "&" + XMLSymbols.PREDEFINED_ENTITY_GREATERTHAN_SIGN + ";");
-    }
-
-    /**
-     * Replaces all <tt>'\"'</tt> characters with <tt>'&quot;'</tt>
-     *
-     * @param aString
-     */
-    private static String escapeQuotes(String aString) {
-        return aString.replace("\"", "&" + XMLSymbols.PREDEFINED_ENTITY_QUOTES + ";");
     }
 
     /**
@@ -603,9 +609,121 @@ public class StringUtil {
         return result;
     }
     
+    /**
+     * e.g. 2015-01-02 -> '2015-01-02'
+     */
+    public static String enquoteSingleIfNotEnquotedAlready(String inputDateTime) {
+        String result = inputDateTime;
+        
+        if (!inputDateTime.contains("'")) {
+            result = "'" + inputDateTime + "'";
+        }
+        
+        return result;
+    }
+    
     public static String readFileToString(String filePath) throws IOException {
         File file = new File(filePath);
         return FileUtils.readFileToString(file);
+    }
+    
+    /**
+     * Given WKT ( e.g. POLYGON((...)) or MULTIPOLYGON(((...))) ),
+     * return the valid WKT result with the coordinates of the first and the last vertices are the same.
+     * 
+     * e.g. POLYGON((1 1, 2 2, 3 3)) -> POLYGON((1 1, 2 2, 3 3, 1 1))
+     */
+    public static String closeRingsWKT(String wkt) throws PetascopeException {
+        Geometry geom = ogr.CreateGeometryFromWkt(wkt);
+        if (geom != null) {
+            geom.CloseRings();
+        
+            String result = geom.ExportToWkt();
+            return result;
+        }
+        
+        throw new PetascopeException(ExceptionCode.InvalidRequest, "WKT is not valid. Given: " + wkt);
+    }
+    
+    /**
+     * a = null -> "null" 
+     * a = "aa" -> "aa"
+     */
+    public static String getNullLiteralOrValue(String input) {
+        if (input == null) {
+            return "null";
+        }
+        
+        return input;
+    } 
+    
+    /**
+     * e.g. given https://mundi.rasdaman.com/rasdaman/ows or https://mundi.rasdaman.com/rasdaman/ows/
+     * return https://mundi.rasdaman.com/rasdaman
+     */
+    public static String getPetascopeContextURLWithoutOWS(String petascopeEndPoint) {
+        String endpoint = petascopeEndPoint;
+
+        if (petascopeEndPoint.endsWith("/" + OWS) || petascopeEndPoint.endsWith("/" + OWS + "/")) {
+            endpoint = "";
+            String[] tmps = petascopeEndPoint.split("/");
+            
+            for (int i = 0; i < tmps.length - 1; i++) {
+                endpoint += tmps[i];
+                if (i < tmps.length - 2) {
+                    endpoint += "/";
+                }
+            }
+        }
+        
+        return endpoint;
+    }
+    
+    /**
+     * Check if 2 strings are equivalent, if both are null or empty or one is null and one is empty, then they are equivalent
+     */
+    public static boolean equalsIgnoreNull(String input1, String input2) {
+        if (input1 == null) {
+            input1 = "";
+        }
+        if (input2 == null) {
+            input2 = "";
+        }
+        
+        return input1.equals(input2);
+    }
+    
+    public static String decodeUTF8(String input) throws PetascopeException {
+        try {
+            return URLDecoder.decode(input, "utf-8");
+        } catch (UnsupportedEncodingException ex) {
+            throw new PetascopeException(ExceptionCode.RuntimeError, "Cannot decode string: " + input + " to UTF-8. Reason: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Extract substring inside square brackets, e.g. "{[1,2,], [4,5], [6,7]}"
+     * returns a list of "1,2", "4,5", "6,7"
+     */    
+    public static List<String> extractStringsBetweenSquareBrackets(String str) {
+        List<String> results = new ArrayList<>();
+        // extract values inside [ ]        
+        Matcher m = squareBracketsPattern.matcher(str);
+
+        while (m.find()) {
+            String v = m.group(1);
+            results.add(v);
+        }
+        
+        return results;
+    }
+    
+    /**
+     * e.g. 123.567000000000000000000 -> 123.567
+     *      123.000 -> 123
+     */
+    public static String stripZerosAfterDecimal(String str) {
+        return str.replaceAll("^([-?\\d,]+)$|^([-?\\d,]+)\\.0*$|^([-?\\d,]+\\.[0-9]*?)0*$", "$1$2$3");
     }
     
 }

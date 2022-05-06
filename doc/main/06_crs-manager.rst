@@ -1,5 +1,7 @@
 .. highlight:: text
 
+.. _crs-management:
+
 **************
 CRS Management
 **************
@@ -112,6 +114,7 @@ Configuration
 
 The SECORE configuration can be found in ``$RMANHOME/etc/secore.properties``;
 editing this file requires restarting Tomcat.
+
 
 Security
 ^^^^^^^^

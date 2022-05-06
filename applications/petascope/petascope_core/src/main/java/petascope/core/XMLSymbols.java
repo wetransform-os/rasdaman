@@ -69,6 +69,11 @@ public interface XMLSymbols {
     String PREFIX_CRS = "crs";
     String PREFIX_PROCESS_COVERAGE = "proc";
     String PREFIX_INT = "int"; // wcs interpolation
+    
+    // -- INSPIRE
+    
+    String PREFIX_INSPIRE_DLS = "inspire_dls";
+    String PREFIX_INSPIRE_COMMON = "inspire_common";
 
     // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
@@ -87,12 +92,16 @@ public interface XMLSymbols {
     String NAMESPACE_WCS_21 = "http://www.opengis.net/wcs/2.1";
     // nu xom to get the child element must need the namespace beside the nu
     String NAMESPACE_WCPS = "http://www.opengis.net/wcps/1.0";
+    String NAMESPACE_WMS = "http://www.opengis.net/wms";
     String NAMESPACE_WSDL = "http://schemas.xmlsoap.org/wsdl/";
     String NAMESPACE_XSI = "http://www.w3.org/2001/XMLSchema-instance";
     String NAMESPACE_XLINK = "http://www.w3.org/1999/xlink";
     String NAMESPACE_CRS = "http://www.opengis.net/wcs/service-extension/crs/1.0";
     String NAMESPACE_PROCESS_COVERAGE = "http://www.opengis.net/wcs/processing/2.0";
     String NAMESPACE_INTERPOLATION = "http://www.opengis.net/wcs/interpolation/1.0";
+    
+    String NAMESPACE_INSPIRE_DLS = "http://inspire.ec.europa.eu/schemas/inspire_dls/1.0";
+    String NAMESPACE_INSPIRE_COMMON = "http://inspire.ec.europa.eu/schemas/common/1.0";
 
     // XML requests WCS elements
     String LABEL_GET_CAPABILITIES = "GetCapabilities";
@@ -181,9 +190,16 @@ public interface XMLSymbols {
     String LABEL_WMS_CONTACT_VOICE_TELEPHONE = "ContactVoiceTelephone";
     String LABEL_WMS_CONTACT_FACSIMILE_TELEPHONE = "ContactFacsimileTelephone";
     String LABEL_WMS_CONTACT_EMAIL = "ContactElectronicMailAddress";
+    String LABEL_WMS_DCPTYPE = "DCPType";
+    String LABEL_WMS_HTTP = "HTTP";
+    String LABEL_WMS_GET = "GET";
+    String LABEL_WMS_POST = "POST";    
+    
+    String LABEL_WMS_DIMENSION = "Dimension";    
     String LABEL_WMS_FEES = "Fees";
     String LABEL_WMS_ACCESS_CONSTRAINTS = "AccessConstraints";
     String LABEL_WMS_CAPABILITY = "Capability";
+    String LABEL_WMS_WMS_CAPABILITIES = "WMS_Capabilities";
     String LABEL_WMS_REQUEST = "Request";
     String LABEL_WMS_GET_CAPABILITIES = "GetCapabilities";
     String LABEL_WMS_GET_MAP = "GetMap";
@@ -197,11 +213,11 @@ public interface XMLSymbols {
     String LABEL_WMS_SOUTH_BOUND_LATITUDE = "southBoundLatitude";
     String LABEL_WMS_NORTH_BOUND_LATITUDE = "northBoundLatitude";
     String LABEL_WMS_BOUNDING_BOX = "BoundingBox";
+    String ATT_WMS_UPDATE_SEQUENCE = "updateSequence";
     String ATT_WMS_MIN_X = "minx";
     String ATT_WMS_MIN_Y = "miny";
     String ATT_WMS_MAX_X = "maxx";
     String ATT_WMS_MAX_Y = "maxy";
-    String LABEL_WMS_DIMENSION = "Dimension";
     String ATT_WMS_NAME = "name";
     String ATT_WMS_UNITS = "units";
     String ATT_WMS_UNIT_SYMBOLS = "units";
@@ -276,12 +292,17 @@ public interface XMLSymbols {
     
     // Rasdaman
     String LABEL_CUSTOMIZED_METADATA = "Metadata";
-    String LABEL_CUSTOMIZED_METADATA_LOCATION = "location";
-    String LABEL_CUSTOMIZED_METADATA_SOURCE_COVERAGE_IDS = "sourceCoverageIds";
-    String LABEL_CUSTOMIZED_METADATA_HOSTNAME = "hostname";
-    String LABEL_CUSTOMIZED_METADATA_PETASCOPE_ENDPOINT = "endpoint";
-    String LABEL_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES = "sizeInBytes";
-    String LABEL_CUSTOMIZED_METADATA_AXIS_NAMES_LIST = "axisList";
+    
+    
+    // for WCS coverage's metadata in WCS GetCapabilities
+    String LABEL_ADDITIONAL_PARAMETERS = "AdditionalParameters";
+    String LABEL_ADDITIONAL_PARAMETER = "AdditionalParameter";
+    String LABEL_ADDITIONAL_PARAMETER_NAME = "Name";
+    String LABEL_ADDITIONAL_PARAMETER_VALUE = "Value";
+    
+    String VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES = "sizeInBytes";
+    String VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES_WITH_PYRAMID_LEVELS = "sizeInBytesWithPyramidLevels";
+    String VALUE_CUSTOMIZED_METADATA_AXIS_NAMES_LIST = "axisList";
 
     // ows
     // // Service Identification
@@ -403,6 +424,8 @@ public interface XMLSymbols {
     String LABEL_AXISABBREV = "axisAbbrev";
     String LABEL_AXISDIRECTION = "axisDirection";
     String LABEL_CSA = "CoordinateSystemAxis";
+    String LABEL_COORDINATE_SYSTEM = "coordinateSystem";
+    String LABEL_ELLIPSOIDALS_CS = "EllipsoidalCS";
     String LABEL_NAME = "name";
     String LABEL_OFFSET_VECTOR = "offsetVector";
     String LABEL_ORIGIN = "origin";
@@ -430,12 +453,31 @@ public interface XMLSymbols {
     String LABEL_WMS_COLOR_TABLE = "ColorTable";
     String LABEL_WMS_COLOR_TABLE_TYPE = "ColorTableType";
     String LABEL_WMS_COLOR_TABLE_DEFINITION = "ColorTableDefinition";
+    String LABEL_WMS_DEFAULT_STYLE = "default";
     
     // CIS 1.1
     // -- partitoned coverage
     String LABEL_PARTITION_SET = "PartitionSet";
     String LABEL_PARTITION = "Partition";
     String LABEL_COVERAGE_REF = "CoverageRef";
+    
+    // -- INSPIRE
+    
+    String LABEL_INSPIRE_EXTENDED_CAPABILITIES = "ExtendedCapabilities";
+    String LABEL_INSPIRE_METADATA_URL = "MetadataUrl";
+    String LABEL_INSPIRE_URL = "URL";
+    
+    String LABEL_INSPIRE_SUPPORTED_LANGUAGES = "SupportedLanguages";
+    String LABEL_INSPIRE_DEFAULT_LANGUAGE = "DefaultLanguage";
+    
+    String LABEL_INSPIRE_RESPONSE_LANGUAGE = "ResponseLanguage";
+    String LABEL_INSPIRE_LANGUAGE = "Language";
+    
+    String LABEL_INSPIRE_SPATIAL_DATASET_IDENTIFIER = "SpatialDataSetIdentifier";
+    String LABEL_INSPIRE_CODE = "Code";
+    
+    String LABEL_INSPIRE_NAMESPACE = "Namespace";
+    String LABEL_INSPIRE_MEDIATYPE = "MediaType";
 
     // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
@@ -497,6 +539,11 @@ public interface XMLSymbols {
     String ATT_QUANTITY = "quantity";
     String ATT_OPACITY = "opacity";
     
+    // -- INSPIRE
+    
+    String ATT_METADATA_URL = "metadataURL";
+    
+    
     // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
     // XPath Contexts
@@ -521,7 +568,12 @@ public interface XMLSymbols {
     
     String SCHEMA_LOCATION_WCS_CIS_11_GET_COVERAGE = "http://www.opengis.net/cis/1.1/gml http://schemas.opengis.net/cis/1.1/gml/cisAll.xsd";    
     String SCHEMA_LOCATION_WCS_CIS_11_DESCRIBE_COVERAGE = "http://www.opengis.net/wcs/2.1/gml http://schemas.opengis.net/wcs/2.1/gml/wcsAll.xsd";
-
+    
+    String SCHEMA_LOCATION_INSPIRE1 = "http://inspire.ec.europa.eu/schemas/inspire_dls/1.0";
+    String SCHEMA_LOCATION_INSPIRE2 = "http://inspire.ec.europa.eu/schemas/inspire_dls/1.0/inspire_dls.xsd";
+    
+    String SCHEMA_LOCATION_WMS = "http://www.opengis.net/wms http://schemas.opengis.net/wms/1.3.0/capabilities_1_3_0.xsd";
+    
     // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
     // Predefined entities' names
@@ -543,4 +595,7 @@ public interface XMLSymbols {
     
     String VALUE_CONSTRAINT_POST_ENCODING_XML = "XML";
     String VALUE_CONSTRAINT_POST_ENCODING_SOAP = "SOAP";
+
+    String VALUE_TRUE = "true";
+    String VALUE_FALSE = "false";
 }

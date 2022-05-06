@@ -25,6 +25,7 @@ import decimal
 import os
 import time
 import json
+import signal
 
 from lib import arrow
 from collections import OrderedDict
@@ -39,14 +40,14 @@ from master.provider.metadata.axis import Axis
 from master.provider.metadata.grid_axis import GridAxis
 from master.provider.metadata.irregular_axis import IrregularAxis
 from master.provider.metadata.metadata_provider import MetadataProvider
-from util.coverage_util import CoverageUtil
+from master.request.admin import InspireUpdateMetadataURLRequest
+from util.coverage_util import CoverageUtil, CoverageUtilCache
 from util.file_util import File
 from util.import_util import decode_res
 from util.log import log, prepend_time
 from util.string_util import strip_trailing_zeros, create_downscaled_coverage_id, add_date_time_suffix
 from util.url_util import validate_and_read_url
 from master.request.wcst import WCSTInsertRequest, WCSTUpdateRequest, WCSTSubset
-from master.request.wmst import WMSTFromWCSInsertRequest, WMSTFromWCSUpdateRequest, WMSTDescribeLayer
 from master.request.pyramid import CreatePyramidMemberRequest, AddPyramidMemberRequest, ListPyramidMembersRequest
 from util.crs_util import CRSUtil, CRSAxis
 from util.time_util import DateTimeUtil
@@ -78,6 +79,10 @@ class Importer:
         self.session = session
         self.scale_factors = scale_factors
 
+        self.current_data_provider = None
+
+        self.__register_signal_handlers()
+
     def ingest(self):
         """
         Ingests the given coverage
@@ -99,6 +104,10 @@ class Importer:
                 self.add_pyramid_member_if_any(self.coverage.base_coverage_id, self.coverage.coverage_id,
                                                self.session.pyramid_harvesting)
 
+            # NOTE: this request is invoked once whenever updating a coverage from input files
+            if self.session is not None:
+                self.update_coverage_inspire_metadata(self.coverage.coverage_id, self.session.inspire.metadata_url)
+
     def get_progress(self):
         """
         Returns the progress of the import
@@ -118,6 +127,7 @@ class Importer:
         current_str = ""
 
         for attempt in range(0, ConfigManager.retries):
+            self.current_data_provider = current.data_provider
             try:
                 current_str = str(current)
                 gml_obj = self._generate_gml_slice(current)
@@ -131,10 +141,10 @@ class Importer:
 
                 executor = ConfigManager.executor
                 executor.execute(request, mock=ConfigManager.mock)
-                self.resumer.add_imported_data(current.data_provider)
-            except Exception as e:
 
-                if ConfigManager.retry == True:
+                self.resumer.add_imported_data(self.current_data_provider)
+            except Exception as e:
+                if ConfigManager.retry is True:
                     log.warn(
                         "\nException thrown when trying to insert slice: \n" + current_str + "Retrying, you can safely ignore the warning for now. Tried " + str(
                             attempt + 1) + " times.\n")
@@ -383,7 +393,7 @@ class Importer:
         """
         Return the list of pyramid_member_coverages of the current importing coverage
         """
-        if mock == False:
+        if mock is False:
             request = ListPyramidMembersRequest(coverage_id)
             service_call = request.context_path + "?" + request.get_query_string()
             json_obj = json.loads(decode_res(validate_and_read_url(service_call)))
@@ -395,6 +405,17 @@ class Importer:
             return results
 
         return []
+
+    def update_coverage_inspire_metadata(self, base_coverage_id, inspire_metadata_url):
+        """
+        Update coverage's INSPIRE metadata
+        :param base_coverage_id: str
+        :param inspire_metadata_url: str (if this value is non-empty, then coverage is marked as INSPIRE coverage)
+
+        """
+        executor = ConfigManager.executor
+        request = InspireUpdateMetadataURLRequest(base_coverage_id, inspire_metadata_url)
+        executor.execute(request, mock=ConfigManager.mock, input_base_url=None)
 
     def add_pyramid_member_if_any(self, base_coverage_id, pyramid_member_coverage_id, pyramid_haversting=False):
         """
@@ -530,8 +551,23 @@ class Importer:
             # If band doesn't have null value, default insert value is 0
             insert_value = self.DEFAULT_INSERT_VALUE
             if (range_field.nilValues is not None) and (len(range_field.nilValues) > 0):
-                insert_value = strip_trailing_zeros(range_field.nilValues[0].value.split(":")[0])
-                if insert_value == "":
+                # e.g. band has null values  ["9.96921e+35:*", 9.96921e+36]
+                # 9.96921e+35 is used inside <gml:tupleList> when inserting first empty point with INSERT INTO query
+                # e.g. INSERT INTO test VALUES <[0:0,0:0] 9.96921e+35f> TILING ALIGNED [0:366, 0:500]
+                insert_value = str(range_field.nilValues[0].value)
+
+                if ":" in insert_value:
+                    tmps = insert_value.split(":")
+                    first = tmps[0]
+                    second = tmps[1]
+                    if first != "*":
+                       insert_value = first
+                    elif second != "*":
+                        insert_value = second
+                    else:
+                        insert_value = None
+
+                if insert_value is None or insert_value == "":
                     insert_value = self.DEFAULT_INSERT_VALUE
 
             tuple_list.append(insert_value)
@@ -559,36 +595,24 @@ class Importer:
         """
         Inserts or Update the coverage into the wms service
         """
-        layer_exist = None
         try:
             # First check if layer exists or not from nonstandard HTTP request
-            service_call = ConfigManager.wcs_service + "/objectExists?layer=" + self.coverage.coverage_id
-            response = decode_res(validate_and_read_url(service_call))
-            layer_exist = True if response == "true" else False
-        except Exception as ex:
-            # try the normal way
-            pass
+            service_call = ConfigManager.admin_service + "/layer/isactive?COVERAGEID=" + self.coverage.coverage_id
+            if ConfigManager.mock is False:
+                response = decode_res(validate_and_read_url(service_call))
+                layer_exist = True if response == "true" else False
 
-        try:
-            if layer_exist is None:
-                # First check if layer exists or not
-                request = WMSTDescribeLayer(self.coverage.coverage_id)
-                try:
-                    response = ConfigManager.executor.execute(request)
-                except Exception as ex:
-                    if not "LayerNotFound" in str(ex):
-                        raise ex
-                    else:
-                        # Layer not found
-                        layer_exist = False
+                # WMS layer does not exist, just insert new WMS layer from imported coverage
 
-            # WMS layer does not exist, just insert new WMS layer from imported coverage
-            if layer_exist is False:
-                request = WMSTFromWCSInsertRequest(self.coverage.coverage_id, False, ConfigManager.black_listed)
+                if layer_exist is False:
+                    service_call = ConfigManager.admin_service + "/layer/activate?COVERAGEID=" + self.coverage.coverage_id
+                    if ConfigManager.black_listed is True:
+                        service_call += "&BLACKLISTED=true"
+
+                    validate_and_read_url(service_call)
             else:
-                # WMS layer existed, update WMS layer from updated coverage
-                request = WMSTFromWCSUpdateRequest(self.coverage.coverage_id, False)
-            ConfigManager.executor.execute(request, mock=ConfigManager.mock)
+                log.info(service_call)
+
         except Exception as e:
             log.error(
                 "Exception thrown when importing in WMS. Please try to reimport in WMS manually.")
@@ -600,8 +624,23 @@ class Importer:
         :rtype: bool
         """
         if self.coverage.coverage_id not in Importer.coverage_exists_dict:
-            cov = CoverageUtil(self.coverage.coverage_id)
+            cov = CoverageUtilCache.get_cov_util(self.coverage.coverage_id)
             Importer.coverage_exists_dict[self.coverage.coverage_id] = cov.exists()
 
         result = Importer.coverage_exists_dict[self.coverage.coverage_id]
         return not result
+
+    def __signal_handler(self, signum, sigframe):
+        """
+        NOTE: if wcst_import sends an UpdateCoverage request and it is terminated by ctrl + c or pkill -f
+        then this method will be invoked
+        """
+        if self.current_data_provider is not None:
+            self.resumer.add_imported_data(self.current_data_provider)
+
+    def __register_signal_handlers(self):
+        """
+        Register event handlers when wcst_import is terminated
+        """
+        signal.signal(signal.SIGINT, self.__signal_handler)
+        signal.signal(signal.SIGTERM, self.__signal_handler)

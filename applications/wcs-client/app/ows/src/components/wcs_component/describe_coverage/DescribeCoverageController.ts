@@ -53,6 +53,7 @@ module rasdaman {
                            webWorldWindService:rasdaman.WebWorldWindService) {            
 
             $scope.selectedCoverageId = null;
+            $scope.newCoverageId = null;
             $scope.REGULAR_AXIS = "regular";
             $scope.IRREGULAR_AXIS = "irregular";
             $scope.NOT_AVALIABLE = "N/A";
@@ -111,6 +112,8 @@ module rasdaman {
                 if (newValue) {
                     // Admin logged in
                     $scope.adminUserLoggedIn = true;
+
+                    $scope.hasRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WCS_UPDATE_COV);
                 } else {
                     // Admin logged out
                     $scope.adminUserLoggedIn = false;
@@ -145,6 +148,33 @@ module rasdaman {
                     }
                 );
             }
+
+            /**
+             * Rename coverage's id
+             */
+            $scope.renameCoverageId = () => {    
+                if ($scope.newCoverageId == null || $scope.newCoverageId.trim() == "") {
+                    alertService.error("New coverage id cannot be empty.");
+                    return;
+                }
+
+                var formData = new FormData();
+                formData.append("coverageId", $scope.selectedCoverageId);
+                formData.append("newCoverageId", $scope.newCoverageId);
+
+                wcsService.updateCoverageMetadata(formData).then(
+                    response => {
+                        alertService.success("Successfully rename coverage's id.");
+                        // Reload DescribeCoverage to see new changes
+                        $scope.selectedCoverageId = $scope.newCoverageId;
+                        $scope.newCoverageId = null;
+                        $scope.describeCoverage();
+                    }, (...args:any[])=> {                            
+                        errorHandlingService.handleError(args);
+                        $log.error(args);
+                    }
+                );
+            }            
 
             /**
              * Parse coverage metadata as string and show it to a dropdown
@@ -244,12 +274,15 @@ module rasdaman {
         isCoverageDescriptionsDocumentOpen:boolean;
         hideWebWorldWindGlobe:boolean;
 
+        hasRole:boolean;
+
         coverageDescription:wcs.CoverageDescription;
         rawCoverageDescription:string;
 
         availableCoverageIds:string[];
         coverageCustomizedMetadatasDict:any;
         selectedCoverageId:string;
+        newCoverageId:string;
 
         // Array of objects
         axes:any[];

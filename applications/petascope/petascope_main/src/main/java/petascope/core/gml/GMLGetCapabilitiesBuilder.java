@@ -30,6 +30,8 @@ import javax.servlet.http.HttpServletRequest;
 import nu.xom.Attribute;
 import nu.xom.Element;
 import org.rasdaman.config.ConfigManager;
+import static org.rasdaman.config.ConfigManager.INSPIRE_COMMON_URL;
+import static org.rasdaman.config.ConfigManager.PETASCOPE_ENDPOINT_URL;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.EnvelopeByAxis;
 import org.rasdaman.domain.owsmetadata.Address;
@@ -44,10 +46,15 @@ import org.rasdaman.repository.service.OWSMetadataRepostioryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.rasdaman.config.VersionManager;
-import org.rasdaman.domain.cis.RasdamanDownscaledCollection;
+import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.cis.Wgs84BoundingBox;
-import petascope.core.BoundingBox;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import static petascope.core.KVPSymbols.VALUE_DELETE_COVERAGE;
 import static petascope.core.KVPSymbols.VALUE_GENERAL_GRID_COVERAGE;
+import static petascope.core.KVPSymbols.VALUE_INSERT_COVERAGE;
+import static petascope.core.KVPSymbols.VALUE_PROCESS_COVERAGES;
+import static petascope.core.KVPSymbols.VALUE_UPDATE_COVERAGE;
 import static petascope.core.KVPSymbols.WCS_SERVICE;
 import petascope.core.Pair;
 import petascope.core.XMLSymbols;
@@ -59,10 +66,15 @@ import petascope.util.XMLUtil;
 import static petascope.core.XMLSymbols.ATT_CRS;
 import static petascope.core.XMLSymbols.ATT_DIMENSIONS;
 import static petascope.core.XMLSymbols.ATT_HREF;
+import static petascope.core.XMLSymbols.ATT_METADATA_URL;
 import static petascope.core.XMLSymbols.ATT_NAME;
 import static petascope.core.XMLSymbols.ATT_VALUE_POST_ENDCODING;
 import static petascope.core.XMLSymbols.LABEL_ABSTRACT;
 import static petascope.core.XMLSymbols.LABEL_ACCESS_CONSTRAINTS;
+import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER;
+import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETERS;
+import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER_NAME;
+import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER_VALUE;
 import static petascope.core.XMLSymbols.LABEL_ADDRESS;
 import static petascope.core.XMLSymbols.LABEL_ADMINISTRATIVE_AREA;
 import static petascope.core.XMLSymbols.LABEL_ALLOWED_VALUES;
@@ -76,12 +88,11 @@ import static petascope.core.XMLSymbols.LABEL_CONTENTS;
 import static petascope.core.XMLSymbols.LABEL_COUNTRY;
 import static petascope.core.XMLSymbols.LABEL_COVERAGE_ID;
 import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUBTYPE;
+import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUBTYPE_PARENT;
 import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUMMARY;
 import static petascope.core.XMLSymbols.LABEL_CRS_METADATA;
 import static petascope.core.XMLSymbols.LABEL_CRS_SUPPORTED;
-import static petascope.core.XMLSymbols.LABEL_CUSTOMIZED_METADATA;
-import static petascope.core.XMLSymbols.LABEL_CUSTOMIZED_METADATA_AXIS_NAMES_LIST;
-import static petascope.core.XMLSymbols.LABEL_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES;
+
 import static petascope.core.XMLSymbols.LABEL_DCP;
 import static petascope.core.XMLSymbols.LABEL_DELIVERY_POINT;
 import static petascope.core.XMLSymbols.LABEL_DESCRIBE_COVERAGE;
@@ -96,6 +107,17 @@ import static petascope.core.XMLSymbols.LABEL_GET_COVERAGE;
 import static petascope.core.XMLSymbols.LABEL_HOURS_OF_SERVICE;
 import static petascope.core.XMLSymbols.LABEL_HTTP;
 import static petascope.core.XMLSymbols.LABEL_INDIVIDUAL_NAME;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_CODE;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_DEFAULT_LANGUAGE;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_EXTENDED_CAPABILITIES;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_LANGUAGE;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_MEDIATYPE;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_METADATA_URL;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_NAMESPACE;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_RESPONSE_LANGUAGE;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_SPATIAL_DATASET_IDENTIFIER;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_SUPPORTED_LANGUAGES;
+import static petascope.core.XMLSymbols.LABEL_INSPIRE_URL;
 import static petascope.core.XMLSymbols.LABEL_INTERPOLATION_METADATA;
 import static petascope.core.XMLSymbols.LABEL_INTERPOLATION_SUPPORTED;
 import static petascope.core.XMLSymbols.LABEL_KEYWORD;
@@ -126,7 +148,6 @@ import static petascope.core.XMLSymbols.LABEL_VOICE;
 import static petascope.core.XMLSymbols.LABEL_WGS84_BOUNDING_BOX;
 import static petascope.core.XMLSymbols.NAMESPACE_INTERPOLATION;
 import static petascope.core.XMLSymbols.NAMESPACE_OWS;
-import static petascope.core.XMLSymbols.NAMESPACE_RASDAMAN;
 import static petascope.core.XMLSymbols.NAMESPACE_XLINK;
 import static petascope.core.XMLSymbols.PREFIX_INT;
 import static petascope.core.XMLSymbols.PREFIX_OWS;
@@ -136,12 +157,22 @@ import static petascope.core.XMLSymbols.VALUE_CONSTRAINT_POST_ENCODING_SOAP;
 import static petascope.core.XMLSymbols.VALUE_CONSTRAINT_POST_ENCODING_XML;
 import static petascope.core.XMLSymbols.NAMESPACE_WCS_20;
 import static petascope.core.XMLSymbols.NAMESPACE_WCS_21;
-import static petascope.core.XMLSymbols.PREFIX_RASDAMAN;
 import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES;
 import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_21_GET_CAPABILITIES;
-import petascope.util.BigDecimalUtil;
-import static petascope.core.XMLSymbols.PREFIX_CRS;
+import static petascope.core.XMLSymbols.VALUE_FALSE;
+import static petascope.core.XMLSymbols.VALUE_TRUE;
+import petascope.util.ras.RasUtil;
 import static petascope.core.XMLSymbols.NAMESPACE_CRS;
+import static petascope.core.XMLSymbols.NAMESPACE_INSPIRE_COMMON;
+import static petascope.core.XMLSymbols.NAMESPACE_INSPIRE_DLS;
+import static petascope.core.XMLSymbols.PREFIX_CRS;
+import static petascope.core.XMLSymbols.PREFIX_INSPIRE_COMMON;
+import static petascope.core.XMLSymbols.PREFIX_INSPIRE_DLS;
+import static petascope.core.XMLSymbols.SCHEMA_LOCATION_INSPIRE1;
+import static petascope.core.XMLSymbols.SCHEMA_LOCATION_INSPIRE2;
+import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES;
+import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_AXIS_NAMES_LIST;
+import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES_WITH_PYRAMID_LEVELS;
 
 /**
  * Class to represent result of WCS GetCapabilities request.
@@ -150,11 +181,13 @@ import static petascope.core.XMLSymbols.NAMESPACE_CRS;
  */
 @Service
 public class GMLGetCapabilitiesBuilder {
+    
+    private static final Logger log = LoggerFactory.getLogger(GMLGetCapabilitiesBuilder.class);
 
     @Autowired
-    private CoverageRepositoryService persistedCoverageService;
+    private CoverageRepositoryService coverageRepositoryService;
     @Autowired
-    private OWSMetadataRepostioryService persistedOwsServiceMetadataService;
+    private OWSMetadataRepostioryService owsMetadataRepositoryService;
     @Autowired
     private HttpServletRequest httpServletRequest;
     
@@ -581,11 +614,26 @@ public class GMLGetCapabilitiesBuilder {
         // Operation name="GetCoverage"
         Element operationGetCoverageElement = this.buildOperationElement(LABEL_GET_COVERAGE);
         
+        // Operation for WCPS
+        Element operationProcessCoveragesElement = this.buildOperationElement(VALUE_PROCESS_COVERAGES);
+        
+        // Operations for WCS-T        
+        Element operationInsertCoverageElement = this.buildOperationElement(VALUE_INSERT_COVERAGE);
+        Element operationUpdateCoverageElement = this.buildOperationElement(VALUE_UPDATE_COVERAGE);
+        Element operationDeleteCoverageElement = this.buildOperationElement(VALUE_DELETE_COVERAGE);
+        
         Element constraintElement = this.buildConstraintElement();
                 
         operationsMetadataElement.appendChild(operationGetCapabilitiesElement);
         operationsMetadataElement.appendChild(operationDescribeCoverageElement);
         operationsMetadataElement.appendChild(operationGetCoverageElement);
+        
+        operationsMetadataElement.appendChild(operationProcessCoveragesElement);
+        
+        operationsMetadataElement.appendChild(operationInsertCoverageElement);
+        operationsMetadataElement.appendChild(operationUpdateCoverageElement);
+        operationsMetadataElement.appendChild(operationDeleteCoverageElement);
+        
         operationsMetadataElement.appendChild(constraintElement);
         
         return operationsMetadataElement;
@@ -652,14 +700,26 @@ public class GMLGetCapabilitiesBuilder {
     /**
      * Build wcs:Content element
      */
-    private Element buildContentsElement(String version) throws PetascopeException, SecoreException {
+    private Element buildContentsElement(Element operationsMetadataElement, String version) throws PetascopeException {
 
         Element contentsElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_CONTENTS), this.getWCSNameSpace(version));
-        List<Pair<Coverage, Boolean>> importedCoveragePairs = this.persistedCoverageService.readAllLocalCoveragesBasicMetatata();
+        List<Pair<Coverage, Boolean>> importedCoveragePairs = this.coverageRepositoryService.readAllLocalCoveragesBasicMetatataFromCache();
+        List<Coverage> inspireCoverages = new ArrayList<>();
+        
+        long startTime = System.currentTimeMillis();
+        
 
         // Children elements (list of all imported coverage)
         for (Pair<Coverage, Boolean> coveragePair : importedCoveragePairs) {
             Coverage coverage = coveragePair.fst;
+            
+            if (coverage == null) {
+                continue;
+            }
+            
+            if (coverage.getInspireMetadataURL() != null && !coverage.getInspireMetadataURL().isEmpty()) {
+                inspireCoverages.add(coverage);
+            }
             
             // NOTE: According to WCS 2.1.0 standard, WCS 2.0.1 does not list CIS 1.1 coverages to the result.
             if (version.equals(VersionManager.WCS_VERSION_20) && coverage.getCoverageType().equals(VALUE_GENERAL_GRID_COVERAGE)) {
@@ -701,11 +761,18 @@ public class GMLGetCapabilitiesBuilder {
             coverageSummaryElement.appendChild(boundingBox);
             
             if (!ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
+                
+                long startTimeTmp = System.currentTimeMillis();
+                
                 // NOTE: Rasdaman customized metatadata is not valid from GML 3.2.1 schema validating in WCS GetCapabilities
                 Element customizedMetadataElement = this.createCustomizedCoverageMetadataElement(coveragePair.fst);
                 if (customizedMetadataElement != null) {
                     coverageSummaryElement.appendChild(customizedMetadataElement);
                 }
+                
+                long endTimeTmp = System.currentTimeMillis();
+            
+                log.debug("Time to create customized metadata for coverage: " + coverageId + " is: " + (endTimeTmp - startTimeTmp) + " ms.");
             }
 
             // 1.1.1.1 Children elements of BoundingBox element
@@ -717,8 +784,115 @@ public class GMLGetCapabilitiesBuilder {
             upperCornerElement.appendChild(envelopeByAxis.getUpperCornerRepresentation());
             boundingBox.appendChild(upperCornerElement);
         }
+        
+        long endTime = System.currentTimeMillis();
+        log.debug("Time to build GetCapabilities Content element is: " + (endTime - startTime) + " ms.");
+        
+        this.buildInpsireExtendedCapabilitiesElement(inspireCoverages, operationsMetadataElement);
 
         return contentsElement;
+    }
+    
+    /**
+     * Add an extra INSPIRE section and add all INSPIRE coverages to this section
+       <ows:ExtendedCapabilities>
+        <inspire_dls:ExtendedCapabilities>
+
+           <inspire_common:MetadataUrl>
+             <!--- inspire_common_url setting in petascope.properties (if not set, then it is petascope's URL) --->
+             <inspire_common:URL>https://inspire.rasdaman.org/rasdaman/ows</inspire_common:URL>  
+             <inspire_common:MediaType>application/vnd.iso.19139+xml</inspire_common:MediaType>
+           </inspire_common:MetadataUrl>
+
+           <inspire_common:SupportedLanguages>
+             <inspire_common:DefaultLanguage>
+              <inspire_common:Language>eng</inspire_common:Language>
+             </inspire_common:DefaultLanguage>
+           </inspire_common:SupportedLanguages>
+
+           <inspire_common:ResponseLanguage>
+             <inspire_common:Language>eng</inspire_common:Language>
+           </inspire_common:ResponseLanguage>
+
+           <inspire_dls:SpatialDataSetIdentifier metadataURL="https://inspire-geoportal.ec.europa.eu/resources/521-540/16.iso19139.xml">
+             <inspire_common:Code>
+              test_cov_1
+             </inspire_common:Code>
+           <inspire_common:Namespace>
+              <!--- petascope's URL --->
+              https://inspire.rasdaman.org/rasdaman/ows
+           </inspire_common:Namespace>
+
+         </inspire_dls:ExtendedCapabilities> 
+        </ows:ExtendedCapabilities>
+     */
+    public void buildInpsireExtendedCapabilitiesElement(List<Coverage> inspireCoverages, Element operationsMetadataElement) {
+        
+        // to avoid problem with OGC CITE WCS core test with the extra XML elements from INSPIRE
+        if (!ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
+        
+            Element owsExtendedCapabilitiesElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_INSPIRE_EXTENDED_CAPABILITIES), NAMESPACE_OWS);
+            operationsMetadataElement.appendChild(owsExtendedCapabilitiesElement);
+
+            Element extendedCapabilitiesElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_DLS, LABEL_INSPIRE_EXTENDED_CAPABILITIES), NAMESPACE_INSPIRE_DLS);
+
+            owsExtendedCapabilitiesElement.appendChild(extendedCapabilitiesElement);
+
+            // <inspire_common:MetadataUrl>
+            Element metadataURLElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_METADATA_URL), NAMESPACE_INSPIRE_COMMON);
+            Element urlElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_URL), NAMESPACE_INSPIRE_COMMON);
+            urlElement.appendChild(INSPIRE_COMMON_URL);
+
+            Element mediaTypeElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_MEDIATYPE), NAMESPACE_INSPIRE_COMMON);
+            mediaTypeElement.appendChild("application/vnd.iso.19139+xml");
+
+            metadataURLElement.appendChild(urlElement);
+            metadataURLElement.appendChild(mediaTypeElement);
+
+            extendedCapabilitiesElement.appendChild(metadataURLElement);
+
+            String ENG_LANGUAGE = "eng";
+
+            // <inspire_common:SupportedLanguages>
+            Element supportedLanguagesElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_SUPPORTED_LANGUAGES), NAMESPACE_INSPIRE_COMMON);
+            Element defaultLanguageElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_DEFAULT_LANGUAGE), NAMESPACE_INSPIRE_COMMON);
+            Element languageElement1 = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_LANGUAGE), NAMESPACE_INSPIRE_COMMON);
+            languageElement1.appendChild(ENG_LANGUAGE);
+            defaultLanguageElement.appendChild(languageElement1);
+            supportedLanguagesElement.appendChild(defaultLanguageElement);
+
+            extendedCapabilitiesElement.appendChild(supportedLanguagesElement);
+
+            // <inspire_common:ResponseLanguage>
+            Element responseLanguagesElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_RESPONSE_LANGUAGE), NAMESPACE_INSPIRE_COMMON);
+            Element languageElement2 = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_LANGUAGE), NAMESPACE_INSPIRE_COMMON);
+            languageElement2.appendChild(ENG_LANGUAGE);
+            responseLanguagesElement.appendChild(languageElement2);
+
+            extendedCapabilitiesElement.appendChild(responseLanguagesElement);
+
+            for (Coverage inspireCoverage : inspireCoverages) {
+
+                String coverageId = inspireCoverage.getCoverageId();
+                Element spatialDatasetIdentifierElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_DLS, LABEL_INSPIRE_SPATIAL_DATASET_IDENTIFIER), 
+                                                                      NAMESPACE_INSPIRE_DLS);
+                spatialDatasetIdentifierElement.addAttribute(new Attribute(ATT_METADATA_URL, inspireCoverage.getInspireMetadataURL()));
+                
+                Element codeElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_CODE), 
+                                                                      NAMESPACE_INSPIRE_COMMON);
+                codeElement.appendChild(coverageId);
+
+                Element namespaceElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_NAMESPACE), 
+                                                                      NAMESPACE_INSPIRE_COMMON);
+                namespaceElement.appendChild(PETASCOPE_ENDPOINT_URL);
+
+                spatialDatasetIdentifierElement.appendChild(codeElement);
+                spatialDatasetIdentifierElement.appendChild(namespaceElement);
+
+                extendedCapabilitiesElement.appendChild(spatialDatasetIdentifierElement);
+            }
+            
+        }
     }
 
     /**
@@ -727,50 +901,98 @@ public class GMLGetCapabilitiesBuilder {
      * 
      * e.g: 
      * 
-     * <ows:Metadata>
-     *   <rasdaman:location>
-     *      <rasdaman:hostname>code-de</rasdaman:hostname>
-     *      <rasdaman:endpoint>http://code-de.bigdatacube.org:8080/rasdaman/ows</rasdaman:endpoint>
-     *   <rasdaman:location>
-     * </ows:Metadata>
-     */
-    public Element createCustomizedCoverageMetadataElement(Coverage coverage) {
-	Element metadataElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_CUSTOMIZED_METADATA), NAMESPACE_OWS);
+        <ows:AdditionalParameters>
 
+            <ows:AdditionalParameter>
+                <ows:Name>sizeInBytes</ows:Name>
+                <ows:Value>155</ows:Value>
+            </ows:AdditionalParameter>
+            
+            <ows:AdditionalParameter>
+                <ows:Name>sizeInBytesWithPyramidLevels</ows:Name>
+                <ows:Value>186</ows:Value>
+            </ows:AdditionalParameter>            
+            
+            <ows:AdditionalParameter>
+                <ows:Name>axisList</ows:Name>
+                <ows:Value>Lat,Long</ows:Value>
+            </ows:AdditionalParameter>
+             
+            <ows:AdditionalParameter>
+                <ows:Name>hostname</ows:Name>
+                <ows:Value>mundi.earthserver.xyz</ows:Value>
+            </ows:AdditionalParameter>
+            
+            <ows:AdditionalParameter>
+                <ows:Name>endpoint</ows:Name>
+                <ows:Value>http://mundi.earthserver.xyz:8080/rasdaman/ows</ows:Value>
+            </ows:AdditionalParameter>
+            
+            <ows:AdditionalParameter>
+                <ows:Name>blackListed</ows:Name>
+                <ows:Value>false</ows:Value>
+            </ows:AdditionalParameter>
+
+        </ows:AdditionalParameters>   
+     */
+    public Element createCustomizedCoverageMetadataElement(Coverage coverage) throws PetascopeException {
+	Element additonalParametersElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ADDITIONAL_PARAMETERS), NAMESPACE_OWS);
+        
         // Coverage size in bytes
-        Element coverageSizeInBytesElement = new Element(XMLUtil.createXMLLabel(PREFIX_RASDAMAN, LABEL_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES), NAMESPACE_RASDAMAN);
         Long sizeInBytes = coverage.getCoverageSizeInBytes();
-        if (coverage.getCoverageSizeInBytes() > 0) {
-            coverageSizeInBytesElement.appendChild(sizeInBytes.toString());
-            metadataElement.appendChild(coverageSizeInBytesElement);
+        if (sizeInBytes != null && sizeInBytes > 0) {
+            Element coverageSizeInBytesElement = this.createAdditionalElement(VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES, sizeInBytes.toString());
+            additonalParametersElement.appendChild(coverageSizeInBytesElement);
+        }
+        
+        if (coverage.getPyramid() != null && !coverage.getPyramid().isEmpty()) {
+            Long sizeInBytesWithPyramid = coverage.getCoverageSizeInBytesWithPyramid();
+            if (sizeInBytesWithPyramid != null && sizeInBytesWithPyramid > 0) {
+                Element coverageSizeInBytesElement = this.createAdditionalElement(VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES_WITH_PYRAMID_LEVELS, 
+                                                                                  sizeInBytesWithPyramid.toString());
+                additonalParametersElement.appendChild(coverageSizeInBytesElement);
+            }
         }
         
         // List of axis names
-        Element axisListElement = new Element(XMLUtil.createXMLLabel(PREFIX_RASDAMAN, LABEL_CUSTOMIZED_METADATA_AXIS_NAMES_LIST), NAMESPACE_RASDAMAN);
-        axisListElement.appendChild(coverage.getEnvelope().getEnvelopeByAxis().getAxisNamesRepresentation());
-        metadataElement.appendChild(axisListElement);
-
-        // Downscaled collection levels of a coverage if exist
-        List<String> downscaledCollectionLevels = new ArrayList<>();
-        if (coverage.getRasdamanRangeSet() != null) {
-            for (RasdamanDownscaledCollection rasdamanDownscaledCollection : coverage.getRasdamanRangeSet().getRasdamanDownscaledCollections()) {
-                downscaledCollectionLevels.add(rasdamanDownscaledCollection.getLevel().toPlainString());
-            }
-        }
+        Element axisListElement = createAdditionalElement(VALUE_CUSTOMIZED_METADATA_AXIS_NAMES_LIST, 
+                                                         coverage.getEnvelope().getEnvelopeByAxis().getAxisNamesRepresentation());
+        additonalParametersElement.appendChild(axisListElement);
 
         // No customized metadata is added for coverage, not show it to client
-        if (metadataElement.getChildElements().size() == 0) {
-            metadataElement = null;            
+        if (additonalParametersElement.getChildElements().size() == 0) {
+            additonalParametersElement = null;            
         }
         
-        return metadataElement;
+        return additonalParametersElement;
+    }
+    /**
+     * return extra additional element for coverage's metadata
+     with name is axisList and value is Lat,Long
+     <ows:AdditionalParameter>
+        <ows:Name>axisList</ows:Name>
+        <ows:Value>Lat,Long</ows:Value>
+    </ows:AdditionalParameter>
+     */
+    public static Element createAdditionalElement(String name, String value) {
+        Element element = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ADDITIONAL_PARAMETER), NAMESPACE_OWS);
+
+        Element nameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ADDITIONAL_PARAMETER_NAME), NAMESPACE_OWS);
+        Element valueElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ADDITIONAL_PARAMETER_VALUE), NAMESPACE_OWS);
+        nameElement.appendChild(name);
+        valueElement.appendChild(value);
+
+        element.appendChild(nameElement);
+        element.appendChild(valueElement);
+        
+        return element;
     }
     
     /**
      * Create an optional WGS84 bounding box for coverages which have X and Y georeferenced-axes
      * which can project to EPSG:4326 CRS (Long - Lat order)
      */
-    private Element createWGS84BoundingBoxElement(Coverage coverage) {
+    private Element createWGS84BoundingBoxElement(Coverage coverage) throws PetascopeException {
         Wgs84BoundingBox wgs84BoundingBox = coverage.getEnvelope().getEnvelopeByAxis().getWgs84BBox();
         Element wgs84BoundingBoxElement = null;
         
@@ -803,13 +1025,15 @@ public class GMLGetCapabilitiesBuilder {
         }
     }
        
-    public Element serializeToXMLElement(String version) throws PetascopeException, SecoreException {
+    public Element serializeToXMLElement(String version) throws PetascopeException {
         
-        OwsServiceMetadata owsServiceMetadata = this.persistedOwsServiceMetadataService.read();
+        OwsServiceMetadata owsServiceMetadata = this.owsMetadataRepositoryService.read();
         
         Map<String, String> xmlNameSpacesMap = GMLWCSRequestResultBuilder.getMandatoryXMLNameSpacesMap();
         Set<String> schemaLocations = new LinkedHashSet<>();
         schemaLocations.add(SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES);
+        schemaLocations.add(SCHEMA_LOCATION_INSPIRE1);
+        schemaLocations.add(SCHEMA_LOCATION_INSPIRE2);
         
         Element capabilitiesElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_CAPABILITIES), this.getWCSNameSpace(version));
         Attribute versionAttribute = new Attribute(LABEL_VERSION, version);
@@ -819,7 +1043,7 @@ public class GMLGetCapabilitiesBuilder {
         Element serviceProviderElement = this.buildServiceProvider(owsServiceMetadata);
         Element operationsMetadataElement = this.buildOperationsMetadataElement();
         Element serviceMetadataElement = this.buildServiceMetadataElement(version);
-        Element contentsElement = this.buildContentsElement(version);
+        Element contentsElement = this.buildContentsElement(operationsMetadataElement, version);
         
         capabilitiesElement.appendChild(serviceIdentificationElement);
         capabilitiesElement.appendChild(serviceProviderElement);
@@ -831,6 +1055,9 @@ public class GMLGetCapabilitiesBuilder {
         xmlNameSpacesMap.put(PREFIX_INT, NAMESPACE_INTERPOLATION);
         xmlNameSpacesMap.put(PREFIX_CRS, NAMESPACE_CRS);
         
+        xmlNameSpacesMap.put(PREFIX_INSPIRE_DLS, NAMESPACE_INSPIRE_DLS);
+        xmlNameSpacesMap.put(PREFIX_INSPIRE_COMMON, NAMESPACE_INSPIRE_COMMON);
+        
         XMLUtil.addXMLNameSpacesOnRootElement(xmlNameSpacesMap, capabilitiesElement);      
         XMLUtil.addXMLSchemaLocationsOnRootElement(schemaLocations, capabilitiesElement);
         
@@ -840,7 +1067,7 @@ public class GMLGetCapabilitiesBuilder {
     /**
      * Build result for WCS GetCapabilities request by a specific version (e.g: 2.0.1).
      */
-    public Element buildWCSGetCapabilitiesResult(String version) throws PetascopeException, SecoreException {
+    public Element buildWCSGetCapabilitiesResult(String version) throws PetascopeException {
         
         Element capabilitiesElement = this.serializeToXMLElement(version);
         

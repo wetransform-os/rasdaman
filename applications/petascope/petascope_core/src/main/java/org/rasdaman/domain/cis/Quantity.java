@@ -74,12 +74,12 @@ public class Quantity implements Serializable {
     // NOTE: As this could be long text, so varchar(255) is not enough
     private String description;
     
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = Quantity.COLUMN_ID)
     @OrderColumn
     private List<NilValue> nilValues;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @OrderColumn
     @JoinColumn(name = Quantity.COLUMN_ID)
     private List<AllowedValue> allowedValues;
@@ -124,7 +124,7 @@ public class Quantity implements Serializable {
         this.description = description;
     }
 
-    public List<NilValue> getNilValuesList() {
+    public List<NilValue> getNilValues() {
         if (nilValues == null) {
             return new ArrayList<>();
         }

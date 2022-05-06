@@ -21,13 +21,10 @@
  */
 package petascope.wcps.handler;
 
-import org.rasdaman.domain.cis.Coverage;
-import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.TempCoverageRegistry;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
@@ -49,7 +46,7 @@ public class DecodeCoverageHandler extends AbstractOperatorHandler {
     private WcpsCoverageMetadataTranslator wcpsCoverageMetadataTranslator;
     
     
-    public WcpsResult handle(String positionalParamater, String extraParams) throws PetascopeException, SecoreException {
+    public WcpsResult handle(String positionalParamater, String extraParams) throws PetascopeException {
         
         // e.g: TEMP_COV_abc_2020011001
         WcpsCoverageMetadata metadata = null;

@@ -48,7 +48,12 @@ from ArgumentsParser import parse_arguments
 
 # Enable GDAL/OGR exceptions
 gdal.UseExceptions()
-
+# Prevent GDAL from printing errors itself, leave it to wcst_import to handle
+# the printing of exception texts
+gdal.PushErrorHandler('CPLQuietErrorHandler')
+# Avoid slowdown when importing files in directories with many other files
+# https://trac.osgeo.org/gdal/wiki/ConfigOptions#GDAL_DISABLE_READDIR_ON_OPEN
+gdal.SetConfigOption('GDAL_DISABLE_READDIR_ON_OPEN', 'TRUE')
 
 
 def print_usage():
@@ -173,6 +178,13 @@ def main():
     command = "export GDAL_PAM_ENABLED=NO"
     os.system(command)
 
+    # for each time interval, daemon must have new caches loaded from .resume.json
+    from master.importer.resumer import Resumer
+    Resumer.clear_caches()
+
+    from util.coverage_util import CoverageUtilCache
+    CoverageUtilCache.clear_caches()
+
     reg = RecipeRegistry()
     validate()
 
@@ -182,6 +194,12 @@ def main():
 
     ConfigManager.user = arguments.user
     ConfigManager.passwd = arguments.passwd
+    try:
+        ConfigManager.gdal_cache_size = int(arguments.gdal_cache_size)
+        if ConfigManager.gdal_cache_size < -1:
+            raise RuntimeException()
+    except Exception as ex:
+        raise RecipeValidationException("Value for gdal-cache-size must be integer >= -1. Given: " + str(arguments.gdal_cache_size))
 
     if arguments.identity_file is not None:
         key_value = FileUtil.read_file_to_string(arguments.identity_file)

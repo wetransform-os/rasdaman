@@ -29,7 +29,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
-import org.rasdaman.domain.cis.Coverage;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import petascope.core.AxisTypes;
 import petascope.core.CrsDefinition;
@@ -37,6 +37,7 @@ import petascope.core.GeoTransform;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.util.CrsProjectionUtil;
+import petascope.util.StringUtil;
 import petascope.wcps.exception.processing.IdenticalAxisNameInCrsTransformException;
 import petascope.wcps.exception.processing.InvalidOutputCrsProjectionInCrsTransformException;
 import petascope.wcps.exception.processing.Not2DCoverageForCrsTransformException;
@@ -114,16 +115,15 @@ public class CrsTransformHandler extends AbstractOperatorHandler {
         // postive Axis (resolution > 0)
         Axis inputAxisX = inputXYAxes.get(0);
         
-        BigDecimal geoLowerBoundX = new BigDecimal(projectedGeoTransform.getUpperLeftGeoX());
-        BigDecimal geoUpperBoundX = new BigDecimal(projectedGeoTransform.getUpperLeftGeoX() 
-                                                     + projectedGeoTransform.getGeoXResolution() * projectedGeoTransform.getGridWidth());
+        BigDecimal geoLowerBoundX = projectedGeoTransform.getUpperLeftGeoX();
+        BigDecimal geoUpperBoundX = projectedGeoTransform.getLowerRightGeoX();
         NumericSubset geoBoundsX = new NumericTrimming(geoLowerBoundX, geoUpperBoundX);
         
         BigDecimal gridLowerBoundX = BigDecimal.ZERO;
         BigDecimal gridUpperBoundX = new BigDecimal(projectedGeoTransform.getGridWidth() - 1);
         NumericSubset gridBoundsX = new NumericTrimming(gridLowerBoundX, gridUpperBoundX);
         
-        BigDecimal geoResolutionX = new BigDecimal(projectedGeoTransform.getGeoXResolution());
+        BigDecimal geoResolutionX = projectedGeoTransform.getGeoXResolution();
         
         Axis axisX = new RegularAxis(inputAxisX.getLabel(), geoBoundsX, gridBoundsX, gridBoundsX,
                                     inputAxisX.getNativeCrsUri(), inputAxisX.getCrsDefinition(), inputAxisX.getAxisType(),
@@ -132,16 +132,15 @@ public class CrsTransformHandler extends AbstractOperatorHandler {
         // negative Axis (resolution < 0)
         Axis inputAxisY = inputXYAxes.get(1);
         
-        BigDecimal geoUpperBoundY = new BigDecimal(projectedGeoTransform.getUpperLeftGeoY());
-        BigDecimal geoLowerBoundY = new BigDecimal(projectedGeoTransform.getUpperLeftGeoY() 
-                                                     - Math.abs(projectedGeoTransform.getGeoYResolution()) * projectedGeoTransform.getGridHeight());
+        BigDecimal geoUpperBoundY = projectedGeoTransform.getUpperLeftGeoY();
+        BigDecimal geoLowerBoundY = projectedGeoTransform.getLowerRightGeoY();
         NumericSubset geoBoundsY = new NumericTrimming(geoLowerBoundY, geoUpperBoundY);
         
         BigDecimal gridLowerBoundY = BigDecimal.ZERO;
         BigDecimal gridUpperBoundY = new BigDecimal(projectedGeoTransform.getGridHeight() - 1);
         NumericSubset gridBoundsY = new NumericTrimming(gridLowerBoundY, gridUpperBoundY);
         
-        BigDecimal geoResolutionY = new BigDecimal(projectedGeoTransform.getGeoYResolution());
+        BigDecimal geoResolutionY = projectedGeoTransform.getGeoYResolution();
         
         Axis axisY = new RegularAxis(inputAxisY.getLabel(), geoBoundsY, gridBoundsY, gridBoundsY, 
                                     inputAxisY.getNativeCrsUri(), inputAxisY.getCrsDefinition(), inputAxisY.getAxisType(),
@@ -163,13 +162,15 @@ public class CrsTransformHandler extends AbstractOperatorHandler {
 
         GeoTransform geoTransform = new GeoTransform();
         
-        int sourceEPSGCode = new Integer(CrsUtil.getCode(axisX.getNativeCrsUri()));
-        geoTransform.setEPSGCode(sourceEPSGCode);
+        String sourceCRS = axisX.getNativeCrsUri();
+        String sourceCRSWKT = CrsUtil.getWKT(sourceCRS);
+        
+        geoTransform.setWKT(sourceCRSWKT);
         
         geoTransform.setGeoXResolution(axisX.getResolution().doubleValue());
         geoTransform.setGeoYResolution(axisY.getResolution().doubleValue());
-        geoTransform.setUpperLeftGeoX(new Double(axisX.getLowerGeoBoundRepresentation()));
-        geoTransform.setUpperLeftGeoY(new Double(axisY.getUpperGeoBoundRepresentation()));
+        geoTransform.setUpperLeftGeoX(axisX.getGeoBounds().getLowerLimit());
+        geoTransform.setUpperLeftGeoY(axisY.getGeoBounds().getUpperLimit());
         
         int width = axisX.getGridBounds().getUpperLimit().subtract(axisX.getGridBounds().getLowerLimit()).toBigInteger().intValue() + 1;
         int height = axisY.getGridBounds().getUpperLimit().subtract(axisY.getGridBounds().getLowerLimit()).toBigInteger().intValue() + 1;
@@ -204,9 +205,8 @@ public class CrsTransformHandler extends AbstractOperatorHandler {
             secondCRSAxis = crsDefinition.getAxes().get(0);
         }
         
-        BigDecimal geoLowerBoundX = new BigDecimal(String.valueOf(targetGeoTransform.getUpperLeftGeoX()));
-        BigDecimal geoUpperBoundX = new BigDecimal(String.valueOf(targetGeoTransform.getUpperLeftGeoX() 
-                                                   + targetGeoTransform.getGeoXResolution() * targetGeoTransform.getGridWidth()));
+        BigDecimal geoLowerBoundX = targetGeoTransform.getUpperLeftGeoX();
+        BigDecimal geoUpperBoundX = targetGeoTransform.getLowerRightGeoX();
         
         NumericSubset geoBoundsX = new NumericTrimming(geoLowerBoundX, geoUpperBoundX);
         NumericSubset originalGridBoundX = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(targetGeoTransform.getGridWidth() - 1));
@@ -215,11 +215,10 @@ public class CrsTransformHandler extends AbstractOperatorHandler {
         Axis axisX = new RegularAxis(firstCRSAxis.getAbbreviation(), geoBoundsX, originalGridBoundX, gridBoundX, 
                 outputCRS, crsDefinition, 
                 firstCRSAxis.getType(), firstCRSAxis.getUoM(), xyAxes.get(0).getRasdamanOrder(), 
-                geoLowerBoundX, new BigDecimal(String.valueOf(targetGeoTransform.getGeoXResolution())), geoBoundsX);
+                geoLowerBoundX, targetGeoTransform.getGeoXResolution(), geoBoundsX);
         
-        BigDecimal geoUpperBoundY = new BigDecimal(String.valueOf(targetGeoTransform.getUpperLeftGeoY()));
-        BigDecimal geoLowerBoundY = new BigDecimal(String.valueOf(targetGeoTransform.getUpperLeftGeoY() 
-                                                   + targetGeoTransform.getGeoYResolution() * targetGeoTransform.getGridHeight()));
+        BigDecimal geoUpperBoundY = targetGeoTransform.getUpperLeftGeoY();
+        BigDecimal geoLowerBoundY = targetGeoTransform.getLowerRightGeoY();
         
         NumericSubset geoBoundsY = new NumericTrimming(geoLowerBoundY, geoUpperBoundY);
         NumericSubset originalGridBoundY = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(targetGeoTransform.getGridHeight() - 1));
@@ -228,7 +227,7 @@ public class CrsTransformHandler extends AbstractOperatorHandler {
         Axis axisY = new RegularAxis(secondCRSAxis.getAbbreviation(), geoBoundsY, originalGridBoundY, gridBoundY, 
                 outputCRS, crsDefinition, 
                 secondCRSAxis.getType(), secondCRSAxis.getUoM(), xyAxes.get(1).getRasdamanOrder(), 
-                geoLowerBoundY, new BigDecimal(String.valueOf(targetGeoTransform.getGeoYResolution())), geoBoundsY);
+                geoLowerBoundY, targetGeoTransform.getGeoYResolution(), geoBoundsY);
         
         List<Axis> targetAxes;
         if (CrsUtil.isXYAxesOrder(outputCRS)) {
@@ -282,8 +281,16 @@ public class CrsTransformHandler extends AbstractOperatorHandler {
             throw new InvalidOutputCrsProjectionInCrsTransformException(axisCrss2, axisNameArray[1]);
         }
     }
+    
+    /**
+     * If EPSG:code just returns normally, if WKT then the wkt is quoted and breaklines removed
+     */
+    public static String getEscapedAuthorityEPSGCodeOrWKT(String crs) throws PetascopeException {
+        String result = StringUtils.normalizeSpace(StringUtil.escapeQuotes(CrsUtil.getAuthorityEPSGCodeOrWKT(crs)));
+        return result;
+    }
 
-    public String getRasqlExpression(WcpsResult coverageExpression, HashMap<String, String> axisCrss, String interpolationType) {
+    public String getRasqlExpression(WcpsResult coverageExpression, HashMap<String, String> axisCrss, String interpolationType) throws PetascopeException {
         String outputStr = "";
 
         // Get the calculated coverage in grid axis with Rasql
@@ -310,17 +317,21 @@ public class CrsTransformHandler extends AbstractOperatorHandler {
         // (NOTE: sourceCrs can be compoundCrs, e.g: irr_cube_2) then need to get the crsUri from axis not from coverage metadata
         String axisName = axisCrss.keySet().iterator().next();
         Axis axis = covMetadata.getAxisByName(axisName);
-        String covCRS = axis.getNativeCrsUri();
-        String outputCrs = axisCrss.values().toArray()[0].toString();
-        String sourceCRS = CrsUtil.CrsUri.getAuthorityCode(covCRS);
-        String targetCRS = CrsUtil.CrsUri.getAuthorityCode(outputCrs);
+        String sourceCRS = axis.getNativeCrsUri();
+        String outputCRS = axisCrss.values().toArray()[0].toString();
+        
+        // NOTE: 
+        // 1. If CRS is EPSG then return e.g. EPSG:4326 or the WKT of the CRS (rotated CRS COSMO 101) if possible which gdal can parse
+        // 2. If the WKT is returned, then it needs to be enquoted e.g. "CRS[\"GeodeticCRS\": ...]"
+        String sourceCRSParam = getEscapedAuthorityEPSGCodeOrWKT(sourceCRS);
+        String targetCRSParam = getEscapedAuthorityEPSGCodeOrWKT(outputCRS);
         
         if (interpolationType == null) {
             interpolationType = DEFAULT_INTERPOLATION_TYPE;
         }
         
         outputStr = TEMPLATE.replace("$COVERAGE_EXPRESSION", covRasql).replace("$BOUNDING_BOX", bbox)
-                            .replace("$SOURCE_CRS", sourceCRS).replace("$TARGET_CRS", targetCRS)
+                            .replace("$SOURCE_CRS", sourceCRSParam).replace("$TARGET_CRS", targetCRSParam)
                             .replace("$INTERPOLATION_TYPE", interpolationType);
 
         return outputStr;

@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.rasdaman.config.ConfigManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import petascope.core.AxisTypes;
 import petascope.core.BoundingBox;
 import petascope.core.CrsDefinition;
@@ -41,6 +43,7 @@ import petascope.core.Pair;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.util.BigDecimalUtil;
+import petascope.util.CrsProjectionUtil;
 import petascope.util.CrsUtil;
 import petascope.util.ListUtil;
 import petascope.util.StringUtil;
@@ -60,6 +63,8 @@ import petascope.util.TimeUtil;
 @Entity
 @Table(name = EnvelopeByAxis.TABLE_NAME)
 public class EnvelopeByAxis implements Serializable {
+    
+    private static final Logger log = LoggerFactory.getLogger(EnvelopeByAxis.class);
 
     public static final String TABLE_NAME = "envelope_by_axis";
     public static final String COLUMN_ID = TABLE_NAME + "_id";
@@ -80,12 +85,12 @@ public class EnvelopeByAxis implements Serializable {
     @Column(name = "axis_Labels")
     private String axisLabels;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = EnvelopeByAxis.COLUMN_ID)
     @OrderColumn
     private List<AxisExtent> axisExtents;
     
-    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = Wgs84BoundingBox.COLUMN_ID)
     private Wgs84BoundingBox wgs84BBox;
 
@@ -98,6 +103,10 @@ public class EnvelopeByAxis implements Serializable {
         this.srsDimension = srsDimension;
         this.axisLabels = axisLabels;
         this.axisExtents = axisExtents;
+    }
+
+    public long getId() {
+        return id;
     }
 
     public List<AxisExtent> getAxisExtents() {
@@ -159,7 +168,16 @@ public class EnvelopeByAxis implements Serializable {
         return axisExtent;
     }
     
-    public Wgs84BoundingBox getWgs84BBox() {
+    public Wgs84BoundingBox getWgs84BBox() throws PetascopeException {
+        // In case Wgs84BBox is not created (typically from remote coverages of older petascope)
+        if (this.wgs84BBox == null && this.getGeoXYBoundingBox() != null) {
+            try {
+                this.wgs84BBox = CrsProjectionUtil.createLessPreciseWgs84BBox(this);
+            } catch(Exception ex) {
+                log.warn("Cannot get WGS84 bounding box. Reason: " + ex.getMessage());
+            }
+        }
+        
         return wgs84BBox;
     }
 
@@ -205,7 +223,7 @@ public class EnvelopeByAxis implements Serializable {
      * @throws petascope.exceptions.SecoreException
      */
     @JsonIgnore
-    public String getLowerCornerRepresentation() throws PetascopeException, SecoreException {
+    public String getLowerCornerRepresentation() throws PetascopeException {
 
         String lowerCorner = "";
         for (AxisExtent axisExtent : this.axisExtents) {
@@ -257,13 +275,9 @@ public class EnvelopeByAxis implements Serializable {
      * NOTE: although display DateTime for LowerCorner, UpperCorner of
      * coverage's boundingbox is nice, but it is not valid Schema, so just
      * display the raw numbers when OGC CITE testing is not enabled.
-     *
-     * @return
-     * @throws petascope.exceptions.PetascopeException
-     * @throws petascope.exceptions.SecoreException
      */
     @JsonIgnore
-    public String getUpperCornerRepresentation() throws PetascopeException, SecoreException {
+    public String getUpperCornerRepresentation() throws PetascopeException {
 
         String upperCorner = "";
         for (AxisExtent axisExtent : this.axisExtents) {
@@ -309,7 +323,7 @@ public class EnvelopeByAxis implements Serializable {
     }
     
     /**
-     * If this coverage has a time axis, then returns it lower and uppe bounds in date time format
+     * If this coverage has a time axis, then returns it lower and upper bounds in date time format
      */
     @JsonIgnore
     public List<AxisExtent> getTimeAxisExtents() throws PetascopeException, SecoreException {
@@ -342,7 +356,7 @@ public class EnvelopeByAxis implements Serializable {
         Set<String> results = new LinkedHashSet<>();
         
         for (AxisExtent axisExtent : this.axisExtents) {
-            String shortenedCrs = CrsUtil.getAuthorityCodeFormat(axisExtent.getSrsName());
+            String shortenedCrs = CrsUtil.getAuthorityCode(axisExtent.getSrsName());
             results.add(shortenedCrs);
         }
         
@@ -356,7 +370,7 @@ public class EnvelopeByAxis implements Serializable {
     public BoundingBox getGeoXYBoundingBox() throws PetascopeException {
         List<AxisExtent> axisExtents = this.axisExtents;
         boolean foundX = false, foundY = false;
-        String xyAxesCRS = null;
+        String xyAxesCRSURL = null;
         String coverageCRS = this.srsName;
         BigDecimal xMin = null, yMin = null, xMax = null, yMax = null;
         
@@ -364,18 +378,18 @@ public class EnvelopeByAxis implements Serializable {
         
         int i = 0;
         for (AxisExtent axisExtent : axisExtents) {
-            String axisExtentCrs = axisExtent.getSrsName();
+            String axisExtentCRSURL = axisExtent.getSrsName();
             // NOTE: the basic coverage metadata can have the abstract SECORE URL, so must replace it first
-            axisExtentCrs = CrsUtil.CrsUri.fromDbRepresentation(axisExtentCrs);
+            axisExtentCRSURL = CrsUtil.CrsUri.fromDbRepresentation(axisExtentCRSURL);
             
-            if (axisExtentCrs.contains(CrsUtil.EPSG_AUTH)) {
+            if (CrsProjectionUtil.isValidTransform(axisExtentCRSURL)) {
                 // x, y
                 String axisType = CrsUtil.getAxisTypeByIndex(coverageCRS, i);
                 if (axisType.equals(AxisTypes.X_AXIS)) {
                     foundX = true;
                     xMin = new BigDecimal(axisExtent.getLowerBound());
                     xMax = new BigDecimal(axisExtent.getUpperBound());
-                    xyAxesCRS = axisExtentCrs;
+                    xyAxesCRSURL = axisExtentCRSURL;
                 } else if (axisType.equals(AxisTypes.Y_AXIS)) {
                     foundY = true;
                     yMin = new BigDecimal(axisExtent.getLowerBound());
@@ -389,8 +403,8 @@ public class EnvelopeByAxis implements Serializable {
             i++;
         }
         
-        if (foundX && foundY && CrsUtil.isValidTransform(xyAxesCRS)) {
-            result = new BoundingBox(xMin, yMin, xMax, yMax, xyAxesCRS);
+        if (foundX && foundY && CrsProjectionUtil.isValidTransform(xyAxesCRSURL)) {
+            result = new BoundingBox(xMin, yMin, xMax, yMax, xyAxesCRSURL);
         }
         
         return result;

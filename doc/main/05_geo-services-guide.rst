@@ -7,15 +7,20 @@ Geo Services Guide
 ##################
 
 This guide covers the details of geo data management and retrieval in rasdaman.
-The rasdaman Array DBMS is domain agnostic; the specific semantics of space and time
-is provided through a layer on top of rasdaman, historically known as *petascope*.
-It offers spatio-temporal access and analytics through APIs based on the OGC data standard
+The rasdaman Array DBMS is domain agnostic; the specific semantics of space and
+time is provided through a layer on top of rasdaman, historically known
+as *petascope*. It offers spatio-temporal access and analytics through APIs
+based on the OGC data standard
 *Coverage Implementation Schema* (CIS) and the OGC service standards
-*Web Map Service* (WMS), *Web Coverage Service* (WCS), and *Web Coverage Processing Service* (WCPS).
+*Web Map Service* (WMS), *Web Coverage Service* (WCS), and *Web Coverage
+Processing Service* (WCPS).
 
 .. NOTE::
-   While the name petascope addresses a specific component we frequently use the name *rasdaman*
-   to refer to the complete system, including petascope.
+   While the name petascope addresses a specific component we frequently use the 
+   name *rasdaman* to refer to the complete system, including petascope.
+
+
+.. _ogc-overview:
 
 OGC Coverage Standards Overview
 ===============================
@@ -37,10 +42,9 @@ implementation for WCS. These APIs serve different purposes:
 - WCPS performs flexible server-side processing, filtering, analytics, and fusion 
   on coverages.
 
-These coverage data and service concepts are summarized briefly below; for
-specific details on coordinate reference system handling see also :ref:`CRS
-definition management <crs-def-management>`. Ample material is also available on
-the Web for familiarization with coverages (best consult in this sequence):
+These coverage data and service concepts are summarized briefly below. Ample
+material is also available on the Web for familiarization with coverages
+(best consult in this sequence):
 
 - `hands-on demos <https://standards.rasdaman.org>`__ for multi-dimensional 
   coverage services provided by
@@ -82,7 +86,7 @@ OGC WMS delivers 2D maps generated from styled layers stacked up.
 As such, WMS is a visualization service sitting at the end of processing
 pipelines, geared towards human consumption.
 
-OGC WCS, on the other hand, rpovides data suitable for further processing
+OGC WCS, on the other hand, provides data suitable for further processing
 (including visualization); as such, it is suitable also for machine-to-machine
 communication as it appears in the middle of longer processing pipelines.
 WCS is a modular suite of service functionality on coverages.
@@ -97,28 +101,25 @@ fusion of multi-dimensional coverage expressed in a high-level, declarative, and
 safe language.
 
 
+.. _ogc-services-endpoint:
+
 OGC Web Services Endpoint
 =========================
 
-Once the petascope servlet is deployed (see :ref:`rasdaman installation guide
-<sec-system-install-packages>`) coverages can be accessed through service
-endpoint ``/rasdaman/ows``.
+Once the petascope geo service is deployed (see :ref:`rasdaman installation
+guide <sec-download-and-install>`) coverages can be accessed through the HTTP
+service endpoint ``/rasdaman/ows``.
 
-.. NOTE::
-
-   Endpoint ``/rasdaman/rasql``, which by default is also available after
-   deploying rasdaman, does not know about coverages and their services, but
-   only knows domain-agnostic rasql.
-
-For example, assuming that the service's IP address is ``123.456.789.1`` and the
+For example, assuming that the service IP address is ``123.456.789.1`` and the
 service port is ``8080``, the following request URLs would deliver the
-Capabilities documents for OGC WMS and WCS, respectively:
-
-.. code-block:: text
+Capabilities documents for OGC WMS and WCS, respectively: ::
 
     http://123.456.789.1:8080/rasdaman/ows?SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0
     http://123.456.789.1:8080/rasdaman/ows?SERVICE=WCS&REQUEST=GetCapabilities&VERSION=2.0.1
 
+
+
+.. _ogc-cis:
 
 OGC Coverage Implementation Schema (CIS)
 ========================================
@@ -144,42 +145,45 @@ Further components include ``Envelope`` which gives a rough, simplified overview
 on the coverage's location in space and time and ``CoverageFunction`` which is
 unused by any implementation known to us.
 
+Coverage CRS
+------------
 
-Coordinate Reference Systems in Coverages
------------------------------------------
+Every coverage, as per OGC CIS, must have exactly one *native* Coordinate
+Reference System (CRS), which is given by a URL. Resolving this URL should
+deliver the CRS definition. The `OGC CRS resolver
+<http://external.opengeospatial.org/twiki_public/CRSdefinitionResolver>`__ is
+an example of a public service for resolving CRS URLs; the same service is also
+bundled in every rasdaman installation, so that it is avialable locally. More
+details on this topic can be found in the :ref:`crs-management` chapter.
 
-Every coverage, as per OGC CIS, must have exactly one Native CRS. Sometimes
-definitions for such CRSs are readily available, such as with the EPSG registry
-where 2-D WGS84 is readily available under its code EPSG:4326. In particular
-spatio-temporal CRSs, however, are not always readily available, at least not
-in all combinations of spatial and temporal axes. To this end, composition
-of CRS is supported so that the single Native CRS can be built from
-"ingredient" CRSs by concatenating these CRSs into a composite one.
-
-For instance, a time-series of WGS84 images would have the following Native CRS:
-
-.. code-block:: text
+Sometimes definitions for CRSs are readily available, such as the 2-D WGS84 with
+code EPSG:4326 in the EPSG registry. In particular spatio-temporal CRSs,
+however, are not always readily available, at least not in all combinations of
+spatial and temporal axes. To this end, composition of CRS is supported so that
+the single Native CRS can be built from "ingredient" CRSs by concatenating them
+into a composite one. For instance, a time-series of WGS84 images would have
+the following Native CRS: ::
 
    http://localhost:8080/def/crs-compound?
-         1=http://localhost:8080/def/crs/EPSG/0/4326
-        &2=http://localhost:8080/def/crs/OGC/0/AnsiDate
+         1=http://localhost:8080/def/crs/OGC/0/AnsiDate
+        &2=http://localhost:8080/def/crs/EPSG/0/4326
 
-Coordinate tuples in this CRS represent an ordered composition of a geospatial
-CRS with Latitude followed by Longitude, as per EPSG:4326, followed by
-a temporal coordinate expressed in ISO 8601 syntax,
-such as: ``2012-01-01T00:01:20Z``.
+Coordinate tuples in this CRS represent an ordered composition of a temporal
+coordinate expressed in ISO 8601 syntax, such as ``2012-01-01T00:01:20Z``,
+followed by latitude and longitude coordinates, as per EPSG:4326.
 
-Several ways exist for determining the Native CRS of coverage domain set:
+The native CRS of a coverage domain set can be determined in severay ways:
 
-    * in a WCS ``GetCapabilities`` response, check the ``wcs:CoverageSummary/ows:BoundingBox@crs`` attribute;
-    * in a WCS ``DescribeCoverage`` response, check the ``@srsName`` attribute in the ``gml:domainSet``;
-    * in WCPS, use function ``crsSet(e)`` to determine the CRS of a coverage expression *e*;
+- in a WCS ``GetCapabilities`` response, the 
+  ``wcs:CoverageSummary/ows:BoundingBox@crs`` attribute;
 
-.. NOTE::
+- in a WCS ``DescribeCoverage`` response, the ``srsName`` attribute in the
+  ``gml:domainSet`` element; Furthermore, the ``axisLabels`` attribute contains
+  the CRS axis names according to the CRS sequency, and the ``uomLabels``
+  attribute contains the units of measure for each corresponding axis.
 
-   In a coverage also consider the ``axisLabels`` attributes giving the axis
-   names as used in the coverage, in proper sequence as per CRS; 
-   the ``uomLabels`` attribute contains the units of measure for each axis.
+- in WCPS, the function ``crsSet(e)`` returns the CRS of a coverage 
+  expression *e*;
 
 The following graphics illustrates, on the example of an image timeseries,
 how dimension, CRS, and axis labels affect the domain set in
@@ -192,22 +196,8 @@ a CIS 1.0 ``RectifiedGridCoverage``.
 .. NOTE::
 
    This handling of coordinates in CIS 1.0 bears some legacy burden from GML;
-   in the ``GeneralGridCoverage`` introduced with CIS 1.1 coordinate handling is much simplified.
-
-
-.. _crs-def-management:
-
-CRS Management
---------------
-
-the Native CRS of a coverage is given by a URL, as per OGC convention. Resolving
-this URL should deliver the CRS definition. The `OGC CRS resolver
-<http://external.opengeospatial.org/twiki_public/CRSdefinitionResolver>`__ is
-one such service. Its implementation is running SECORE which is part of rasdaman
-community.
-
-By providing the source code of the OGC resolver it is possible to deploy
-one's own resolver under an own URL, such as http://rasdaman.org:8080/def/crs/EPSG/0/27700.
+   in the ``GeneralGridCoverage`` introduced with CIS 1.1 coordinate handling is 
+   much simplified.
 
 
 Range Type
@@ -251,48 +241,82 @@ such as in hyperspectral images or climate variables.
 
 Nil Values
 ----------
-Nil (**"null"**) values, as per SWE, are supported by rasdaman in an extended way:
+
+Nil (null) values, as per SWE, are supported by rasdaman in an extended way:
 
     - null values can be defined over any data type
     - nulls can be single values
     - nulls can be intervals
     - a null definnition in a coverage can be a list of all of the above alternatives.
 
+Full details can be found in the null values :ref:`section <sec-nullvalues>`.
+
 .. NOTE::
 
-   It is highly recommended to NOT define null values **over floating-point numbers**
-   as this causes numerical problems well known in mathematics.
-   This is not related to rasdaman, but intrinsic to the nature and handling of
-   floating-point numbers in computers. If really desired, **a floating-point
-   interval should be defined** around the desired float null value
+   It is highly recommended to NOT define **single** null values over
+   floating-point data as this causes numerical problems well known in
+   mathematics. This is not related to rasdaman, but intrinsic to the nature
+   and handling of floating-point numbers in computers. **A floating-point
+   interval** around the desired float null value should be preferred
    (this corresponds to interval arithmetics in numerical mathematics).
 
+..
+ -- rasdaman enterprise begin
+
+Errors
+------
+
+Errors from OGC requests to rasdaman are returned to the client formatted as
+``ows:ExceptionReport`` (`OGC Common Specification <https://portal.ogc.org/files/?artifact_id=38867>`__).
+An ``ExceptionReport`` can contain multiple ``Exception`` elements.
+For example, when running a WCS GetCoverage or a WCPS query which execute
+rasql queries in rasdaman, in case of an error the ``ExceptionReport`` will contain
+two ``Exception`` elements:
+
+1. One with the error message returned from rasdaman.
+2. Another with the rasql query that failed.
+
+For example:
+
+.. code-block:: text
+
+    <ows:ExceptionReport>
+        <ows:Exception exceptionCode="RasdamanRequestFailed">
+            <ows:ExceptionText>The Encode function is applicable to array arguments only.</ows:ExceptionText>
+        </ows:Exception>
+        <ows:Exception exceptionCode="RasdamanRequestFailed">
+            <ows:ExceptionText>Failed internal rasql query: SELECT encode(1, "png" ) FROM mean_summer_airtemp AS c</ows:ExceptionText>
+        </ows:Exception>
+    </ows:ExceptionReport>
+
+.. _ogc-wcs:
 
 OGC Web Coverage Service
 ========================
 
-WCS Core offers request types:
+WCS Core offers the following request types:
 
-    - ``GetCapabilities`` for obtaining a list of coverages offered together
-      with an overall service description;
-    - ``DescribeCoverage`` for obtaining information about a coverage without 
-      downloading it;
-    - ``GetCoverage`` for downloading, extracting, and reformatting of coverages;
-      this is the central workhorse of WCS.
+- ``GetCapabilities`` for obtaining a list of coverages offered together with an
+  overall service description;
+
+- ``DescribeCoverage`` for obtaining information about a coverage without
+  downloading it;
+
+- ``GetCoverage`` for downloading, extracting, and reformatting of coverages;
+  this is the central workhorse of WCS.
 
 WCS Extensions in part enhance ``GetCoverage`` with additional functionality
 controlled by further parameters, and in part establish new request types,
 such as:
 
-    - WCS-T defining ``InsertCoverage``, ``DeleteCoverage``, and
-      ``UpdateCoverage`` requests;
-    - WCS Processing defining ``ProcessCoverages`` for submitting WCPS
-      analytics code.
+- WCS-T defining ``InsertCoverage``, ``DeleteCoverage``, and ``UpdateCoverage``
+  requests;
+
+- WCS Processing defining ``ProcessCoverages`` for submitting WCPS analytics
+  code.
 
 You can use ``http://localhost:8080/rasdaman/ows`` as service endpoints to which to
-send WCS requests, for example:
-
-.. code-block:: text
+send WCS requests, for example: ::
 
     http://localhost:8080/rasdaman/ows?service=WCS&version=2.0.1&request=GetCapabilities
 
@@ -309,9 +333,7 @@ with a couple of deviations necessary for n-D. Specifically, subsetting
 follows the next rules:
 
 - Slicing (``geoPoint``): the grid slice with index corresponding to the 
-  requested slicing geo point is returned. This is computed as follows:
-
-  .. code-block:: text
+  requested slicing geo point is returned. This is computed as follows: ::
 
      gridIndex = floor((geoPoint - minGeoLowerBound) / axisResolution)
 
@@ -319,17 +341,13 @@ follows the next rules:
   interval is determined as in the case of slicing. The number of returned grid 
   points follows gdal:
 
-  - If axis resolution is positive (e.g. ``Long`` axis):
-
-    .. code-block::text
+  - If axis resolution is positive (e.g. ``Long`` axis): ::
 
       gridLowerBound = floor((geoLowerBound - minGeoLowerBound) / axisResolution)
       numberOfGridPixels = floor(((geoUpperBound - geoLowerBound) / axisResolution) + 0.5)
       gridUpperBound = gridLowerBound + numberOfGridPixels - 1
 
-  - If axis resolution is negative (e.g. ``Lat`` axis):
-
-    .. code-block::text
+  - If axis resolution is negative (e.g. ``Lat`` axis): ::
 
       gridLowerBound = floor((geoUpperBound - maxGeoLowerBound) / axisResolution)
       numberOfGridPixels = floor((geoLowerBound - geoUpperBound) / axisResolution) + 0.5)
@@ -347,41 +365,35 @@ For example, a 2D coverage has ``Long`` (X) and ``Lat`` (Y) axes with CRS
 for axis ``Lat`` is ``-10``. The geo bounds of axis ``Long`` are ``[0:180]``
 and the geo bounds of axis ``Lat`` are ``[0:90]``.
 
-- Calculate *slicing* on ``Long`` axis by geo coordinates to grid coordinates:
+- Calculate *slicing* on ``Long`` axis by geo coordinates to grid coordinates: ::
 
-  .. code-block:: text
+    - Long(0):          returns [0]
+    - Long(9):          returns [0]
+    - Long(10):         returns [1]
+    - Long(15):         returns [1]
+    - Long(20):         returns [2]
+    - Long(40):         returns [4]
+    - Long(49.99999):   returns [4]
+    - Long(50.0):       returns [5]
 
-      - Long(0):          returns [0]
-      - Long(9):          returns [0]
-      - Long(10):         returns [1]
-      - Long(15):         returns [1]
-      - Long(20):         returns [2]
-      - Long(40):         returns [4]
-      - Long(49.99999):   returns [4]
-      - Long(50.0):       returns [5]
+- Calculate *trimming* on ``Long`` axis by geo coordinates to grid coordinates: ::
 
-- Calculate *trimming* on ``Long`` axis by geo coordinates to grid coordinates:
-
-  .. code-block:: text
-  
-      - Long(0:5):         returns [0:0]
-      - Long(0:10):        returns [0:0]
-      - Long(0:14.999):    returns [0:0]
-      - Long(0:15):        returns [0:1]
-      - Long(0:24.999):    returns [0:1]
-      - Long(0:25.0):      returns [0:2]
-      - Long(9,11): returns [0:0]
+    - Long(0:5):         returns [0:0]
+    - Long(0:10):        returns [0:0]
+    - Long(0:14.999):    returns [0:0]
+    - Long(0:15):        returns [0:1]
+    - Long(0:24.999):    returns [0:1]
+    - Long(0:25.0):      returns [0:2]
+    - Long(9,11): returns [0:0]
 
 CIS 1.0 to 1.1 Transformation
 -----------------------------
 
-Under WCS 2.1 - ie: with ``SERVICE=2.1.0`` - both ``DescribeCoverage``and
+Under WCS 2.1 - ie: with ``SERVICE=2.1.0`` - both ``DescribeCoverage`` and
 ``GetCoverage`` requests understand the proprietary parameter
 ``OUTPUTTYPE=GeneralGridCoverage`` which formats the result as CIS 1.1
 ``GeneralGridCoverage`` even if it has been imported into the server as a CIS
-1.0 coverage, for example:
-
-.. code-block:: text
+1.0 coverage, for example: ::
 
    http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.1.0
        &REQUEST=DescribeCoverage
@@ -407,110 +419,272 @@ Further clipping patterns include ``curtain`` and ``corridor`` on 3D+ coverages
 from ``Polygon (2D)`` and ``Linestring (1D)``. The result of ``curtain``
 clipping has the same dimensionality as the input coverage whereas the result of
 ``corridor`` clipping is always a 3D coverage, with the first axis being the
-*trackline* of the corridor by convention.
+*trackline* of the corridor by convention. 
 
-Below some examples are presented expaining the mimics for WCS.
-
-Syntactically, clipping is expressed by adding a ``&CLIP=`` parameter to the
+In WCS, clipping is expressed by adding a ``&CLIP=`` parameter to the
 request. If the ``SUBSETTINGCRS`` parameter is specified then this CRS also
 applies to the clipping WKT, otherwise it is assumed that the WKT is in the
-Native coverage CRS.
+Native coverage CRS. In WCPS, clipping is done with a ``clip`` function, much
+like in :ref:`rasql <ql-guide-clipping>`.
+
+Further information can be found in the :ref:`rasql clipping section <ql-guide-clipping>`.
+Below we list examples illustrating the functionality in WCS and WCPS.
 
 Clipping Examples
 ^^^^^^^^^^^^^^^^^
 
 -  Polygon clipping on coverage with Native CRS ``EPSG:4326``, for example:
 
-   .. hidden-code-block:: text
+   - WCS:
 
-        http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1&
-          &REQUEST=GetCoverage
-          &COVERAGEID=test_wms_4326
-          &CLIP=POLYGON((55.8 -96.6, 15.0 -17.3))
-          &FORMAT=image/png
+        .. hidden-code-block:: text
+
+            http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1&
+              &REQUEST=GetCoverage
+              &COVERAGEID=test_wms_4326
+              &CLIP=POLYGON((-40.3130 144.8657, -40.8969 146.3818, -40.7140 148.5352,
+                             -43.2612 148.4253, -43.6122 146.9531, -43.4689 145.6348,
+                             -42.4721 145.0854, -41.4757 144.778))
+              &FORMAT=image/png
+
+   - WCPS:
+
+        .. hidden-code-block:: text
+
+            for $c in (test_wms_4326)
+            return 
+                    encode(
+                            clip( 
+                                  $c, POLYGON((-40.3130 144.8657, -40.8969 146.3818, -40.7140 148.5352,
+                                               -43.2612 148.4253, -43.6122 146.9531, -43.4689 145.6348,
+                                               -42.4721 145.0854, -41.4757 144.778)) 
+                                )
+                            , "image/png"
+                          )
+ 
 
 -  Polygon clipping with coordinates in ``EPSG:3857`` (from ``subsettingCRS`` parameter)
    on coverage with Native CRS ``EPSG:4326``, for example:
 
-   .. hidden-code-block:: text
+   - WCS:
 
-        http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
-          &REQUEST=GetCoverage
-          &COVERAGEID=test_wms_4326
-          &CLIP=POLYGON((13589894.568 -2015496.69612, 15086830.0246 -1780682.3822))
-          &SUBSETTINGCRS=http://opengis.net/def/crs/EPSG/0/3857
-          &FORMAT=image/png
+       .. hidden-code-block:: text
+
+            http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
+              &REQUEST=GetCoverage
+              &COVERAGEID=test_wms_4326
+              &CLIP=POLYGON((13589894.568 -2015496.69612, 15086830.0246 -1780682.3822))
+              &SUBSETTINGCRS=http://localhost:8080/rasdaman/def/crs/EPSG/0/3857
+              &FORMAT=image/png
+
+   - WCPS:
+
+       .. hidden-code-block:: text
+
+            for $c in (test_wms_4326) 
+            return 
+                    encode( 
+                            clip(
+                                  $c, 
+                                  POLYGON((13589894.568 -2015496.69612, 15086830.0246 -1780682.3822)),
+                                  "http://localhost:8080/def/crs/EPSG/0/3857" 
+                                )
+                            , "image/png"
+                         )
 
 -  Linestring clipping on a 3D coverage with axes ``X``, ``Y``, ``ansidate``,
    for example:
 
-   .. hidden-code-block:: text
+   - WCS:
 
-        http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
-          &REQUEST=GetCoverage
-          &COVERAGEID=test_irr_cube_2
-          &CLIP=LineStringZ(75042.7273594 5094865.55794 "2008-01-01T02:01:20.000Z", 705042.727359 5454865.55794 "2008-01-08T00:02:58.000Z")
-          &FORMAT=text/csv
+       .. hidden-code-block:: text
+
+            http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
+              &REQUEST=GetCoverage
+              &COVERAGEID=test_irr_cube_2
+              &CLIP=LineString("2008-01-01T02:01:20.000Z" 75042.7273594 5094865.55794,
+                               "2008-01-08T00:02:58.000Z" 705042.727359 5454865.55794)
+              &FORMAT=text/csv
+
+   - WCPS:
+
+       .. hidden-code-block:: text
+
+            for $c in (test_irr_cube_2) 
+            return 
+                   encode( 
+                            clip(
+                                   $c, 
+                                   LineString("2008-01-01T02:01:20.000Z" 75042.7273594 5094865.55794,
+                                              "2008-01-08T00:02:58.000Z" 705042.727359 5454865.55794)
+                                )
+                                , "text/csv"
+                         )
 
 -  Multipolygon clipping on 2D coverage, for example:
 
-   .. hidden-code-block:: text
+   - WCS:
 
-        http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
-          &REQUEST=GetCoverage
-          &COVERAGEID=test_mean_summer_airtemp
-          &CLIP=Multipolygon( ((-23.189600 118.432617, -27.458321 117.421875,
-                                -30.020354 126.562500, -24.295789 125.244141)),
-                              ((-27.380304 137.768555, -30.967012 147.700195,
-                                -25.491629 151.259766, -18.050561 142.075195)) )
-          &FORMAT=image/png
+       .. hidden-code-block:: text
+
+            http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
+              &REQUEST=GetCoverage
+              &COVERAGEID=test_mean_summer_airtemp
+              &CLIP=Multipolygon( ((-23.189600 118.432617, -27.458321 117.421875,
+                                    -30.020354 126.562500, -24.295789 125.244141)),
+                                  ((-27.380304 137.768555, -30.967012 147.700195,
+                                    -25.491629 151.259766, -18.050561 142.075195)) )
+              &FORMAT=image/png
+
+   - WCPS:
+
+       .. hidden-code-block:: text
+
+            for $c in (test_mean_summer_airtemp) 
+            return 
+                   encode( 
+                            clip($c, 
+                                     Multipolygon( 
+                                       ((-23.189600 118.432617, -27.458321 117.421875,
+                                        -30.020354 126.562500, -24.295789 125.244141)),
+                                       ((-27.380304 137.768555, -30.967012 147.700195,
+                                        -25.491629 151.259766, -18.050561 142.075195)) 
+                                     )
+                                )
+                               , "image/png"
+                         )
 
 -  Curtain clipping by a Linestring on 3D coverage, for example:
 
-   .. hidden-code-block:: text
+    - WCS:
 
-        http://localhost:8080/rasdaman/ows?SERVICE=WCSVERSION=2.0.1
-          &REQUEST=GetCoverage
-          &COVERAGEID=test_eobstest
-          &CLIP=CURTAIN( projection(Lat, Long), linestring(25 41, 30 41, 30 45, 30 42) )
-          &FORMAT=text/csv
+       .. hidden-code-block:: text
+
+            http://localhost:8080/rasdaman/ows?SERVICE=WCSVERSION=2.0.1
+              &REQUEST=GetCoverage
+              &COVERAGEID=test_eobstest
+              &CLIP=CURTAIN( projection(Lat, Long), 
+                             linestring(25 41, 30 41, 30 45, 30 42) )
+              &FORMAT=text/csv
+
+    - WCPS:
+
+       .. hidden-code-block:: text
+
+            for $c in (test_eobstest) 
+            return 
+                   encode( 
+                            clip($c, 
+                                     CURTAIN( 
+                                              projection(Lat, Long), 
+                                              linestring(25 41, 30 41, 30 45, 30 42) 
+                                            )
+                                )
+                               , "text/csv"
+                         )
 
 -  Curtain clipping by a Polygon on 3D coverage, for example:
 
-   .. hidden-code-block:: text
+    - WCS:
 
-        http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
-          &REQUEST=GetCoverage
-          &COVERAGEID=test_eobstest
-          &CLIP=CURTAIN(projection(Lat, Long), Polygon((25 40, 30 40, 30 45, 30 42)))
-          &FORMAT=text/csv
+       .. hidden-code-block:: text
+
+            http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
+              &REQUEST=GetCoverage
+              &COVERAGEID=test_eobstest
+              &CLIP=CURTAIN(projection(Lat, Long), 
+                            Polygon((25 40, 30 40, 30 45, 30 42)))
+              &FORMAT=text/csv
+
+    - WCPS:
+
+       .. hidden-code-block:: text
+
+            for $c in (test_eobstest) 
+            return 
+                   encode( 
+                            clip($c, 
+                                     CURTAIN(
+                                              projection(Lat, Long), 
+                                              Polygon((25 40, 30 40, 30 45, 30 42))
+                                            )
+                                )
+                               , "text/csv"
+                         )
 
 -  Corridor clipping by a Linestring on 3D coverage, for example:
 
-   .. hidden-code-block:: text
+    - WCS:
 
-        http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
-          &REQUEST=GetCoverage
-          &COVERAGEID=test_irr_cube_2
-          &CLIP=CORRIDOR( projection(E, N),
-               &LineString(75042.7273594  5094865.55794 "2008-01-01T02:01:20.000Z",
-                          &75042.7273594 5194865.55794 "2008-01-01T02:01:20.000Z"),
-               &LineString(75042.7273594 5094865.55794, 75042.7273594 5094865.55794,
-                          &85042.7273594 5194865.55794, 95042.7273594 5194865.55794)
-              &)
-          &FORMAT=application/gml+xml
+       .. hidden-code-block:: text
+
+            http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
+              &REQUEST=GetCoverage
+              &COVERAGEID=test_irr_cube_2
+              &CLIP=CORRIDOR( projection(E, N),
+                   LineString("2008-01-01T02:01:20.000Z" 75042.7273594  5094865.55794,
+                              "2008-01-01T02:01:20.000Z" 75042.7273594 5194865.55794),
+                   LineString(75042.7273594 5094865.55794, 75042.7273594 5094865.55794,
+                              85042.7273594 5194865.55794, 95042.7273594 5194865.55794)
+                  )
+              &FORMAT=application/gml+xml
+
+    - WCPS:
+
+       .. hidden-code-block:: text
+
+            for $c in (test_irr_cube_2) 
+            return 
+                   encode( 
+                            clip($c, 
+                                     CORRIDOR( 
+                                               projection(E, N),
+                                               LineString("2008-01-01T02:01:20.000Z" 75042.7273594  5094865.55794,
+                                                          "2008-01-01T02:01:20.000Z" 75042.7273594 5194865.55794),
+                                               LineString(75042.7273594 5094865.55794, 75042.7273594 5094865.55794,
+                                                          85042.7273594 5194865.55794, 95042.7273594 5194865.55794)
+                                             )
+                                )
+                               , "application/gml+xml"
+                         )
 
 -  Corridor clipping by a Polygon on 3D coverage, for example:
 
-   .. hidden-code-block:: text
+    - WCS:
 
-        http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
-          &REQUEST=GetCoverage
-          &COVERAGEID=test_eobstest
-          &CLIP=corridor( projection(Lat, Long),
-                          LineString(26 41 "1950-01-01", 28 41 "1950-01-02"),
-                          Polygon((25 40, 30 40, 30 45, 25 45)), discrete )
-          &FORMAT=application/gml+xml
+       .. hidden-code-block:: text
+
+            http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
+              &REQUEST=GetCoverage
+              &COVERAGEID=test_eobstest
+              &CLIP=corridor( projection(Lat, Long),
+                              LineString(26 41 "1950-01-01", 28 41 "1950-01-02"),
+                              Polygon((25 40, 30 40, 30 45, 25 45)), discrete )
+              &FORMAT=application/gml+xml
+
+    - WCPS:
+
+       .. hidden-code-block:: text
+
+            for $c in (test_eobstest) 
+            return 
+                   encode( 
+                            clip($c, 
+                                     CORRIDOR( 
+                                                projection(Lat, Long),
+                                                LineString(26 41 "1950-01-01", 28 41 "1950-01-02"),
+                                                Polygon((25 40, 30 40, 30 45, 25 45))
+                                                , discrete 
+                                             )
+                                 )
+                               , "application/gml+xml"
+                         )
+
+.. NOTE::
+
+   :ref:`Subspace <sec-clipping-subspace>` clipping is not supported in WCS or WCPS.
+
+.. _ogc-wcst:
 
 WCS-T
 -----
@@ -525,17 +699,14 @@ cell values must be
   such as TIFF / GeoTIFF, JPEG / JPEG2000, PNG, etc;
 - n-D data in NetCDF or GRIB format
 
-The coverage metadata must be in XML or JSON format; any other format will lead
-to an error.
-
 In addition to the WCS-T standard parameters petascope supports additional
-proprietary parameters.
+proprietary parameters, covered in the following sections.
 
 .. NOTE::
 
    For coverage management normally WCS-T is not used directly. Rather, the more
-   convenient ``wcst_import`` Python importing tool is recommended for
-   :ref:`data-import`.
+   convenient ``wcst_import`` Python tool is recommended for :ref:`data-import`.
+
 
 Inserting coverages
 ^^^^^^^^^^^^^^^^^^^
@@ -582,9 +753,7 @@ Inserting a new coverage into the server's WCS offerings is done using the
 The response of a successful coverage request is the coverage id of the newly
 inserted coverage. For example: The coverage available at
 http://schemas.opengis.net/gmlcov/1.0/examples/exampleRectifiedGridCoverage-1.xml
-can be imported with the following request:
-
-.. code-block:: text
+can be imported with the following request: ::
 
     http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
         &REQUEST=InsertCoverage
@@ -593,9 +762,7 @@ can be imported with the following request:
 The following example shows how to insert a coverage stored on the
 server on which rasdaman runs. The cell values are stored in a TIFF file
 (attachment:myCov.gml), the coverage id is generated by the server and
-aligned tiling is used for the array storing the cell values:
-
-.. code-block:: text
+aligned tiling is used for the array storing the cell values: ::
 
     http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
         &REQUEST=InsertCoverage
@@ -604,10 +771,10 @@ aligned tiling is used for the array storing the cell values:
         &TILING=aligned[0:500,0:500]
 
 
+.. _update-coverage:
+
 Updating Coverages
 ^^^^^^^^^^^^^^^^^^
-
-.. _update-coverage:
 
 Updating an existing coverage into the server's WCS offerings is done using the ``UpdateCoverage`` request.
 
@@ -636,9 +803,7 @@ Updating an existing coverage into the server's WCS offerings is done using the 
     +------------------+----------------------------------------------+----------------------------------------------------------+-----------------------------+
 
 The following example shows how to update an existing coverage ``test_mr_metadata``
-from a generated GML file by ``wcst_import`` tool:
-
-.. code-block:: text
+from a generated GML file by ``wcst_import`` tool: ::
 
     http://localhost:8080/rasdaman/ows?SERVICE=WCS&version=2.0.1
         &REQUEST=UpdateCoverage
@@ -648,81 +813,134 @@ from a generated GML file by ``wcst_import`` tool:
         &INPUTCOVERAGEREF=file:///tmp/4514863c_55bb_462f_a4d9_5a3143c0e467.gml
 
 
+.. _delete-coverage:
+
 Deleting Coverages
 ^^^^^^^^^^^^^^^^^^
-
-.. _delete-coverage:
 
 The ``DeleteCoverage`` request type serves to delete a coverage (consisting of
 the underlying rasdaman collection, the associated WMS layer (if exists)
 and the petascope metadata).
-For example: The coverage ``test_mr`` can be deleted as follows:
-
-.. code-block:: text
+For example: The coverage ``test_mr`` can be deleted as follows: ::
 
     http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1
-      &REQUEST=DeleteCoverage
-      &COVERAGEID=test_mr
-
-Renaming coverage
-^^^^^^^^^^^^^^^^^
+        &REQUEST=DeleteCoverage
+        &COVERAGEID=test_mr
 
 .. _rename-coverage:
 
-The ``UpdateCoverageId`` request allows to update 
-a coverage's id and the associated WMS layer if one exists (v10.0+).
+Renaming a coverage
+-------------------
 
-For example, the coverage ``test_mr`` can be renamed to ``test_mr_new`` as follows:
+The ``/rasdaman/admin/coverage/update`` non-standard API allows to update a
+coverage id and the associated WMS layer if one exists (v10.0+). For example,
+the coverage ``test_mr`` can be renamed to ``test_mr_new`` as follows: ::
 
-.. code-block:: text
-
-    http://localhost:8080/rasdaman/admin/UpdateCoverageId?
-        COVERAGEID=test_mr
-       &NEWID=test_mr_new
+    http://localhost:8080/rasdaman/admin/coverage/update
+        ?COVERAGEID=test_mr
+        &NEWCOVERAGEID=test_mr_new
 
 .. _petascope-update-coverage-metadata:
 
-Coverage Metadata Update
+Update coverage metadata
 ------------------------
 
-Coverage metadata can be updated through the interactive rasdaman WSClient
-by selecting a text file (MIME type one of: ``text/xml``, ``application/json``,
-``text/plain``) containing new metadata and upload it to petascope.
-Then, petascope will read the content of the text file and update corresponding
-coverage's metadata.
+Coverage metadata can be updated through the interactive rasdaman WSClient on
+the *OGC WCS > Describe Coverage* tab, by selecting a text file (MIME type must
+be one of ``text/xml``, ``application/json``, or ``text/plain``) containing the
+new metadata; Note that to be able to do this it is necessary to login first in
+the *Admin* tab.
 
-.. NOTE::
-
-   This WSClient feature is login protected: **OGC WCS > Describe Coverage tab**
-   when one is already **logged in** with petascope admin user in **Admin tab**.
-
-The service URL for this feature is ``http://localhost:8080/rasdaman/admin/UpdateCoverageMetadata``
+The non-standard API for this feature is at ``/rasdaman/admin/coverage/update``
 which operates through multipart/form-data POST requests. The request should
-contain 2 parts: the first part is coverageId to update, the second part is a
-path to a local text file to be uploaded to server.
+contain 2 parts:
 
-Alternatively, one can use REST API to update a coverage metadata with
-petascope admin user's credentials *via basic authentication headers method*
-by *curl* tool. For example: Metadata of coverage ``test_mr_metadata``
-will be updated from the local XML file at ``/home/rasdaman/Downloads/test_metadata.xml``:
+1. the ``coverageId`` to update, and
+
+2. the path to a local text file to be uploaded to the server.
+
+For example, the below request will update the metadata of coverage
+``test_mr_metadata`` with the one in a local XML file at
+``/home/rasdaman/Downloads/test_metadata.xml`` by using the ``curl`` tool: ::
+
+   curl -F "COVERAGEID=test_mr_metadata" 
+        -F "file=@/home/rasdaman/Downloads/test_metadata.xml" 
+        "http://localhost:8080/rasdaman/admin/coverage/update"
+
+.. _petascope-make_inspire_coverage:
+
+Create an INSPIRE coverage
+--------------------------
+
+`INSPIRE coverages <https://inspire-wcs.eu/>`__ have an extra XML section
+``<ows:ExtendedCapabilities>`` in the result of WCS GetCapabilities, which
+stores the coverage metadata in a format complying to the INSPIRE standard.
+Controlling whether a local coverage is treated as an INSPIRE coverage can be
+done by sending a request to ``/rasdaman/admin/inspire/metadata/update`` with
+two mandatory parameters:
+
+- ``COVERAGEID`` - the coverage to be converted to an INSPIRE coverage
+- ``METADATAURL`` - a URL to an INSPIRE-compliant catalog entry for this coverage; 
+  if set to empty, i.e. ``METADATAURL=`` then the coverage is marked as non-INSPIRE
+  coverage.
+
+For example, the coverage ``test_inspire_metadata`` can be marked as INSPIRE
+coverage as follows: ::
+
+    curl --user rasadmin:rasadmin -X POST \
+         -F 'COVERAGEID=test_inspire_metadata' \
+         -F 'METADATAURL=https://inspire-geoportal.ec.europa.eu/16.iso19139.xml' \
+         'http://localhost:8080//rasdaman/admin/inspire/metadata/update'
+
+.. _petascope-check-coverage-exists:
+
+Check if a coverage exists
+--------------------------
+
+In v10+, rasdaman offers non-standard API to check if a coverage exists in a
+simpler and faster way than doing a GetCapabilities or a DescribeCoverage
+request. The result is a ``true/false`` string literal.
+
+
+Example:
 
 .. code-block:: text
 
-   curl --user petauser:PETASCOPE_ADMIN_PASSWORD 
-               -F "coverageId=test_mr_metadata" 
-               -F "file=@/home/rasdaman/Downloads/test_metadata.xml" 
-               "http://localhost:8080/rasdaman/admin/UpdateCoverageMetadata"
+    http://localhost:8080/rasdaman/admin/coverage/exist?coverageId=cov1
 
-Check if a coverage / layer exists
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-In v10+, rasdaman supports nonstandard REST request to check if 
-a coverage / layer exists. The result is ``true/false`` string literal.
+.. _wcs-getcap-extensions:
 
-.. code-block:: text
+GetCapabilities response extensions
+-----------------------------------
 
-    http://localhost:8080/rasdaman/ows/objectExists?coverageId=${coverageId}
-    http://localhost:8080/rasdaman/ows/objectExists?layer=${layer}
+The WCS ``GetCapabilities`` response contains some rasdaman-specific extensions,
+as documented below.
 
+- The ``<ows:AdditionalParameters>`` element of each coverage contains some information
+  which can be useful to clients:
+
+  - ``sizeInBytes`` - an estimated size (in bytes) of the coverage
+  - ``sizeInBytesWithPyramidLevels`` - an estimated size (in bytes) of the base coverage plus sizes of its pyramid coverages; only available if this coverage has pyramid
+  - ``axisList`` - the coverage axis labels in geo CRS order
+
+  Example:
+
+  .. hidden-code-block:: xml
+
+        <ows:AdditionalParameters>
+            <ows:AdditionalParameter>
+                <ows:Name>sizeInBytes</ows:Name>
+                <ows:Value>155</ows:Value>
+            </ows:AdditionalParameter>
+            <ows:AdditionalParameter>
+                <ows:Name>sizeInBytesWithPyramidLevels</ows:Name>
+                <ows:Value>1869</ows:Value>
+            </ows:AdditionalParameter>          
+            <ows:AdditionalParameter>
+                <ows:Name>axisList</ows:Name>
+                <ows:Value>Lat,Long</ows:Value>
+            </ows:AdditionalParameter>
+        </ows:AdditionalParameters> 
 
 OGC Web Coverage Processing Service (WCPS)
 ==========================================
@@ -739,39 +957,44 @@ WCPS requests can be submitted in both
 abstract syntax (`example <http://rasdaman.org/browser/systemtest/testcases_services/test_wcps/queries/233-extra_params_merge_new_metadata.test>`__)
 and in XML (`example <http://rasdaman.org/browser/systemtest/testcases_services/test_wcps/queries/245-test_enqoute_cdata_greate_less_character.xml>`__).
 
-For example, using the WCS GET/KVP protocol binding a WCPS request can be sent
-through the following ``ProcessCoverages`` request:
-
-.. code-block:: text
+For example, using the WCS GET/KVP protocol binding, a WCPS request can be sent
+through the following ``ProcessCoverages`` request: ::
 
     http://localhost:8080/rasdaman/ows?service=WCS&version=2.0.1
-      &REQUEST=ProcessCoverage&QUERY=<wcps-query>
+        &request=ProcessCoverage&query=<wcps-query>
 
-The following subsections list enhancements rasdaman offers over the
-OGC WCPS standard. A brief introduction to the WCPS language is given
-in the `WCPS cheatsheet <https://doc.rasdaman.org/11_cheatsheets.html#wcps>`__; 
-more educational material is available on `EarthServer <https://earthserver.xyz/wcs>`__.  
+The following subsections list enhancements rasdaman offers *over* the 
+`OGC WCPS standard <http://portal.opengeospatial.org/files/?artifact_id=32319>`__. 
+A brief introduction to the WCPS language is given in the
+:ref:`WCPS cheatsheet <cheatsheet-wcps>`; further educational material is 
+available on `EarthServer <https://earthserver.eu/wcs/>`__.  
 
 
 Polygon/Raster Clipping
 -----------------------
 
-The proprietary ``clip()`` function with the same effect as clipping is available with WCPS.
-The signature is as follows: 
+The non-standard ``clip()`` function enables clipping in WCPS. The signature is
+as follows: 
 
 .. code-block:: text
 
     clip( coverageExpression, wkt [, subsettingCrs ] )
 
 where
--  ``coverageExpression`` is an expression of result type coverage, eg: ``dem + 10``;
--  ``wkt`` is a valid WKT (Well-Known Text) expression, e.g. ``POLYGON((...))``, ``LineString(...)``;
--  ``subsettingCrs`` is an optional CRS in which the ``wkt``coordinates are expressed, eg: ``http://opengis.net/def/crs/EPSG/0/4326``.
+
+-  ``coverageExpression`` is an expression of result type coverage, e.g. 
+   ``dem + 10``;
+
+-  ``wkt`` is a valid WKT (Well-Known Text) expression, e.g. 
+   ``POLYGON((...))``, ``LineString(...)``;
+
+-  ``subsettingCrs`` is an optional CRS URL in which the ``wkt`` coordinates are 
+   expressed, e.g. ``"http://localhost:8080/rasdaman/def/crs/EPSG/0/4326"``.
 
 Clipping Examples
 ^^^^^^^^^^^^^^^^^
 
-- Polygon clipping with coordinates in ``EPSG:4326`` on coverage with Native CRS ``EPSG:3857``:
+- Polygon clipping with coordinates in ``EPSG:4326`` on coverage with native CRS ``EPSG:3857``:
 
   .. hidden-code-block:: text
 
@@ -792,7 +1015,7 @@ Clipping Examples
                 -27.1374 114.0820, -23.2413 120.5859,
                 -22.3501 114.7852, -21.4531 118.5645
               )),
-              "http://opengis.net/def/crs/EPSG/0/4326"
+              "http://localhost:8080/rasdaman/def/crs/EPSG/0/4326"
         ),
         "image/png"
       )
@@ -817,16 +1040,15 @@ Clipping Examples
     for c in (test_mean_summer_airtemp)
     return
       encode(
-        clip( c, LineString(-29.3822 120.2783, -19.5184 144.4043) ),
+        clip( c, LineString(-29.3822 120.2783, -19.5184 144.4043) ) WITH COORDINATES,
         "text/csv"
       )
 
-   In this case the geo coordinates of the values on the linestring will be
-   included as well in the result. The first band of the result will hold the
-   X coordinate, the second band the Y coordinate, and the remaining bands the
-   original cell values. Example output for the above query: ::
+  In this case with ``WITH COORDINATES`` extra parameter, the geo coordinates of the values on the linestring will be
+  included as well in the result. The first two bands of the result holds the coordinates (by geo CRS order), 
+  and the remaining bands the original cell values. Example output for the above query: ::
 
-   .. code-block:: text
+  .. code-block:: text
 
     "-28.975 119.975 90","-28.975 120.475 84","-28.475 120.975 80", ...
 
@@ -910,16 +1132,18 @@ Clipping Examples
         "application/gml+xml"
       )
 
-Auto-ratio for scaling X or Y axis in WCPS
-------------------------------------------
+.. _wcps-auto-ratio-scaling:
 
-As aproprietary extension, the ``scale()`` function in WCPS allows to specify
-the target extent of only one of the spatial horizontal axes, instead of both.
-In this case, the extent of the other axis will be determined automatically
-while preserving the original ratio between the two spatial axes.
+Auto-ratio for spatial scaling
+------------------------------
 
-For example in the request below, petascope will automatically set
-the extent  of ``Lat`` to a value that preserves the ratio in the output result: 
+The ``scale()`` function allows to specify the target extent of only one of the
+spatial horizontal axes, instead of requiring both. In such a case, the extent
+of the unspecified axis will be determined automatically while preserving the
+original ratio between the two spatial axes.
+
+For example in the request below, the extent of ``Lat`` will be automatically
+set to a value that preserves the ratio in the output result: 
 
 .. hidden-code-block:: text
 
@@ -927,33 +1151,37 @@ the extent  of ``Lat`` to a value that preserves the ratio in the output result:
    return
      encode( scale( $c, { Long:"CRS:1"(0:160) } ), "image/png" )
 
-Implicitly add full domains in scale() for unspecified non X/Y axes in WCPS
----------------------------------------------------------------------------
+.. _wcps-optional-non-scaled-axes:
 
-The ``scale()`` function in WCPS will implicitly add the full domains
-of unspecified non X/Y axes of a given coverage in the scales' domain intervals.
-In other words, unspecified non X/Y axes will not be scaled.
+Non-scaled axes are optional
+----------------------------
 
-For example in this query below, if a coverage is 3D and one only
-specified ``X (E)`` and ``Y (N)`` axes as scale's domain intervals,
-then the ``time`` axis's domains will be added implicitly in petascope.
+The ``scale()`` function will implicitly add the full domains of unspecified
+non-spatial axes of a given coverage, with the effect that they will *not* be
+scaled in the result. This deviates from the OGC WCPS standard, which requires
+all axes to be specified with target domains, even if the resolution of an axis
+should not be changed in the result.
+
+In the example query below, a 3D coverage is scaled only spatially because only
+the spatial axes E and N are specified in the target scale intervals, while the
+``ansi`` non-spatial axis is omitted.
 
 .. hidden-code-block:: text
 
    for $c in (test_irr_cube_2)
-   return encode(
-                 scale(
-                       $c[ansi("2008-01-01T02:01:20":"2008-01-08T00:02:58")] ,  
-                       { E:"CRS:1"(0:20), N:"CRS:1"(0:10) }
-                      )
-                , "json" )
+   return 
+    encode(
+      scale(
+        $c[ansi("2008-01-01T02:01:20":"2008-01-08T00:02:58")] ,  
+        { E:"CRS:1"(0:20), N:"CRS:1"(0:10) }
+      )
+    , "json" )
 
 
-Automatic domain extraction
----------------------------
+Extensions on domain functions
+------------------------------
 
-The domain interval can be extracted from a domain, including an 
-``imageCrsDomain`` (in modern nomenclature: index domain).
+The domain interval can be extracted from a ``domain`` and ``imageCrsDomain``.
 Both the interval - ie: ``[lowerBound:upperBound]`` - and lower as well 
 as upper bound can be retrieved for each axis.
 
@@ -963,37 +1191,55 @@ Syntax: ::
 
 with ``.lo`` or ``.hi`` returning the lower bound or upper bound of this interval.
 
-.. code-block:: text
+Further, the third argument of the ``domain()`` operator, the CRS URL, is
+optional. If not specified, ``domain()`` will use the CRS of the selected axis
+(ie, the second argument) instead.
 
-   Coverage test_eobstest has 3 dimensions with extent (0:5,0:29,0:39).
-   Expression imageCrsdomain(c,Long) in this case returns 0:39
-   whereas imageCrsdomain(c,Long).hi returns 39.
+For example, the coverage ``AvgLandTemp`` has 3 dimensions with grid bounding
+box of ``(0:184, 0:1799, 0:3599)``, and a geo bounding box of 
+``("2000-02-01:2015-06-01", -90:90, -180:180)``. The table below lists various 
+expressions and their results:
 
-Further, the third argument of the ``domain()`` operator, the CRS URL,
-is now optional. If not specified, ``domain()`` will use the CRS of the
-selected axis (ie, the second argument) instead.
+.. list-table:: Non-standard domain operations
+   :header-rows: 1
 
+   * - Expression
+     - Result
+   * - ``imageCrsdomain($c, Long)``
+     - ``(0:3599)``
+   * - ``imageCrsdomain($c, Long).lo``
+     - ``0``
+   * - ``imageCrsdomain($c, Long).hi``
+     - ``3599``
+   * - ``domain($c, Long)``
+     - ``(-180:180)``
+   * - ``domain($c, Long).lo``
+     - ``-180``
+   * - ``domain($c, Long).hi``
+     - ``180``
 
-LET clause in WCPS
-------------------
+.. _wcps-let-clause:
 
-An optional ``LET`` clause is supported in WCPS queries.
-It allows binding alias variables to valid WCPS query sub-expressions,
-and subsequently make use of the variables in the ``return`` clause
-instead of repeating the aliased sub-expressions.
+LET clause
+----------
 
-The syntax is ::
+An optional ``LET`` clause allows binding alias variables to valid WCPS query
+sub-expressions; subsequently the alias variables can be used in the ``return``
+clause instead of repeating the aliased sub-expressions.
 
-   FOR-CLAUSE
-   LET $variable := assignment [ , $variable := assignment ]
-       ...
-   [ WHERE-CLAUSE ]
-   RETURN-CLAUSE
+The syntax in context of a full query is as follows: ::
+
+  FOR-CLAUSE
+  LET $variable := assignment [ , $variable := assignment ]
+     ...
+  [ WHERE-CLAUSE ]
+  RETURN-CLAUSE
 
 where ::
 
-   assignment ::= coverageExpression | domainExpression
+  assignment ::= coverageExpression | [ dimensionalIntervalList ]
 
+An example with the first case:
 
 .. code-block:: text
 
@@ -1003,65 +1249,50 @@ where ::
   return
     encode( scale( $c, { imageCrsDomain( $c ) } ) + $b, "image/png" )
 
-A special shorthand subset expression allows to conveniently specify domains.
-The variable in the LET clause follows this syntax: ::
-  
-  LET $variable := [ dimensionalIntervalList ]
-
-This can readily be used in a subset expression: ::
-
-  coverageVariable[$variable1]
-
-.. code-block:: text
+The second case allows to conveniently specify domains which can then be readily 
+used in subset expression, e.g: ::
 
   for $c in (test_mr) 
-  let $a := [i(20), j(40)], 
-      $b := 10 
+  let $dom := [i(20), j(40)]
   return
-    encode( $c[ $a ] + $b, "itext/json" )
+    encode( $c[ $dom ] + 10, "itext/json" )
 
-Binary min, max operations in WCPS
-----------------------------------
 
-Since v10+, rasdaman supports binary ``min()`` and ``max()`` operations.
-For two compatible coverages A and B they calculate a result coverage 
-with the minimum / maximum for each pair of corresponding cell values of A and B.
-Example:
+.. _wcps-min-max-functions:
 
-.. code-block:: text
+min and max functions
+---------------------
 
-  min(A, B)
+Given two coverage expressions ``A`` and ``B`` (resulting in compatible
+coverages, i.e. same domains and types), ``min(A, B)`` and ``max(A, B)``
+calculate a result coverage with the minimum / maximum for each pair of
+corresponding cell values of ``A`` and ``B``.
 
-where A and B are coverage expressions.
+For multiband coverages, bands in the operands must be pairwise compatible;
+comparison is done in lexicographic order with the first band being most
+significant and the last being least significant.
+
+The result coverage value has the same domain and type as the input operands.
 
 .. _positional_parameters_in_wcps:
 
-Positional parameter in WCPS
-----------------------------
+Positional parameters
+---------------------
 
-Since v10+, rasdaman supports positional parameters in WCPS (non-standard).
-Positional parameters allow to reference binary or string values in a WCPS query.
-The binary/string values are specified in a POST request, in addition to the
-WCPS query.
-
-Syntax
-^^^^^^
-
-The syntax for the positional parameter is:
-
-.. code-block:: text
-
-   $POSITIVE_INTEGER e.g: $1, $2,..
+Positional parameters allow to reference binary or string values in a WCPS
+query, which are specified in a POST request in addition to the WCPS query.
+Each positional parameter must be a positive integer prefixed by a ``$``, e.g.
+``$1``, ``$2``, etc.
 
 The endpoint to send WCPS query by POST with extra values is:
 
 .. code-block:: text
 
-    localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1&REQUEST=ProcessCoverages
+    /rasdaman/ows?SERVICE=WCS&VERSION=2.0.1&REQUEST=ProcessCoverages
 
-with the mandatory parameter ``query`` and optional positional parameters: ``1``, ``2``,...
-The value of a positional parameter can be either **binary file content** 
-or **string value**.
+with the mandatory parameter ``query`` and optional positional parameters ``1``,
+``2``, etc. The value of a positional parameter can be either a 
+**binary file data** or a **string value**.
 
 
 .. _positional_parameters_in_wcps_example:
@@ -1069,80 +1300,82 @@ or **string value**.
 Example
 ^^^^^^^
 
-One can use ``curl`` tool as a client to send a WCPS request with 
-**positional parameters** to rasdaman via POST. ``curl`` reads the contents
-of the selected files automatically via file paths with ``@`` parameter.
+One can use the ``curl`` tool to send a WCPS request with 
+**positional parameters** from the command line; it will read the contents
+of specified files automatically if they are prefixed with a ``@``.
 
-For example, one wants to combine an existing coverage (``$c`` variable)
-with two temporary covarages (``$d`` and ``$e`` variables) in ``png`` format 
-from positional parameters ``$1``, ``$2`` and ``$3`` respectively :
+For example, to combine an existing coverage ``$c`` with two temporary coverages
+``$d`` and ``$e`` provided by positional parameters ``$1`` and ``$2`` into a
+result encoded in ``png`` format (specified by positional parameter ``$3``):
 
 .. code-block:: text
 
    curl -s "http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1&REQUEST=ProcessCoverages" \
-   -F 'query=for $c in (existing_coverage), $d in (decode($1)), $e in (decode($2)) return encode(($c + $d + $e)[Lat(0:90), Long(-180:180)], "$3"))' \
-   -F "1=@/home/rasdaman/file1.tiff" \
-   -F "2=@/home/rasdaman/file2.tiff" \
-   -F "3=png" \
-   > ~/Downloads/test.png
+        -F 'query=for $c in (existing_coverage), $d in (decode($1)), $e in (decode($2)) 
+            return encode(($c + $d + $e)[Lat(0:90), Long(-180:180)], "$3"))' \
+        -F "1=@/home/rasdaman/file1.tiff" \
+        -F "2=@/home/rasdaman/file2.tiff" \
+        -F "3=png" > test.png
 
+.. _wcps-decode-operator:
 
 Decode Operator in WCPS
 -----------------------
 
-Since v10+, rasdaman supports the non-standard ``decode()`` operator
-in WCPS. This feature allows one to combine existing coverages with
-temporary coverages created in memory from input files attached
-in POST request body.
+The non-standard ``decode()`` operator allows to combine existing coverages with
+temporary coverages created in memory from input files attached in the request
+body via POST.
+
+Only 2D geo-referenced files readable by GDAL are supported. One way to check if
+a file ``$f`` is readable by GDAL is with ``gdalinfo $f``. ``netCDF/GRIB``
+files are not supported.
 
 Syntax
 ^^^^^^
 
-The syntax for the ``decode()`` operator is:
-
-.. code-block:: text
+The syntax is ::
 
    decode(${positional_parameter}) 
 
-with ``${positional_parameter)`` refers to the indicated files in the POST request.
-See :ref:`positional parameters in WCPS <positional_parameters_in_wcps>`.
-
-.. NOTE::
-
-    Currently, WCPS ``decode()`` operator supports only 2D geo-referenced
-    files readable by GDAL. One way to check if a file is readable by GDAL is
-    with ``gdalinfo ${file}``. ``netCDF/GRIB`` format is not supported.
+where ``${positional_parameter)`` refers to files in the POST request.
+See the :ref:`previous section <positional_parameters_in_wcps>` for more details
+on positional parameters.
 
 Example
 ^^^^^^^
 
-See :ref:`example about positional parameters in WCPS <positional_parameters_in_wcps_example>`.
+See :ref:`example on positional parameters <positional_parameters_in_wcps_example>`.
 
+
+.. _wcps-switch-case:
 
 Case Distinction
 ----------------
 
-As another proprietary extension, conditional evaluation is added to WCPS
-following the overall XQuery-oriented syntax.
+Conditional evaluation based on the cell values of a coverage is possible with
+the ``switch`` expression. Although the syntax is a little different, the
+semantics is very much compatible to the rasql ``case`` statement, so it is
+recommended to additionally have a look at its corresponding
+:ref:`documentation <rasql-case-stmt>`.
 
 Syntax
 ^^^^^^
 
-.. code-block:: text
+::
 
   SWITCH
     CASE condExp RETURN resultExp
     [ CASE condExp RETURN resultExp ]*
     DEFAULT RETURN resultExpDefault
 
-where ``condExp`` and ``resultExp`` are either scalar-valued or
-coverage-valued expressions.
+where ``condExp`` and ``resultExp`` are either scalar-valued or coverage-valued
+expressions.
 
 Constraints
 ^^^^^^^^^^^
 
-- All condition expressions must return either boolean values or boolean coverages
-- All result expressions must return either scalar values, or coverages
+- All ``condExp`` must return either boolean values or boolean coverages
+- All ``resultExp`` must return either scalar values, or coverages
 - The domain of all condition expressions must be the same
 - The domain of all result expressions must be the same (that means same extent, 
   resolution/direct positions, crs)
@@ -1186,18 +1419,14 @@ Examples
 The above example assigns blue to all pixels in the $c coverage having a value
 less than 10, green to the ones having values at least equal to 10, but less
 than 20, red to the ones having values at least equal to 20 but less than 30 and
-black to all other pixels.
-
-.. code-block:: text
+black to all other pixels. ::
 
   switch
     case $c > 0 return log($c)
     default     return 0
 
 The above example computes log of all positive values in $c, and assigns 0 to
-the remaining ones.
-
-.. code-block:: text
+the remaining ones. ::
 
   switch
     case $c < 10 return $c * {red: 0;   green: 0;   blue: 255}
@@ -1212,43 +1441,43 @@ less than 20, *red: 255* multiplied by the original pixel value to the ones havi
 values at least equal to 20 but less than 30 and black to all other pixels.
 
 
-CIS 1.0 to CIS 1.1 Transformation
----------------------------------
+CIS 1.0 to CIS 1.1 encoding
+---------------------------
 
-For output format ``application/gml+xml`` WCPS supports delivery
-as CIS 1.1 ``outputType=GeneralGridCoverage`` by specifying an additional
-proprietary parameter ``outputType`` in the ``encode()`` function.
-
-.. code-block:: text
+For output format ``application/gml+xml`` WCPS supports delivery as CIS 1.1
+``GeneralGridCoverage`` by specifying an additional proprietary parameter
+``outputType`` in the ``encode()`` function, e.g: ::
 
     for c in (test_irr_cube_2)
     return encode( c, "application/gml+xml", 
                       "{\"outputType\":\"GeneralGridCoverage\"}" ) 
 
+.. _wcps-query-parameter:
+
 Query Parameter
 ---------------
 
-In v10+, rasdaman supports the ``q`` parameter besides the ``query`` parameter
-to store a WCPS query. A request must contain only one ``q`` or ``query`` parameter.
-
-.. code-block:: text
+For specifying the WCPS query in a request, in addition to the ``query``
+parameter the non-standard ``q`` parameter is also supported. A request must
+contain only one ``q`` or ``query`` parameter. ::
 
     http://localhost:8080/rasdaman/ows?service=WCS&version=2.0.1
       &REQUEST=ProcessCoverage&q=<wcps-query>
 
+.. _wcps-describe-operator:
+
 Describe Operator in WCPS
 -------------------------
 
-For some ``coverageExpression`` the ``describe()`` function delivers a "coverage description" 
-consisting of the result coverage, except the range set, in either GML or JSON.
-This function is not part of the WCPS standard.
+The non-standard ``describe()`` function delivers a "coverage description" of a
+given coverage without the range set, in either GML or JSON.
 
 Syntax
 ^^^^^^
 
 .. code-block:: text
 
-   describe( coverageExpression, outputFormat [ , extraParameter ] )
+   describe( coverageExpression, outputFormat [ , extraParameters ] )
 
 where
 
@@ -1256,8 +1485,8 @@ where
   in which the result will be formatted. Formats are indicated through
   their MIME type identifier, just as in ``encode()``. Formats supported:
    
-   - ``application/gml+xml`` (or short: ``gml``) for GML
-   - ``application/json`` (or short: ``json``) for JSON
+   - ``application/gml+xml`` or ``gml`` for GML
+   - ``application/json`` or ``json`` for JSON
 
 - ``extraParameters`` is an optional string containing parameters
   for fine-tuning the output, just as in ``encode()``. Options supported:
@@ -1268,24 +1497,22 @@ where
 Semantics
 ^^^^^^^^^
 
-A ``describe()`` operation returns a description of the coverage resulting
-from the coverage expression passed, consisting of domain set, range type, and metadata, 
-but not the range set. As such, this operator is the WCPS equivalent 
-to a WCS ``DescribeCoverage`` request, and the output adheres to the same WCS schema.
+A ``describe()`` operation returns a description of the coverage resulting from
+the coverage expression passed, consisting of domain set, range type, and
+metadata, but not the range set. As such, this operator is the WCPS equivalent
+to a WCS ``DescribeCoverage`` request, and the output adheres to the same WCS
+schema.
 
 The coverage description generated will follow the coverage's type, 
 so one of Rectified Grid Coverage (CIS 1.0), ReferenceableGridCoverage (CIS 1.0),
-General Grid Coverage (CIS 1.0). 
+or General Grid Coverage (CIS 1.0). 
 
-By default, the coverage will be provided
-as Rectified or Referenceable Grid Coverage (in accordance with its type); 
-optionally, a General Grid Coverage can be generated instead. 
-However, generation of a General Grid Coverage structure can be enforced through
-``"outputType=GeneralGridCoverage"``. 
-As JSON is supported only from OGC CIS 1.1 onwards this format is only available 
-(i) if the coverage is stored as a CIS 1.1 General Grid Coverage 
-(currently not supported) or (ii) this output type is selected
-explicitly through ``extraParameter``.
+By default, the coverage will be provided as Rectified or Referenceable Grid
+Coverage (in accordance with its type); optionally, a General Grid Coverage can
+be generated instead through ``"outputType=GeneralGridCoverage"``. As JSON is
+supported only from OGC CIS 1.1 onwards this format is only available (i) if the
+coverage is stored as a CIS 1.1 General Grid Coverage (currently not supported)
+or (ii) this output type is selected explicitly through an ``extraParameter``.
 
 **Efficiency**: The ``describe()`` operator normally does not materialize
 the complete coverage, but determines only the coverage description making
@@ -1297,25 +1524,19 @@ Examples
 ^^^^^^^^
 
 - Determine coverage description as a CIS 1.0 Rectified Grid Coverage in GML, 
-  without evaluating the range set:
-
-  .. code-block:: text
+  without evaluating the range set: ::
 
      for $c in (Cov)
      return describe( $c.red[Lat(10:20), Long(30:40), "application/gml+xml" )
 
 - Deliver coverage description as a CIS 1.1 General Grid Coverage in GML,
-  where range type changes in the query:
-
-  .. code-block:: text
+  where range type changes in the query: ::
 
      for $c in (Cov)
      return describe( { $c.red; $c.green; $c.blue }, "application/gml+xml", 
                                          "outputType=GeneralGridCoverage" )
 
-- Deliver coverage description as a CIS 1.1 General Grid Coverage, in JSON:
-
-  .. code-block:: text
+- Deliver coverage description as a CIS 1.1 General Grid Coverage, in JSON: ::
 
      for $c in (Cov)
      return describe( $c, "application/json", "outputType=GeneralGridCoverage" )
@@ -1325,9 +1546,11 @@ Specific Exceptions
 ^^^^^^^^^^^^^^^^^^^
 
 - Unsupported output format
-- This format only supported for General Grid Coverage
+- This format is only supported for General Grid Coverage
 - Illegal extra parameter
 
+
+.. _ogc-wms:
 
 OGC Web Map Service (WMS)
 =========================
@@ -1341,8 +1564,13 @@ and WCPS. Further information:
 - :ref:`How to publish a WMS layer via WCST\_Import <wms-import>`.
 - :ref:`Add WMS style queries to existing layers <style-creation>`.
 
-WMS GetMap: Special Functionality
----------------------------------
+This section mainly covers rasdaman extensions of the OGC WMS standard.
+
+
+GetMap extensions
+-----------------
+
+.. _wms-transparency:
 
 Transparency
 ^^^^^^^^^^^^
@@ -1350,7 +1578,7 @@ Transparency
 By adding a parameter ``transparent=true`` to WMS requests the returned image
 will have ``NoData Value=0`` in the metadata indicating to the client 
 that all pixels with value *0* value should be considered transparent for PNG
-encoding format.
+encoding format. Example:
 
 .. hidden-code-block:: text
 
@@ -1365,12 +1593,12 @@ encoding format.
 Interpolation
 ^^^^^^^^^^^^^
 
-If in a ``GetMap`` request the output CRS requested is different from
-the coverage's Native CRS petascope will duly reproject the map applying
-resampling and interpolation. The algorithm used can be controlled with
-the proprietary ``GetMap`` parameter ``interpolation={method}``;
-default is nearest-neighbour interpolation.
-See :ref:`sec-geo-projection` for the methods available and their meaning.
+If in a ``GetMap`` request the output CRS requested is different from the
+coverage's native CRS, petascope will duly reproject the map applying
+resampling and interpolation. The algorithm used can be controlled with the
+non-standard ``GetMap`` parameter ``interpolation=${method}``; default is
+nearest-neighbour interpolation. See :ref:`sec-geo-projection` for the methods
+available and their meaning. Example:
 
 .. hidden-code-block:: text
 
@@ -1384,17 +1612,17 @@ See :ref:`sec-geo-projection` for the methods available and their meaning.
         &FORMAT=image/png
         &INTERPOLATION=bilinear
 
-3D+ Coverages as WMS Layers
----------------------------
+nD Coverages as WMS Layers
+--------------------------
 
-Petascope allows to import a 3D+ coverage as a WMS layer.
-To this end, the ingrdients file used for ``wcst_import``
-must contain ``wms_import": true``. This works for 3D+ coverages
-with recipes *regular_time_series*, *irregular_time_series*, and *general_coverage* recipes.
+Petascope allows to import a 3D+ coverage as a WMS layer. To this end, the 
+ingredients file used for ``wcst_import`` must contain ``wms_import": true``. 
+For 3D+ coverages this works with recipes *regular_time_series*,
+*irregular_time_series*, and *general_coverage*.
 `This example <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/wms_3d_time_series_irregular/ingest.template.json>`__
-demonstrates how to define an *irregular_time_series* 3D coverage from 2D GeoTIFF files.
+shows how to define an *irregular_time_series* 3D coverage from 2D TIFF files.
 
-Once the coverage is created, a ``GetMap`` request can use the additional
+Once the coverage is created, ``GetMap`` requests can use the additional
 (non-horizontal) axes for subsetting according to the OGC WMS 1.3.0 standard.
 
 .. TABLE:: WMS Subset Parameters for Different Axis Types
@@ -1409,82 +1637,139 @@ Once the coverage is created, a ``GetMap`` request can use the additional
     |Other             |dim_AxisName=... (e.g dim_pressure=...)           |
     +------------------+--------------------------------------------------+
 
+According to the WMS 1.3.0 specification, the subset for non-geo-referenced axes
+can have these formats:
 
-According to the WMS 1.3.0 specification, the subset
-for non-geo-referenced axes can have these formats:
+- Specific value (*value1*): ::
 
-- Specific value (*value1*): time='2012-01-01T00:01:20Z, dim_pressure=20,...
+    time='2012-01-01T00:01:20Z'
+    dim_pressure=20
 
-- Range values (*min/max*): time='2012-01-01T00:01:20Z'/'2013-01-01T00:01:20Z,
-  dim_pressure=20/30,...
+- Range values (*min/max*): ::
 
-- Multiple values (*value1,value2,value3,...*): time='2012-01-01T00:01:20Z,
-  '2013-01-01T00:01:20Z, dim_pressure=20,30,60,100,...
+    time='2012-01-01T00:01:20Z'/'2013-01-01T00:01:20Z'
+    dim_pressure=20/30
 
-- Multiple range values (*min1/max1,min2/max2,...*):
-  dim_pressure=20/30,40/60,...
+- Multiple values (*value1,value2,value3,...*): ::
 
-.. NOTE::
+    time='2012-01-01T00:01:20Z','2013-01-01T00:01:20Z'
+    dim_pressure=20,30,60,100
 
-   A ``GetMap`` request always returns a 2D result. If a non-geo-referenced axis
-   is omitted from the request it will be considered as a slice
-   on the upper bound along this axis. For example, in a time-series 
-   the youngest timeslice will be delivered).
+- Multiple range values (*min1/max1,min2/max2,...*): ::
 
-  Examples:
+    dim_pressure=20/30,40/60
 
-  - Multiple values on `time axis of 3D coverage <http://rasdaman.org/browser/systemtest/testcases_services/test_wms/queries/29-get_map_on_3d_time_series_irregular_time_specified.test>`__.
-  - Multiple values on `time, dim_pressure axes of 4d coverage <http://rasdaman.org/browser/systemtest/testcases_services/test_wms/queries/31-get_map_on_4d_coverage_dim_pressure_and_time_irregular_specified.test>`__.
 
-WMS Layer Management
---------------------
+A ``GetMap`` request always returns a 2D result. If a non-geo-referenced axis is
+omitted from the request it will be considered as a slice on the upper bound
+along this axis. For example, in a time-series the most recent timeslice will be
+delivered.
 
-Additional proprietary requests, beyond the WMS standard, allow for service maintenance.
+Examples:
 
-Layers can be easily created from existing coverages in WCS in two ways:
+- Multiple values on `time axis of a 3D coverage <http://rasdaman.org/browser/systemtest/testcases_services/test_wms/queries/29-get_map_on_3d_time_series_irregular_time_specified.test>`__
+- Multiple values on `time and dim_pressure axes of a 4d coverage <http://rasdaman.org/browser/systemtest/testcases_services/test_wms/queries/31-get_map_on_4d_coverage_dim_pressure_and_time_irregular_specified.test>`__
 
-- By specifying WMS setup during import coverage in the respective
-  ingredients file; see :ref:`wms_import <wms-import>`;
-- By sending an :ref:`InsertWCSLayer <insert-wcs-layer>` HTTP request
-  to petascope.
+.. _get-legend-graphic:
 
-The following proprietary WMS request types serve to manage the WMS offering
-of rasdaman:
+GetLegendGraphic request
+------------------------
 
-.. _insert-wcs-layer:
+WMS ``GetLegendGraphic`` allows to get a legend PNG/JPEG image
+associated with a style of a layer. Admin can set a legend image 
+for a style via a :ref:`style creation <style-creation>` request.
 
-- ``InsertWCSLayer``: create a new WMS layer from an existing coverage.
+Required request parameters:
 
-.. hidden-code-block:: text
+- ``format`` - data format in which the legend image is returned; only 
+  ``image/png`` and ``image/jpeg`` are supported.
+- ``layer`` - the WMS layer which contains the specified style.
+- ``style`` - the style which contains the legend image.
 
-    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
-           &REQUEST=InsertWCSLayer
-           &WCSCOVERAGEID=MyCoverage
+   .. NOTE::
 
-- ``UpdateWCSLayer``: update an existing WMS layer from an existing coverage
-  which associates with this WMS layer.
+      Any further extra parameters will be ignored by rasdaman.
 
-.. hidden-code-block:: text
+This request, for example, will return the legend image for style color
+of layer cov1:
 
-    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
-            &REQUEST=UpdateWCSLayer
-            &WCSCOVERAGEID=MyCoverage
+.. code-block:: text
 
-- A layer can be removed either directly with a ``DeleteLayer`` 
-  request (since rasdaman v10.0), or indirectly when deleting a coverage
-  (:ref:`removing the associated WCS coverage <delete-coverage>`). 
-  The ``DeleteLayer`` request is of the form:
+     http://localhost:8080/rasdaman/ows?service=WMS&request=GetLegendGraphic
+         &format=image/png&layer=cov1&style=color
+ 
+When a style of a layer has an associated legend graphic, WMS ``GetCapabilities``
+will have an additional ``<LegendURL>`` XML section for this style. For example:
 
-.. hidden-code-block:: text
+.. hidden-code-block:: xml
 
-    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
-            &REQUEST=DeleteLayer
-            &LAYER=MyLayer
+    <LegendURL>
+        <Format>image/jpeg</Format>
+        <OnlineResource
+            xlink:href="http://localhost:8080/rasdaman/ows?service=WMS&amp;request=GetLegendGraphic
+               &amp;format=image/jpeg&amp;layer=cov_1&amp;style=NDVI"/>
+    </LegendURL>
 
-.. _style-creation:
 
-WMS Style Management
---------------------
+.. _wms-layer-management:
+
+Layer Management
+----------------
+
+Non-standard API for WMS layer management are listed below.
+
+Layers can be easily created from existing WCS coverages in two ways:
+
+- By enabling this during coverage import in the ingredients file with the
+  :ref:`wms_import <wms-import>` option;
+
+- By manually sending an :ref:`/rasdaman/admin/layer/activate <activate-wms-layer>` 
+  HTTP request to petascope
+
+.. _activate-wms-layer:
+
+- Create a new WMS layer from an existing coverage ``MyCoverage``:
+
+  .. code-block:: text
+
+    /rasdaman/admin/layer/activate?COVERAGEID=MyCoverage
+
+  During coverage import this can be done with the
+  :ref:`wms_import <wms-import>` option in the ingredients file.
+
+- Remove a WMS layer directly:
+
+  .. code-block:: text
+
+    /rasdaman/admin/layer/deactivate&COVERAGEID=MyLayer
+
+  Indirectly a layer will be removed when :ref:`deleting the associated WCS 
+  coverage <delete-coverage>` 
+
+.. _style-behavior:
+
+Style Behavior
+--------------
+
+When a client sends ``GetMap`` requests, the rules below define
+(in conformance with the WMS 1.3 standard) how a style is applied
+to the requested layers:
+
+- If no styles are defined then rasdaman returns the data as-is,
+  encoded in the requested format.
+- If some styles are defined, e.g. X, Y, and Z, then:
+
+  - If the client specifies a style Y, then Y is applied.
+  - If the client does not specify a style, then:
+
+    - If the admin has set a style as default, e.g. Z, then Z is applied.
+    - Otherwise, if no style has been set as default,
+      then the first style from the list of styles (X) is applied.
+
+.. _style-management:
+
+Style Management
+----------------
 
 Styles can be created for layers using rasql and WCPS query fragments. This
 allows users to define several visualization options for the same dataset in a
@@ -1494,35 +1779,160 @@ abstract and layer provided in the KVP parameters below
 
 .. NOTE::
 
-    For Tomcat version 7+ it requires the query (WCPS/rasql fragment)
-    to be URL-encoded correctly. `This site <http://meyerweb.com/eric/tools/dencoder/>`__ 
-    offers such an encoding service.
+    Tomcat version 7+ requires the query (WCPS/rasql fragment) to be URL-encoded
+    correctly. `This site <http://meyerweb.com/eric/tools/dencoder/>`__ offers
+    such an encoding service.
+
+.. _style-creation:
+
+Style Definition
+^^^^^^^^^^^^^^^^
+
+A style of a WMS layer can be created via the
+``/rasdaman/admin/layer/style/add`` endpoint, while an existing style can be
+updated via the ``/rasdaman/admin/layer/style/update`` endpoint. Both endpoints
+understand the following parameters:
+
+- ``COVERAGEID`` - an existing WMS layer to which the style to be created or
+  updated belongs (mandatory);
+
+- ``STYLEID`` - the style name, must be unique among all the styles of one layer
+  (mandatory);
+
+- ``TITLE`` - an optional style title as human-understandable text;
+
+- ``ABSTRACT`` - an optional description of the what the style does
+
+- One of the following (optional):
+
+  - ``RASQLTRANSFORMFRAGMENT`` - a rasql query expression applied to the map
+    tiles before being returned to the client;
+
+  - ``WCPSQUERYFRAGMENT`` - a WCPS query expression applied to the map tiles
+    before being returned to the client;
+
+- ``COLORTABLETYPE`` + ``COLORTABLEDEFINITION`` - an optional color table for
+  coloring the map tiles before returning to the client.
+
+At least a query fragment, or a color table, or both, must be specified in the
+request.
+
+Additionally the updating endpoint supports the 
+following optional parameters:
+
+- ``NEWSTYLEID`` - the style specified with ``STYLEID`` will be renamed to the new id
+  specified by this parameter.
+
+- ``DEFAULT`` - if set to ``true`` then this style is set as the default of the layer
+  (more details :ref:`here <style-behavior>`); if not specified, it is ``false`` by default.
+
+- ``LEGENDGRAPHIC`` - associate a PNG/JPEG legend image to this style, specified
+  in Base64 string format; clients can get the legend with a ``GetLegendGraphic``
+  request (more details :ref:`here <get-legend-graphic>`). The legend can be removed
+  by setting this parameter to empty, i.e. ``LEGENDGRAPHIC=``.
+
+Below the supported values for ``COLORTABLETYPE`` are explained:
+
+* ``ColorMap``: check :ref:`coloring-arrays` for more details;
+  the color table definition must be a JSON object, for example:
+
+  .. hidden-code-block:: json
+
+    { 
+      "type": "intervals",  
+      "colorTable": {  "0":   [0,     0, 255,   0],  
+                       "100": [125, 125, 125, 255],  
+                       "255": [255,   0,   0, 255]  
+                    } 
+    }
+
+* ``GDAL``: The color table definition must be a JSON object
+  containing **256 color arrays** in a ``colorTable`` array, example:
+
+  .. hidden-code-block:: json
+
+    {
+       "colorTable": [
+                      [255,  0,  0,255],
+                      [216, 31, 30,255],
+                      [216, 31, 30,255],
+                      ...,
+                      [ 43,131,186,255]
+                     ]
+    }
+
+* ``SLD``: The color table definition must be valid Styled Layer Descriptor XML
+  and contain a ``ColorMap`` element. Note that rasdaman will only consider the
+  first ``sld:ColorMap`` element in the SLD document, any other SLD elements
+  will be ignored. Check :ref:`coloring-arrays` for details about the supported
+  types (``ramp`` (default), ``values``, ``intervals``), example ``ColorMap``
+  with ``type="values"``: 
+
+  .. hidden-code-block:: xml
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <StyledLayerDescriptor xmlns="http://www.opengis.net/sld"
+                           xmlns:gml="http://www.opengis.net/gml" 
+                           xmlns:sld="http://www.opengis.net/sld"
+                           xmlns:ogc="http://www.opengis.net/ogc"
+                           version="1.0.0">
+      <UserLayer>
+        <sld:LayerFeatureConstraints>
+          <sld:FeatureTypeConstraint/>
+        </sld:LayerFeatureConstraints>
+        <sld:UserStyle>
+          <sld:Name>sqi_fig5_crop1</sld:Name>
+          <sld:FeatureTypeStyle>
+            <sld:Rule>
+              <sld:RasterSymbolizer>
+                <sld:ColorMap type="values">
+                   <ColorMapEntry color="#0000FF" quantity="150" />
+                   <ColorMapEntry color="#FFFF00" quantity="200" />
+                   <ColorMapEntry color="#FF0000" quantity="250" />
+                </sld:ColorMap>
+              </sld:RasterSymbolizer>
+            </sld:Rule>
+          </sld:FeatureTypeStyle>
+        </sld:UserStyle>
+      </UserLayer>
+    </StyledLayerDescriptor>
 
 
-Style Definition Variants
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Style Removal
+^^^^^^^^^^^^^
 
--  WCPS query fragment example (since rasdaman 9.5):
+Removing a style from an existing WMS layer can be done via the
+``/rasdaman/admin/layer/style/remove`` endpoint, e.g. ::
+
+    /rasdaman/admin/layer/style/remove?COVERAGEID=MyCoverage&STYLEID=mystyle
+
+
+.. _style-creation-examples:
+
+Examples
+^^^^^^^^
+
+-  Create a style with a WCPS query fragment and set this style as default style:
 
    .. hidden-code-block:: text
 
-    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
-        &REQUEST=InsertStyle
-        &NAME=wcpsQueryFragment
-        &LAYER=test_wms_4326
+    http://localhost:8080/rasdaman/admin/layer/style/add
+        ?COVERAGEID=test_wms_4326
+        &STYLEID=wcps_style
         &ABSTRACT=This style marks the areas where fires are in progress with the color red
         &WCPSQUERYFRAGMENT=switch case $c > 1000 return {red: 107; green:17; blue:68} default return {red: 150; green:103; blue:14})
+        &DEFAULT=true
 
    Variable ``$c`` will be replaced by a layer name when sending a ``GetMap``
    request containing this layer's style.
 
--  Rasql query fragment examples:
+-  Create a style with a rasql query fragment:
 
    .. hidden-code-block:: text
 
-    http://localhost:8080/rasdaman/ows?SERVICE=WMS&version=1.3.0&REQUEST=InsertStyle
-        &NAME=FireMarkup
-        &LAYER=dessert_area
+    http://localhost:8080/rasdaman/admin/layer/style/add
+        ?COVERAGEID=test_wms_4326
+        &STYLEID=rasql
         &ABSTRACT=This style marks the areas where fires are in progress with the color red
         &RASQLTRANSFORMFRAGMENT=case $Iterator when ($Iterator + 2) > 200 then {255, 0, 0} else {0, 255, 0} end
 
@@ -1530,26 +1940,25 @@ Style Definition Variants
    collection and the whole fragment will be integrated inside the regular
    ``GetMap`` request.
 
--  Multiple layers can be used in a style definition. 
-   Besides the iterators ``$c`` in WCPS query fragments and ``$Iterator`` in rasql
-   query fragments, which always refer to the current layer, other layers
-   can be referenced by name using an iterator of the form ``$LAYER_NAME`` in the style expression. 
+-  Multiple layers can be used in a style definition. Besides the iterators
+   ``$c`` in WCPS query fragments and ``$Iterator`` in rasql query fragments,
+   which always refer to the current layer, other layers can be referenced by
+   name using an iterator of the form ``$LAYER_NAME`` in the style
+   expression. 
   
    Example: create a WCPS query fragment style referencing 2 layers
    (``$c`` refers to layer *sentinel2_B4* which defines the style):
 
    .. hidden-code-block:: text
 
-    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
-        &REQUEST=InsertStyle
-        &NAME=BandsCombined
-        &LAYER=sentinel2_B4
+    http://localhost:8080/rasdaman/admin/layer/style/add
+        ?COVERAGEID=sentinel2_B4
+        &STYLEID=BandsCombined        
         &ABSTRACT=This style needs 2 layers
         &WCPSQUERYFRAGMENT=$c + $sentinel2_B8
 
-   Then, in any ``GetMap`` request using this style
-   the result will be obtained from the combination of the 2 layers
-   *sentinel2_B4* and *sentinel2_B8*:
+   Then, in any ``GetMap`` request using this style the result will be obtained
+   from the combination of the 2 layers *sentinel2_B4* and *sentinel2_B8*:
 
    .. hidden-code-block:: text
 
@@ -1561,98 +1970,113 @@ Style Definition Variants
         &FORMAT=image/png&transparent=true
         &STYLES=BandsCombined
 
--  WMS styling supports a ``ColorTable`` definition which
-   allows to colorize the result of WMS GetMap request when the style is requested.
-   A style can contain either one or both **query fragment** and **Color Table** definitions.
-   The ``InsertStyle`` request supports two new **non-standard** 
-   extra parameters ``colorTableType`` (valid values: ``ColorMap``, ``GDAL`` and ``SLD``)
-   and ``colorTableDefintion`` containing corresponding definition, example:
+-  WMS styling supports colorizing the result of GetMap request when the style
+   is requested by applying a color table definition to it. A style can contain
+   either one or both a query fragment and color table definitions. The request
+   supports two parameters for this purpose: ``COLORTABLETYPE`` with valid
+   values ``ColorMap``, ``GDAL`` and ``SLD``, and ``COLORTABLEDEFINITION``
+   containing the corresponding definition.
 
    .. hidden-code-block:: text
 
-    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
-        &REQUEST=InsertStyle
-        &NAME=test
-        &LAYER=test_wms_4326
+    http://localhost:8080/rasdaman/admin/layer/style/add
+        ?COVERAGEID=test_wms_4326
+        &STYLEID=firearea
         &ABSTRACT=This style marks the areas where fires are in progress with the color red
         &WCPSQUERYFRAGMENT=switch case $c > 1000 return {red: 107; green:17; blue:68} default return {red: 150; green:103; blue:14})
         &COLORTABLETYPE=ColorMap
         &COLORTABLEDEFINITION={"type": "intervals", "colorTable": {  "0": [0, 0, 255, 0], "100": [125, 125, 125, 255], "255": [255, 0, 0, 255] } }
 
-   Below the supported color table definitions for each color table type are explained:
 
-    * Rasdaman ``ColorMap``: check :ref:`coloring-arrays` for more details.
-      The color table definition must be a JSON object, for example:
+.. _wms-pyramids-management:
 
-      .. hidden-code-block:: json
+Pyramid Management
+------------------
 
-        { 
-          "type": "intervals",  
-          "colorTable": {  "0":   [0,     0, 255,   0],  
-                           "100": [125, 125, 125, 255],  
-                           "255": [255,   0,   0, 255]  
-                        } 
-        }
+The following WMS requests are used to manage downscaled coverages, which are
+primarily created as pyramid *levels* of a particular *base* coverage.
+Internally they are used for efficient zooming in/out in WMS, and downscaling
+when using the ``scale()`` function in WCPS or scaling extension in WCS.
 
-    * GDAL ``ColorPalette``: check :ref:`encode` for more details.
-      The color table definition must be a JSON object and contains **256 color arrays**
-      in ``colorTable`` array, example:
+Only regular axes, typically spatial X and Y, can be downscaled for this purpose.
 
-      .. hidden-code-block:: json
+Below the API for pyramid management are covered:
 
-        {
-           "colorTable": [
-                          [255,  0,  0,255],
-                          [216, 31, 30,255],
-                          [216, 31, 30,255],
-                          ...,
-                          [ 43,131,186,255]
-                         ]
-        }
+.. _create_pyramid_member:
 
-    * WMS ``Styled Layer Descriptor (SLD)``: The color table definition must be valid XML
-      and contains ``ColorMap`` element. Check :ref:`coloring-arrays` for details about the supported types
-      (``ramp`` (default), ``values``, ``intervals``), example ``ColorMap`` with ``type="values"``: 
+* Create a pyramid member coverage *c* for a base coverage *b* with given scale
+  factors for each axis. Only regular axes can have a *scale factor > 1*. E.g.
+  to create a downscaled coverage *cov_3D_4* of a 3D coverage *cov_3D* that
+  is *4x smaller* for Lat and Long regular axes (Time is irregular axis, hence,
+  scale factor must be 1):
 
-      .. hidden-code-block:: xml
+  .. hidden-code-block:: text
 
-        <?xml version="1.0" encoding="UTF-8"?>
-        <StyledLayerDescriptor xmlns="http://www.opengis.net/sld"
-                               xmlns:gml="http://www.opengis.net/gml" 
-                               xmlns:sld="http://www.opengis.net/sld"
-                               xmlns:ogc="http://www.opengis.net/ogc"
-                               version="1.0.0">
-          <UserLayer>
-            <sld:LayerFeatureConstraints>
-              <sld:FeatureTypeConstraint/>
-            </sld:LayerFeatureConstraints>
-            <sld:UserStyle>
-              <sld:Name>sqi_fig5_crop1</sld:Name>
-              <sld:FeatureTypeStyle>
-                <sld:Rule>
-                  <sld:RasterSymbolizer>
-                    <sld:ColorMap type="values">
-                       <ColorMapEntry color="#0000FF" quantity="150" />
-                       <ColorMapEntry color="#FFFF00" quantity="200" />
-                       <ColorMapEntry color="#FF0000" quantity="250" />
-                    </sld:ColorMap>
-                  </sld:RasterSymbolizer>
-                </sld:Rule>
-              </sld:FeatureTypeStyle>
-            </sld:UserStyle>
-          </UserLayer>
-        </StyledLayerDescriptor>
+    http://localhost:8080/rasdaman/admin/coverage/pyramid/create
+        ?COVERAGEID=cov_3D
+        &MEMBER=cov_3D_4
+        &SCALEVECTOR=1,4,4
 
-WMS Style Removal
-^^^^^^^^^^^^^^^^^
+  ``wcst_import`` can execute create pyramid requests automatically when
+  importing data with the ``scale_levels`` or ``scale_factors`` options in the
+  ingredients file; more details :ref:`here <data-import-intro>`.
 
-The proprietary ``DeleteStyle`` WMS request type allows to remove
-a particular style of an existing WMS layer. ::
+.. _add_pyramid_member:
 
-    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
-        &REQUEST=DeleteStyle
-        &LAYER=dessert_area
-        &NAME=FireMarkup
+* Add a list of existing coverage *c*, *d*, *e*, ... as pyramid member coverages
+  of a base coverage *b*. The scale factors for each axis of the pyramid member
+  coverage will be calculated implicitly based on axis resolutions.
+  If *harvesting=true* (default is false), recursively collect pyramid members
+  of *c*, *d*, *e*, ... and add them as pyramid member of *b*. E.g. to add a
+  downscaled coverage *cov_3D_4* (4x smaller) and its pyramid members
+  recursively as pyramid member coverages of base coverage *cov_3D*:
+
+  .. hidden-code-block:: text
+
+    http://localhost:8080/rasdaman/admin/coverage/pyramid/add
+        ?COVERAGEID=cov_3D
+        &MEMBERS=cov_3D_4
+        &HARVESTING=true
+
+  ``wcst_import`` provides :ref:`several options <wcst_import-pyramid-members>`
+  for conveniently adding pyramid members in the ingredients file.
+
+* Remove a list of existing pyramid member coverage *c*, *d*, *e*, ... from a
+  base coverage *b*. The coverages *c*, *d*, *e*, ... will still exist, until
+  they are removed with a WCS-T :ref:`DeleteCoverage request <delete-coverage>`.
+  E.g. to remove pyramid member *cov_3D_4* from base coverage *cov_3D*:
+
+  .. hidden-code-block:: text
+
+    http://localhost:8080/rasdaman/admin/coverage/pyramid/remove
+        &COVERAGEID=cov_3D
+        &MEMBERS=cov_3D_4
+
+* List all pyramid member coverages associated with a base coverage in
+  JSON-formatted output. E.g. to list the pyramid members of *Sentinel2_10m*:
+
+  .. hidden-code-block:: text
+
+    http://localhost:8080/rasdaman/admin/coverage/pyramid/list
+        ?COVERAGEID=Sentinel2_10m
+
+  Example output:
+    
+  .. hidden-code-block:: json  
+
+    {
+      "coverage": "Sentinel2_10m",
+      "members": [
+          {
+            "coverage": "Sentinel2_20m",
+            "scale": [ 1, 2, 2 ]
+          }, 
+          {
+            "coverage": "Sentinel2_60m",
+            "scale": [ 1, 6, 6 ]
+          }
+        ]
+    }
 
 
 Testing a WMS Setup
@@ -1675,100 +2099,12 @@ a ``GetMap`` request like the following:
 Errors and Workarounds
 ----------------------
 
-**Cannot load new WMS layer in QGIS**
-    In this case, the problem is due to QGIS caching the WMS GetCapabilities from the last
-    request so the new layer does not exist (see
-    `clear caching solution <http://osgeo-org.1560.x6.nabble.com/WMS-provider-Cannot-calculate-extent-td5250516.html>`__).
+Cannot load new WMS layer in QGIS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. _wcs-t-non-standard-requests-wms:
-
-WMS Pyramid Management
-----------------------
-
-The following proprietary WMS requests are used to manage downscaled coverages. 
-Internally they are used for efficient zooming in/out
-in WMS, and downscaling when using the ``scale()`` function in WCPS
-or scaling extension in WCS.
-
-.. _create_pyramid_member:
-
-* ``CreatePyramidMember``: create a pyramid member coverage *c* 
-  for a base coverage *b* with given scale factors for each axis 
-  (note: only regular axis can have *scale factor > 1*);  
-  e.g. to create a downscaled coverage *cov_3D_4* of a 3D coverage *cov_3D*
-  that is *4x smaller* for Lat and Long regular axes 
-  (Time is irregular axis, hence, scale factor must be 1):
-
-  .. hidden-code-block:: text
-
-    http://localhost:8080/rasdaman/admin?
-        &REQUEST=CreatePyramidMember
-        &BASE=cov_3D
-        &MEMBER=cov_3D_4
-        &SCALEFACTOR=1,4,4
-
-.. _add_pyramid_member:
-
-* ``AddPyramidMember``: add an existing coverage *c* as a pyramid member coverage
-  for a base coverage *b*. The scale factors for each axis of the pyramid member coverage will
-  be calculated implicitly based on axis resolutions. 
-  If *harvesting=true* (default is false), recursively collect pyramid members
-  of coverage *c*  and add them as pyramid member of coverage *b*; 
-  e.g. to add a downscaled coverage *cov_3D_4* (4x smaller) and its pyramid members
-  recursively as pyramid member coverages of base coverage *cov_3D*:
-
-  .. hidden-code-block:: text
-
-    http://localhost:8080/rasdaman/admin?
-        &REQUEST=AddPyramidMember
-        &BASE=cov_3D
-        &MEMBER=cov_3D_4
-        &HARVESTING=true    
-  
-
-* ``RemovePyramidMember``: remove an existing pyramid member coverage *c*
-  from a base coverage *b* (coverage *c* still exists, until admin
-  deletes with WCS-T :ref:`DeleteCoverage request <delete-coverage>`); 
-  e.g. to remove downscaled coverage *cov_3D_4* from base coverage *cov_3D*:
-
-  .. hidden-code-block:: text
-
-    http://localhost:8080/rasdaman/admin
-        &REQUEST=RemovePyramidMember
-        &BASE=cov_3D
-        &MEMBER=cov_3D_4
-
-* ``ListPyramidMembers``: get a JSON list with objects of all pyramid member coverages
-  associated with a base coverage:
-
-  .. hidden-code-block:: text
-
-    http://localhost:8080/rasdaman/admin
-        &REQUEST=ListPyramidMembers
-        &BASE=Sentinel2_10m
-
-  Output example:
-    
-  .. hidden-code-block:: json  
-
-    {
-      "coverage": "Sentinel2_10m",
-      "members": [
-          {
-            "coverage": "Sentinel2_20m",
-            "scale_factors": [ 1, 2, 2 ]
-          }, 
-          {
-            "coverage": "Sentinel2_60m",
-            "scale_factors": [ 1, 6, 6 ]
-          }
-        ]
-    }
-
-
-``wcst_import`` can send ``CreatePyramidMember`` requests automatically 
-when importing data with it with ``scale_levels`` or ``scale_factors`` option
-in the ingredients file, more details :ref:`here <data-import-intro>`.
+In this case, the problem is due to QGIS caching the WMS GetCapabilities from
+the last request so the new layer does not exist (see `clear cache solution
+<https://lists.osgeo.org/pipermail/qgis-developer/2016-February/041418.html>`__).
 
 
 .. _data-import:
@@ -1786,7 +2122,8 @@ Building large *time-series / datacubes*, *mosaics*, etc. and keeping them
 up-to-date as new data become available is supported for a large variety of data
 formats and file/directory organizations.
 
-The systemtest contains `many examples <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata>`__
+The systemtest contains 
+`many examples <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata>`__
 for importing different types of data.
 
 .. _data-import-intro:
@@ -1855,6 +2192,13 @@ directory, together with an example for the available parameters
 Further on each recipe type is described in turn, starting with the common
 options shared by all recipes.
 
+.. note::
+
+    It is required to run only one ``wcst_import.sh`` process for registering / importing
+    files to one specific coverage. Running multiple ``wcst_import.sh`` processes 
+    for building multiple different coverages are allowed (the maximum number of processes
+    is equivalent to the number of rasservers configured in ``rasmgr.conf`` file).
+
 .. _data-import-common-options:
 
 Common Options
@@ -1916,7 +2260,7 @@ config section
 
   .. NOTE::
 
-     If a null value interval is specified, e.g. e.g ``"9.96921e+35:*"``,
+     If a null value interval is specified, e.g ``"9.96921e+35:*"``,
      during encode it will not be preserved as-is because null value intervals 
      are not supported by most formats. In this case it is recommended to 
      first specify a non-interval null value, followed by the interval, e.g.
@@ -2000,6 +2344,14 @@ input section
   unless specified otherwise in the recipe section (e.g. by date/time for 
   time-series recipes).
 
+* ``inspire`` section contains the settings for importing INSPIRE coverage:
+
+  * ``metadata_url`` - If set to non-empty string, then the importing coverage
+    will be marked as INSPIRE coverage, see more details 
+    :ref:`here <petascope-make_inspire_coverage>`. If set to empty string or omitted,
+    then the coverage will be updated as non-INSPIRE coverage.
+
+.. _recipe-section:
 
 recipe section
 ^^^^^^^^^^^^^^
@@ -2110,6 +2462,8 @@ recipe section
      order to import only the overview coverages. Alternatively the ingredients file can
      be copied to another directory and adapted to set ``import_overviews_only`` to ``true``.
 
+.. _wcst_import-pyramid-members:
+
 * ``pyramid_members`` - List of existing coverages which can be added
   as pyramid members of the importing coverage, see :ref:`request <add_pyramid_member>`.
   Syntax:
@@ -2119,8 +2473,8 @@ recipe section
       "pyramid_members": [ "cov_level_2",  "cov_level_4"]
 
 * ``pyramid_bases`` - List of existing coverages to which the importing coverage
-  will be added as a pyramid member. This parameter has the opposite effect of `pyramid_members`,
-  see :ref:`request <add_pyramid_member>`.
+  will be added as a pyramid member. This parameter has the opposite effect of 
+  ``pyramid_members``, see corresponding :ref:`request <add_pyramid_member>`. 
   Syntax:
 
   .. hidden-code-block:: json
@@ -2140,7 +2494,7 @@ recipe section
 
   - Otherwise, if neither of the above options is specified, an error is throws.
 
-  See :ref:`request <add_pyramid_member>`for more details on the underlying
+  See :ref:`request <add_pyramid_member>` for more details on the underlying
   request sent to petascope when this option is set to ``true``.
   By default this option is set to ``false``.
 
@@ -2176,68 +2530,61 @@ Example ingredients specification to create two downscaled levels which are
     }
 
 Two new WCS-T non-standard requests are utilized by wcst_import for this feature,
-see :ref:`here for more information <wcs-t-non-standard-requests-wms>`.
+see :ref:`here for more information <wms-pyramids-management>`.
 
+
+.. _hooks-section:
 
 hooks section
 ^^^^^^^^^^^^^
 
 Since v9.8, it is possible to run shell commands *before/after data import*
-by adding optional ``hooks`` configuration in an ingredient file.
+by adding optional ``hooks`` top-level configuration in an ingredient file
+(on the same level as the ``config``, ``input``, and ``recipe`` sections).
+
 There are 2 types of hooks:
 
-* ``before_ingestion`` - Run shell commands before analyzing the input files,
+* ``before_import`` - Run shell commands before analyzing the input files,
   e.g. reproject input files from EPSG:3857 to EPSG:4326 with gdalwarp and 
   import the *reprojected* files only.
 
-* ``after_ingestion`` - Run shell commands after importing the input files,
+* ``after_import`` - Run shell commands after importing the input files,
   e.g. clean all projected files from running gdalwarp above.
 
 When import mode is set to non-blocking (``"blocking": false``), wcst_import
 will run before/after hook(s) for the file which is being used to update
 coverage, while the default blocking importing mode will run before/after
 hooks for *all input files* before/after they are updated to a coverage.
-Parameters are explained below.
 
-.. hidden-code-block:: json
+Multiple before/after hooks can be specified, and they will be evaluated in the
+order in which they are specified. Each hook is a JSON object in the ``"hooks"``
+JSON array, with parameters as follows:
 
-  "hooks": [
-      {
-        // Describe what this hook does
-        "description": "reproject input files.",
+* ``description`` - Describe what this hook does and wcst_import prints this message when processing this hook.
+* ``when`` - mandatory parameter. Run a command before (set to ``before_import``) or after (set to ``after_import``)
+  importing files to a coverage.
+* With one of the following options either Bash or Python code must be specified,
+  which will be run for each input file.
 
-        // Run bash command before importing file(s) to coverage
-        "when": "before_ingestion",
+  * ``cmd`` - specify Bash commands; standard error is redirected to standard output,
+    which wcst_import prints while executing the command. Note that the code
+    is executed in a new Bash process newly forked for every file; if there are many files,
+    this can be costly in terms of performance and memory usage, and it may be better
+    to use ``python_cmd``.
 
-        // Bash command which should be run for each input file
-        "cmd": "gdalwarp -t_srs EPSG:4326 -tr 0.02 0.02 -overwrite \"${file:path}\" \"${file:path}.projected\"",
+  * ``python_cmd`` - specify Python code, which is evaluated in the same Python
+    instance already running wcst_import with the `exec() method <https://docs.python.org/3/library/functions.html#exec>`__.
+    It may be preferable to Bash ``cmd`` when there are many files to import, or
+    more complex tasks need to be performed with advance math calculations, for
+    example.  
 
-        // If set to true, when a bash command line returns any error, wcst_import
-        // terminates immediately. Only valid for before_ingestion hooks.
-        "abort_on_error": true,
-
-        // wcst_import will consider the specified path(s) as the actual file(s)
-        // to be imported after running the hook, rather than the original file.
-        // This is an array of paths where globbing is allowed (same as the
-        // "input":"paths" option. Only valid for before_ingestion hooks.
-        "replace_path": ["${file:path}.projected"]
-      },
-
-      {
-        // Describe what this hook does
-        "description": "Remove projected files.",
-
-        // Run bash command after importing file(s)
-        "when": "after_ingestion",
-
-        // Bash command which should be run after each imported file(s)
-        "cmd": "rm -rf \"${file:path}.projected\""
-      },
-
-      // more hooks if needed
-      ...
-  ]
-
+* ``abort_on_error`` - Only valid for ``before_import`` hook. If set to ``true``,
+  when a ``cmd`` bash command returns an error or when a ``python_cmd`` raises an ``Exception``,
+  wcst_import terminates immediately.
+* ``replace_path`` - Only valid for ``before_import`` hook. wcst_import considers
+  the specified absolute paths (globbing is allowed) as the actual absolute file paths to be imported
+  after running a hook, rather than the original input file paths configured
+  in ``paths`` setting, under ``input`` section.
 
 *Example: Import GDAL subdatasets*
 
@@ -2250,13 +2597,40 @@ driver for NetCDF a single variable from the collected NetCDF files is imported.
   "hooks": [
       {
         "description": "Import one variable for netCDF with subdataset",
-        "when": "before_ingestion",
+        "when": "before_import",
         "cmd": "",
         "abort_on_error": true,
         // GDAL netCDF subdataset variable file path
         "replace_path": ["NETCDF:${file:path}:area"]
       }
    ]
+
+*Example: Preprocessing GDAL files before importing*
+
+This example ingredients below contains one ``before_import`` hook and one ``after_import`` hook. 
+The ``before_import`` hook runs a bash command to project each input tiff file to a temp tiff file
+in *EPSG:4326* CRS, then, it collects these temp file paths to import.
+The ``after_import`` hook runs a bash command after importing to remove the temp file paths above.
+
+
+.. hidden-code-block:: json
+
+  "hooks": [
+      {
+        "description": "reproject input files.",
+        "when": "before_import",
+        "cmd": "gdalwarp -t_srs EPSG:4326 -tr 0.02 0.02 -overwrite \"${file:path}\" \"${file:path}.projected\"",
+        "abort_on_error": true,
+        "replace_path": ["${file:path}.projected"]
+      },
+
+      {
+        "description": "Remove projected files.",
+        "when": "after_import",
+        "cmd": "rm -rf \"${file:path}\""
+      }
+      ...
+  ]
 
 
 .. _data-import-recipe-mosaic-map:
@@ -2396,7 +2770,7 @@ particular use case:
             "datetime_format": "YYYY"
           },
           // CRS to be used for the time axis
-          "time_crs": "http://opengis.net/def/crs/OGC/0/AnsiDate",
+          "time_crs": "http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate",
           // The tiling to be applied in rasdaman
           "tiling": "ALIGNED [0:10, 0:1000, 0:500]"
         }
@@ -2464,7 +2838,7 @@ any coverage model directly in the options of the ingredients file. Each
 coverage model contains the following parts:
 
 * ``crs`` - Indicates the crs of the coverage to be constructed. Either a CRS 
-  url can be used e.g. http://opengis.net/def/crs/EPSG/0/4326 or the shorthand 
+  url can be used e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326 or the shorthand 
   notation ``CRS1@CRS2@CRS3``, e.g. ``OGC/0/AnsiDate@EPSG/0/4326`` for 
   indicating a time/date + spatial CRS.
 
@@ -2493,6 +2867,13 @@ petascope) the maximum size is 2GB (`source
 * ``global`` - Specifies fields which should be saved once for the whole
   coverage (e.g. the data licence, the creator etc). For example a "Title" 
   metadata value can be set with ``"global": { "Title": "'Drought code'", ... }``.
+  Global metadata is collected automatically (only for netCDF / gdal recipe)
+  from the first input file, if the ``"global"`` setting is omitted, or
+  it is set to ``"auto"``.
+  This automatic collection is *not* done when additional global metadata 
+  needs to be added on top of the metadata present in the input file;
+  in this case both the metadata from the file and the additional metadata
+  have to be specified explicitly.
 
 * ``local`` - Specifies fields which are fetched from each input file to be
   stored in coverage's metadata. When subsetting in the output coverage only
@@ -2569,7 +2950,12 @@ bounds and resolution corresponding to each file.
   the following options, of which ``identifier`` and ``name`` are mandatory to 
   specify while the rest are optional:
 
-  * ``identifier`` - The name of the band in the input file;
+  * ``identifier`` - The name of the band in the input file; With GRIB recipe,
+    only one band can be specified in the ingredients file and the band identifier must be
+    fetched from ``shortName`` attribute from GRIB messsages. wcst_import only collects the messages
+    matching this selected band identifier. If no messages containing ``shortName`` matched
+    with the specified band identifier, then all GRIB messages will be collected
+    (only works for input GRIB files with only one band).
   * ``name`` - The name of the band which will be used in the created coverage;
     this can be set to different from the ``indentifier``;
   * ``description`` - Metadata description of the band;
@@ -2589,9 +2975,18 @@ bounds and resolution corresponding to each file.
   ``resolution`` is not applicable.
 
   * ``gridOrder`` - The index of the axis in the input file (0-based);
-  * ``crsOrder`` - Specifies a different name for this axis than the one 
-    configured in the CRS's definition; more details can be found :ref:`here 
-    <customized-axis-labels>`;
+    Note: Each axis must have an unique index ``gridOrder`` specified.
+    For example, in a 2-D coverage in standard EPSG:4326 CRS, the Lat
+    axis would have ``gridOrder`` 0 and the Lon axis would have ``gridOrder``
+    1. In a 3-D coverage with time, Lat, and Lon axes, however, the Lat and Lon 
+    axes would have ``gridOrder`` 1 and 2, and gridOrder 0 would be set for
+    the time axis. For more details, see `this example
+    <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/130-wcs_pml_global_metadata_auto/ingest.template.json>`__ 
+    for importing netCDF files to a 3-D coverage.
+  * ``crsOrder`` - The index of the geo axis in the coverage's CRS (0-based).
+    Note: By default it is not required. Only set when one specifies a different name for this axis,
+    than the one configured in the CRS's definition; more details can be found :ref:`here 
+    <customized-axis-labels>`; In this case, each axis must have an unique index ``crsOrder`` specified.
   * ``min`` - The lower bound of the axis (coordinates in the axis CRS);
   * ``max``- The upper bound of the axis (coordinates in the axis CRS);
   * ``resolution`` - The resolution of the axis from the input file;
@@ -2606,14 +3001,45 @@ bounds and resolution corresponding to each file.
   * ``irregular`` - Set to ``true`` to specify that this axis is irregular, e.g.
     a time axis with irregular datetime indexes; if not specified, it is set to 
     ``false`` by default;
-  * ``directPositions`` - A list of coefficients which are extracted or 
-    calculated from the axis values specified in the input file; for an example 
-    see this `ingredients file
-    <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/089-wcs_aggregated_ansidate_netcdf/ingest.template.json#L46>`__;
+  * ``directPositions`` - A list of coefficients which are extracted and 
+    calculated based on the axis's lower bound from the irregular axis values
+    specified in the input netCDF/GRIB file. 
+    For example, a netCDF file has ``time`` dimension with ``units``: ``"days since 1970-01-01 00:00:00"``,
+    then, all stored valued of ``time`` axis must be calculated as datetime,
+    based on the lower bound value (``"1970-01-01"``), see `ingredients file <https://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/132-wcs_scientfic_null_value_with_trailing_zero/ingest.template.json#L42>`__.
+
+    .. hidden-code-block:: json
+    
+        "axes": {
+            "time": {
+                "statements": "from datetime import datetime, timedelta",
+                "min": "(datetime(1970,12,31,12,0,0) + timedelta(days=${netcdf:variable:time:min})).strftime(\"%Y-%m-%dT%H:%M\")",
+                "max": "(datetime(1970,12,31,12,0,0) + timedelta(days=${netcdf:variable:time:max})).strftime(\"%Y-%m-%dT%H:%M\")",
+                "directPositions": "[(datetime(1970,12,31,12,0,0) + timedelta(days=x)).strftime(\"%Y-%m-%dT%H:%M\") for x in ${netcdf:variable:time}]",
+                "irregular": true,
+  	            "resolution": 1,
+                "gridOrder": 0
+             },
+           ...
+
   * ``dataBound`` - Set to ``false`` to specify that this axis should be 
     imported as a slicing point instead of a subset with lower and upper bounds;
     typical use case for this is when extracting irregular datetime values from 
     the input file names. When not specified it is set to ``true`` by default.
+    For example, a coverage has an irregular axis ``ansi`` with values fetched from
+    input netCDF file names (e.g. ``GlobLAI-20030101-20030110-H01V06-1.0_MERIS-FR-LAI-HA.nc``).
+
+    .. hidden-code-block:: json
+
+         "axes": {
+            "ansi": {
+                "min": "datetime(regex_extract('${file:name}', '(GlobLAI-)(.+?)(-.+?)\\.(.*)', 2), 'YYYYMMDD')",
+                "gridOrder": 0,
+                "irregular": true,
+                "dataBound": false
+            },
+         ...
+
   * ``sliceGroupSize`` - Group multiple input slices into a single slice in the
     created coverage, e.g., multiple daily data files onto a single week index
     on the coverage time axis; explained in more detail :ref:`here <slice-group-size>`;
@@ -2848,7 +3274,7 @@ The examples below illustrate importing data in different formats with the
 
 * Example for importing TIFF data with the ``gdal`` driver 
   (full ingredients file `here 
-  <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/wcs_slice_group_size_7days/ingest.template.json>`__):
+  <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/134-wcs_slice_group_size_7days/ingest.template.json>`__):
 
   .. hidden-code-block:: json
 
@@ -2986,6 +3412,8 @@ Relevant for TIFF, PNG, JPEG, and other 2D data formats.
 |           |one of the originX|originY                           |                             |
 +-----------+-----------------------------------------------------+-----------------------------+
 
+.. _data-import-expressions-grib:
+
 GRIB
 ~~~~
 
@@ -2999,6 +3427,8 @@ GRIB
 |           |(starting from 1)                               |                                          |
 +-----------+------------------------------------------------+------------------------------------------+
 
+.. _data-import-expressions-file:
+
 File
 ~~~~
 
@@ -3008,13 +3438,13 @@ File
 |File Information |``${file:PROPERTY}`` where property can be one of                   |                             |
 |                 |path|name|dir_path|original_path|original_dir_path                  |``${file:path}``             |
 |                 |original_* allows to get the original input file's path/directory.  |                             |
-|                 |Used only in ``before_ingestion`` hooks with ``replace_path``       |                             |
+|                 |Used only in ``before_import`` hooks with ``replace_path``          |                             |
 |                 |to replace original input file paths with customized file paths.    |                             |
 +-----------------+--------------------------------------------------------------------+-----------------------------+
 |Imported File    |``${imported_file:PROPERTY}`` where property can be one of          |                             |
 |Information      |path|name|dir_path|original_path|original_dir_path                  |                             |
 |                 |Files which were imported to rasdaman (excluding *skipped files*).  |``${imported_file:path}``    |
-|                 |This variable is used only in ``after_ingestion`` hooks.            |                             |
+|                 |This variable is used only in ``after_import`` hooks.               |                             |
 +-----------------+--------------------------------------------------------------------+-----------------------------+
 
 .. _data-import-expressions-special-functions:
@@ -3347,8 +3777,8 @@ band metadata
 
 * For netCDF: If ``"bands"`` is set to ``"auto"`` or does not exist under ``"metadata"``
   in the ingredient file, all user-specified bands will have metadata which is
-  fetched directly from the netCDF file. Metadata for 1 band is
-  **collected automatically** if: 1) band is not added. 2) band is set to ``"auto"``.
+  fetched directly from the netCDF file. Metadata for one band is
+  collected automatically if the band is not added or it is set to ``"auto"``.
 
 * Otherwise, the user could specify metadata explicitly by a dictionary of keys/values.
   Example:
@@ -3379,9 +3809,9 @@ axis metadata
 
 * For netCDF: If ``"axes"`` is set to ``"auto"`` or does not exist under ``"metadata"``
   in the ingredient file, all user-specified axes will have metadata which is
-  fetched directly from the netCDF file. Metadata for 1 axis is 
-  **collected automatically** if: 1) axis is not added. 2) axis is set
-  to ``"auto"``. 3) axis is set with ``${netcdf:variable:Name:metadata}``.
+  fetched directly from the netCDF file. Metadata for one axis is 
+  collected automatically if: 1) the axis is not specified, 2) the axis is set
+  to ``"auto"``, or 3) the axis is set to ``${netcdf:variable:Name:metadata}``.
   The axis label for variable is detected from the ``min`` or ``max`` value
   of CRS axis configuration under ``"slicer/axes"`` section. For example:
 
@@ -3419,6 +3849,133 @@ axis metadata
           }
         }
       }
+
+
+Rotated CRS support
+^^^^^^^^^^^^^^^^^^^
+
+If rasdaman is compiled with GDAL v3.4.1+, importing and querying data
+with rotated CRS `COSMO:101 <https://github.com/Geomatys/MetOceanDWG/blob/main/MetOceanDWG%20Projects/Authority%20Codes%20for%20CRS/Pole%20rotation.md>`__
+is supported. The netCDF data usually has to be preprocessed before import:
+
+1. Invert the latitude axis when it is south to north order (lower to upper coordinates):
+
+   ::
+
+      cdo invertlat input.nc inverted_input.nc
+
+2. Swap the order of the rotated latitude (*rlat*) and rotated longitude (*rlon*) axes
+   when the data variable has *rlat,rlon* order. For example, the
+   ``float CAPE_ML(time, rlat, rlon)`` variable can be transformed to
+   ``float CAPE_ML(time, rlon, rlat)`` with the following command:
+
+   ::
+
+      ncpdq --rdr=time,rlon,rlat inverted_input.nc correct_lon_lat.nc
+
+Example ingredient file for importing the CAPE_ML variable from
+preprocessed COSMO netCDF data:
+
+.. hidden-code-block:: json
+
+    {
+       "config":{
+          "service_url":"http://localhost:8080/rasdaman/ows",
+          "tmp_directory":"/tmp/",
+          "automated":true,
+          "mock":false,
+          "track_files":false
+       },
+       "input":{
+          "coverage_id":"rotated_crs_coverage",
+          "paths":[
+             "correct_lon_lat.nc"
+          ]
+       },
+       "recipe":{
+          "name":"general_coverage",
+          "options":{
+             "wms_import":false,
+             "coverage":{
+                "crs":"OGC/0/AnsiDate@COSMO/0/101",
+                "metadata":{
+                   "type":"json",
+                   "global":"auto"
+                },
+                "slicer":{
+                   "type":"netcdf",
+                   "pixelIsPoint":true,
+                   "bands":[
+                      {
+                         "name":"CAPE_ML",
+                         "identifier":"CAPE_ML",
+                         "description":"Count of the number of observations from the SeaWiFS sensor contributing to this bin cell",
+                         "nilReason":"The nil value represents an error in the sensor."
+                      }
+                   ],
+                   "axes":{
+                      "ansi":{
+                         "min":"(datetime(2016,12,1,0,0,0) + timedelta(hours=${netcdf:variable:time:min})).strftime(\"%Y-%m-%dT%H:%M\")",
+                         "max":"(datetime(2016,12,1,0,0,0) + timedelta(hours=${netcdf:variable:time:max})).strftime(\"%Y-%m-%dT%H:%M\")",
+                         "directPositions":"[(datetime(2016,12,1,0,0,0) + timedelta(hours=x)).strftime(\"%Y-%m-%dT%H:%M\") for x in ${netcdf:variable:time}]",
+                         "statements":"from datetime import datetime, timedelta",
+                         "resolution":1,
+                         "gridOrder":0,
+                         "type":"ansidate",
+                         "crsOrder":0,
+                         "irregular":true
+                      },
+                      "rlat":{
+                         "min":"${netcdf:variable:rlat:min}",
+                         "max":"${netcdf:variable:rlat:max}",
+                         "gridOrder":2,
+                         "crsOrder":1,
+                         "resolution":"${netcdf:variable:rlat:resolution}"
+                      },
+                      "rlon":{
+                         "min":"${netcdf:variable:rlon:min}",
+                         "max":"${netcdf:variable:rlon:max}",
+                         "gridOrder":1,
+                         "crsOrder":2,
+                         "resolution":"${netcdf:variable:rlon:resolution}"
+                      }
+                   }
+                }
+             },
+             "tiling":"ALIGNED [0:0, 0:1023, 0:1023]"
+          }
+       }
+    }
+
+wcst_import automatically checks if the specified band variables 
+(*CAPE_ML* in the above example) have a ``grid_mapping`` metadata 
+entry (e.g. ``CAPE_ML:grid_mapping = "rotated_pole"``), and adds 
+all metadata from the grid mapping variable (``rotated_pole``) to 
+the global metadata of the imported coverage.
+With the added ``grid_mapping`` section, the global metadata of
+the coverage might look as below, for example:
+
+.. hidden-code-block:: json
+
+      .. more global metadata
+
+      "CDO": "Climate Data Operators version 1.9.6 (http://mpimet.mpg.de/cdo)",
+      "nco_openmp_thread_number": "1",
+
+      "grid_mapping": {
+        "identifier": "rotated_pole",
+        "grid_mapping_name": "rotated_latitude_longitude",
+        "grid_north_pole_longitude": "-170.0",
+        "grid_north_pole_latitude": "40.0",
+        "semi_major_axis": "6371229.0",
+        "semi_minor_axis": "6371229.0"
+      },
+
+When encoding to netCDF in WCS or WCPS requests with the same
+``COSMO:101`` CRS, rasdaman will add this grid mapping metadata 
+as a non-dimension variable in the output, so that it has the correct
+CRS information. The name of the non-dimension variable in the output
+is set from the ``identifier`` value (``rotated_pole`` above).
 
 
 .. _data-import-recipe-wcs_extract:
@@ -3638,7 +4195,6 @@ following options in the ``"input"`` section:
 
 - ``crss`` - specify a list of CRSs (EPSG codes as strings) to import; if not
   specified or empty, data of any CRS will be imported.
-
 
 .. _data-import-recipe-create-own:
 
@@ -4140,6 +4696,35 @@ see how it works.
             return "my_custom_recipe"
 
 
+Importing many files
+--------------------
+
+When an ingredient contains many paths to be imported, usually more than 1000,
+this may lead to hitting some system limits during the import. 
+
+In particular when data is imported with the GDAL driver, wcst_import has a 
+cache of open GDAL datasets to avoid reopening files, which is costly. With
+too many open GDAL datasets limit on max open files can be reached, which
+is often 1024 (see ``ulimit -n``). wcst_import handles this case by clearing
+its cache; however, this may degrade import performance, so increasing the 
+limit on open files should be considered.
+
+Furthermore, limits on maximum number of threads may be reached as well,
+as each open GDAL dataset creates several threads. This will lead to
+errors such as ``fork: retry: Resource temporarily unavailable``.
+The maximum allowed number can be observed with
+``cat /sys/fs/cgroup/pids/user.slice/user-<id>.slice/pids.max``, where
+``<id>`` can be found with ``id -u <user>`` for the user with which
+wcst_import is executed. Increasing to a larger value, e.g. 4194304,
+should solve this issue.
+
+Finally, wcst_import.sh allows to control the gdal cache size with the
+``-c, --gdal-cache-size <size>`` option. The
+specified value can be one of: ``-1`` (no limit, cache all files),
+``0`` (fully disable caching), ``N`` (clear the cache whenever it has
+more than ``N`` datasets, ``N`` should be greater than 0). The
+default value is ``-1`` if this option is not specified.
+
 
 Data export
 ===========
@@ -4170,6 +4755,38 @@ In case of *encode* processing expressions, besides MIME types **WCPS** (and
 *rasql*) can also accept GDAL format identifiers or other commonly-used format
 abbreviations like "CSV" for Comma-Separated-Values for instance.
 
+Support for time in netCDF output
+---------------------------------
+
+If the global metadata of a coverage contains ``"units"`` and ``"calendar"``
+settings for the time axis,  when encoding to netCDF rasdaman will 
+adjust the coordinates of the time variable based on the origin specified
+in the ``"units"`` and ``"calendar"`` setting instead of the time CRS.
+Only ``standard`` and ``proleptic_gregorian`` calendars are currently
+supported. More details on these standard attributes of time variables
+can be found in the `CF conventions docs 
+<https://cfconventions.org/Data/cf-conventions/cf-conventions-1.9/cf-conventions.html#time-coordinate>`__.
+
+For example, a coverage might have this metadata for the ``ansi``
+time axis:
+
+.. hidden-code-block:: xml
+
+    <axes>
+        <ansi>
+            <standard_name>time</standard_name>
+            <units>hours since 2016-12-01 00:00:00</units>
+            <calendar>proleptic_gregorian</calendar>
+            <axis>T</axis>
+        </ansi>
+        ...
+   </axes>
+
+The values of ``ansi`` variable in the output netCDF file will be
+based on the origin ``2016-12-01 00:00:00`` as specified by the
+``<units>`` above, instead of ``1600-12-31``, the origin of the
+``AnsiDate`` CRS associated with this axis.
+
 
 rasdaman / petascope Geo Service Administration
 ===============================================
@@ -4193,7 +4810,10 @@ are forwarded by petascope to the client.
    for being visible as coverages.
 
 For further internal documentation on petascope see
-`Developer introduction to petascope and its metadata database <http://rasdaman.org/wiki/PetascopeDevGuide>`__.
+`Developer introduction to petascope and its metadata database 
+<http://rasdaman.org/wiki/PetascopeDevGuide>`__.
+
+.. _petascope-startup-shutdown:
 
 Service Startup and Shutdown
 ----------------------------
@@ -4202,21 +4822,26 @@ Depending of how ``java_server`` is configured in ``petascope.properties``,
 starting the petascope Web application is different as follows:
 
 - If set to ``external``, then managing the petascope Web application is done
-  via the system Tomcat in which it is deployed, e.g. ``service tomcat
-  start/stop/restart``.
+  via the system Tomcat in which it is deployed, e.g.
+
+  .. code-block:: shell
+
+   $ systemctl start tomcat
+   $ systemctl stop tomcat
+   $ systemctl restart tomcat
 
 - If set to :ref:`embedded <start-stop-embedded-applications>` then petascope is
-  managed along with rasdaman, e.g. ``start_rasdaman.sh`` and
-  ``stop_rasdaman.sh``, or ``service rasdaman start/stop``.
+  managed along with rasdaman; see :ref:`this section
+  <sec-system-install-administration>` for more details.
+
+.. _petascope-properties:
 
 Configuration
 -------------
 
-The petascope service is configured in file
-``$RMANHOME/etc/petascope.properties``. For changes to take effect, system
-Tomcat (if deployment is ``external``) or rasdaman (if deployment is
-``embedded``) needs to be restarted after editing this file.
+.. include:: 05_geo-services-guide-petascope-configuration.inc
 
+.. _petascope-security:
 
 Security
 --------
@@ -4227,12 +4852,19 @@ or ``DeleteCoverage``, etc). This is configured through the
 ``allow_write_requests_from`` setting in ``petascope.properties``.
 
 Any write requests from a non-listed IP address will be blocked. However, if one
-has petascope admin user credentials, configured through the
-``petascope_admin_user`` and ``petascope_admin_pass`` settings, then one can
-send write requests with these credentials via basic authentication header.
+has a rasdaman user credentials with ``RW`` rights (see :ref:`user rights <sec-users-rights>`),
+then one can send write requests with these credentials via basic authentication header.
 This authentication mechanism is used by the WSClient for example when logged
 in with the petascope admin credentials, to enable deleting coverages, updating
 metadata, styles, etc.
+
+.. NOTE::
+
+   Since v10+, the *petascope admin user* configured in ``petascope.properties`` by
+   settings ``petascope_admin_user`` and ``petascope_admin_pass`` has no effect.
+   One must use credentials of a rasdaman user with ``RW`` rights to perform
+   a request with the basic header authentication method.
+
 
 .. _petascope-database-connection:
 

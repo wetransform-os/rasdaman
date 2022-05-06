@@ -34,10 +34,28 @@ rasdaman GmbH.
 #include <boost/algorithm/string/case_conv.hpp>  // for to_lower
 
 using namespace std;
-using namespace common;
 
 
 #ifdef HAVE_GDAL
+
+void customGdalErrorHandler(CPLErr errCat, int errNum, const char* errMsg)
+{
+  std::string msg = "GDAL library error " + std::to_string(errNum) + ": ";
+  msg += errMsg;
+  if (msg.back() == '\n')
+    msg[msg.size() - 1] = ' ';
+  
+  switch (errCat)
+  {
+    case CE_Warning: LWARNING << msg; break;
+    case CE_Failure: LERROR << msg; break;
+    case CE_Fatal: LERROR << msg; throw r_Error(r_Error::r_Error_Conversion, msg);
+    case CE_None:
+    case CE_Debug:
+    default:
+      LDEBUG << msg; break;
+  }
+}
 
 const string ConvUtil::GDAL_KEY_IMAGE_STRUCTURE{"IMAGE_STRUCTURE"};
 const string ConvUtil::GDAL_KEY_PIXELTYPE{"PIXELTYPE"};
@@ -75,8 +93,11 @@ string ConvUtil::gdalTypeToRasTypeString(GDALRasterBand* gdalBand)
     case GDT_CInt16:   return "cint16";
     case GDT_CInt32:   return "cint32";
     default:
-        LERROR << "Unable to convert GDAL type " << dataType << " to rasdaman type.";
-        throw r_Error(r_Error::r_Error_Conversion);
+      {
+        std::stringstream s;
+        s << "unable to convert GDAL type " << int(dataType) << " to rasdaman type";
+        throw r_Error(r_Error::r_Error_Conversion, s.str());
+      }
     }
 }
 
@@ -93,8 +114,7 @@ r_Type* ConvUtil::gdalTypeToRasType(GDALDataset* poDataset, const vector<int>& b
         }
         else
         {
-            LERROR << "empty GDAL dataset.";
-            throw r_Error(r_Error::r_Error_Conversion);
+            throw r_Error(r_Error::r_Error_Conversion, "empty GDAL dataset");
         }
     }
     else if (nBands > 1) // struct type
@@ -106,8 +126,9 @@ r_Type* ConvUtil::gdalTypeToRasType(GDALDataset* poDataset, const vector<int>& b
             int bandId = bandIds[i];
             if (bandId < 0 || bandId >= poDataset->GetRasterCount())
             {
-                LERROR << "band id '" << bandId << "' out of range 0 - " << (poDataset->GetRasterCount() - 1) << ".";
-                throw r_Error(INVALIDFORMATPARAMETER);
+                std::stringstream s;
+                s << "band id '" << bandId << "' out of range 0 - " << (poDataset->GetRasterCount() - 1);
+                throw r_Error(r_Error::r_Error_Conversion, s.str());
             }
             if (i > 0)
             {
@@ -123,8 +144,8 @@ r_Type* ConvUtil::gdalTypeToRasType(GDALDataset* poDataset, const vector<int>& b
 
     if (baseType == NULL)
     {
-        LERROR << "failed converting GDAL type to rasdaman type.";
-        throw r_Error(r_Error::r_Error_FeatureNotSupported);
+        throw r_Error(r_Error::r_Error_FeatureNotSupported,
+                      "failed converting GDAL type to rasdaman type");
     }
 
     return baseType;
@@ -148,8 +169,11 @@ GDALDataType ConvUtil::rasTypeToGdalType(r_Type* rasType)
     case r_Type::CINT16: return GDT_CInt16;
     case r_Type::CINT32: return GDT_CInt32;
     default:
-        LERROR << "Unable to convert rasdaman type " << rasType->name() << " to GDAL type.";
-        throw r_Error(r_Error::r_Error_Conversion);
+      {
+        std::stringstream s;
+        s << "unable to convert rasdaman type " << rasType->name() << " to GDAL type";
+        throw r_Error(r_Error::r_Error_Conversion, s.str());
+      }
     }
 }
 #endif // HAVE_GDAL

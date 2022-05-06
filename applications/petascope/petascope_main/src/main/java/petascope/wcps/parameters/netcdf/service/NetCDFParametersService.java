@@ -30,20 +30,23 @@ import petascope.wcps.parameters.model.netcdf.BandVariable;
 import petascope.exceptions.PetascopeException;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import static org.apache.commons.lang3.math.NumberUtils.isNumber;
-import org.rasdaman.domain.cis.NilValue;
-import org.rasdaman.repository.service.CoverageRepositoryService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import petascope.core.Pair;
 import petascope.wcps.encodeparameters.model.AxesMetadata;
 import petascope.wcps.encodeparameters.model.BandsMetadata;
 import petascope.core.gml.metadata.model.CoverageMetadata;
-import petascope.exceptions.SecoreException;
+import petascope.core.gml.metadata.model.GridMapping;
+import petascope.exceptions.ExceptionCode;
+import petascope.util.StringUtil;
+import petascope.util.TimeUtil;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.IrregularAxis;
 import petascope.wcps.metadata.model.NumericTrimming;
@@ -51,6 +54,7 @@ import petascope.wcps.metadata.model.RangeField;
 import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.AxesOrderComparator;
+import ucar.units.*;
 
 /**
  * This class will build all parameters for encoding in NetCDF
@@ -59,10 +63,12 @@ import petascope.wcps.metadata.service.AxesOrderComparator;
  */
 @Service
 public class NetCDFParametersService {
-
-    @Autowired
-    private CoverageRepositoryService persistedCoverageService;
     
+    // NOTE: java-doc for udunits: https://repo1.maven.org/maven2/edu/ucar/udunits/4.5.5/udunits-4.5.5-javadoc.jar
+    final static UnitFormat format = UnitFormatManager.instance();
+    final static DateTimeFormatter timeFormatter = DateTimeFormatter.ISO_DATE_TIME;
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(NetCDFParametersService.class);
+
     public NetCDFParametersService() {
 
     }
@@ -73,7 +79,7 @@ public class NetCDFParametersService {
      * @return
      * @throws PetascopeException 
      */
-    public NetCDFExtraParams buildParameters(WcpsCoverageMetadata metadata) throws PetascopeException, SecoreException {
+    public NetCDFExtraParams buildParameters(WcpsCoverageMetadata metadata) throws PetascopeException {
         // NOTE: this needs to write with grid axis order
         List<String> dimensions = this.buildDimensions(metadata.getSortedAxesByGridOrder());
         List<Variable> vars = this.buildVariables(metadata);
@@ -114,8 +120,7 @@ public class NetCDFParametersService {
      * @return
      * @throws PetascopeException 
      */
-    private List<DimensionVariable> buildDimensionVariables(WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException, SecoreException {
-        String covName = wcpsCoverageMetadata.getCoverageName();
+    private List<DimensionVariable> buildDimensionVariables(WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException {
         List<Axis> axes = wcpsCoverageMetadata.getSortedAxesByGridOrder();        
         List<DimensionVariable> dimensionVariables = new ArrayList<>();
                         
@@ -123,6 +128,16 @@ public class NetCDFParametersService {
         CoverageMetadata coverageMetadata = wcpsCoverageMetadata.getCoverageMetadata();
         
         AxesMetadata axesMetadata = coverageMetadata.getAxesMetadata();
+        
+        GridMapping gridMappingVariable = wcpsCoverageMetadata.getCoverageMetadata().getGridMapping();
+        
+        if (gridMappingVariable != null) {
+            // NOTE: In case, this coverage is rotated grid mapping, then it needs to add the grid mapping variable in encode() netCDF
+            // e.g. rotated_pole
+            String gridMappingName = gridMappingVariable.getGlobalAttributesMap().get(GridMapping.IDENTIFIER);
+            dimensionVariables.add(new DimensionVariable("int", new ArrayList<>(), gridMappingName, 
+                                  new DimensionVariableMetadata(gridMappingVariable.getGlobalAttributesMap())));
+        }
         
         for (Axis axis : axes) {
             Map<String, String> axesMetadataMap = null;
@@ -137,7 +152,7 @@ public class NetCDFParametersService {
                 }
             }
             DimensionVariableMetadata dimensionVariableMetadata = new DimensionVariableMetadata(axesMetadataMap);
-            dimensionVariables.add(new DimensionVariable<>(RangeField.DATA_TYPE, this.buildPoisitionData(covName, axis), axis.getLabel(), dimensionVariableMetadata));
+            dimensionVariables.add(new DimensionVariable<>(RangeField.DATA_TYPE, this.buildPoisitionData(axis, coverageMetadata), axis.getLabel(), dimensionVariableMetadata));
         }
         return dimensionVariables;
     }
@@ -183,7 +198,7 @@ public class NetCDFParametersService {
      * @return
      * @throws PetascopeException 
      */
-    private List<Variable> buildVariables(WcpsCoverageMetadata metadata) throws PetascopeException, SecoreException {
+    private List<Variable> buildVariables(WcpsCoverageMetadata metadata) throws PetascopeException {
         List<Variable> variables = new ArrayList<>();
         // NOTE: this needs to write with grid axis order
         variables.addAll(this.buildDimensionVariables(metadata));
@@ -195,15 +210,11 @@ public class NetCDFParametersService {
      * Build the position data for each dimension, e.g:
      * \"Long\":{\"type\":\"double\",\"data\":[10.0,10.5,11.0,11.5,12.0,12.5,13.0,13.5,14.0,14.5,15.0,15.5,16.0,16.5,17.0,17.5,18.0,18.5,19.0,19.5,20.0]
      * NOTE: nagative axis like Lat will write max to min values (origin is the max value)
-     * @param covName
-     * @param axis
-     * @return
-     * @throws PetascopeException 
      */
-    private List<Double> buildPoisitionData(String covName, Axis axis) throws PetascopeException, SecoreException {
+    private List<Double> buildPoisitionData(Axis axis, CoverageMetadata coverageMetadata) throws PetascopeException {
 
         // data=[geoLow, geoLow+res, geoLow+2*res, ...., geoHigh]
-        List<Double> data = new ArrayList<>();
+        List<Double> result = new ArrayList<>();
         if (axis.getGeoBounds() instanceof NumericTrimming) {
             BigDecimal resolution = axis.getResolution();
 
@@ -235,41 +246,120 @@ public class NetCDFParametersService {
                         coord = coord.subtract(resolution.divide(new BigDecimal(2)).abs());
                     }
 
-                    data.add(coord.doubleValue());
+                    result.add(coord.doubleValue());
                 }
             } else {
                 IrregularAxis irregularAxis = ((IrregularAxis)axis);
                 
-                BigDecimal origin = axis.getOriginalOrigin();
-                if (irregularAxis.getFirstCoefficient().compareTo(BigDecimal.ZERO) < 0) {
-                    // In case, irregular axis is reversed (uppers -> lowers coefficients from the input netCDF file)
-                    origin = axis.getOriginalGeoBounds().getUpperLimit();
-                }
+                BigDecimal origin = irregularAxis.getCoefficientZeroBoundNumberFromOriginalDirectPositions();
                 
                 for (BigDecimal coefficient : irregularAxis.getDirectPositions()) {
                     BigDecimal coord = origin.add(coefficient.multiply(resolution));
-                    data.add(coord.doubleValue());
+                    result.add(coord.doubleValue());
                 }
             }
-        }
-
-        return data;
-    }
-
-    /**
-     * Parse a list of nilValues to collect all the numeric nodata values
-     * @param nullValues
-     * @return 
-     */
-    private List<BigDecimal> parseNodataValues(List<NilValue> nullValues) {
-        List<BigDecimal> result = new ArrayList<>();
-        for (NilValue nullValue : nullValues) {
-            String value = nullValue.getValue();
-            if (isNumber(value)) {
-                result.add(new BigDecimal(value));
+            
+            if (axis.isTimeAxis()) {
+                // Only do that, when time axis has valid "units" and "calendar" in coverage's global metadata
+                result = this.adjustTimeValuesByUnitsAndCalendar(axis, result, coverageMetadata);
             }
         }
 
         return result;
+    }
+    
+    /**
+     * In case, time axis has metadata about "units" and "calendar", then the output values must be adjusted
+     * according do the time origin specified inside the metadata.
+     * 
+     * doc: https://cfconventions.org/Data/cf-conventions/cf-conventions-1.9/cf-conventions.html#time-coordinate
+     */
+    private List<Double> adjustTimeValuesByUnitsAndCalendar(Axis timeAxis, List<Double> values, CoverageMetadata coverageMetadata) throws PetascopeException {
+        List<Double> result = values;
+        // e.g. "hours since 2016-12-01 00:00:00" and "proleptic_gregorian"
+        Pair<String, String> unitsCalendarPair = this.getTimeUnitsCalendarFromAxisMetadata(timeAxis.getLabel(), coverageMetadata);
+        
+        if (unitsCalendarPair != null) {
+            String units = unitsCalendarPair.fst;
+            // e.g. hours / seconds
+            String timeUnit = units.split(" ")[0];
+            
+            TimeScaleUnit timeScaleUnit = null;
+            Unit unit1 = null;
+            Unit unit2 = null;
+            
+            try {
+                // e.g. "hours since 2016-12-01 00:00:00"
+                timeScaleUnit = (TimeScaleUnit) format.parse(units);
+                long axisTimeOriginEpochMilli = timeScaleUnit.getOrigin().toInstant().toEpochMilli();
+
+                unit1 = format.parse("Milliseconds");
+                unit2 = format.parse(timeUnit);
+                
+                for (int i = 0; i < values.size(); i++) {
+                    Double value = values.get(i);
+                    // e.g. 2015-01-01                    
+                    String dateTime = StringUtil.stripQuotes(TimeUtil.valueToISODateTime(BigDecimal.ZERO, 
+                                                                  new BigDecimal(String.valueOf(value)), timeAxis.getCrsDefinition()));
+                    long dateTimeValueEpochMili = Instant.from(timeFormatter.parse(dateTime)).toEpochMilli();
+                    
+                    long diffMilli = dateTimeValueEpochMili - axisTimeOriginEpochMilli;
+                    
+                    // Here, the time value is adjusted based on the "units" of time axis specified in the netCDF
+                    double convertedValue = unit1.getConverterTo(unit2).convert(diffMilli);
+                    
+                    values.set(i, convertedValue);
+                }
+            } catch (Exception ex) {
+                throw new PetascopeException(ExceptionCode.InternalComponentError, 
+                                            "Cannot parse and adjust output time values when encoding to netCDF, based on time units: " + units 
+                                             + ". Reason: " + ex.getMessage(), ex);
+            }
+        }
+        
+        
+        return result;
+    }
+
+    /**
+     * Check if coverage contains valid metadata for time axis to adjust, based on cf-convention.
+     */
+    private Pair<String, String> getTimeUnitsCalendarFromAxisMetadata(String inputAxisLabel, CoverageMetadata coverageMetadata) {
+        for (Map.Entry<String, Map<String, String>> entry : coverageMetadata.getAxesMetadata().getAxesAttributesMap().entrySet()) {
+            // axis -> map of (key, value)
+            String axisLabel = entry.getKey();
+            
+            if (axisLabel.equals(inputAxisLabel)) {
+                String units = null;
+                String calendar = null;
+                    
+                // iterate metadata of an axis
+                for (Map.Entry<String, String> metadataEntry : entry.getValue().entrySet()) {
+                    String key = metadataEntry.getKey();
+                    String value = metadataEntry.getValue();
+                    
+                    if (key.equals("units")) {
+                        units = value;
+                    } else if (key.equals("calendar")) {
+                        calendar = value;
+                    }
+                    
+                    if (units != null && calendar != null) {
+                        // doc: https://cfconventions.org/Data/cf-conventions/cf-conventions-1.9/cf-conventions.html#calendar
+                        // NOTE: only supports 2 calendars
+                        if (calendar.equals("standard") || calendar.equals("proleptic_gregorian")) {
+                            return new Pair<>(units, calendar);
+                        }
+                        
+                        log.warn("NetCDF calendar not supported: " + calendar);
+                        return null;
+                    }
+                }
+                
+                return null;
+            }
+        }
+        
+        return null;
     }
 }

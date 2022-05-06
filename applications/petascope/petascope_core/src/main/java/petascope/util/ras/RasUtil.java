@@ -26,17 +26,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
-import java.util.logging.Level;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.commons.lang3.StringUtils;
 import org.odmg.Database;
 import org.odmg.ODMGException;
 import org.odmg.OQLQuery;
@@ -49,17 +45,15 @@ import petascope.exceptions.PetascopeException;
 import petascope.rasdaman.exceptions.RasdamanException;
 import petascope.rasdaman.exceptions.RasdamanCollectionDoesNotExistException;
 import petascope.rasdaman.exceptions.RasdamanCollectionExistsException;
-import petascope.util.BigDecimalUtil;
 import petascope.core.Pair;
+import petascope.util.JSONUtil;
 import petascope.util.ListUtil;
 import petascope.util.MIMEUtil;
-import static petascope.util.ras.RasConstants.RASQL_VERSION;
 import rasj.RasImplementation;
 import rasj.odmg.RasBag;
 import static petascope.util.ras.RasConstants.RASQL_BOUND_SEPARATION;
 import static petascope.util.ras.RasConstants.RASQL_OPEN_SUBSETS;
 import static petascope.util.ras.RasConstants.RASQL_CLOSE_SUBSETS;
-import static petascope.util.ras.RasConstants.RASQL_ENCODE;
 import rasj.RasGMArray;
 import rasj.RasMInterval;
 import rasj.RasResultIsNoIntervalException;
@@ -72,21 +66,14 @@ import rasj.RasResultIsNoIntervalException;
 public class RasUtil {
 
     private static final Logger log = LoggerFactory.getLogger(RasUtil.class);
-
-    /**
-     * Execute a RasQL query with configured credentials.
-     * executed by petascope itself when it starts and not external user
-     */
-    public static Object executeInternalRasqlQuery(String query) throws PetascopeException {
-        return executeRasqlQuery(query, ConfigManager.RASDAMAN_USER, ConfigManager.RASDAMAN_PASS, false);
-    }
+    static long QUERY_COUNTER = 0;
     
     private static void closeDB(Database db) throws RasdamanException {
         if (db != null) {
             try {
                 db.close();
             } catch (Exception ex) {
-                throw new RasdamanException("Failed closing rasdaman db connection: " + ex.getMessage(), ex);
+                throw new RasdamanException("Failed closing rasdaman db connection. Reason: " + ex.getMessage(), ex);
             }
         }
     }
@@ -96,7 +83,7 @@ public class RasUtil {
             try {
                 tr.abort();
             } catch (Exception ex) {
-                throw new RasdamanException("Failed closing rasdaman transaction: " + ex.getMessage(), ex);
+                throw new RasdamanException("Failed closing rasdaman transaction. Reason: " + ex.getMessage(), ex);
             }
         }
     }
@@ -104,7 +91,7 @@ public class RasUtil {
     /**
      * Create a RasGMArray from an array of bytes;
      */
-    private static RasGMArray createRasGMArray(byte[] bytes) throws RasResultIsNoIntervalException, IOException {
+    private static RasGMArray createRasGMArray(byte[] bytes) throws RasResultIsNoIntervalException {
         
         String mIntervals = "[0:" + (bytes.length - 1) + "]";
         // with cell length = 1 (byte)
@@ -133,9 +120,12 @@ public class RasUtil {
      * @return result from query
      */
     public static Object executeRasqlQuery(String query, String username, String password, boolean rw, RasGMArray rasGMArray) throws PetascopeException {
-        final long start = System.currentTimeMillis();
-        log.info("Executing rasql query: " + query);
-
+        final long startTime = System.currentTimeMillis();
+        String queryCounter = QUERY_COUNTER_PREFIX + QUERY_COUNTER;
+        QUERY_COUNTER++;
+        
+        log.info("Executing rasql query " + queryCounter + ": " + query);
+        
         RasImplementation impl = new RasImplementation(ConfigManager.RASDAMAN_URL);
         impl.setUserIdentification(username, password);
 
@@ -145,7 +135,10 @@ public class RasUtil {
             db.open(ConfigManager.RASDAMAN_DATABASE, 
                     rw ? Database.OPEN_READ_WRITE : Database.OPEN_READ_ONLY);
         } catch (Exception ex) {
-            log.error("Failed opening " + (rw ? "rw" : "ro") + " database connection to rasdaman: " + ex.getMessage());
+            log.error("Failed opening " + (rw ? "rw" : "ro") + " database connection to rasdaman " 
+                    + getExecutedRasqlTimeMessage(queryCounter, startTime)
+                    + ". Reason: " + ex.getMessage() 
+                    );
             throw new RasdamanException(ExceptionCode.RasdamanUnavailable, ex, query);
         }
 
@@ -155,7 +148,8 @@ public class RasUtil {
             tr = impl.newTransaction();
             tr.begin();
         } catch (Exception ex) {
-            log.error("Failed opening " + (rw ? "rw" : "ro") + " transaction to rasdaman: " + ex.getMessage());
+            log.error("Failed opening " + (rw ? "rw" : "ro") + " transaction to rasdaman " 
+                    + getExecutedRasqlTimeMessage(queryCounter, startTime) + ". Reason: " + ex.getMessage());
             closeDB(db);
             throw new RasdamanException(ExceptionCode.RasdamanUnavailable, ex, query);
         }
@@ -169,7 +163,8 @@ public class RasUtil {
             }
         } catch (Exception ex) {
             // not really supposed to ever throw an exception
-            log.error("Failed creating query object: " + ex.getMessage());
+            log.error("Failed creating query object " + getExecutedRasqlTimeMessage(queryCounter, startTime) 
+                    + ". Reason: " + ex.getMessage());
             abortTR(tr);
             closeDB(db);
             throw new RasdamanException(ExceptionCode.InternalComponentError, ex, query);
@@ -180,6 +175,7 @@ public class RasUtil {
             ret = q.execute();
             tr.commit();
         } catch (ODMGException ex) {
+            log.error("Failed querying to rasdaman " + getExecutedRasqlTimeMessage(queryCounter, startTime) + ". Reason: " + ex.getMessage());
             abortTR(tr);
             if (ex.getMessage().contains("CREATE: Collection name exists already.") || ex.getMessage().contains("Collection already exists")) {
                 throw new RasdamanCollectionExistsException(ExceptionCode.CollectionExists, query, ex);
@@ -190,14 +186,16 @@ public class RasUtil {
                         ex.getMessage(), ex, query);
             }
         } catch (OutOfMemoryError ex) {
+            log.error("Requested more data than the server can handle at once " + getExecutedRasqlTimeMessage(queryCounter, startTime));
             abortTR(tr);
-            throw new PetascopeException(ExceptionCode.InternalComponentError, "Requested more data than the server can handle at once. "
+            throw new PetascopeException(ExceptionCode.OutOfMemory, "Requested more data than the server can handle at once. "
                     + "Try increasing the maximum memory allowed for Tomcat (-Xmx JVM option).");
         } catch (Exception ex) {
             abortTR(tr);
             if (ex.getMessage().contains("GRPC Exception")) {
                 log.warn("Lost connection to rasdaman server.");
             } else {
+                log.error("Failed querying to rasdaman " + getExecutedRasqlTimeMessage(queryCounter, startTime) + ". Reason: " + ex.getMessage());
                 throw new RasdamanException(ExceptionCode.RasdamanRequestFailed, 
                     ex.getMessage(), ex, query);
             }
@@ -205,11 +203,20 @@ public class RasUtil {
             closeDB(db);
         }
 
-        final long end = System.currentTimeMillis();
-        final long totalTime = end - start;
-        log.info("Rasql query executed in " + String.valueOf(totalTime) + " ms.");
+        final long endTime = System.currentTimeMillis();
+        final long totalTime = endTime - startTime;
+        
+        log.info("Rasql query " + queryCounter + " executed in " + totalTime + " ms.");
 
         return ret;
+    }
+    
+    private static String getExecutedRasqlTimeMessage(String queryCounter, long startTime) {
+        final long endTime = System.currentTimeMillis();
+        final long totalTime = endTime - startTime;
+        
+        String message = "for query " + queryCounter + " in " + totalTime + " ms";
+        return message;
     }
 
     /**
@@ -284,8 +291,8 @@ public class RasUtil {
         
         // e.g: update test_mr1 as c set c[*:*,*:*] assign scale(d[*:*,*:*], [0:20,0:30]) from test_mr as d
         String rasqlQuery = "UPDATE " + targetDownscaledCollectionName + " as d SET d" + targetAffectedDomain 
-                     + " ASSIGN SCALE(c" + sourceAffectedDomain + ", " + targetAffectedDomain + ")"
-                     + " FROM " + sourceCollectionName + " as c";
+                          + " ASSIGN SCALE(c" + sourceAffectedDomain + ", " + targetAffectedDomain + ")"
+                          + " FROM " + sourceCollectionName + " as c";
         RasUtil.executeRasqlQuery(rasqlQuery, username, password, Boolean.TRUE);
     }
 
@@ -298,7 +305,7 @@ public class RasUtil {
     public static void executeInsertStatement(String collectionName, String values, String tiling, String username, String password) throws RasdamanException, PetascopeException {
         String tilingClause = (tiling == null || tiling.isEmpty()) ? "" : TILING_KEYWORD + " " + tiling;
         String query = TEMPLATE_INSERT_VALUES.replace(TOKEN_COLLECTION_NAME, collectionName)
-                .replace(TOKEN_VALUES, values).replace(TOKEN_TILING, tilingClause);
+                                              .replace(TOKEN_VALUES, values).replace(TOKEN_TILING, tilingClause);
         executeRasqlQuery(query, username, password, true);
     }
 
@@ -306,7 +313,7 @@ public class RasUtil {
      * Insert an image to an existing collection by decoding file
      */
     public static void executeInsertFileStatement(String collectionName, String filePath, String mime,
-                                                  String tiling, String username, String password) throws RasdamanException, IOException, PetascopeException {
+                                                  String tiling, String username, String password) throws RasdamanException, PetascopeException {
         String query;
         String tilingClause = (tiling == null || tiling.isEmpty()) ? "" : TILING_KEYWORD + " " + tiling;
 
@@ -315,16 +322,27 @@ public class RasUtil {
                 + "'" + TEMPLATE_INSERT_DECODE_FILE.replace(TOKEN_COLLECTION_NAME, collectionName).replace(TOKEN_TILING, tilingClause) + "' --file " + filePath;
         log.info("Executing " + query);
 
-        Process p = Runtime.getRuntime().exec(new String[]{"bash", "-c", query});
+        Process p;
+        try {
+            p = Runtime.getRuntime().exec(new String[] {"bash", "-c", query});
+        } catch (IOException ex) {
+            throw new PetascopeException(ExceptionCode.RuntimeError, "Failed to run rasql query '" + query + "' with bash. Reason: " + ex.getMessage());
+        }
+        
         BufferedReader stdError = new BufferedReader(new InputStreamReader(p.getErrorStream()));
         String s;
         String errorMessage = "";
-        while ((s = stdError.readLine()) != null) {
-            errorMessage += s + "\n";
+        try {
+            while ((s = stdError.readLine()) != null) {
+                errorMessage += s + "\n";
+            }
+        } catch (IOException ex) {
+            throw new PetascopeException(ExceptionCode.RuntimeError, 
+                    "Failed to get error message from InputStreamReader of rasql '" + query + "' with bash. Reason: " + ex.getMessage());
         }
         if (!errorMessage.isEmpty()) {
             //error occured
-            throw new RasdamanException(errorMessage, query);
+            throw new RasdamanException(ExceptionCode.InternalComponentError, errorMessage, query);
         }
     }
 
@@ -335,7 +353,7 @@ public class RasUtil {
      * decode($1)'
      */
     public static void executeInsertUpdateFileStatement(String orgQuery, String filePath, String username, String password) 
-            throws RasdamanException, IOException {
+            throws RasdamanException, PetascopeException {
         long start = System.currentTimeMillis();
         
         String query = ConfigManager.RASDAMAN_BIN_PATH + RASQL + " --user " + username + " --passwd " + password + " -q "
@@ -344,16 +362,28 @@ public class RasUtil {
                 + "' --file " + filePath;
         log.info("Executing " + query);
 
-        Process p = Runtime.getRuntime().exec(new String[]{"bash", "-c", query});
+        Process p;
+        try {
+            p = Runtime.getRuntime().exec(new String[] {"bash", "-c", query});
+        } catch (IOException ex) {
+            throw new PetascopeException(ExceptionCode.RuntimeError, "Failed to run rasql query '" + query + "' with bash. Reason: " + ex.getMessage());
+        }
+        
         BufferedReader stdError = new BufferedReader(new InputStreamReader(p.getErrorStream()));
         String s;
         String errorMessage = "";
-        while ((s = stdError.readLine()) != null) {
-            errorMessage += s + "\n";
+        try {
+            while ((s = stdError.readLine()) != null) {
+                errorMessage += s + "\n";
+            }
+        } catch (IOException ex) {
+            throw new PetascopeException(ExceptionCode.RuntimeError, 
+                    "Failed to get error message from InputStreamReader of rasql '" + query + "' with bash. Reason: " + ex.getMessage());
         }
+        
         if (!errorMessage.isEmpty()) {
             //error occured
-            throw new RasdamanException(errorMessage, query);
+            throw new RasdamanException(ExceptionCode.InternalComponentError, errorMessage, query);
         }
         
         long end = System.currentTimeMillis();
@@ -377,7 +407,7 @@ public class RasUtil {
         try {
             rasGMArray = createRasGMArray(bytes);
         } catch (Exception ex) {
-            throw new PetascopeException(ExceptionCode.IOConnectionError,
+            throw new PetascopeException(ExceptionCode.RuntimeError,
                                          "Cannot create RasGMArray from an array of bytes. Reason: " + ex.getMessage(), ex);
         }
         
@@ -599,42 +629,36 @@ public class RasUtil {
     /**
      * Send a simple rasql query to rasdaman to check if username and passWord are correct.
      */
-    public static boolean checkValidUserCredentials(String username, String password) throws Exception {
+    public static void checkValidUserCredentials(String username, String inputPassword) throws RasdamanException, PetascopeException {
+        RasImplementation impl = new RasImplementation(ConfigManager.RASDAMAN_URL);
         try {
-            String query = "SELECT 1";
-            executeRasqlQuery(query, username, password, false);
-        } catch (Exception ex) {   
-            if (ex.getMessage().contains("user " + username + " does not exist") 
-                || ex.getMessage().contains("The credentials provided by the client are invalid")) {
-                return false;
+            impl.setUserIdentification(username, inputPassword);
+        } catch (Exception ex) {
+            String errorMessage = ex.getMessage();
+            boolean userNotExist = errorMessage.contains("user") && errorMessage.contains("does not exist");
+            boolean passwordInCorrect = errorMessage.contains("password") && errorMessage.contains("is invalid");
+            if (userNotExist || passwordInCorrect) {
+                throw new PetascopeException(ExceptionCode.InvalidCredentials, "rasdaman credentials are invalid for user: " + username);
             } else {
-                throw ex;
-            }            
+                throw new RasdamanException("Could not check if credentials for user '" + username + "' are valid in rasdaman. Reason: " + ex.getMessage(), ex);
+            }
         }
         
-        return true;
     }
     
     /**
-     * Get all collection names by input credentials
+     * NOTE: rasdaman community doesn't support LIST COLLECTIONS query
      */
-    public static List<String> getCollectionnames(String username, String password) throws PetascopeException {
-        List<String> collectionnames = new ArrayList<>();
-        
-        try {
-            Object rasqlResult = executeRasqlQuery("LIST COLLECTIONS", username, password, false);
-            RasQueryResult queryResult = new RasQueryResult(rasqlResult);              
-            collectionnames = ListUtil.stol(queryResult.toString(), ",");
-        } catch(Exception ex) {
-            log.warn("Cannot execute LIST COLLECTIONS query. Reason: " + ex.getMessage());
-            // in case LIST COLLECTIONS doesn't exist
-            String query = "SELECT c from RAS_COLLECTIONNAMES as c";
-            Object rasjResult = executeRasqlQuery(query, username, password, false);
-            RasQueryResult queryResult = new RasQueryResult(rasjResult);
-            
-            for (int i = 0; i < queryResult.getMdds().size(); i++) {
-                collectionnames.add(new String(queryResult.getMdds().get(i)));
-            }
+    public static Set<String> getLocalCollectionNames() throws Exception {
+        Set<String> collectionnames = new HashSet<>();
+        String query = "SELECT c from RAS_COLLECTIONNAMES as c";
+        Object rasjResult = executeRasqlQuery(query, ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS, false);
+        RasQueryResult queryResult = new RasQueryResult(rasjResult);
+
+        for (int i = 0; i < queryResult.getMdds().size(); i++) {
+            // remove null char at the end of collection name from rasdaman
+            String collectionName = new String(queryResult.getMdds().get(i)).replace("\u0000", "");
+            collectionnames.add(collectionName);
         }
         
         return collectionnames;
@@ -681,4 +705,6 @@ public class RasUtil {
     private static final String TEMPLATE_SDOM = "SELECT sdom(m) FROM " + TOKEN_COLLECTION_NAME + " m";
     private static final String TEMPLATE_DROP_COLLECTION = "DROP COLLECTION " + TOKEN_COLLECTION_NAME;
     private static final String TEMPLATE_DROP_RASDAMAN_TYPE = "DROP TYPE " + RASDAMAN_TYPE;
+    
+    private static final String QUERY_COUNTER_PREFIX = "rasql-";
 }

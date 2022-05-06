@@ -39,6 +39,7 @@ import petascope.oapi.handlers.model.Extent;
 import petascope.oapi.handlers.model.Link;
 import petascope.oapi.handlers.model.Spatial;
 import petascope.oapi.handlers.model.Temporal;
+import petascope.util.CrsProjectionUtil;
 import petascope.util.CrsUtil;
 import petascope.util.StringUtil;
 import petascope.wcps.metadata.model.Axis;
@@ -106,21 +107,23 @@ public class OapiCollectionService {
         String coverageId = wcpsCoverage.getCoverageName();
         Spatial result = null;
 
-        if (wcpsCoverage.hasXYAxes() && CrsUtil.isValidTransform(wcpsCoverage.getXYAxes().get(0).getNativeCrsUri())) {
+        if (wcpsCoverage.hasXYAxes() && CrsProjectionUtil.isValidTransform(wcpsCoverage.getXYAxes().get(0).getNativeCrsUri())) {
             List<List<BigDecimal>> bboxValues = new ArrayList<>();
             
-            Coverage coverage  = this.coverageRepositoryService.readCoverageBasicMetadataByIdFromCache(coverageId);
-            Wgs84BoundingBox wgs84BBox = coverage.getEnvelope().getEnvelopeByAxis().getWgs84BBox();
-            
-            if (wgs84BBox != null) {
-                // coverage is geo-referenced
-                List<BigDecimal> values = Arrays.asList(wgs84BBox.getMinLong(),
-                                                        wgs84BBox.getMinLat(),
-                                                        wgs84BBox.getMaxLong(),
-                                                        wgs84BBox.getMaxLat());
+            Coverage coverage = this.coverageRepositoryService.readCoverageBasicMetadataByIdFromCache(coverageId);
+            if (coverage != null) {
+                Wgs84BoundingBox wgs84BBox = coverage.getEnvelope().getEnvelopeByAxis().getWgs84BBox();
 
-                bboxValues.add(values);
-                result = new Spatial(bboxValues);                
+                if (wgs84BBox != null) {
+                    // coverage is geo-referenced
+                    List<BigDecimal> values = Arrays.asList(wgs84BBox.getMinLong(),
+                                                            wgs84BBox.getMinLat(),
+                                                            wgs84BBox.getMaxLong(),
+                                                            wgs84BBox.getMaxLat());
+
+                    bboxValues.add(values);
+                    result = new Spatial(bboxValues);                
+                }
             }
             
         }

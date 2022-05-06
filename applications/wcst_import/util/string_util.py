@@ -25,6 +25,11 @@ from datetime import datetime
 import decimal
 from xml.sax.saxutils import escape
 import random
+import re
+
+# e.g. 'band_1' is valid but not 'band 1'
+BAND_NAME_PATTERN = "^[a-zA-Z_0-9]+$"
+__band_name_pattern = re.compile(BAND_NAME_PATTERN)
 
 
 def stringify(thing):
@@ -152,4 +157,44 @@ def create_coverage_id_for_overview(base_coverage_id, overview_index):
     e.g: cov_a with overview 1 -> cov_a_1
     """
     return base_coverage_id + "_" + overview_index
+
+
+def parse_error_message(exception_text):
+    """
+    Parse the error message inside <ows:ExceptionText>....</ows:ExceptionText>
+    :return: str
+    """
+    start = "<ows:ExceptionText>"
+    end = "</ows:ExceptionText>"
+    error_message = exception_text[exception_text.find(start) + len(start):exception_text.rfind(end)]
+
+    return error_message
+
+
+def is_band_name_valid(input_str):
+    """
+    Check if input string is valid band name for a coverage
+    """
+    return __band_name_pattern.match(input_str)
+
+
+def get_petascope_endpoint_without_ows(petascope_endpoint):
+    """
+    e.g. http://mundi.rasdaman.com/rasdaman/ows or http://mundi.rasdaman.com/rasdaman/ows/
+    returns http://mundi.rasdaman.com/rasdaman
+    """
+    endpoint = petascope_endpoint
+
+    if petascope_endpoint.endswith("/ows") or petascope_endpoint.endswith("/ows/"):
+        endpoint = ""
+        tmps = petascope_endpoint.split("/")
+
+        size = len(tmps)
+
+        for i in range(0, size - 1):
+            endpoint += tmps[i]
+            if i < size - 2:
+                endpoint += "/"
+
+    return endpoint
 

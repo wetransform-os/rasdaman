@@ -66,6 +66,13 @@ import org.rasdaman.repository.service.WMSRepostioryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import petascope.util.CrsUtil;
 import petascope.util.ras.RasUtil;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import org.rasdaman.domain.cis.Coverage;
+import org.rasdaman.repository.service.OWSMetadataRepostioryService;
+import petascope.core.Pair;
 
 /**
  * This class initializes the petascope properties and runs the application as jar file.
@@ -104,6 +111,12 @@ public class ApplicationMain extends SpringBootServletInitializer {
     
     private static Properties applicationProperties = null;
     
+    public static boolean COVERAGES_CACHES_LOADED = false;
+    
+    // NOTE: this set is not updated when insert/delete local coverages, it only contains
+    // the list of local collection from rasdaman when petascope starts
+    public static Set<String> localRasdamanCollectionNames = new HashSet<>();
+    
     /**
      * Check if petascope runs with embedded tomcat or external tomcat
      */
@@ -120,6 +133,10 @@ public class ApplicationMain extends SpringBootServletInitializer {
     
     @Autowired
     private DataMigrationService dataMigrationService;
+    
+    @Autowired
+    private OWSMetadataRepostioryService owsMetadataRepostioryService;
+
 
     /**
      * Invoked when running Petascope (rasdaman.war) only in an external servlet container. 
@@ -175,6 +192,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
             // for external local tomcat, it returns `/home/rasdaman/pache-tomcat-8.5.34/bin`
             webappsDir = new FileSystemResource("").getFile().getCanonicalPath().replace("/bin", "") + "/webapps";
         }
+        
         CrsUtil.loadInternalSecore(embedded, webappsDir);
         
         Properties properties = new Properties();
@@ -226,9 +244,13 @@ public class ApplicationMain extends SpringBootServletInitializer {
         // (if not, user has to restart Tomcat for JVM class loader does the load JNI again).
         try {
             gdal.AllRegister(); // should be done once on application startup
-            // test projection
-            GeoTransform sourceGT = new GeoTransform(4326, 0, 0, 1, 1, 0.5, 0.5);
-            CrsProjectionUtil.getGeoTransformInTargetCRS(sourceGT, "EPSG:3857");
+            // test projection to check if gdal-java library works
+            String sourceCRS = "http://localhost:8080/def/crs/EPSG/0/4326";
+            String targetCRS = "http://localhost:8080/def/crs/EPSG/0/3857";
+            
+            String wkt = CrsUtil.getWKT(sourceCRS);
+            GeoTransform sourceGT = new GeoTransform(wkt, new BigDecimal("111.975"), new BigDecimal("-8.975"), 89, 71, new BigDecimal("0.5"), new BigDecimal("-0.5"));
+            CrsProjectionUtil.getGeoTransformInTargetCRS(sourceGT, targetCRS);
         } catch (Error | Exception ex) {
             String errorMessage = "Transform test failed, probably due to a problem with adding GDAL native library "
                                 + "to java library path; please restart Tomcat to fix this problem. Reason: " + ex;
@@ -247,7 +269,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
         
         loadGdalLibrary();
         initTrustAllSSL();
-
+        
         if (MIGRATE && AbstractController.startException == null) {
             log.info("Migrating petascopedb from JDBC URL '" + ConfigManager.SOURCE_DATASOURCE_URL + 
                     "' to JDBC URL '" + ConfigManager.PETASCOPE_DATASOURCE_URL + "'...");
@@ -284,16 +306,9 @@ public class ApplicationMain extends SpringBootServletInitializer {
             log.info("petascopedb migrated successfully.");
             System.exit(ExitCode.SUCCESS.getExitCode());
         }
-        
-        // ### check if SECORE is running first
 
-        if (!CrsUtil.isSecoreAvailable()) {
-            ConfigManager.SECORE_URLS = ConfigManager.getInstance(ConfigManager.CONF_DIR).getInternalSecoreURLs();
-            log.warn("SECORE endpoints configured in secore_urls setting in petascope.properties failed to return response; "
-                    + "petascope will use internal SECORE instead. "
-                    + "Hint: add \"internal\" as the first value of secure_urls in petascope.properties to avoid this warning in future.");            
-        }
-        
+        CrsUtil.checkSECOREURLsForInternalMigration();
+
         // ### data migration
 
         // Test if rasdaman is running first
@@ -313,10 +328,15 @@ public class ApplicationMain extends SpringBootServletInitializer {
         this.dataMigrationService.runMigration();
 
         log.info("Checked data migrations.");
+        
+        owsMetadataRepostioryService.read();
 
         // load coverages / layers to caches in background thread
         this.loadCoveragesLayersCaches(this);
-
+        
+        // then, check if local rasdaman collections of local coverages exist in RASBASE
+        this.checkLocalCollectionsOfCoveragesExist(this);
+        
     }
 
     /**
@@ -324,26 +344,27 @@ public class ApplicationMain extends SpringBootServletInitializer {
      * Log warnings if something don't work (later WCS / WMS Getcapabilities requests will retry to read from database to caches)
      */
     private void loadCoveragesLayersCaches(final ApplicationMain self) {
-        // users cache
-        Runnable runnable = new Runnable() {            
+
+        Runnable runnable1 = new Runnable() {            
             public void run() {
                 // ### 1. coverages
                 
                 try {
                     log.info("Loading coverages to caches ...");
                     coverageRepositoryService.readAllCoveragesBasicMetadata();
-                } catch (PetascopeException ex) {
+                } catch (Exception ex) {
                     log.warn("Cannot load coverages to cache. Reason: " + ex.getMessage(), ex);
                 }
 
-                try {
-                    coverageRepositoryService.createAllCoveragesExtents();
-                } catch (Exception ex) {
-                    log.warn("Cannot create coverage extents. Reason: " + ex.getMessage(), ex);
-                }
-
                 log.info("Loaded coverages to caches.");
-
+                
+                COVERAGES_CACHES_LOADED = true;
+            }
+        };
+        
+        Runnable runnable2 = new Runnable() {            
+            public void run() {
+        
                 // ### 2. layers
 
                 log.info("Loading layers to caches ...");
@@ -358,8 +379,56 @@ public class ApplicationMain extends SpringBootServletInitializer {
             }
         };
         
+        Thread thread1 = new Thread(runnable1);
+        thread1.start();        
+        
+        Thread thread2 = new Thread(runnable2);
+        thread2.start();
+    }
+    
+    private void checkLocalCollectionsOfCoveragesExist(final ApplicationMain self) {
+        Runnable runnable = new Runnable() {            
+            public void run() {
+                log.info("Checking that collections corresponding to the coverages in petascope exist in rasdaman...");
+                
+                List<Pair<Coverage, Boolean>> localCoveragesList = new ArrayList<>();
+                try {
+                    localCoveragesList = self.coverageRepositoryService.readAllLocalCoveragesBasicMetatata();
+                } catch (PetascopeException ex) {
+                    log.warn("Checking that collections corresponding to coverages exist in rasdaman failed, "
+                            + "cannot read list of basic coverage metadata objects. Reason: " + ex.getMessage());
+                }
+                
+                try {
+                    localRasdamanCollectionNames = RasUtil.getLocalCollectionNames();
+                } catch (Exception ex) {
+                    log.warn("Checking that collections corresponding to coverages exist in rasdaman failed, "
+                            + "cannot get list of local collections from rasdaman. Reason: " + ex.getMessage(), ex);
+                }
+                
+                
+                if (!localRasdamanCollectionNames.isEmpty()) {
+                    // Only check if collection name exists for coverages, if rasdaman can be up for collecting collection names
+                
+                    for (Pair<Coverage, Boolean> pair : localCoveragesList) {
+                        Coverage coverage = pair.fst;
+                        String coverageId = coverage.getCoverageId();
+
+                        String rasdamanCollectionName = coverage.getRasdamanRangeSet().getCollectionName();
+                        if (!localRasdamanCollectionNames.contains(rasdamanCollectionName)) {
+                            log.warn("Collection name '" + rasdamanCollectionName + "' of coverage '" + coverageId + "' does not exist in rasdaman; "
+                                    + "it is best to delete this coverage and reimport it.");
+                        }
+                    }
+                    
+                }
+
+                log.info("Done checking that collections corresponding to the coverages in petascope exist in rasdaman.");
+            }
+        };
+        
         Thread thread = new Thread(runnable);
-        thread.start();        
+        thread.start();  
     }
 
     /**

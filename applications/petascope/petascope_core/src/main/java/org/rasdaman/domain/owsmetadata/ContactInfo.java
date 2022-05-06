@@ -24,6 +24,7 @@ package org.rasdaman.domain.owsmetadata;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -78,16 +79,16 @@ public class ContactInfo {
     // Zero or one, optional
     @Column(name = "online_resource", length = 1000)
     // NOTE: As this could be long text, so varchar(255) is not enough
-    // e.g: <ows:OnlineResource xlink:href="http://geoserver.org"/>
+    // e.g: <ows:OnlineResource xlink:href="http://rasadaman.org"/>
     private String onlineResource;
 
     // Zero or one, optional
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = Address.COLUMN_ID)
     private Address address;
 
     // Zero or one, optional
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = Phone.COLUMN_ID)
     private Phone phone;
 

@@ -55,18 +55,25 @@ class Resumer:
         :param str coverage_id: coverage id of current importer to find the resume file.
         """
         if coverage_id not in Resumer.__IMPORTED_DATA_DICT:
-            resume_file_path = ConfigManager.resumer_dir_path + coverage_id + Resumer.__RESUMER_FILE_SUFFIX
+            resume_file_path = Resumer.get_resume_file_path(ConfigManager.resumer_dir_path, coverage_id)
             Resumer.__RESUMER_FILE_NAME_DICT[coverage_id] = resume_file_path
             try:
                 if os.path.isfile(resume_file_path) \
                         and os.access(resume_file_path, os.R_OK):
-                    log.info(
-                        "We found a resumer file in the ingredients folder. The slices listed in '" + resume_file_path
-                        + "' will not be imported.")
-                    file = open(Resumer.__RESUMER_FILE_NAME_DICT[coverage_id])
-                    data = json.loads(file.read())
-                    Resumer.__IMPORTED_DATA_DICT[coverage_id] = data
-                    file.close()
+                    from util.coverage_util import CoverageUtilCache
+                    cov = CoverageUtilCache.get_cov_util(coverage_id)
+                    if not cov.exists():
+                        log.info(
+                            "Coverage " + coverage_id + " does not exist, the existing resumer file '" + resume_file_path + "' will be reset.")
+                        FileUtil.delete_file_ignore_error(resume_file_path)
+                    else:
+                        log.info(
+                            "The slices listed in the resumer file '" + resume_file_path + "' will not be imported.")
+
+                        ConfigManager.has_resume_file = True
+                        with open(Resumer.__RESUMER_FILE_NAME_DICT[coverage_id], "r") as f:
+                            data = json.loads(f.read())
+                            Resumer.__IMPORTED_DATA_DICT[coverage_id] = data
             except IOError as e:
                 raise RuntimeException("Could not read the resume file, full error message: " + str(e))
             except ValueError as e:
@@ -79,13 +86,23 @@ class Resumer:
         """
         if ConfigManager.track_files and not ConfigManager.mock:
             resume_file_path = self.__RESUMER_FILE_NAME_DICT[self.coverage_id]
+            file = None
 
             try:
                 file = open(resume_file_path, "w")
+            except Exception as e:
+                log.error("Cannot create resume file '{}'. \n"
+                          "Reason: " + str(e) + ". \n"
+                          "Hint: make sure the folder containing the resume file is writeable "
+                          "for the user running wcst_import.sh.".format(resume_file_path))
+                exit(1)
+
+            try:
                 json.dump(Resumer.__IMPORTED_DATA_DICT[self.coverage_id], file)
                 file.close()
             except Exception as e:
-                log.error("Cannot create resume file '{}'. \n"
+                log.error("Cannot write JSON data to resume file '{}'. \n"
+                          "Reason: " + str(e) + ". \n"
                           "Hint: make sure the folder containing the resume file is writeable "
                           "for the user running wcst_import.sh.".format(resume_file_path))
                 exit(1)
@@ -124,29 +141,40 @@ class Resumer:
 
         return ret_slices
 
-    def is_file_imported(self, input_file_path):
-        """
-        Check if a file was imported and exists in *.resume.json
-        :param input_file_path: path to input file
-        """
-        if self.coverage_id in Resumer.__IMPORTED_DATA_DICT:
-            for imported_file in Resumer.__IMPORTED_DATA_DICT[self.coverage_id]:
-                if FileUtil.strip_root_url(input_file_path) == FileUtil.strip_root_url(imported_file):
-                    return True
-
-        return False
-
     def get_not_imported_files(self, files):
         """
-        Filter all not imported files from input files and files inside coverageId.resume.json file
+        Of the given files, return only those which are not present in the coverageId.resume.json file
+        (i.e. already imported)
         :param List[File] files: input files list
         """
         collected_files = []
 
-        for file in files:
-            if not self.is_file_imported(file.get_filepath()):
-                collected_files.append(file)
+        tmp_dict = Resumer.__IMPORTED_DATA_DICT
+        if self.coverage_id in tmp_dict:
+            inported_files_list = tmp_dict[self.coverage_id]
+            imported_files_set = {FileUtil.strip_root_url(f) for f in inported_files_list}
+            for file in files:
+                file_path = FileUtil.strip_root_url(file.get_filepath())
+                if file_path not in imported_files_set:
+                    collected_files.append(file)
+        else:
+            collected_files = files
 
         return collected_files
 
-    __RESUMER_FILE_SUFFIX = ".resume.json"
+    @staticmethod
+    def clear_caches():
+        Resumer.__RESUMER_FILE_NAME_DICT.clear()
+        Resumer.__IMPORTED_DATA_DICT.clear()
+
+    @staticmethod
+    def get_resume_file_path(dir_path, coverage_id):
+        """
+        :param coverage_id:
+        :return:
+        """
+        return dir_path + "/" + Resumer.get_resume_file_name(coverage_id)
+
+    @staticmethod
+    def get_resume_file_name(coverage_id):
+        return coverage_id + ".resume.json"

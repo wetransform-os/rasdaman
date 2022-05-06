@@ -80,8 +80,8 @@ int status{NC_NOERR};
 
 #define throwOnError(errcode, msg) \
     if ((errcode) != NC_NOERR) { \
-        LERROR << msg << ", reason: " << nc_strerror(errcode); \
-        throw r_Error(r_Error::r_Error_Conversion); \
+        std::stringstream s; s << msg << ", " << nc_strerror(errcode); \
+        throw r_Error(r_Error::r_Error_Conversion, s.str()); \
     }
 
 #define warnOnError(errcode, msg) \
@@ -263,9 +263,10 @@ void r_Conv_NETCDF::readDimSizes()
     const auto& subsetDomain = formatParams.getSubsetDomain();
     if (subsetDomain.dimension() != 0 && subsetDomain.dimension() != static_cast<r_Dimension>(ndims))
     {
-        LERROR << "invalid 'subsetDomain' parameter '" << subsetDomain << "' of dimension " <<
-               subsetDomain.dimension() << " given, but netCDF variable is of dimension " << numDims;
-        throw r_Error(INVALIDFORMATPARAMETER);
+        std::stringstream s;
+        s << "invalid 'subsetDomain' parameter '" << subsetDomain << "' of dimension " <<
+             subsetDomain.dimension() << " given, but netCDF variable is of dimension " << numDims;
+        throw r_Error(r_Error::r_Error_Conversion, s.str());
     }
 
     dimSizes.resize(numDims);
@@ -309,15 +310,15 @@ void r_Conv_NETCDF::parseDecodeOptions(const string& options)
         int paramNo = params->process(options.c_str());
         if (paramNo == 0)
         {
-            LERROR << "no variable names given, at least one variable name must be " <<
-                   "specified in the format options as 'vars=var1;var2;..'";
-            throw r_Error(INVALIDFORMATPARAMETER);
+            throw r_Error(r_Error::r_Error_Conversion,
+                          "no variable names given, at least one variable name must be "
+                          "specified in the format options as 'vars=var1;var2;..'");
         }
         if (paramNo == -1)
         {
-            LERROR << "failed processing format options '" << options << "';" <<
-                   " make sure options are of the format 'vars=var1;var2;..'";
-            throw r_Error(INVALIDFORMATPARAMETER);
+            throw r_Error(r_Error::r_Error_Conversion,
+                          "failed processing format options '" + std::string(options) + 
+                          "'; make sure options are of the format 'vars=var1;var2;..'");
         }
 
         string varNamesStr(varNamesParam);
@@ -330,8 +331,8 @@ void r_Conv_NETCDF::validateDecodeOptions()
 {
     if (varNames.empty())
     {
-        LERROR << "no netCDF variables variables specified to decode.";
-        throw r_Error(r_Error::r_Error_Conversion);
+        throw r_Error(r_Error::r_Error_Conversion,
+                      "no netCDF variables variables specified to decode");
     }
     for (const auto& varName : varNames)
     {
@@ -359,13 +360,15 @@ void r_Conv_NETCDF::validateJsonEncodeOptions()
 {
     if (!encodeOptions.isMember(FormatParamKeys::Encode::NetCDF::DIMENSIONS))
     {
-        LERROR << "mandatory format options field missing: " << FormatParamKeys::Encode::NetCDF::DIMENSIONS;
-        throw r_Error(INVALIDFORMATPARAMETER);
+        throw r_Error(r_Error::r_Error_Conversion,
+                      "mandatory format options field missing " + 
+                      std::string{FormatParamKeys::Encode::NetCDF::DIMENSIONS});
     }
     if (!encodeOptions.isMember(FormatParamKeys::General::VARIABLES))
     {
-        LERROR << "mandatory format options field missing: " << FormatParamKeys::General::VARIABLES;
-        throw r_Error(INVALIDFORMATPARAMETER);
+        throw r_Error(r_Error::r_Error_Conversion,
+                      "mandatory format options field missing " + 
+                      std::string{FormatParamKeys::General::VARIABLES});
     }
     
     Json::Value dims = encodeOptions[FormatParamKeys::Encode::NetCDF::DIMENSIONS];
@@ -385,14 +388,18 @@ void r_Conv_NETCDF::validateJsonEncodeOptions()
     Json::Value vars = encodeOptions[FormatParamKeys::General::VARIABLES];
     for (const auto& varName : vars.getMemberNames())
     {
-        if (find(dimNames.begin(), dimNames.end(), varName) == dimNames.end() &&
-                !vars[varName].isMember(FormatParamKeys::Encode::NetCDF::DATA))
+        bool isDimName = find(dimNames.begin(), dimNames.end(), varName) != dimNames.end();
+        bool hasDataAttribute = vars[varName].isMember(FormatParamKeys::Encode::NetCDF::DATA);
+        if (hasDataAttribute)
         {
-            varNames.push_back(varName);
+            if (isDimName)
+                dimVarNames.push_back(varName);
+            else
+                nondataVarNames.push_back(varName);
         }
         else
         {
-            dimVarNames.push_back(varName);
+            varNames.push_back(varName);
         }
     }
 }
@@ -448,8 +455,9 @@ void r_Conv_NETCDF::readVars()
             break;
         default:
         {
-            LERROR << "variable " << varName << " has an unsupported netCDF variable type " << vartype;
-            throw r_Error(r_Error::r_Error_Conversion);
+            std::stringstream s;
+            s << "variable " << varName << " has an unsupported netCDF variable type " << vartype;
+            throw r_Error(r_Error::r_Error_Conversion, s.str());
         }
         }
     }
@@ -488,9 +496,10 @@ size_t r_Conv_NETCDF::buildCellType()
 
         if (static_cast<int>(numDims) != varndims)
         {
-            LERROR << "variable " << varNames[i] << " has different dimension from the first variable "
+            std::stringstream s;
+            s << "variable " << varNames[i] << " has different dimension from the first variable "
                    << varNames[0] << ".";
-            throw r_Error(r_Error::r_Error_Conversion);
+            throw r_Error(r_Error::r_Error_Conversion, s.str());
         }
         if (i > 0)
         {
@@ -528,10 +537,11 @@ size_t r_Conv_NETCDF::buildCellType()
 
                 if (vardimlen != var0dimlen)
                 {
-                    LERROR << "variable " << varNames[i] << " has different dimension lengths from the first variable "
+                    std::stringstream s;
+                    s << "variable " << varNames[i] << " has different dimension lengths from the first variable "
                            << varNames[0] << ": dimension " << j << " expected length " << var0dimlen
                            << ", got " << vardimlen << ".";
-                    throw r_Error(r_Error::r_Error_Conversion);
+                    throw r_Error(r_Error::r_Error_Conversion, s.str());
                 }
             }
         }
@@ -584,8 +594,9 @@ r_Conv_NETCDF::RasType r_Conv_NETCDF::getRasType(int var)
         return RasType{sizeof(r_Double), "double", ctype_float64};
     default:
     {
-        LERROR << "unsupported netCDF variable type: " << vartype << ".";
-        throw r_Error(r_Error::r_Error_Conversion);
+        std::stringstream s;
+        s << "unsupported netCDF variable type " << vartype;
+        throw r_Error(r_Error::r_Error_Conversion, s.str());
     }
     }
 }
@@ -653,9 +664,12 @@ void r_Conv_NETCDF::writeSingleVar(const std::vector<int>& dims)
         writeData<r_Double>(varName, dims, desc.src, NC_DOUBLE, NC_MIN_DOUBLE, NC_MAX_DOUBLE);
         break;
     default:
-        LERROR << "failed writing data for variable " << varName << " to netCDF file, "
-               << "unsupported rasdaman base type: " << desc.baseType << ".";
-        throw r_Error(r_Error::r_Error_Conversion);
+    {
+        std::stringstream s;
+        s << "failed writing data for variable " << varName << " to netCDF file, "
+               << "unsupported rasdaman base type: " << desc.baseType;
+        throw r_Error(r_Error::r_Error_Conversion, s.str());
+    }
     }
 }
 
@@ -665,14 +679,14 @@ void r_Conv_NETCDF::writeMultipleVars(const std::vector<int>& dims)
     LDEBUG << "writing data for " << varNames.size() << " variables";
     if (!desc.srcType->isStructType())
     {
-        LERROR << "MDD object type is not a struct type.";
-        throw r_Error(r_Error::r_Error_Conversion);
+        throw r_Error(r_Error::r_Error_Conversion,
+                      "MDD object type is not a struct type");
     }
     const r_Structure_Type* st = dynamic_cast<const r_Structure_Type*>(desc.srcType);
     if (varNames.size() != st->count_elements())
     {
-        LERROR << "mismatch in variable count between query and MDD object type.";
-        throw r_Error(r_Error::r_Error_Conversion);
+        throw r_Error(r_Error::r_Error_Conversion,
+                      "mismatch in variable count between query and MDD object type");
     }
 
     // size of the struct type, used for offset computation in memcpy
@@ -713,8 +727,9 @@ void r_Conv_NETCDF::writeMultipleVars(const std::vector<int>& dims)
             break;
         default:
         {
-            LERROR << "unsupported rasdaman band type: " << (*it).type_of().name() << ".";
-            throw r_Error(r_Error::r_Error_Conversion);
+            std::stringstream s;
+            s << "unsupported rasdaman band type: " << (*it).type_of().name();
+            throw r_Error(r_Error::r_Error_Conversion, s.str());
         }
         }
         offset += static_cast<size_t>((*it).type_of().size());
@@ -781,6 +796,36 @@ void r_Conv_NETCDF::addMetadata()
             {
                 LWARNING << "invalid value of field '" << FormatParamKeys::Encode::NetCDF::DATA <<
                          "' of variable " << dimVarName << ", expected an array.";
+            }
+        }
+        
+        // add non-data variables
+        for (const auto& varName : nondataVarNames)
+        {
+            Json::Value jsonVar = jvars[varName];
+            if (!jsonVar.isMember(FormatParamKeys::Encode::NetCDF::TYPE))
+            {
+                LWARNING << "variable " << varName << " has no type, it will not be added to the exported netCDF file.";
+                continue;
+            }
+
+            nc_type nctype = stringToNcType(jsonVar[FormatParamKeys::Encode::NetCDF::TYPE].asCString());
+            if (nctype == NC_NAT)
+            {
+                LWARNING << "unknown netCDF variable type '" << jsonVar[FormatParamKeys::Encode::NetCDF::TYPE] <<
+                         "' in variable " << varName
+                         << ", expected one of: byte/char, short/ushort, int/uint, float, double.";
+                continue;
+            }
+
+            int newVar{};
+            status = nc_def_var(dataFile, varName.c_str(), nctype, 0, NULL, &newVar);
+            throwOnError(status, "failed creating non-data variable " << varName << " in netCDF file");
+            
+            if (jsonVar.isMember(FormatParamKeys::Encode::METADATA))
+            {
+                Json::Value jsonVarMetadata = jsonVar[FormatParamKeys::Encode::METADATA];
+                addJsonAttributes(jsonVarMetadata, newVar);
             }
         }
 
@@ -931,9 +976,10 @@ void r_Conv_NETCDF::jsonArrayToNcVar(int var, int dimid, Json::Value jsonArray)
     size_t varDataSize = static_cast<size_t>(jsonArray.size());
     if (varDataSize > dimlen)
     {
-        LERROR << "provided more values in format parameters (" << varDataSize
-               << ") than the dimension length (" << dimlen << ").";
-        throw r_Error(r_Error::r_Error_Conversion);
+        std::stringstream s;
+        s << "provided more values in format parameters (" << varDataSize
+          << ") than the dimension length (" << dimlen << ")";
+        throw r_Error(r_Error::r_Error_Conversion, s.str());
     }
     else if (varDataSize < dimlen)
     {
@@ -1079,8 +1125,9 @@ const string& r_Conv_NETCDF::getVariableName()
 {
     if (desc.baseType != ctype_struct && desc.baseType != ctype_rgb && varNames.size() > 1)
     {
-        LERROR << "multiple variables specified for netCDF conversion but the base type in rasdaman is not composite.";
-        throw r_Error(r_Error::r_Error_Conversion);
+        throw r_Error(r_Error::r_Error_Conversion,
+                      "multiple variables specified for netCDF conversion but "
+                      "the base type in rasdaman is not composite");
     }
 
     return varNames.size() >= 1 ? varNames[0] : DEFAULT_VAR;

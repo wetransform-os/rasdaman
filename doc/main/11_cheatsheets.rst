@@ -202,7 +202,7 @@ requests <https://portal.opengeospatial.org/files/08-059r4>`__, e.g: ::
         &request=ProcessCoverages
         &query=for $covIter in (covName) ...
 
-The *WCS-client* deployed with every rasdaman installation provides a convenient
+The *WSClient* deployed with every rasdaman installation provides a convenient
 console for interactively writing and executing WCPS queries: open
 http://localhost:8080/rasdaman/ows in your Web browser and proceed to the
 *ProcessCoverages* tab.
@@ -340,6 +340,9 @@ Coverage operations
 
     encode(covExpr, "image/jpeg")
 
+   WCPS supports ``application/gml+xml`` format corresponding to OGC WCS ``GetCoverage`` request.
+   Many further formats are supported, see :ref:`here <rasql-encode-function-data-format>` for details.
+
 
 Atomic types
 ------------
@@ -382,6 +385,7 @@ comparison.
     | ``complex2``       | 128 bit    | double precision floating point complex  |
     +--------------------+------------+------------------------------------------+
 
+.. _wcps-metadata-operations:
 
 Metadata operations
 -------------------
@@ -393,11 +397,25 @@ Several functions allow to extract metadata information about a coverage ``C``:
 +===========================+====================================================+
 | imageCrsDomain(C, a)      | Grid (lo, hi) bounds for axis a                    |
 +---------------------------+----------------------------------------------------+
-| imageCrsDomain(C, a).x    | Where x is one of lo or hi                         |      
-|                           | returning the lower and upper bounds respectively  |
+| imageCrsDomain(C, a).x    | Where x is one of ``lo`` or ``hi``                 |      
+|                           | returning the lower or upper bounds respectively   |
 +---------------------------+----------------------------------------------------+
 | domain(C, a, c)           | Geo (lo, hi) bounds for axis a in CRS c            |
 |                           | returning the lower and upper bounds respectively  |
++---------------------------+----------------------------------------------------+
+| domain(C, a, c).x         | Where x is one of ``lo`` or ``hi``                 | 
+|                           | returning the lower or upper bounds respectively   |
++---------------------------+----------------------------------------------------+
+| domain(C, a)              | Geo (lo, hi) bounds for axis a                     |
+|                           | returning the lower and upper bounds respectively  |
++---------------------------+----------------------------------------------------+
+| domain(C, a).x            | Where x is one of ``lo`` or ``hi``                 | 
+|                           | returning the lower or upper bounds respectively   |
++---------------------------+----------------------------------------------------+
+| domain(C)                 | List of comma-separated axes and their bounds      |
+|                           | according to coverage's CRS orders respectively.   |
+|                           | Each list element contains an axis a               |
+|                           | with the lower and upper bounds in the axis CRS    |
 +---------------------------+----------------------------------------------------+
 | crsSet(C)                 | Set of CRS identifiers                             |
 +---------------------------+----------------------------------------------------+
@@ -857,6 +875,16 @@ terminal. Examples with ``curl`` follow.
     curl "http://ows.rasdaman.org/rasdaman/ows" --out test.png --data-urlencode \
     'service=WCS&version=2.0.1&request=ProcessCoverages&query=\
     for c in (mean_summer_airtemp) return encode(c, "png")'
+
+When the server requires basic authentication for a request, the rasdaman
+user credentials can be specified with the ``--user`` option, e.g.
+
+  .. code-block:: shell
+
+    curl --user "rasadmin:rasadmin" \
+         "http://localhost:8080/rasdaman/ows?
+          service=WCS&version=2.0.1&request=DeleteCoverage&coverageId=test_coverage"
+
 
 Rasql Web Console
 -----------------

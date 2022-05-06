@@ -86,7 +86,7 @@ public class WMSGetMapStyleService {
     public static final String WCPS_FRAGMENT_ITERATOR = FRAGMENT_ITERATOR_PREFIX + COLLECTION_ITERATOR;
     public static final String RASQL_FRAGMENT_ITERATOR = FRAGMENT_ITERATOR_PREFIX + "Iterator";
     
-    public static final Pattern LAYER_ITERATOR_PATTERN = Pattern.compile("\\" + FRAGMENT_ITERATOR_PREFIX + "[:a-zA-Z0-9_-]+");
+    public static final Pattern LAYER_ITERATOR_PATTERN = Pattern.compile("\\" + FRAGMENT_ITERATOR_PREFIX + "([a-zA-Z0-9_][a-zA-Z0-9_\\.-]*:([0-9]+:)?)?[a-zA-Z_][a-zA-Z0-9_]*");
     public static final String USING = " using ";
     public static final String IN = " IN ";
     public static final String SELECT = " SELECT ";
@@ -111,7 +111,7 @@ public class WMSGetMapStyleService {
     public String buildRasqlStyleExpressionForRasqFragment(String styleQuery, String layerName, WMSLayer wmsLayer,
                                                 List<List<WcpsSliceSubsetDimension>> nonXYGridSliceSubsetDimensions, 
                                                 BoundingBox extendedFittedRequestGeoBBox) 
-                                                throws PetascopeException, SecoreException {
+                                                throws PetascopeException {
         
         WcpsCoverageMetadata wcpsCoverageMetadata = this.wmsGetMapWCPSMetadataTranslatorService.createWcpsCoverageMetadataForDownscaledLevelByExtendedRequestBBox(wmsLayer);
         
@@ -153,7 +153,7 @@ public class WMSGetMapStyleService {
     public String buildRasqlStyleExpressionForWCPSFragment(String styleQuery, String layerName, WMSLayer wmsLayer,
                                                            List<List<WcpsSliceSubsetDimension>> nonXYGridSliceSubsetDimensions,                                                           
                                                            BoundingBox extendedFittedRequestGeoBBox) 
-                                                           throws PetascopeException, SecoreException {
+                                                           throws PetascopeException {
         
         this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getRequestBBox(), wmsLayer.getLayerName());
         this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getExtendedRequestBBox(), wmsLayer.getLayerName());
@@ -222,7 +222,7 @@ public class WMSGetMapStyleService {
     private String getCoverageExpressionForRasqlFragment(String layerNameIterator, WMSLayer wmsLayer, 
                                                          BoundingBox extendedFittedRequestGeoBBox,
                                                          WcpsCoverageMetadata wcpsCoverageMetadata,
-                                                         List<WcpsSliceSubsetDimension> nonXYGridSliceSubsetDimensions) throws PetascopeException, SecoreException {
+                                                         List<WcpsSliceSubsetDimension> nonXYGridSliceSubsetDimensions) throws PetascopeException {
         
         this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getRequestBBox(), wmsLayer.getLayerName());
         this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getExtendedRequestBBox(), wmsLayer.getLayerName());
@@ -263,7 +263,7 @@ public class WMSGetMapStyleService {
     private String getCoverageExpressionForWCPSFragment(WMSLayer wmsLayer, 
                                                         String coverageSubset,
                                                         WcpsCoverageMetadata wcpsCoverageMetadata,
-                                                        List<WcpsSliceSubsetDimension> nonXYGridSliceSubsetDimensions) throws PetascopeException, SecoreException {
+                                                        List<WcpsSliceSubsetDimension> nonXYGridSliceSubsetDimensions) throws PetascopeException {
         
         this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getRequestBBox(), wmsLayer.getLayerName());
         this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getExtendedRequestBBox(), wmsLayer.getLayerName());
@@ -335,7 +335,7 @@ public class WMSGetMapStyleService {
      */
     public String builRasqlFromExpression(BoundingBox fittedBBox, 
                                           int width, int height) 
-                 throws PetascopeException, SecoreException {
+                 throws PetascopeException {
         
         List<String> collectionAlias = new ArrayList<>();
         for (Map.Entry<String, Pair<String, String>> entryTmp : this.collectionAliasRegistry.getAliasMap().entrySet()) {
@@ -421,17 +421,22 @@ public class WMSGetMapStyleService {
         matcher.appendTail(stringBuffer);
         String result = stringBuffer.toString();
         
-        // In case of WMS style contains condenser
+        // In case of WMS style contains condenser or fixed subsets
         if (styleExpression.contains("[")) {
-            
-
             String geoXYSubsets = axisX.getLabel() + "(" + fittedBBox.getXMin() + ":" + fittedBBox.getXMax() + "), "
                                 + axisY.getLabel() + "(" + fittedBBox.getYMin() + ":" + fittedBBox.getYMax() + ")";
-            int indexOfUsing = result.toLowerCase().indexOf(USING) + 5;
-            String firstPart = result.substring(0, indexOfUsing);
-            String secondPart = result.substring(indexOfUsing, result.length());
-            // e.g: $CoV[ansi($ts)] -> $COV[Lat(0:20), Long(20:30), ansi($ts)]
-            result = firstPart + secondPart.replace("[", "[" + geoXYSubsets + ", ");
+            
+            int indexOfUsing = result.toLowerCase().indexOf(USING);
+            if (indexOfUsing != -1) {
+                indexOfUsing = indexOfUsing + 5;
+                String firstPart = result.substring(0, indexOfUsing);
+                String secondPart = result.substring(indexOfUsing, result.length());
+                // e.g: $CoV[ansi($ts)] -> $COV[Lat(0:20), Long(20:30), ansi($ts)]
+                result = firstPart + secondPart.replace("[", "[" + geoXYSubsets + ", ");
+            } else {
+                // e.g. style = $c[ansi("2020-12-30T23:54:58.500Z")] -  $c[ansi("2021-01-04T00:15:04.500Z")] + 30
+                result = result.replace("[", "[" + geoXYSubsets + ", ");
+            }
         }
 
         return result;

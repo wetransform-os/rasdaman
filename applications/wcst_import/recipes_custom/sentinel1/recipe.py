@@ -145,6 +145,7 @@ class Recipe(GeneralCoverageRecipe):
     #
 
     def _init_options(self):
+        self.importer = None
         self._init_input_options()
         self._init_coverage_options()
         self.coverage_id = self.session.get_coverage_id()
@@ -328,11 +329,6 @@ class Recipe(GeneralCoverageRecipe):
             modebeam, polarisation = self._get_modebeam_polarisation(file.filepath)
             cov_id = self._get_coverage_id(self.coverage_id, modebeam, polarisation)
 
-            # This file already imported in coverage_id.resume.json
-            self.resumer = Resumer(cov_id)
-            if self.resumer.is_file_imported(file.filepath):
-                continue
-
             conv = self._get_convertor(convertors, cov_id)
 
             file_pair = FilePair(file.filepath, file.filepath)
@@ -344,7 +340,7 @@ class Recipe(GeneralCoverageRecipe):
                                 GdalToCoverageConverter.RECIPE_TYPE, file)
 
             conv.data_type = band_data_type
-            slices_dict = conv._create_coverage_slices(crs_axes, evaluator_slice)
+            slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice)
             slices_dict = self.__filter_invalid_geo_bounds(slices_dict)
 
             if conv.coverage_slices == {}:
@@ -353,7 +349,7 @@ class Recipe(GeneralCoverageRecipe):
                 for key, val in slices_dict.items():
                     conv.coverage_slices[key] += slices_dict[key]
 
-            if len(conv.coverage_slices) != 0:
+            if len(conv.coverage_slices) > 0 and len(conv.coverage_slices["base"]) > 0:
                 first_slice = conv.coverage_slices["base"][0]
                 # This needs one available file to extract metadata later
                 conv.files = [first_slice.data_provider.file]

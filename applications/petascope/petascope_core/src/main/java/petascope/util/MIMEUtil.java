@@ -210,21 +210,17 @@ public class MIMEUtil {
         }
 
         // if encoding does not exist, mean it is not supported
-        throw new PetascopeException(ExceptionCode.UnsupportedEncodingFormat, "Encoding format '" + encodingType + "' is not supported.");
+        throw new PetascopeException(ExceptionCode.UnsupportedEncodingFormat, "Encoding format '" + encodingType + "' is not supported");
     }
 
     /**
      * Return the encoding type of a mimeType (e.g: image/jpeg -> [jpg
      * (not supported), jpeg])
-     *
-     * @param mimeType
-     * @return
-     * @throws petascope.exceptions.PetascopeException
      */
     public static String getFormatType(String mimeType) throws PetascopeException {
         String formatType = getInstance().get(mimeType);
         if (formatType == null) {
-            throw new PetascopeException(ExceptionCode.InvalidRequest, "MIME type is not supported, given '" + mimeType + "'.");
+            throw new PetascopeException(ExceptionCode.NoApplicableCode, "MIME type is not supported. Given: '" + mimeType + "'.");
         }
         return formatType;
     }
@@ -283,6 +279,8 @@ public class MIMEUtil {
             return ".data";
         } else if (mimeType.equals(MIME_TEXT)) {
             return ".txt";
+        } else if (mimeType.equals(MIME_XML)) {
+          return ".xml";  
         } else if (mimeType.equals("")) {
             // It is used in case result returns a number, e.g: return avg(c)
             // MIME XML so Browser will display result instead of downloading as a file if set to MIME csv 

@@ -22,6 +22,7 @@
 package petascope.core;
 
 import java.math.BigDecimal;
+import org.apache.commons.lang3.StringUtils;
 import org.gdal.gdal.Dataset;
 
 /**
@@ -44,20 +45,20 @@ import org.gdal.gdal.Dataset;
  */
 public class GeoTransform {
     
-    private int epsgCode;
-    private double upperLeftGeoX;
-    private double upperLeftGeoY;
+    private String wkt;
+    private BigDecimal upperLeftGeoX;
+    private BigDecimal upperLeftGeoY;
     private int gridWidth;
     private int gridHeight;
-    private double geoXResolution;
-    private double geoYResolution;
+    private BigDecimal geoXResolution;
+    private BigDecimal geoYResolution;
 
     public GeoTransform() {
         
     }
     
-    public GeoTransform(int epsgCode, double upperLeftGeoX, double upperLeftGeoY, int gridWidth, int gridHeight, double geoXResolution, double geoYResolution) {
-        this.epsgCode = epsgCode;
+    public GeoTransform(String wkt, BigDecimal upperLeftGeoX, BigDecimal upperLeftGeoY, int gridWidth, int gridHeight, BigDecimal geoXResolution, BigDecimal geoYResolution) {
+        this.wkt = StringUtils.normalizeSpace(wkt);
         this.upperLeftGeoX = upperLeftGeoX;
         this.upperLeftGeoY = upperLeftGeoY;
         this.gridWidth = gridWidth;
@@ -77,44 +78,51 @@ public class GeoTransform {
         this.gridWidth = width;
         this.gridHeight = height;
         
-        this.upperLeftGeoX = gdalValues[0];
-        this.upperLeftGeoY = gdalValues[3];
+        this.upperLeftGeoX = new BigDecimal(String.valueOf(gdalValues[0]));
+        this.upperLeftGeoY = new BigDecimal(String.valueOf(gdalValues[3]));
         
-        this.geoXResolution = gdalValues[1];
-        this.geoYResolution = gdalValues[5];
+        this.geoXResolution = new BigDecimal(String.valueOf(gdalValues[1]));
+        this.geoYResolution = new BigDecimal(String.valueOf(gdalValues[5]));
     }        
 
-    public int getEPSGCode() {
-        return epsgCode;
+    public String getWKT() {
+        return wkt;
     }
 
-    public void setEPSGCode(int epsgCode) {
-        this.epsgCode = epsgCode;
+    public void setWKT(String wkt) {
+        this.wkt = wkt;
     }
 
-    public double getUpperLeftGeoX() {
+    public BigDecimal getUpperLeftGeoX() {
         return upperLeftGeoX;
     }
     
     public BigDecimal getUpperLeftGeoXDecimal() {
         return new BigDecimal(String.valueOf(this.upperLeftGeoX));
     }
+    
+    public BigDecimal getLowerRightGeoYDecimal() {
+        return new BigDecimal(String.valueOf(this.getLowerRightGeoY()));
+    }
 
-    public void setUpperLeftGeoX(double upperLeftGeoX) {
+    public void setUpperLeftGeoX(BigDecimal upperLeftGeoX) {
         this.upperLeftGeoX = upperLeftGeoX;
     }
+    public void setUpperLeftGeoX(double upperLeftGeoX) {
+        this.upperLeftGeoX = new BigDecimal(String.valueOf(upperLeftGeoX));
+    }
 
-    public double getUpperLeftGeoY() {
+    public BigDecimal getUpperLeftGeoY() {
         return upperLeftGeoY;
     }
-    
-    public BigDecimal getUpperLeftGeoYDecimal() {
-        return new BigDecimal(String.valueOf(this.upperLeftGeoY));
-    }
 
-    public void setUpperLeftGeoY(double upperLeftGeoY) {
+    public void setUpperLeftGeoY(BigDecimal upperLeftGeoY) {
         this.upperLeftGeoY = upperLeftGeoY;
     }
+    public void setUpperLeftGeoY(double upperLeftGeoY) {
+        this.upperLeftGeoY = new BigDecimal(String.valueOf(upperLeftGeoY));
+    }
+    
 
     public int getGridWidth() {
         return gridWidth;
@@ -132,19 +140,18 @@ public class GeoTransform {
         this.gridHeight = gridHeight;
     }
 
-    public double getGeoXResolution() {
+    public BigDecimal getGeoXResolution() {
         return geoXResolution;
     }
     
-    public BigDecimal getGeoXResolutionDecimal() {
-        return new BigDecimal(String.valueOf(this.geoXResolution));
-    }
-
-    public void setGeoXResolution(double geoXResolution) {
+    public void setGeoXResolution(BigDecimal geoXResolution) {
         this.geoXResolution = geoXResolution;
     }
+    public void setGeoXResolution(double geoXResolution) {
+        this.geoXResolution = new BigDecimal(String.valueOf(geoXResolution));
+    }
 
-    public double getGeoYResolution() {
+    public BigDecimal getGeoYResolution() {
         return geoYResolution;
     }
     
@@ -152,9 +159,12 @@ public class GeoTransform {
         return new BigDecimal(String.valueOf(this.geoYResolution));
     }
 
-    public void setGeoYResolution(double geoYResolution) {
+    public void setGeoYResolution(BigDecimal geoYResolution) {
         this.geoYResolution = geoYResolution;
     }
+    public void setGeoYResolution(double geoYResolution) {
+        this.geoYResolution = new BigDecimal(String.valueOf(geoYResolution));
+    }    
     
     /**
      * Return the GDAL format for geo transform:
@@ -165,21 +175,34 @@ public class GeoTransform {
         return upperLeftGeoX + ", " + geoXResolution + ", 0, " + upperLeftGeoY + ", 0, " + geoYResolution;
     }
     
-    public double getLowerRightGeoX() {
-        double result = this.upperLeftGeoX + gridWidth * geoXResolution;
+    public BigDecimal getLowerRightGeoX() {
+        // xmax = xmin + width * geoXResolution
+        BigDecimal result = this.upperLeftGeoX.add(new BigDecimal(gridWidth).multiply(geoXResolution));
         return result;
     }
     
-    public double getLowerRightGeoY() {
-        double result = this.upperLeftGeoY + gridHeight * geoYResolution;
+    public BigDecimal getLowerRightGeoY() {
+        // ymin = ymax + height * geoYResolution (geoY is negative)
+        BigDecimal result = this.upperLeftGeoY.add(new BigDecimal(gridHeight).multiply(geoYResolution));
         return result;
     }
     
     @Override
     public String toString() {
-        String output = "epsgCode:" + epsgCode + ", xMin:" + upperLeftGeoX  + ", yMin: " + this.getLowerRightGeoY()
-                + ", xMax:" + this.getLowerRightGeoX() + ", yMax: " + upperLeftGeoY + ", width:" + gridWidth
-                + ", height:" + gridHeight + ", geoXResolution:" + geoXResolution + ", geoYResolution:" + geoYResolution;
+        String output = "xMin: " + upperLeftGeoX  + ", yMin: " + this.getLowerRightGeoY()
+                    + ", xMax: " + this.getLowerRightGeoX() + ", yMax: " + upperLeftGeoY + ", width: " + gridWidth
+                    + ", height: " + gridHeight + ", geoXResolution: " + geoXResolution + ", geoYResolution: " + geoYResolution;
         return output;
+    }
+    
+    public BoundingBox toBBox() {
+        BigDecimal xMin = new BigDecimal(String.valueOf(this.upperLeftGeoX));
+        BigDecimal yMin = this.getLowerRightGeoY();
+        
+        BigDecimal xMax = this.getLowerRightGeoX();
+        BigDecimal yMax = new BigDecimal(String.valueOf(this.upperLeftGeoY));
+        
+        BoundingBox bbox = new BoundingBox(xMin, yMin, xMax, yMax);
+        return bbox;
     }
 }

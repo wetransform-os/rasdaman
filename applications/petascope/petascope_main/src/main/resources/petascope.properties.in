@@ -19,11 +19,12 @@
 # or contact Peter Baumann via <baumann@rasdaman.com>.
 # ------------------------------------------------------------------------------
 #
-# rasdaman OGC frontend (petascope) configuration file.
+# rasdaman OGC frontend (petascope) configuration file
 #
-# Notes:
-#  Settings should be specified in key=value pairs.
-#  The server needs to be restarted for any changes in this file to take effect.
+#  - Settings should be specified in key=value pairs.
+#  - The server needs to be restarted for any changes to take effect.
+#  - Full documentation of the settings in this file can be found at
+#    https://doc.rasdaman.com/testing/05_geo-services-guide.html#configuration
 
 # --------------------------- Spring configuration -----------------------------
 
@@ -38,139 +39,63 @@ spring.http.multipart.max-request-size=128MB
 spring.jpa.database=default
 spring.jpa.hibernate.ddl-auto=none
 
-# Config for Spring datasource which is used by petascopedb; It is highly 
-# recommended to change the password from the default petapasswd. More details: 
-# https://doc.rasdaman.org/05_geo-services-guide.html#database-connection
 spring.datasource.url=jdbc:postgresql://localhost:5432/petascopedb
 spring.datasource.username=petauser
 spring.datasource.password=petapasswd
-
-# Path to JDBC jar file for Spring datasource. If left empty, the default 
-# PostgreSQL JDBC driver will be used. To use a different DBMS (e.g. H2), please 
-# download the corresponding JDBC driver, and set the path to it.
 spring.datasource.jdbc_jar_path=
 
-# Config for source datasource when executing migrate_petascopedb.sh.
-# This configuration is used to migrate petascopedb from one rasdaman version to
-# a newer one (e.g. v9.4 to v9.5), either in same DBMS or to different DBMS
-# (e.g. postgres to H2).
+# configurations for Tomcat JDBC Connection Pool
+spring.datasource.tomcat.initial-size=30
+spring.datasource.tomcat.max-active=70
+spring.datasource.tomcat.max-idle=30
+
 metadata_url=jdbc:postgresql://localhost:5432/petascopedb
 metadata_user=petauser
 metadata_pass=petapasswd
 metadata_jdbc_jar_path=
 
 
-#---------------------- General Petascope configuration ------------------------
+#---------------------------- General configuration ---------------------------
 
-# Prefix for controller in web application URL routing, e.g the /rasdaman in
-# http://localhost:8080/rasdaman/ows
 server.contextPath=/rasdaman
-
-# SECORE endpoints to be used by petascope. Multiple endpoints (for fail safety)
-# can be specified as comma-separated list, attempted in order as listed.
-# By default, internal indicates that petascope should use its own SECORE.
 secore_urls=internal
-
-# Account with read/write access to various service management capabilities;
-# Login at http://localhost:8080/rasadaman/admin to access the management
-# console. It is highly recommended to change the default password.
-petascope_admin_user=petauser
-petascope_admin_pass=petapasswd
-
-# If set to true, WCS POST/SOAP XML requests will be validated against 
-# OGC WCS 2.0.1 schema definitions; when starting Petascope it will take around 
-# 1-2 minutes to load the schemas from the OGC server. Set to false by default;
-# passing the OGC CITE tests also requires it to be set to false.
 xml_validation=false
-
-# Optimize responses in order to pass a couple of broken OGC CITE test cases.
-# Indentation of WCS GetCoverage and DescribeCoverage results will be trimmed.
-# Only set to true when executing OGC CITE tests.
 ogc_cite_output_optimization=false
-
-# Sets the service endpoint in <ows:HTTP> element of WCS GetCapabilities. Change
-# to your public service URL if rasdaman runs behind a proxy; if not set then it
-# will be automatically derived, usually to http://localhost:8080/rasdaman/ows
 petascope_servlet_url=
-
-# Accept write requests such as WCS-T (Insert, Update and DeleteCoverage) only 
-# from the comma-separated list of IP addresses. By default 127.0.0.1 will allow
-# locally generated requests, usually needed to import data with wcst_import.sh.
-# Setting to empty will block all requests, while * will allow any IP address.
-allow_write_requests_from=127.0.0.1
-
-# Server directory where files uploaded by a request will be temporarily stored.
+inspire_common_url=
 uploaded_files_dir_tmp=/tmp/rasdaman_petascope/upload
-
-# Maximum amount of memory (in bytes) to use for caching WMS GetMap requests. 
-# This setting speeds up repeating WMS operaions over similar area/zoom level.
-# Consider increasing the parameter if the system has more RAM, but make sure to 
-# correspondingly update the -Xmx option for Tomcat as well. The cache evicts 
-# last recently inserted data when it reaches the maximum limit specified here.
 max_wms_cache_size=100000000
+full_stacktraces=false
 
 
-#---------------------- Petascope deployment configuration ---------------------
+#-------------------------- Deployment configuration ---------------------------
 
-# Specify how is petascope deployed:
-#  1. embedded - start standalone with embedded Tomcat, listening on server.port
-#                setting as configured below
-#  2. external - rasdaman.war is deployed in webapps dir of external Tomcat
-#
-# When possible, embedded is recommended, as there is no dependency on
-# external Tomcat server, petascope.log can be in the rasdaman log directory,
-# and start/stop of petascope is in sync with starting/stopping rasdaman.
 java_server=@GENERATED_java_server@
-
-# Port on which embedded petascope (java_server=embedded above) will listen when 
-# rasdaman starts. This setting has no effect when java_server=external.
 server.port=8080
+static_html_dir_path=
 
 
-#------------------- Rasdaman configuration for Petascope ----------------------
+#--------------------------- Rasdaman configuration -----------------------------
 
-# URL of the rasdaman database to which rasdaman connects. Normally rasdaman is
-# installed on the same machine, so the bellow needs no changing (unless the
-# default rasmgr port 7001 has changed).
 rasdaman_url=http://localhost:7001
-
-# Name of the rasdaman database (configured in etc/rasmgr.conf).
 rasdaman_database=RASBASE
 
-# Credentials to access rasdaman; it is recommended to specify a user with
-# read-only access rights.
 rasdaman_user=rasguest
 rasdaman_pass=rasguest
-
-# User with read/write access rights to rasdaman; it is recommended to change
-# the default admin user in rasdaman and update the values here.
 rasdaman_admin_user=rasadmin
 rasdaman_admin_pass=rasadmin
 
-# Maximum re-connect attempts to a rasdaman server in case a connection fails.
 rasdaman_retry_attempts=5
-
-# Wait time in seconds between re-connect attempts to a rasdaman server.
 rasdaman_retry_timeout=10
-
-# Path to rasdaman binaries.
 rasdaman_bin_path=@GENERATED_rasdaman_bin_path@
 
 
-#------------------- Authentication configuration ---------------------------
+#---------------------------- Security configuration ---------------------------
 
-# Required for forwarding requests between Shibboleth and petascope via AJP13
-# if authentication_type=shibboleth and java_server=embedded. Otherwise, if 
-# java_server=external then an AJP connector must be added in Tomcat instead;
-# more info at https://tomcat.apache.org/tomcat-8.0-doc/config/ajp.html
-ajp.port=
-
-
-#------------------- HTTPS configuration ------------------------------------
+authentication_type=basic_header
+allow_write_requests_from=127.0.0.1
 
 # Used only for embedded petascope deployment
-
-# Allow embedded petascope to work with HTTPS from its endpoint.
 security.require-ssl=false
 
 # Key-store format for the certificate.
@@ -187,27 +112,8 @@ security.require-ssl=false
 
 #---------------------------- logging configuration ----------------------------
 
-# Configuration for petascope logging; by default only level INFO or higher is
-# logged, to both file and stdout.
-log4j.rootLogger=INFO, rollingFile, stdout
+log4j.rootLogger=INFO, rollingFile
 
-# Reduce the log information from Spring, Hibernate, Liquibase, GRPC, Netty
-log4j.logger.org.springframework=WARN
-log4j.logger.org.hibernate=WARN
-log4j.logger.liquibase=WARN
-log4j.logger.io.grpc=WARN
-log4j.logger.io.netty=WARN
-
-# Configure stdout logging
-log4j.appender.stdout=org.apache.log4j.ConsoleAppender
-log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
-log4j.appender.stdout.layout.ConversionPattern=[%d{yyyy-MM-dd HH:mm:ss}] %m%n
-log4j.appender.stdout.Threshold=INFO
-
-# Configure file logging
-# The paths for file logging specified below should be write-accessible by the 
-# system user running Tomcat. If running embedded Tomcat, then the files should
-# be write accessible by the system user running rasdaman.
 log4j.appender.rollingFile.layout=org.apache.log4j.PatternLayout  
 log4j.appender.rollingFile.layout.ConversionPattern=%6p [%d{yyyy-MM-dd HH:mm:ss}] %c{1}@%L: %m%n
 
@@ -225,13 +131,10 @@ log4j.appender.rollingFile.rollingPolicy.FileNamePattern=@LOG_DIR@/petascope.%d{
 log4j.appender.rollingFile=org.apache.log4j.rolling.RollingFileAppender  
 log4j.appender.rollingFile.rollingPolicy=org.apache.log4j.rolling.TimeBasedRollingPolicy
 
+log4j.logger.org.springframework=WARN
+log4j.logger.org.hibernate=WARN
+log4j.logger.liquibase=WARN
+log4j.logger.io.grpc=WARN
+log4j.logger.io.netty=WARN
+log4j.logger.org.apache=WARN
 
-#------------------------------ Demo web pages ---------------------------------
-
-# Absolute path to a directory containing demo web pages (html/css/javascript).
-# If set, petascope will serve the index.html in this directory at its endpoint,
-# e.g. http://localhost:8080/rasdaman/
-# Changes of files in this directory do not require a petascope restart.
-# The system user running Tomcat (if java_server=external) or rasdaman 
-# (if java_server=embedded) must have read permission on this directory.
-static_html_dir_path=

@@ -31,6 +31,9 @@ module rasdaman {
         public static $inject = ["$window"];
         public static version:string = "1.3.0";
 
+        public contextPath:string; 
+        public adminEndpoint:string;
+
         public constructor($window:angular.IWindowService) {
             // e.g: http://localhost:8080/rasdaman/ows
             this.wmsEndpoint = $window.location.href.replace("wcs-client/index.html", "ows");
@@ -38,8 +41,8 @@ module rasdaman {
             // This is used for development only.
             this.wmsEndpoint = this.wmsEndpoint.replace("wcs-client/app/", "rasdaman/ows");
 
-            // #TESTING
-            // this.wmsEndpoint = "http://localhost:8082/rasdaman/ows";
+            // TESTING
+            // this.wmsEndpoint = "http://localhost:8080/rasdaman/ows";
                                    
             this.setWMSEndPoint(this.wmsEndpoint);
             
@@ -60,6 +63,9 @@ module rasdaman {
             if (!this.wmsEndpoint.endsWith("ows")) {
                 this.wmsEndpoint = this.wmsEndpoint + "ows";
             }
+
+            this.contextPath = this.wmsEndpoint.replace("/rasdaman/ows", "/rasdaman");
+            this.adminEndpoint = this.contextPath + "/admin";
         }
     }
 }

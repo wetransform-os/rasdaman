@@ -1,0 +1,4 @@
+STYLEID=ERROR_STYLE&
+COVERAGEID=test_wms_4326&
+abstract=This style needs 2 layers to process&
+wcpsQueryFragment=$c + $THIS_LAYER_DOES_NOT_EXIST

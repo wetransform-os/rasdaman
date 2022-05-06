@@ -1,0 +1,4 @@
+STYLEID=S1&
+COVERAGEID=test_wms_4326&
+abstract=This style needs 2 layers to process&
+wcpsQueryFragment=$c + $test_wms_4326_new - 250 + 50 + ($c - $test_wms_4326_new)

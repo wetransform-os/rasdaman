@@ -26,11 +26,14 @@ import os
 import sys
 import uuid
 from config_manager import ConfigManager
+from master.error.validate_exception import RecipeValidationException
 from util.log import log
 import re
 from master.error.runtime_exception import RuntimeException
 import stat
 from util.import_util import import_glob
+import os
+import getpass
 
 class FileUtil:
 
@@ -47,7 +50,7 @@ class FileUtil:
         log.info("Analyzing file ({}/{}): {} ...".format(current_number, number_of_files, file_path))
 
     @staticmethod
-    def get_file_paths_by_regex(current_dir, file_path_regex):
+    def get_file_paths_by_regex(ingredients_dir_path, file_path_regex):
         """
         From the file path in regular expression (e.g: *.txt, ./txt), return list of file paths
         :return: list of string
@@ -55,18 +58,19 @@ class FileUtil:
         file_paths = []
 
         # If the input file is actually a regex pattern then glob can be used
-        if "*" in file_path_regex or "?" in file_path_regex\
+        if "*" in file_path_regex or "?" in file_path_regex \
+            or "./" in file_path_regex \
             or ".." in file_path_regex:
             glob = import_glob()
             if not file_path_regex.strip().startswith("/"):
-                file_path_regex = current_dir + file_path_regex
+                file_path_regex = ingredients_dir_path + file_path_regex
 
             file_paths = file_paths + glob.glob(file_path_regex, recursive=True)
         else:
             # non regex file path
             if "/" not in file_path_regex:
                 # only file name is listed
-                file_path_regex = current_dir + "/" + file_path_regex
+                file_path_regex = ingredients_dir_path + "/" + file_path_regex
 
             file_paths.append(file_path_regex)
 
@@ -119,8 +123,11 @@ class FileUtil:
             log.warn("WARNING: input file '" + file_path + "' cannot be processed,\n"
                      "wcst_import will ignore this file as \"skip\" is set to true in the ingredient file. Reason: " + str(exception))
         else:
-            # Throws the original source of exception(!)
-            raise Exception(sys.exc_info()[1]).with_traceback(sys.exc_info()[2])
+            if isinstance(exception, RecipeValidationException):
+                raise exception
+            else:
+                # Throws the original source of exception(!)
+                raise Exception(sys.exc_info()[1]).with_traceback(sys.exc_info()[2])
 
 
     @staticmethod
@@ -163,6 +170,34 @@ class FileUtil:
 
             return data
 
+    @staticmethod
+    def delete_file_ignore_error(file_path):
+        """
+        :param str file_path: path to a file
+        """
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            log.warn("Cannot remove file '" + file_path + "'. Reason: " + str(e))
+            pass
+
+    @staticmethod
+    def can_write_file_in_dir(dir_path, filename):
+        """
+        Check if the script can create/write to a filename in directory dir_path, and
+        throw an Exception if not.
+        """
+        path = dir_path + '/' + filename
+        if not os.access(path, os.F_OK):
+            # resume file does not exist
+            if not os.access(dir_path, os.F_OK):
+                raise Exception('Directory "' + dir_path + '" does not exist, please create it first.')
+            elif not os.access(dir_path, os.W_OK | os.X_OK):
+                raise Exception('Directory "' + dir_path + '" exists, but user "' + getpass.getuser() + '" has no permissions to create a file in it.')
+        elif not os.access(path, os.W_OK):
+            raise Exception(
+                'File "' + path + '" exists, but user "' + getpass.getuser() + '" has no permissions to write to it.')
 
 class TmpFile:
     def __init__(self):

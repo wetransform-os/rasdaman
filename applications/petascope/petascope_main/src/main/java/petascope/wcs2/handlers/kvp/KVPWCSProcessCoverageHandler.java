@@ -22,7 +22,6 @@
 package petascope.wcs2.handlers.kvp;
 
 import petascope.wcps.metadata.service.CoverageAliasRegistry;
-import petascope.wcps.metadata.service.RasqlRewriteMultipartQueriesService;
 import petascope.exceptions.WCSException;
 import petascope.core.response.Response;
 import org.slf4j.LoggerFactory;
@@ -32,24 +31,28 @@ import petascope.wcps.result.executor.WcpsExecutorFactory;
 import petascope.wcps.parser.WcpsTranslator;
 import petascope.wcps.result.VisitorResult;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Stack;
 import java.util.regex.Matcher;
+import javax.servlet.http.HttpServletRequest;
+import java.util.List;
+import org.rasdaman.config.ConfigManager;
 import static org.rasdaman.config.ConfigManager.UPLOADED_FILE_DIR_TMP;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import petascope.controller.AbstractController;
 import static petascope.controller.AbstractController.getValueByKeyAllowNull;
+import petascope.controller.PetascopeController;
+import petascope.controller.handler.service.XMLWCSServiceHandler;
 import petascope.core.KVPSymbols;
 import static petascope.core.KVPSymbols.KEY_QUERY;
 import static petascope.core.KVPSymbols.KEY_QUERY_SHORT_HAND;
 import petascope.core.Pair;
 import petascope.util.StringUtil;
 import static petascope.util.StringUtil.POSITIONAL_PARAMETER_PATTERN;
+import java.util.ArrayList;
 import petascope.core.service.GdalFileToCoverageTranslatorService;
 import petascope.wcps.metadata.service.TempCoverageRegistry;
 import petascope.wcps.result.WcpsMetadataResult;
@@ -72,8 +75,6 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
     @Autowired
     private WcpsExecutorFactory wcpsExecutorFactory;
     @Autowired
-    private RasqlRewriteMultipartQueriesService rasqlRewriteMultipartQueriesService;
-    @Autowired
     private CoverageAliasRegistry coverageAliasRegistry;
     @Autowired
     private GdalFileToCoverageTranslatorService gdalFileToCoverageTranslatorService;
@@ -83,7 +84,13 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
     private TempCoverageRegistry tempCoverageRegistry;
     @Autowired
     private InsertCoverageHandler insertCoverageHandler;
-
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+    @Autowired
+    private PetascopeController petascopeController;    
+    @Autowired
+    private XMLWCSServiceHandler xmlWCSServiceHandler;
+    
     public KVPWCSProcessCoverageHandler() {
     }
 
@@ -98,7 +105,7 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
      * @return the result of the processing as a Response object
      */
     @Override
-    public Response handle(Map<String, String[]> kvpParameters) throws PetascopeException, WCSException, SecoreException, WMSException {
+    public Response handle(Map<String, String[]> kvpParameters) throws PetascopeException, WCSException, SecoreException, WMSException, Exception {
         // Validate before handling the request
         this.validate(kvpParameters);
 
@@ -106,6 +113,14 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
         String wcpsQuery = getValueByKeyAllowNull(kvpParameters, KEY_QUERY);
         if (wcpsQuery == null) {
             wcpsQuery = getValueByKeyAllowNull(kvpParameters, KEY_QUERY_SHORT_HAND);
+        }
+        
+        wcpsQuery = wcpsQuery.trim();
+        
+        if (wcpsQuery.startsWith("<")) {
+            // In this case, this wcps query is encoded in XML wrapper
+            Map<String, String[]> tmpMaps = this.xmlWCSServiceHandler.parseRequestBodyToKVPMaps(wcpsQuery);
+            wcpsQuery = AbstractController.getValueByKey(tmpMaps, KEY_QUERY);
         }
         
         String newWcpsQuery = this.adjustWcpsQueryByPositionalParameters(kvpParameters, wcpsQuery);
@@ -126,12 +141,13 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
                     coverageID = wcpsResult.getMetadata().getCoverageName();
                 }
                 // create multiple rasql queries from a Rasql query result (if it is multipart)
-                Stack<String> rasqlQueries = rasqlRewriteMultipartQueriesService.rewriteQuery(wcpsResult.getRasql());
+                List<String> rasqlQueries = wcpsResult.getFinalRasqlQueries();
+
                 // Run all the Rasql queries and get result
-                while (!rasqlQueries.isEmpty()) {
+                for (String rasqlQuery : rasqlQueries) {
                     // Execute multiple Rasql queries with different coverageIDs to get List of byte arrays
-                    String rasql = rasqlQueries.pop();
-                    ((WcpsResult) visitorResult).setRasql(rasql);
+                    ((WcpsResult) visitorResult).setRasql(rasqlQuery);
+
                     results.add(executor.execute(visitorResult));
                 }
             }
@@ -159,7 +175,7 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
     /**
      * Process a WCPS query and returns the Response
      */
-    public Response processQuery(final String wcpsQuery) throws PetascopeException, WCSException, SecoreException, WMSException {
+    public Response processQuery(final String wcpsQuery) throws PetascopeException, WCSException, SecoreException, WMSException, Exception {
         Map<String, String[]> kvpParameters = new HashMap<String, String[]>() {
             {
                 put(KVPSymbols.KEY_QUERY, new String[]{wcpsQuery});

@@ -24,11 +24,13 @@
 
 import decimal
 import math
+from abc import abstractmethod
 from collections import OrderedDict
 
 from lib import arrow
+from master.error.validate_exception import RecipeValidationException
 from master.extra_metadata.extra_metadata_slice import ExtraMetadataSliceSubset
-from util.coverage_util import CoverageUtil
+from util.coverage_util import CoverageUtil, CoverageUtilCache
 from util.gdal_util import GDALGmlUtil
 
 from util.list_util import sort_slices_by_datetime
@@ -84,6 +86,32 @@ class AbstractToCoverageConverter:
         self.import_order = import_order
         self.coverage_slices = OrderedDict()
         self.session = session
+        self.evaluator_slice = None
+
+        self.user_axes = None
+        self.crs = None
+        self.coverage_id = None
+        self.bands = None
+        self.global_metadata_fields = None
+        self.bands_metadata_fields = None
+        self.axes_metadata_fields = None
+        self.local_metadata_fields = None
+        self.metadata_type = None
+        self.files = None
+        self.tiling = None
+        self.data_type = None
+
+    # Override by subclasses
+    @abstractmethod
+    def _file_band_nil_values(self, index):
+        pass
+
+    @abstractmethod
+    def _axis_subset(self, crs_axis, evaluator_slice, resolution=None):
+        pass
+
+    def _data_type(self):
+        return self.data_type
 
     def _user_axis(self, user_axis, evaluator_slice):
         """
@@ -108,11 +136,10 @@ class AbstractToCoverageConverter:
             return RegularUserAxis(user_axis.name, resolution, user_axis.order, min, max, user_axis.type,
                                    user_axis.dataBound)
         else:
-            if GribExpressionEvaluator.FORMAT_TYPE in user_axis.directPositions:
-                # grib irregular axis will be calculated later when all the messages is evaluated
-                direct_positions = user_axis.directPositions
-            else:
-                direct_positions = self.sentence_evaluator.evaluate(user_axis.directPositions, evaluator_slice, user_axis.statements)
+            direct_positions = user_axis.directPositions
+            if GribExpressionEvaluator.FORMAT_TYPE not in user_axis.directPositions:
+                if user_axis.directPositions != AbstractToCoverageConverter.DIRECT_POSITIONS_SLICING:
+                    direct_positions = self.sentence_evaluator.evaluate(user_axis.directPositions, evaluator_slice, user_axis.statements)
 
             return IrregularUserAxis(user_axis.name, resolution, user_axis.order, min, direct_positions, max,
                                      user_axis.type, user_axis.dataBound, [], user_axis.slice_group_size)
@@ -159,7 +186,7 @@ class AbstractToCoverageConverter:
 
         if axis_label not in self.irregular_axis_geo_lower_bound_dict:
             # Need to parse it from coverage's DescribeCoverage result
-            cov = CoverageUtil(coverage_id)
+            cov = CoverageUtilCache.get_cov_util(coverage_id)
             if cov.exists():
                 axes_labels = cov.get_axes_labels()
 
@@ -340,6 +367,28 @@ class AbstractToCoverageConverter:
 
         return metadata_str
 
+    def __validate_null_values(self, input_nil_value):
+        tmp = [input_nil_value]
+        if isinstance(input_nil_value, list):
+            tmp = input_nil_value
+
+        for nil_value in tmp:
+            # null_value could be 9999 (gdal), "9999", or "'9999'" (netcdf, grib) so remove the redundant quotes
+            nil_value = str(nil_value).replace("'", "")
+
+            # nill value can be single (e.g: "-9999") or interval (e.g: "-9999:-9998")
+            values = nil_value.split(":")
+
+            for value in values:
+                if "-nan" in value.lower():
+                    value = "-NaN"
+                if "nan" in value.lower():
+                    value = "NaN"
+
+                if not (value == "*" or is_number(value)):
+                    # nilValue is invalid number
+                    raise RuntimeException("NilValue of band: {} is not valid.".format(nil_value))
+
     def _get_nil_values(self, index):
         """
         Returns the null values for a band of coverage by band index
@@ -359,28 +408,24 @@ class AbstractToCoverageConverter:
 
         if nil_values is not None:
             range_nils = []
-            # This should contain only 1 nilValue for 1 band
+            # nil_values = [[2,3], [1], [4]] or [999:9999, 999:*, 20]
+            has_all_nested_lists = []
+
             for nil_value in nil_values:
-                # null_value could be 9999 (gdal), "9999", or "'9999'" (netcdf, grib) so remove the redundant quotes
-                nil_value = str(nil_value).replace("'", "")
+                has_all_nested_lists.append(isinstance(nil_value, list))
 
-                # nill value can be single (e.g: "-9999") or interval (e.g: "-9999:-9998")
-                values = nil_value.split(":")
-                valid_values = []
+            if True in has_all_nested_lists and False in has_all_nested_lists:
+                # e.g. [ [2,3], 4, [5,7] ]
+                raise RecipeValidationException("default_null_values setting must contain a list for each band.")
 
-                for value in values:
-                    if "-nan" in value.lower():
-                        value = "-NaN"
-                    if "nan" in value.lower():
-                        value = "NaN"
+            if True in has_all_nested_lists:
+                # default_null_values contains list of null values per band
+                nil_values = nil_values[index]
 
-                    if not(value == "*" or is_number(value)):
-                        # nilValue is invalid number
-                        raise RuntimeException("NilValue of band: {} is not valid.".format(nil_value))
+            for nil_value in nil_values:
+                self.__validate_null_values(nil_value)
 
-                    valid_values.append(value)
-
-                range_nils.append(RangeTypeNilValue(band.nilReason, ":".join(valid_values)))
+                range_nils.append(RangeTypeNilValue(band.nilReason, nil_value))
 
             return range_nils
         else:
@@ -429,7 +474,7 @@ class AbstractToCoverageConverter:
                 # after that, the band's metadata for the current attribute is evaluated
                 setattr(band, key, evaluated_value)
 
-    def _create_coverage_slices(self, crs_axes, calculated_evaluator_slice=None, axis_resolutions=None):
+    def _create_coverage_slices(self, coverage_crs, crs_axes, calculated_evaluator_slice=None, axis_resolutions=None):
         """
         Returns the slices for the collection of files given
         :param crs_axes:
@@ -440,40 +485,46 @@ class AbstractToCoverageConverter:
 
         count = 1
         for file in self.files:
-            # NOTE: don't process any previously imported file (recorded in *.resume.json)
-            if not self.resumer.is_file_imported(file.filepath):
-                timer = Timer()
+            timer = Timer()
 
-                FileUtil.print_feedback(count, len(self.files), file.filepath)
+            FileUtil.print_feedback(count, len(self.files), file.filepath)
 
-                # print which file is analyzing
-                if not FileUtil.validate_file_path(file.filepath):
-                    continue
+            # print which file is analyzing
+            if not FileUtil.validate_file_path(file.filepath):
+                continue
 
-                valid_coverage_slice = True
+            valid_coverage_slice = True
 
-                try:
-                    if calculated_evaluator_slice is None:
-                        # get the evaluator for the current recipe_type (each recipe has different evaluator)
-                        self.evaluator_slice = EvaluatorSliceFactory.get_evaluator_slice(self.recipe_type, file)
-                    else:
-                        self.evaluator_slice = calculated_evaluator_slice
+            try:
+                if calculated_evaluator_slice is None:
+                    # get the evaluator for the current recipe_type (each recipe has different evaluator)
+                    self.evaluator_slice = EvaluatorSliceFactory.get_evaluator_slice(self.recipe_type, file)
+                else:
+                    self.evaluator_slice = calculated_evaluator_slice
 
-                    if self.data_type is None:
-                        self.data_type = self.evaluator_slice.get_data_type(self)
+                if self.data_type is None:
+                    self.data_type = self.evaluator_slice.get_data_type(self)
 
-                    coverage_slice = self._create_coverage_slice(file, crs_axes, self.evaluator_slice, axis_resolutions)
-                except Exception as ex:
-                    # If skip: true then just ignore this file from importing, else raise exception
-                    FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex)
-                    valid_coverage_slice = False
+                coverage_slice = self._create_coverage_slice(file, crs_axes, self.evaluator_slice, axis_resolutions)
+            except Exception as ex:
+                # If skip: true then just ignore this file from importing, else raise exception
+                FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex)
+                valid_coverage_slice = False
 
-                if valid_coverage_slice:
-                    if self.session.import_overviews_only is False:
-                        slices_dict["base"].append(coverage_slice)
+            if valid_coverage_slice:
+                if self.session.recipe["options"]["coverage"]["slicer"]["type"] == "gdal":
+                    gdal_file = GDALGmlUtil(file.get_filepath())
+                    geo_axis_crs = gdal_file.get_crs()
+                    try:
+                        CRSUtil.validate_crs(coverage_crs, geo_axis_crs)
+                    except Exception as ex:
+                        FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex)
+                        valid_coverage_slice = False
 
-                    if self.session.recipe["options"]["coverage"]["slicer"]["type"] == "gdal":
-                        gdal_file = GDALGmlUtil(file.get_filepath())
+                    if valid_coverage_slice:
+
+                        if self.session.import_overviews_only is False:
+                            slices_dict["base"].append(coverage_slice)
 
                         # Then, create slices for selected overviews from user
                         for overview_index in self.session.import_overviews:
@@ -484,9 +535,12 @@ class AbstractToCoverageConverter:
                             coverage_slice_overview.axis_subsets = axis_subsets_overview
 
                             slices_dict[str(overview_index)].append(coverage_slice_overview)
+                else:
+                    if self.session.import_overviews_only is False:
+                        slices_dict["base"].append(coverage_slice)
 
-                timer.print_elapsed_time()
-                count += 1
+            timer.print_elapsed_time()
+            count += 1
 
         # Currently, only sort by datetime to import coverage slices (default is ascending)
         reverse = (self.import_order == self.IMPORT_ORDER_DESCENDING)
@@ -530,13 +584,20 @@ class AbstractToCoverageConverter:
 
         if coverage_slices_dict is None:
             # Build list of coverage slices from input files
-            coverage_slices_dict = self._create_coverage_slices(crs_axes)
+            coverage_slices_dict = self._create_coverage_slices(self.crs, crs_axes)
 
         global_metadata = None
+        first_coverage_slice = None
+
         if len(coverage_slices_dict) > 0:
-            first_coverage_slice = coverage_slices_dict["base"][0]
-            # generate coverage extra_metadata from ingredient file based on first input file of first coverage slice.
-            global_metadata = self._generate_global_metadata(first_coverage_slice)
+            for coverage_level, slices in coverage_slices_dict.items():
+                if len(slices) > 0:
+                    first_coverage_slice = slices[0]
+                    break
+
+            if first_coverage_slice is not None:
+                # generate coverage extra_metadata from ingredient file based on first input file of first coverage slice.
+                global_metadata = self._generate_global_metadata(first_coverage_slice)
 
         # Evaluate all the swe bands's metadata (each file should have same swe bands's metadata), so first file is ok
         self._evaluate_swe_bands_metadata(self.files[0], self.bands)

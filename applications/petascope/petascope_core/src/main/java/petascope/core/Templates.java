@@ -100,7 +100,6 @@ public class Templates {
     public static final String WMS_GET_CAPABILITIES_CAPABILITY_ELEMENT = "%CapabilityElement%";
     public static final String WMS_GET_CAPABILITIES_CAPABILITY_GET_MAP_ELEMENT = "%GetMapElement%";
     public static final String WMS_GET_CAPABILITIES_CAPABILITY_EXCEPTION_ELEMENT = "%ExceptionElement%";
-    public static final String WMS_GET_CAPABILITIES_CAPABILITY_EXTENDED_CAPABILITIES_ELEMENT = "%ExtendedCapabilitiesElement%";
     public static final String WMS_GET_CAPABILITIES_CAPABILITY_LAYER_ELEMENTS = "%LayerElements%";
 
     /**
@@ -213,7 +212,7 @@ public class Templates {
         } else if (prefix.equals(WMS_PREFIX)) {
             return WMS_TEMPLATE_FOLDER;
         }
-        throw new PetascopeException(ExceptionCode.InternalComponentError, "Prefix is not supported, given: " + prefix);
+        throw new PetascopeException(ExceptionCode.NoApplicableCode, "Prefix is not supported. Given: " + prefix);
     }
 
     /**

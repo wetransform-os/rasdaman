@@ -25,6 +25,7 @@ import java.io.Serializable;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -114,7 +115,7 @@ public class Style implements Serializable {
     private String styleAbstract;
 
     // One, optional
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = LegendURL.COLUMN_ID)
     private LegendURL legendURL;
 
@@ -138,11 +139,14 @@ public class Style implements Serializable {
     @Column(name = "colortable_definition")
     @Lob
     private String colorTableDefinition;
+    
+    @Column(name = "default_style")
+    private Boolean defaultStyle = false;
 
     // Constructor with mandatory parameters for a style
     public Style(String name, String title, String styleAbstract, 
                  String rasqlQueryTransformFragment, String wcpsQueryFragment,
-                 Byte colorTableType, String colorTableDefinition) {
+                 Byte colorTableType, String colorTableDefinition, boolean defaultStyle) {
         this.name = name;
         this.title = title;
         this.styleAbstract = styleAbstract;
@@ -150,6 +154,7 @@ public class Style implements Serializable {
         this.wcpsQueryFragment = wcpsQueryFragment;
         this.colorTableType = colorTableType;
         this.colorTableDefinition = colorTableDefinition;
+        this.defaultStyle = defaultStyle;
     }
     
     public String getName() {
@@ -216,6 +221,18 @@ public class Style implements Serializable {
         this.colorTableDefinition = colorTableDefinition;
     }      
 
+    public boolean isDefaultStyle() {
+        if (defaultStyle == null) {
+            return false;
+        }
+        
+        return defaultStyle;
+    }
+
+    public void setDefaultStyle(boolean defaultStyle) {
+        this.defaultStyle = defaultStyle;
+    }
+
     // ----- For ColorTable style -----
 
     public static enum ColorTableType {
@@ -253,9 +270,9 @@ public class Style implements Serializable {
           /**
          * e.g: 1 -> GDAL
          */
-        public static String getType(byte typeCode) throws PetascopeException {
+        public static String getType(Byte typeCode) throws PetascopeException {
             for (ColorTableType enumObj : ColorTableType.values()) {
-                if (enumObj.getTypeCode()== typeCode) {
+                if (enumObj.getTypeCode() == typeCode) {
                     String result = enumObj.toString();
                     return result;
                 }

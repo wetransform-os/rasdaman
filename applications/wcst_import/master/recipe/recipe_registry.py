@@ -42,6 +42,7 @@ from recipes.general_coverage.recipe import Recipe as GeneralRecipe
 from recipes.general_coverage.gdal_to_coverage_converter import GdalToCoverageConverter
 from recipes.virtual_coverage.recipe import Recipe as virtual_coverage_recipe
 from util.import_util import import_glob, decode_res
+from config_manager import ConfigManager
 
 glob = import_glob()
 
@@ -101,6 +102,28 @@ class RecipeRegistry:
                 log.error("wcst_import terminated on running hook command.")
                 exit(1)
 
+    def __exec_python_command(self, command, abort_on_error=False):
+        """
+        Run a python command and exit wcst_import if needed
+        :param command: python code to be run by exec()
+        """
+        from io import StringIO
+        try:
+            log.info("Executing python command '{}'...".format(command))
+            old_stdout = sys.stdout
+            redirected_output = sys.stdout = StringIO()
+            exec(command)
+            sys.stdout = old_stdout
+
+            output = redirected_output.getvalue()
+            if output != "":
+                log.info("Output result '{}'".format(output))
+        except Exception as ex:
+            log.warn("Failed. Reason: {}".format(str(ex)))
+            if abort_on_error:
+                log.error("wcst_import terminated on running hook python command.")
+                exit(1)
+
     def __run_hooks(self, session, hooks, after_ingestion=False):
         """
         Run some hooks before/after analyzing input files
@@ -124,8 +147,23 @@ class RecipeRegistry:
                 # All replaced input files share same template format (e.g: file:path -> file:path.projected)
                 replace_path_template = hook["replace_path"][0]
 
+            cmd_template = ""
+            python_cmd_template = ""
+
+            has_bash_cmd = False
+            has_python_cmd = False
+
             # Evaluate shell command expression to get a runnable shell command
-            cmd_template = hook["cmd"]
+            if "cmd" in hook:
+                cmd_template = hook["cmd"]
+                has_bash_cmd = True
+
+            if "python_cmd" in hook:
+                python_cmd_template = hook["python_cmd"]
+                has_python_cmd = True
+
+            if has_bash_cmd and has_python_cmd:
+                raise RecipeValidationException("A hook can contain either \"cmd\" or \"python_cmd\" setting.")
 
             files = session.files
             if after_ingestion is True:
@@ -133,10 +171,17 @@ class RecipeRegistry:
 
             for file in files:
                 evaluator_slice = EvaluatorSliceFactory.get_evaluator_slice(recipe_type, file)
-                cmd = self.sentence_evaluator.evaluate(cmd_template, evaluator_slice)
-                self.__run_shell_command(cmd, abort_on_error)
 
-                if FileExpressionEvaluator.PREFIX not in cmd_template:
+                if cmd_template != "":
+                    cmd = self.sentence_evaluator.evaluate(cmd_template, evaluator_slice)
+                    self.__run_shell_command(cmd, abort_on_error)
+
+                if python_cmd_template != "":
+                    python_cmd = self.sentence_evaluator.evaluate(python_cmd_template, evaluator_slice)
+                    self.__exec_python_command(python_cmd)
+
+                if FileExpressionEvaluator.PREFIX not in cmd_template \
+                        and FileExpressionEvaluator.PREFIX not in python_cmd_template:
                     # Only need to run hook once if ${...} does not exist in cmd command,
                     # otherwise it runs duplicate commands multiple times (!)
                     if replace_path_template is not None:
@@ -212,7 +257,10 @@ class RecipeRegistry:
 
             if recipe_name != virtual_coverage_recipe.RECIPE_NAME:
                 number_of_files = len(session.get_files())
-                if number_of_files > 10:
+                if ConfigManager.has_resume_file is True and number_of_files == 0:
+                    log.info("All filepaths are already imported according to the resumer file.")
+                    exit(0)
+                elif number_of_files > 10:
                     number_of_files = 10
                 log.info("Collected first " + str(number_of_files) + " files: "
                          + str([str(f) for f in session.get_files()[:10]]) + "...")

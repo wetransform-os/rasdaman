@@ -43,7 +43,7 @@ from util.crs_util import CRSUtil
 from util.gdal_validator import GDALValidator
 from util.import_util import import_netcdf4
 from util.log import log
-from util.string_util import escape_metadata_dict
+from util.string_util import escape_metadata_dict, is_band_name_valid, BAND_NAME_PATTERN
 from util.string_util import escape_metadata_nested_dicts
 from util.file_util import FileUtil
 from util.gdal_util import GDALGmlUtil
@@ -198,7 +198,7 @@ class Recipe(BaseRecipe):
             # NOTE: rasdaman supports 1 band grib only to import
             recipe_type = self.options['coverage']['slicer']['type']
             if recipe_type == GRIBToCoverageConverter.RECIPE_TYPE and number_of_bands > 1:
-                raise RuntimeError("Only single band grib files are currently supported. "
+                raise RecipeValidationException("Only single band grib files are currently supported. "
                                    "Given " + str(number_of_bands) + " bands in ingredient file.")
 
             ret_bands = []
@@ -210,6 +210,13 @@ class Recipe(BaseRecipe):
                     # NOTE: for old ingredients with wrong defined "identifier" with band name instead of index 0-based
                     if not identifier.isdigit():
                         identifier = str(i)
+
+                band_name = self._read_or_empty_string(band, "name")
+                if band_name != "":
+                    if not is_band_name_valid(band_name):
+                        raise RecipeValidationException("Specified band name is not valid. "
+                                                        "Given: '" + band_name + "'. "
+                                                        "Hint: it must match this pattern '" + BAND_NAME_PATTERN + "'.")
 
                 ret_bands.append(UserBand(
                     identifier,
@@ -271,7 +278,7 @@ class Recipe(BaseRecipe):
             for axis_label, axis_configuration_dicts in axes_configurations.items():
                 # If axis label configured in ingredient file does not exist in CRS definition,
                 # then "crsOrder" configuration must match with the crs axis order.
-                if crs_axis.label == axis_label \
+                if CRSUtil.axis_label_match(crs_axis.label, axis_label) \
                         or ("crsOrder" in axis_configuration_dicts
                             and int(axis_configuration_dicts["crsOrder"]) == index):
                     crs_axes[index].label = axis_label
@@ -398,7 +405,6 @@ class Recipe(BaseRecipe):
         """
 
         if "coverage" in self.options and "metadata" in self.options['coverage']:
-
             for file_path in self.session.get_files():
                 try:
                     if "global" in self.options['coverage']['metadata']:
@@ -427,7 +433,13 @@ class Recipe(BaseRecipe):
 
                     self.__add_color_palette_table_to_global_metadata(metadata_dict, file_path)
 
-                    result = escape_metadata_dict(metadata_dict)
+                    if self.options['coverage']['slicer']['type'] == "netcdf":
+                        # In case, netCDF is rotated CRS (with grid_mapping in band variables)
+                        user_bands = self._read_bands()
+                        NetcdfToCoverageConverter.parse_netcdf_grid_mapping_metadata(metadata_dict, file_path,
+                                                                                     user_bands)
+
+                    result = escape_metadata_nested_dicts(metadata_dict)
                     return result
                 except Exception as e:
                     if ConfigManager.skip == True:
@@ -496,6 +508,18 @@ class Recipe(BaseRecipe):
                     file_path = file.filepath
                     # Just fetch all metadata for user specified bands
                     bands_metadata = NetcdfToCoverageConverter.parse_netcdf_bands_metadata(file_path, user_bands)
+
+                    bands = self.options["coverage"]["slicer"]["bands"]
+                    for band in bands:
+                        # coverage's customized band name by user, e.g. band1
+                        band_name = band["name"]
+                        # file's band name, e.g. ndvi
+                        band_identifier = band["identifier"]
+
+                        if band_name != band_identifier:
+                            # user defined a customized band name as a coverages' band instead of using band_identifier
+                            bands_metadata[band_name] = bands_metadata[band_identifier]
+                            del bands_metadata[band_identifier]
 
                     if "bands" in self.options['coverage']['metadata']:
                         # a dictionary of user defined bands' metadata
@@ -672,7 +696,8 @@ class Recipe(BaseRecipe):
         :param string: recipe_type the type of recipe
         :rtype: master.importer.coverage.Coverage
         """
-        crs = self._resolve_crs(self.options['coverage']['crs'])
+        ConfigManager.default_crs = self._resolve_crs(self.options["coverage"]["crs"])
+        crs = self._resolve_crs(self.options["coverage"]["crs"])
         sentence_evaluator = SentenceEvaluator(ExpressionEvaluatorFactory())
 
         input_files = self.session.get_files()
@@ -700,7 +725,8 @@ class Recipe(BaseRecipe):
         :param: string recipe_type the type of netcdf
         :rtype: master.importer.coverage.Coverage
         """
-        crs = self._resolve_crs(self.options['coverage']['crs'])
+        ConfigManager.default_crs = self._resolve_crs(self.options["coverage"]["crs"])
+        crs = self._resolve_crs(self.options["coverage"]["crs"])
         sentence_evaluator = SentenceEvaluator(ExpressionEvaluatorFactory())
         # by default pixelIsPoint is not set to true in ingredient file
         pixel_is_point = False
@@ -714,9 +740,23 @@ class Recipe(BaseRecipe):
         first_band_variable_identifier = first_band.identifier
 
         netCDF4 = import_netcdf4()
+        number_of_dimensions = None
+
         # Get the number of dimensions of band variable to validate with number of axes specified in the ingredients file
-        number_of_dimensions = len(netCDF4.Dataset(input_files[0], 'r').variables[first_band_variable_identifier].dimensions)
-        self.__validate_data_bound_axes(user_axes, number_of_dimensions)
+        for input_file in input_files:
+            try:
+                number_of_dimensions = len(netCDF4.Dataset(input_file, 'r').variables[first_band_variable_identifier].dimensions)
+                self.__validate_data_bound_axes(user_axes, number_of_dimensions)
+                break
+            except Exception as e:
+                if ConfigManager.skip is True:
+                    continue
+                else:
+                    raise e
+
+        if number_of_dimensions is None:
+            raise RuntimeException("Cannot get the number of dimensions from one of input netCDF files. "
+                                   "Hint: make sure at least one file is readable.")
 
         coverage = NetcdfToCoverageConverter(self.resumer, self.session.default_null_values,
                                              recipe_type, sentence_evaluator, self.session.get_coverage_id(),
@@ -738,7 +778,8 @@ class Recipe(BaseRecipe):
         :param: string recipe_type the type of grib
         :rtype: master.importer.coverage.Coverage
         """
-        crs = self._resolve_crs(self.options['coverage']['crs'])
+        ConfigManager.default_crs = self._resolve_crs(self.options["coverage"]["crs"])
+        crs = self._resolve_crs(self.options["coverage"]["crs"])
         sentence_evaluator = SentenceEvaluator(ExpressionEvaluatorFactory())
         pixel_is_point = False
         if 'pixelIsPoint' in self.options['coverage']['slicer'] and self.options['coverage']['slicer']['pixelIsPoint']:

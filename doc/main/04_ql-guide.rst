@@ -67,7 +67,7 @@ application deployment while a set of cutting-edge intelligent
 optimization techniques in the rasdaman server ensures fast, efficient
 access to large data sets, particularly in networked environments.
 
-rasdaman Overall Architecture
+Rasdaman Overall Architecture
 =============================
 
 The rasdaman client/server DBMS has been designed using internationally
@@ -78,7 +78,7 @@ decomposed into smaller units which are maintained in a conventional
 DBMS, for our purposes called the *base DBMS*.
 
 On the other hand, the base DBMS usually will hold alphanumeric data
-(such as metadata) besides the array data. rasdaman offers means to
+(such as metadata) besides the array data. Rasdaman offers means to
 establish references between arrays and alphanumeric data in both
 directions.
 
@@ -553,11 +553,11 @@ components of a composite cell simultaneously. In future it may become possible
 to indicate null values individually per struct component.
 
 
-Example
--------
+Examples
+--------
 
-For example, the following statement defines a set type of 2-D RGB images, based
-on the definition of ``RGBImage``: ::
+The following statement defines a set type of 2-D RGB images, based on the
+definition of ``RGBImage``: ::
 
     create type RGBSet
     as set ( RGBImage )
@@ -568,14 +568,23 @@ can be specified as follows: ::
     create type RGBSet
     as set ( RGBImage null values [ 0, 253 : 255 ] )
 
-Note that these null values will apply equally to every band. It is not possible
-to separate null values per band.
+Note that these null values will apply equally to every band.
+It is not possible to separate null values per band.
 
 As the cell type in this case is char (possible values between 0 and 255), the
 type can be equivalently specified like this: ::
 
     create type RGBSet
     as set ( RGBImage null values [ 0, 253 : * ] )
+
+With the set type below, values which are nan are null values (nanf is the float 
+constant, while nan is the double constant): ::
+
+    create type FloatSetNanNullValue
+    as set ( FloatImage null values [nanf] )
+
+    create type DoubleSetNanNullValue
+    as set ( DoubleImage null values [nan] )
 
 
 .. _sec-drop-types:
@@ -609,7 +618,7 @@ List available types
 A list of all types defined in the database can be obtained in textual
 form, adhering to the rasql type definition syntax. This is done by
 querying virtual collections (similar to the virtual collection
-``RAS_COLLECT­ION_­NAMES``).
+``RAS_COLLECTIONNAMES``).
 
 Technically, the output of such a query is a list of 1-D ``char`` arrays,
 each one containing one type definition.
@@ -1268,7 +1277,7 @@ The local OID is an integer number.
 
 **Syntax**
 
-::
+.. code-block:: text
 
     < systemName | baseName | objectID >
     objectID
@@ -1279,7 +1288,7 @@ an *integerExp*.
 
 **Example**
 
-::
+.. code-block:: text
 
     < acme.com | RASBASE | 42 >
     42
@@ -1498,6 +1507,8 @@ Trimming
 
 Reducing the spatial domain of an array while leaving the cell values
 unchanged is called *trimming*. Array dimension remains unchanged.
+Attempting to extend or intersect the array's spatial domain will lead to an
+error; use the :ref:`extend function <sec-extend>` in this case.
 
 
 .. figure:: media/ql-guide/figure7.png
@@ -1505,10 +1516,6 @@ unchanged is called *trimming*. Array dimension remains unchanged.
    :width: 400px
 
    Spatial domain modification through trimming (2-D example)
-
-The *generalized trim operator* allows restriction, extension, and a
-combination of both operations in a shorthand syntax. This operator does
-not check for proper subsetting or supersetting of the domain modifier.
 
 **Syntax**
 
@@ -1555,6 +1562,10 @@ A section is accomplished through a trim expression by indicating the
 slicing position rather than a selection interval. A section can be made
 in any dimension within a trim expression. Each section reduces the
 dimension by one.
+
+Like with trimming, a section must be within the spatial domain of the array,
+otherwise an error indicating that the subset domain extends outside of the
+array spatial domain will be thrown.
 
 **Syntax**
 
@@ -2531,6 +2542,7 @@ depending on the size of the collections involved - if the two
 collections contain n and m members, resp., then n*m combinations have
 to be evaluated.
 
+.. _rasql-case-stmt:
 
 Case statement
 --------------
@@ -2605,13 +2617,14 @@ be overcome by factoring divergingly tiled arrays out of a query, or by
 resorting to the query equivalent in the above example using
 multiplication and addition.
 
+.. _induction-all-ops:
 
 Induction: All Operations
 -------------------------
 
 Below is a complete listing of all cell level operations that can be induced,
 both unary and binary. Supported operand types and rules for deriving the result
-types for each operantion are specified in :ref:`type-coercion`.
+types for each operation are specified in :ref:`type-coercion`.
 
 +, -, \*, /
     For each cell within some MDD value (or evaluated MDD expression), add
@@ -3704,6 +3717,7 @@ The following parameters are common to GDAL, NetCDF, and GRIB data formats:
       "domain": "[0:100,0:100]"
     }
 
+.. _decode-gdal:
 
 GDAL
 ^^^^
@@ -3882,6 +3896,7 @@ is not supported. As not all base types supported by rasdaman (char, octet,
 float, etc.) are necessarily supported by each format, care must be taken to
 cast the MDD beforehand.
 
+.. _rasql-encode-function-data-format:
 
 Data format
 -----------
@@ -4123,9 +4138,11 @@ NetCDF
 
 The following are mandatory options when encoding to NetCDF:
 
-- ``variables`` -  Specify variable names for each band of the MDD, as well as
+- ``variables`` -  Specify variable names for each band of the MDD,
   dimension names if they need to be saved as `coordinate variables
-  <https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_data_set_components.html#coordinate_variables>`__.
+  <https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_data_set_components.html#coordinate_variables>`__,
+  as well as non-data `grid mapping variables 
+  <https://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#grid-mappings-and-projections>`__.
   There are two ways to specify the variables:
 
   1. An array of strings for each variable name, e.g. ``["var1", "var2"]``;
@@ -4139,13 +4156,19 @@ The following are mandatory options when encoding to NetCDF:
        attributes to the variable;
 
      - ``type`` - Type of the data values this variable contains relevant (and 
-       required) only for coordinate variables; allowed values are "byte",
+       required) for coordinate or non-data variables; allowed values are "byte",
        "char", "short", "ushort", "int", "uint", "float", and "double";
 
      - ``data`` - An array of data values for the variable relevant (and 
        required) only for coordinate variables (as regular variables get
        their data values from the array to be encoded); the number of values
        must match the dimension extent;
+
+     If the variable name is not listed in the ``dimensions`` array and still
+     has a ``data`` attribute, then it will be considered to be a non-data
+     variable and will not be used for storing MDD band data; the ``data``
+     attribute is ignored in this case, so the value for it can be an empty
+     JSON array ``[]``.
 
 - ``dimensions`` - An array of names for each dimension, e.g. ``["Lat","Long"]``.
 
@@ -4262,6 +4285,69 @@ the array data.
       }
     }
   }
+
+
+Below format parameters for a rotated grid are specified, which define a
+``"rotated_pole"`` grid mapping variable in addition to the dimension variables
+(``rlong`` and ``rlat``) and the band variable ``CAPE_ML``. More information on
+grid mappings can be found `here <https://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#grid-mappings-and-projections>`__.
+
+.. hidden-code-block:: json
+
+  "dimensions": [
+    "rlon",
+    "rlat"
+  ],
+  "variables": {
+    "rotated_pole": {
+      "type": "int",
+      "name": "rotated_pole",
+      "metadata": {
+        "grid_mapping_name": "rotated_latitude_longitude",
+        "grid_north_pole_longitude": "-170",
+        "units": "degrees",
+        "axis": "X"
+      },
+      "data": []
+    },
+    "rlon": {
+      "type": "double",
+      "data": [-5,-4.975,-4.95,-4.925],
+      "name": "rlon",
+      "metadata": {
+        "standard_name": "grid_longitude",
+        "long_name": "longitude in rotated pole grid",
+        "grid_north_pole_latitude": "40",
+        "semi_major_axis": "6371229."
+      }
+    },
+    "rlat": {
+      "type": "double",
+      "data": [-4.925,-4.95,-4.975,-5],
+      "name": "rlat",
+      "metadata": {
+        "standard_name": "grid_latitude",
+        "long_name": "latitude in rotated pole grid",
+        "units": "degrees",
+        "axis": "Y"
+      }
+    },
+    "CAPE_ML": {
+      "type": "float",
+      "name": "CAPE_ML",
+      "metadata": {
+        "description": "Count of the number of observations from the SeaWiFS sensor",
+        "units": "J kg-1",
+        "long_name": "Convective Available Potential Energy, mean layer",
+        "param": "6.7.0",
+        "grid_mapping": "rotated_pole",
+        "realization": "1",
+        "ensemble_members": "20",
+        "forecast_init_type": "192"
+      }
+    }
+  }
+
 
 CSV / JSON
 ^^^^^^^^^^
@@ -4396,208 +4482,8 @@ Here the list of operators in descending strength of binding:
 Null Values
 ***********
 
-"Null is a special marker used in Structured Query Language (SQL) to
-indicate that a data value does not exist in the database. NULL is also
-an SQL reserved keyword used to identify the Null special marker."
-(`Wikipedia <http://en.wikipedia.org/wiki/Null_%28SQL%29>`__) In fact,
-null introduces a three-valued logic where the result of a Boolean
-operation can be null itself; likewise, all other operations have to
-respect null appropriately. Said Wikipedia article also discusses issues
-the SQL language has with this three-valued logic.
+.. include:: 04_ql-guide-nullvalues.inc
 
-For sensor data, a Boolean null indicator is not enough as null values
-can mean many different things, such as "no value given", "value cannot
-be trusted", or "value not known". Therefore, rasdaman refines the SQL
-notion of null:
-
--  Any value of the data type range can be chosen to act as a null
-   value;
-
--  a set of cell values can be declared to act as null (in contrast to
-   SQL where only one null per attribute type is foreseen).
-
-
-**Caveat**
-
-Note that defining values as nulls reduces the value range available for
-known values. Additionally, computations can yield values inadvertently
-(null values themselves are not changed during operations, so there is
-no danger from this side). For example, if 5 is defined to mean null
-then addition of two non-null values, such as 2+3, yields a null.
-
-Every bit pattern in the range of a numeric type can appear in the
-database, so no bit pattern is left to represent "null". If such a thing
-is desired, then the database designer must provide, e.g., a separate
-bit map indicating the status for each cell.
-
-To have a clear semantics, the following rule holds:
-
-**Uninitialized value handling**
-
-A cell value not yet addressed, but within the current domain of an MDD
-has a value of zero by definition; this extends in the obvious manner to
-composite cells.
-
-*Remark*
-
-Note the limitation to the *current* domain of an MDD. While in the case
-of an MDD with fixed boundaries this does not matter because always
-*definition domain = current domain*, an MDD with variable boundaries
-can grow and hence will have a varying current domain. Only cells inside
-the current domain can be addressed, be they uninitialized/null or not;
-addressing a cell outside the current domain will result in the
-corresponding exception.
-
-**Masks as alternatives to null**
-
-For example, during piecewise import of satellite images into a large
-map, there will be areas which are not written yet. Actually, also after
-completely creating the map of, say, a country there will be untouched
-areas, as normally no country has a rectangular shape with axis-parallel
-boundaries. The outside cells will be initialized to 0 which may or may
-not be defined as null. Another option is to define a Boolean mask array
-of same size as the original array where each mask value contains *true*
-for "cell valid" and *false* for "cell invalid. It depends on the
-concrete application which approach benefits best.
-
-
-Nulls in MDD-Valued Expressions
-===============================
-
-**Dynamically Set/Replace the Null Set**
-
-The null set of an MDD value resulting from a sub-expression can be dynamically
-changed on-the-fly with a postfix ``null values`` operator as follows: ::
-
-    mddExp null values nullSet
-
-As a result *mddExp* will have the null values specified by *nullSet*; if
-*mddExp* already had a null set, it will be replaced.
-
-**Null Set Propagation**
-
-The null value set of an MDD is part of its type definition and, as
-such, is carried along over the MDD's lifetime. Likewise, MDDs which are
-generated as intermediate results during query processing have a null
-value set attached. Rules for constructing the output MDD null set are
-as follows:
-
--  The null value set of an MDD generated through an ``marray`` operation is
-   empty [13]_.
-
--  The null value set of an operation with one input MDD object is
-   identical to the null set of this input MDD.
-
--  The null value set of an operation with two input MDD objects is the
-   union of the null sets of the input MDDs.
-
--  The null value set of an MDD expression with a postfix ``null values``
-   operator is equal to the null set specified by it.
-
-**Null Values in Operations**
-
-Subsetting (trim and slice operations, as well as ``struct`` selection,
-etc.) perform just as without nulls and deliver the original cell
-values, be they null (relative to the MDD object on hand) or not. The
-null value set of the output MDD is the same as the null value set of
-the input MDD.
-
-In MDD-generating operations with only one input MDD (such as marray and
-unary induced operations), if the operand of a cell operation is null
-then the result of this cell operation is null.
-
-Generally, if somewhere in the input to an individual cell value
-com­put­at­ion a null value is encountered then the overall result will
-be null - in other words: *if at least one of the operands of a cell
-operation is null then the overall result of this cell operation is
-null*.
-
-*Exceptions:*
-
--  Comparison operators (that is: ``==``, ``!=``, ``>``, ``>=``, ``<``, ``<=``)
-   encountering a null value will *always* return a Boolean value; for example,
-   both ``n == n`` and ``n != n`` (for any null value ``n``) will evaluate to
-   ``false``.
-
--  In a cast operation, nulls are treated like regular values.
-
--  In a ``scale()`` operation, null values are treated like regular
-   values [14]_.
-
--  Format conversion of an MDD object ignores null values. Conversion
-   from some data format into an MDD likewise imports the actual cell
-   values; however, during any eventual further processing of the target
-   MDD as part of an **update** or **insert** statement, cell values
-   listed in the null value set of the pertaining MDD definition will be
-   interpreted as null and will not overwrite persistent non-null values.
-
-**Choice of Null Value**
-
-If an operation computes a null value for some cell, then the null value
-effectively assigned is determined from the MDD's type definition.
-
-If the overall MDD whose cell is to be set has exactly one null value,
-then this value is taken. If there is more than one null value available
-in the object's definition, then one of those null values is picked
-non-deterministically. If the null set of the MDD is empty then no value
-in the MDD is considered a null value.
-
-**Example**
-
-Assume an MDD ``a`` holding values ``<0, 1, 2, 3, 4, 5>`` and a null value set
-of ``{2, 3}``. Then, ``a*2`` might return ``<0, 2, 2, 2, 8, 10>``. However,
-``<0, 2, 3, 3, 8, 10>`` and ``<0, 2, 3, 2, 8, 10>`` also are valid results, as
-the null value gets picked non-deterministically.
-
-
-Nulls in Aggregation Queries
-============================
-
-In a condense operation, cells containing nulls do not contribute to the
-overall result (in plain words, nulls are ignored).
-
-If all values are null, then the result is the identity element in this case,
-e.g. ``0`` for ``+``, ``true`` for ``and``, ``false`` for ``or``, maximum value
-possible for the result base type for  ``min``, minimum value possible for the
-result base type for ``max``, ``0`` for ``count_cells``.
-
-The scalar value resulting from an aggregation query does not
-carry a null value set like MDDs do; hence, during further processing it
-is treated as an ordinary value, irrespective of whether it has
-represented a null value in the MDD acting as input to the aggregation
-operation.
-
-
-Limitations
-===========
-
-All cell components of an MDD share the same same set of nulls, it is
-currently not possible to assign individual nulls to cell type
-components.
-
-
-NaN Values
-==========
-
-NaN ("not a number") is the representation of a numeric value representing an
-undefined or unrepresentable value, especially in floating-point calculations.
-Systematic use of NaNs was introduced by the IEEE 754 floating-point standard
-(`Wikipedia <http://en.wikipedia.org/wiki/NaN>`__).
-
-In rasql, ``nan`` (double) and ``nanf`` (float) are symbolic floating point
-constants that can be used in any place where a floating point value is allowed.
-Arithmetic operations involving ``nan``\ s always result in ``nan``. Equality
-and inequality involving nans work as expected, all other comparison operators
-return false.
-
-If the encoding format used supports NaN then rasdaman will encode/decode NaN
-values properly.
-
-**Example**
-
-::
-
-    select count_cells( c != nan ) from c
 
 
 *************
@@ -4625,6 +4511,7 @@ to the following:
     The message syntax is not standardized in any way and may
     change in any rasdaman version without notice.
 
+.. _retrieving-object-metadata:
 
 Retrieving Object Metadata
 ==========================
@@ -4954,25 +4841,12 @@ dimensionality) as the existing type of the collection before setting it.
     alter collection mr2
     set type GreySetWithNullValues
 
+.. _retrieve-all-collection-names:
 
 Retrieve All Collection Names
 -----------------------------
 
-With the following rasql statement, a list of the names of all
-collections currently existing in the database is retrieved; both
-versions below are equivalent: ::
-
-    select RAS_COLLECTIONNAMES
-    from RAS_COLLECTIONNAMES
-
-    select r
-    from RAS_COLLECTIONNAMES as r
-
-Note that the meta collection name, ``RAS_COLLECTIONNAMES``, must be written in
-upper case only. No operation in the select clause is permitted. The
-result is a set of one-dimensional char arrays, each one holding the
-name of a database collection. Each such char array, i.e., string is
-terminated by a zero value ('\0').
+.. include:: 04_ql-guide-collnames.inc
 
 
 Select

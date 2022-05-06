@@ -21,8 +21,10 @@
  */
 package org.rasdaman.domain.wms;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.Objects;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -152,11 +154,14 @@ public class BoundingBox implements Serializable {
 
     /**
      * Create a BoundingBox XML element and get the XML string
-     *
-     * @return
      */
+    @JsonIgnore
     public String getRepresentation() {
-        
+        return getElement().toXML();
+    }
+    
+    @JsonIgnore
+    public Element getElement() {
         Element bboxElement = new Element(XMLSymbols.LABEL_WMS_BOUNDING_BOX);
         Attribute crsAttribute = new Attribute(XMLSymbols.LABEL_WMS_CRS, this.getCrs());
         Attribute minxAttribute = new Attribute(XMLSymbols.ATT_WMS_MIN_X, xmin);
@@ -170,6 +175,53 @@ public class BoundingBox implements Serializable {
         bboxElement.addAttribute(maxxAttribute);
         bboxElement.addAttribute(maxyAttribute);
 
-        return bboxElement.toXML();
+        return bboxElement;
+    }    
+
+    @Override
+    public int hashCode() {
+        int hash = 3;
+        hash = 53 * hash + (int) (this.id ^ (this.id >>> 32));
+        hash = 53 * hash + Objects.hashCode(this.crs);
+        hash = 53 * hash + Objects.hashCode(this.xmin);
+        hash = 53 * hash + Objects.hashCode(this.ymin);
+        hash = 53 * hash + Objects.hashCode(this.xmax);
+        hash = 53 * hash + Objects.hashCode(this.ymax);
+        return hash;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final BoundingBox other = (BoundingBox) obj;
+        if (this.id != other.id) {
+            return false;
+        }
+        if (!Objects.equals(this.crs, other.crs)) {
+            return false;
+        }
+        if (!Objects.equals(this.xmin, other.xmin)) {
+            return false;
+        }
+        if (!Objects.equals(this.ymin, other.ymin)) {
+            return false;
+        }
+        if (!Objects.equals(this.xmax, other.xmax)) {
+            return false;
+        }
+        if (!Objects.equals(this.ymax, other.ymax)) {
+            return false;
+        }
+        return true;
+    }
+    
+    
 }

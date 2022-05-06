@@ -52,7 +52,7 @@ SQLiteQuery::SQLiteQuery(char q[]) :
     LTRACE << "SQL query: " << query;
     if (sqliteConn)
     {
-        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT);
+        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
         sqlite3_prepare_v2(sqliteConn, q, -1, &stmt, nullptr);
         failOnError(query.c_str());
     }
@@ -76,7 +76,7 @@ SQLiteQuery::SQLiteQuery(const char *format, ...)
 
     if (sqliteConn)
     {
-        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT);
+        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
         sqlite3_prepare_v2(sqliteConn, tmpQuery.get(), -1, &stmt, nullptr);
         failOnError(tmpQuery.get());
     }
@@ -150,7 +150,7 @@ void SQLiteQuery::execute(int fail)
 {
     assert(stmt);
 
-    sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT);
+    sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
     sqlite3_step(stmt);
     if (fail)
     {
@@ -167,7 +167,7 @@ void SQLiteQuery::execute(const char *q)
     LTRACE << "SQL query: " << q;
     if (sqliteConn)
     {
-        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT);
+        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
         sqlite3_exec(sqliteConn, q, nullptr, nullptr, nullptr);
         failOnError(q);
     }
@@ -192,7 +192,7 @@ void SQLiteQuery::executeWithParams(const char *format, ...)
 
     if (sqliteConn)
     {
-        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT);
+        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
         sqlite3_exec(sqliteConn, q, nullptr, nullptr, nullptr);
         failOnError(q);
     }
@@ -301,6 +301,7 @@ void SQLiteQuery::closeConnection()
 {
     if (sqliteConn != nullptr)
     {
+        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
         if (sqlite3_close(sqliteConn) != SQLITE_OK)
         {
             warnOnError("close RASBASE connection");
@@ -323,11 +324,18 @@ void SQLiteQuery::openConnection(const char *globalConnectId)
     {
         LDEBUG << "Connected successfully to '" << globalConnectId << "'";
         std::string options = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=" +
-                              std::to_string(SQLITE_BUSY_TIMEOUT);
+                              std::to_string(SQLITE_BUSY_TIMEOUT_MS);
         sqlite3_exec(sqliteConn, options.c_str(), NULL, 0, NULL);
         failOnError(options.c_str());
         sqlite3_extended_result_codes(sqliteConn, 1);
         warnOnError("enable extended result codes");
+    }
+}
+
+void SQLiteQuery::interruptTransaction()
+{
+    if (sqliteConn != nullptr) {
+        sqlite3_interrupt(sqliteConn);
     }
 }
 

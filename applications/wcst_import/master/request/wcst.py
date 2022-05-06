@@ -344,6 +344,9 @@ class WCSTExecutor(WCSTBaseExecutor):
         base_url_tmp = self.base_url
         if input_base_url is not None:
             base_url_tmp = input_base_url
+        elif hasattr(request, "context_path"):
+            if request.context_path is not None:
+                base_url_tmp = request.context_path
 
         service_call = base_url_tmp + "?" + request.get_query_string()
 
@@ -357,7 +360,7 @@ class WCSTExecutor(WCSTBaseExecutor):
             response = decode_res(validate_and_read_url(base_url_tmp, request.get_query_string()))
         except Exception as ex:
             raise WCSTException(404, "Failed reading response from WCS service. "
-                                     "Detailed error: {}.".format(str(ex)), service_call)
+                                     "Detailed error: {}".format(str(ex)), service_call)
 
         namespaces = ""
 

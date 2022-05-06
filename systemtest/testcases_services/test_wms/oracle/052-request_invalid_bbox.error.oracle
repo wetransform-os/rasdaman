@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding="UTF-8"?>
+<ServiceException code="InvalidRequest">
+Invalid value for 'bbox' parameter, pattern: 'xMin,yMin,xMax,yMax'. Reason: yMin is not a number. Given: '111.976a'.
+</ServiceException>
+</ServiceExceptionReport>

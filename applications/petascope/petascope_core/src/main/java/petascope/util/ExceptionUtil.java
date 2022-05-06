@@ -23,12 +23,17 @@ package petascope.util;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.regex.Pattern;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.Set;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import org.apache.commons.io.IOUtils;
+import org.rasdaman.config.ConfigManager;
 import org.rasdaman.config.VersionManager;
 import org.slf4j.LoggerFactory;
 import static petascope.core.KVPSymbols.WCS_SERVICE;
@@ -52,22 +57,71 @@ public class ExceptionUtil {
     
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(ExceptionUtil.class);
     
+    private static Set<String> getFilteredExceptionStacktrace(Set<String> errorMessages, Throwable ex) {
+        if (ex == null) {
+            return errorMessages;
+        }
+        
+        errorMessages.add("Caused by: " + ex.getMessage());
+        
+        for (StackTraceElement element : ex.getStackTrace()) {
+            // e.g. petascope.controller.AbstractController
+            String classNamePath = element.getClassName();
+
+            // Only log the error lines in files from petascope's source codes
+            if (classNamePath.contains("rasdaman") || classNamePath.contains("petascope")) {    
+                String errorMessage = "	at " + classNamePath + "." + element.getMethodName() 
+                             + "(" + element.getFileName() + ":" + element.getLineNumber() + ")";
+                if (!errorMessages.contains(errorMessage)) {
+                    errorMessages.add(errorMessage);
+                }
+            }
+        }
+        
+        return getFilteredExceptionStacktrace(errorMessages, ex.getCause());
+    }
+    
     /**
      * Handle exception and write result to client.
      */
-    public static void handle(String version, Exception ex, HttpServletResponse httpServletResponse) throws IOException {
+    public static void handle(String version, Exception ex, HttpServletResponse httpServletResponse) throws RuntimeException {
         httpServletResponse.setContentType(MIMEUtil.MIME_XML);
         
-        log.error("Caught an exception ", ex);
+        if (ConfigManager.enableFullStacktrace()) {
+            log.error("Caught an exception ", ex);
+        } else {
+            Set<String> errorMessages = getFilteredExceptionStacktrace(new LinkedHashSet<String>(), ex);
+            String result = "";
+            
+            for (String errorMessage: errorMessages) {
+                // do something with it.next()
+                result += errorMessage + "\n";
+            }
+
+            log.error("Caught an exception: " + ex.getMessage() + " \n " +  result);
+        }
         
-        OutputStream outputStream = httpServletResponse.getOutputStream();
+        OutputStream outputStream;
+        try {
+            outputStream = httpServletResponse.getOutputStream();
+        } catch (IOException tmpEx) {
+            throw new RuntimeException("Cannot get output stream from HttpServletResponse object. Reason: " + tmpEx.getMessage(), tmpEx);
+        }
 
         httpServletResponse.setContentType(MIMEUtil.MIME_XML);
         httpServletResponse.setHeader("Content-disposition", "inline; filename=error.xml");  
 
-        ExceptionReport exceptionReport = ExceptionUtil.exceptionToReportString(ex, version);
+        ExceptionReport exceptionReport = ExceptionUtil.exceptionToReportString(ex, version);        
+        if (ex instanceof PetascopeException && ((PetascopeException)ex).isSoap()) {
+            exceptionReport = ExceptionUtil.exceptionToReportStringSOAP(ex);
+        }
+        
         httpServletResponse.setStatus(exceptionReport.getHttpCode());
-        IOUtils.write(exceptionReport.getExceptionText(), outputStream);
+        try {
+            IOUtils.write(exceptionReport.getExceptionText(), outputStream);
+        } catch (IOException tmpEx) {
+            throw new RuntimeException("Cannot write exception report to output stream. Reason: " + tmpEx.getMessage());
+        }
         IOUtils.closeQuietly(outputStream);
     }
 
@@ -107,7 +161,8 @@ public class ExceptionUtil {
             // NOTE: WMS use different exception report structure.
             exceptionText = Templates.getTemplate(Templates.GENERAL_WMS_EXCEPTION_REPORT);
             
-            exceptionCodeName = ((WMSException) ex).getExceptionCode();
+            ExceptionCode exceptionCode = ((WMSException) ex).getExceptionCode();
+            exceptionCodeName = exceptionCode.getExceptionCodeName();
             httpCode = ExceptionCode.InvalidRequest.getHttpErrorCode();
             detailMessage = ((WMSException) ex).getMessage();
         } else if (ex instanceof SecoreException) {
@@ -139,7 +194,6 @@ public class ExceptionUtil {
             if (detailMessage == null) {
                 detailMessage = ex.getClass().getSimpleName();
             }
-            detailMessage += ". Please check the log for the detail error.";
         }
         
         if (detailMessage == null) {

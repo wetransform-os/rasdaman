@@ -21,6 +21,7 @@
  */
 package petascope.wcst.handlers;
 
+import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import petascope.controller.PetascopeController;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.rasdaman.exceptions.RasdamanCollectionExistsException;
@@ -87,6 +89,10 @@ public class InsertCoverageHandler {
     private GMLCISParserService gmlCISParserService;
     @Autowired
     private CoverageRepositoryService persistedCoverageService;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+    @Autowired
+    private PetascopeController petascopeController;    
 
     /**
      * Handles the InsertCoverage request
@@ -95,8 +101,10 @@ public class InsertCoverageHandler {
      * @return if the ingestion if successful, a response containing the added
      * coverage id is returned.
      */
-    public Response handle(InsertCoverageRequest request) throws PetascopeException, SecoreException {
+    public Response handle(InsertCoverageRequest request) throws Exception {
         log.debug("Handling coverage insertion...");
+        this.petascopeController.validateWriteRequestFromIP(httpServletRequest);
+        
         if (request.getGMLCoverage() != null) {
             return handleGMLCoverageInsert(request);
         } else {
@@ -183,15 +191,12 @@ public class InsertCoverageHandler {
     private void handleInsertCoverageRequest(InsertCoverageRequest request, Coverage coverage, Document gmlCoverageDocument)
             throws PetascopeException, RasdamanException, IOException, SecoreException {
         
-        String username = ConfigManager.RASDAMAN_ADMIN_USER;
-        String password = ConfigManager.RASDAMAN_ADMIN_PASS;
-        
         Boolean generateId = request.isUseNewId();
         String pixelDataType = request.getPixelDataType();
         String tiling = request.getTiling();
         
         // List of unique nullValues for all bands (quantities) to create rasdaman range set
-        List<NilValue> nullValues = coverage.getAllUniqueNullValues();
+        List<List<NilValue>> nullValues = coverage.getNilValues();
 
         //add coverage id
         if (generateId) {
@@ -215,6 +220,9 @@ public class InsertCoverageHandler {
         int numberOfBands = coverage.getNumberOfBands();
         // rasdaman set type
         String rasCollectionType;
+
+        String username = ConfigManager.RASDAMAN_ADMIN_USER;
+        String password = ConfigManager.RASDAMAN_ADMIN_PASS;
         
 
         if (rangeSet.getChildElements(XMLSymbols.LABEL_DATABLOCK,
@@ -316,7 +324,7 @@ public class InsertCoverageHandler {
         String collectionName = coverage.getCoverageId();
         int numberOfDimensions = coverage.getNumberOfDimensions();
         int numberOfBands = coverage.getNumberOfBands();
-        List<NilValue> bandNullValues = coverage.getAllNullValues();
+        List<List<NilValue>> bandNullValues = coverage.getNilValues();
         
         // e.g: Byte (all bands have same data type) or Float32,Int16 (each band has different data type)
         String pixelDataType = coverage.getPixelDataType();
@@ -375,7 +383,7 @@ public class InsertCoverageHandler {
      * e.g:  <[0:0,0:0,0:0] {-999f,-999f,0s}> for a coverage with 3 axes and 3 bands with different data types and null values
      * or  <[0:0,0:0] {0c,0c,0c}> for a coverage with 2 axes and 3 bands and same null values
      */
-    private String createRasdamanInsertNullValuesExpression(int numberOfBands, int numberOfDimensions, List<NilValue> bandNullValues, List<String> typeSuffixes) {        
+    private String createRasdamanInsertNullValuesExpression(int numberOfBands, int numberOfDimensions, List<List<NilValue>> bandNullValues, List<String> typeSuffixes) {        
         final String GRID_DOMAINS = "$GRID_DOMAINS";
         final String DEFAULT_GRID_DOMAIN = "0:0";
         
@@ -395,13 +403,18 @@ public class InsertCoverageHandler {
             gridDomainsTmp.add(DEFAULT_GRID_DOMAIN);
         }
         
+        List<NilValue> mergedList = new ArrayList<>();
+        for (List<NilValue> list : bandNullValues) {
+            mergedList.addAll(list);
+        }
+        
         List<String> nullValuesTmp = new ArrayList<>();
         for (int i = 0; i < typeSuffixes.size(); i++) {
             String nullValue = DEFAUL_NULL_VALUE;
             // e.g: c
             String suffix = typeSuffixes.get(i);
             if (!bandNullValues.isEmpty()) {
-                nullValue = bandNullValues.get(i).getValue();
+                nullValue = mergedList.get(i).getValue();
                 if (nullValue.endsWith(FLOAT_ZERO_SUFFIX)) {
                     nullValue = nullValue.replace(FLOAT_ZERO_SUFFIX, "");
                 }

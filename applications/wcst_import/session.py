@@ -23,6 +23,8 @@
 """
 import os
 from config_manager import ConfigManager
+from master.error.validate_exception import RecipeValidationException
+from master.helper.inspire import Inspire
 from master.helper.overview import Overview
 from master.importer.resumer import Resumer
 
@@ -32,7 +34,7 @@ from master.error.runtime_exception import RuntimeException
 from util.file_util import FileUtil, File
 from util.list_util import get_null_values
 from util.import_util import import_glob
-from util.string_util import is_integer
+from util.string_util import is_integer, get_petascope_endpoint_without_ows
 from decimal import Decimal
 
 
@@ -69,6 +71,14 @@ class Session:
         # imported files from the list of input files (files are added in .resume.json will be ignored)
         self.imported_files = []
         self.coverage_id = inp['coverage_id'] if 'coverage_id' in inp else None
+
+        metadata_url = ""
+        if "inspire" in inp:
+            inspire = inp["inspire"]
+            if "metadata_url" in inspire:
+                metadata_url = inspire["metadata_url"]
+        self.inspire = Inspire(metadata_url)
+
         self.recipe = recipe
         self.input = inp
         self.wcs_service = config['service_url'] if "service_url" in config else None
@@ -120,7 +130,7 @@ class Session:
             self.pyramid_members = None if "pyramid_members" not in self.recipe["options"] else self.recipe["options"]["pyramid_members"]
             self.pyramid_bases = None if "pyramid_bases" not in self.recipe["options"] else self.recipe["options"][
                 "pyramid_bases"]
-            # If set to true, then request: /rasdaman/admin?REQUEST=AddPyramidMember&BASE=s2_10m&MEMBER=s2_60m&harvesting=true
+            # If set to true, then request: /rasdaman/admin/coverage/pyramid/add?COVERAGEID=s2_10m&MEMBERS=s2_60m&harvesting=true
             # mean: recursively add pyramid member coverages of s2_60m coverage to base s2_10m coverage
             self.pyramid_harvesting = False if "pyramid_harvesting" not in self.recipe["options"] else bool(self.recipe["options"]["pyramid_harvesting"])
 
@@ -138,10 +148,13 @@ class Session:
 
         if hooks is not None:
             for hook in hooks:
-                if hook["when"] == "before_ingestion":
+                if hook["when"] == "before_import" or hook["when"] == "before_ingestion":
                     self.before_hooks.append(hook)
-                elif hook["when"] == "after_ingestion":
+                elif hook["when"] == "after_import" or hook["when"] == "after_ingestion":
                     self.after_hooks.append(hook)
+                else:
+                    raise RecipeValidationException("Please specify \"before_import\" "
+                                                    "or \"after_import\" for \"when\" setting in a hook. Given: " + hook["when"])
 
         self.setup_config_manager()
 
@@ -169,6 +182,8 @@ class Session:
         ConfigManager.tmp_directory = self.tmp_directory if self.tmp_directory[-1] == "/" else self.tmp_directory + "/"
         ConfigManager.root_url = self.root_url
         ConfigManager.wcs_service = self.wcs_service
+        ConfigManager.admin_service = get_petascope_endpoint_without_ows(self.wcs_service) + "/admin"
+
         ConfigManager.executor = self.get_executor()
         ConfigManager.subset_correction = self.subset_correction
         ConfigManager.skip = self.skip
@@ -181,6 +196,19 @@ class Session:
         ConfigManager.track_files = self.track_files
         ConfigManager.ingredient_file_name = self.ingredient_file_name
 
+        self.validate()
+
+    def validate(self):
+        if ConfigManager.track_files:
+            try:
+                # e.g. mr.resume.json
+                resume_file_name = Resumer.get_resume_file_name(self.coverage_id)
+                FileUtil.can_write_file_in_dir(ConfigManager.resumer_dir_path, resume_file_name)
+            except Exception as ex:
+                log.error("Cannot create resume file in directory \"{}\".\nReason: {}".format(
+                    ConfigManager.resumer_dir_path, str(ex)))
+                exit(1)
+
     def __get_import_overviews(self):
         """
         Get the OVERVIEWs in the ingredients file if user wants to import
@@ -188,7 +216,8 @@ class Session:
 
         if "options" in self.recipe:
 
-            if "import_all_overviews" in self.recipe["options"] and "import_overviews" in self.recipe["options"]:
+            if "import_all_overviews" in self.recipe["options"] and "import_overviews" in self.recipe["options"] \
+                    and self.recipe["options"]["import_all_overviews"] is True:
                 raise RuntimeException("Both settings '{}' or '{}' cannot exist in the ingredients file, "
                                        "please specify only one of them."
                                        .format("import_all_overviews", "import_overviews"))

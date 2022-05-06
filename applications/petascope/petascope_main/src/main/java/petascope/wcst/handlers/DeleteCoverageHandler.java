@@ -21,9 +21,11 @@
  */
 package petascope.wcst.handlers;
 
+import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.util.ArrayList;
 import java.util.List;
-import org.rasdaman.admin.pyramid.service.RemovePyramidMemberService;
+import javax.servlet.http.HttpServletRequest;
+import org.rasdaman.admin.pyramid.service.AdminRemovePyramidMemberService;
 import org.rasdaman.config.ConfigManager;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.GeneralGridCoverage;
@@ -36,9 +38,9 @@ import org.rasdaman.repository.service.WMSRepostioryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import petascope.controller.PetascopeController;
 import petascope.exceptions.PetascopeException;
 import petascope.rasdaman.exceptions.RasdamanException;
-import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCSException;
 import petascope.util.ras.RasUtil;
 import petascope.core.response.Response;
@@ -68,11 +70,17 @@ public class DeleteCoverageHandler {
     @Autowired
     private CoveragePyramidRepositoryService coveragePyramidRepositoryService;
     @Autowired
-    private RemovePyramidMemberService removePyramidMemberService;
+    private AdminRemovePyramidMemberService removePyramidMemberService;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+    @Autowired
+    private PetascopeController petascopeController;
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(DeleteCoverageHandler.class);
 
-    public Response handle(DeleteCoverageRequest request) throws PetascopeException, SecoreException {
+    public Response handle(DeleteCoverageRequest request) throws Exception {
+        
+        petascopeController.validateWriteRequestFromIP(httpServletRequest);
         
         String username = ConfigManager.RASDAMAN_ADMIN_USER;
         String password = ConfigManager.RASDAMAN_ADMIN_PASS;
@@ -133,18 +141,38 @@ public class DeleteCoverageHandler {
                     boolean mddTypeExist = typeRegistry.deleteMDDTypeFromRegistry(mddType);
                     boolean cellTypeExist = typeRegistry.deleteCellTypeFromRegistry(cellType);
                     
+                    final String TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE = "currently in use by another stored object";
+                    
                      // Then, delete these types from Rasdaman
                     if (setTypeExist) {
-                        RasUtil.dropRasdamanType(collectionType);
+                        try {
+                            RasUtil.dropRasdamanType(collectionType);
+                        } catch (RasdamanException ex) {
+                            if (!ex.getMessage().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
+                                throw ex;
+                            }
+                        }
                     }
                     if (mddTypeExist) {
                         if (!setTypeExist) { 
                             log.warn("mdd type found but corresponding set type '" + collectionType + "'  not found in rasdaman.");
                         }
-                        RasUtil.dropRasdamanType(mddType);
+                        try {
+                            RasUtil.dropRasdamanType(mddType);
+                        } catch (RasdamanException ex) {
+                            if (!ex.getMessage().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
+                                throw ex;
+                            }
+                        }
                     }
                     if (cellTypeExist) {
-                        RasUtil.dropRasdamanType(cellType);
+                        try {
+                            RasUtil.dropRasdamanType(cellType);
+                        } catch (RasdamanException ex) {
+                            if (!ex.getMessage().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
+                                throw ex;
+                            }
+                        }
                     }
                 }
             }
@@ -188,18 +216,24 @@ public class DeleteCoverageHandler {
      */
     private Coverage getCoverageById(String coverageId) throws WCSException, PetascopeException {
         
-        Coverage coverage = coverageRepostioryService.readCoverageByIdFromDatabase(coverageId);
-        if (coverage == null) {
-            // In case local coverage doesn't exist, then check if this coverageId exists in the cache or not,
-            // if it is (for some reasons), then remove it from the cache, so it will not appear for WCS GetCapabilities result
-            if (this.coverageRepostioryService.isInLocalCache(coverageId)) {
-                this.coverageRepostioryService.removeFromLocalCacheMap(coverageId);
+        Coverage coverage = null;
+        
+        try {
+            coverage = coverageRepostioryService.readCoverageByIdFromDatabase(coverageId);
+        } catch (PetascopeException ex) {
+            if (ex.getExceptionCode().equals(ExceptionCode.NoSuchCoverage)) {
+                // In case local coverage doesn't exist, then check if this coverageId exists in the cache or not,
+                // if it is (for some reasons), then remove it from the cache, so it will not appear for WCS GetCapabilities result
+                if (this.coverageRepostioryService.isInLocalCache(coverageId)) {
+                    this.coverageRepostioryService.removeFromLocalCacheMap(coverageId);
+                }
+
+                if (this.wmsRepositoryService.isInLocalCache(coverageId)) {
+                    this.wmsRepositoryService.removeLayerFromLocalCache(coverageId);
+                }
+
+                throw new WCSTCoverageIdNotFound(coverageId);
             }
-            if (this.wmsRepositoryService.isInLocalCache(coverageId)) {
-                this.wmsRepositoryService.removeLayerFromLocalCache(coverageId);
-            }
-            
-            throw new WCSTCoverageIdNotFound(coverageId);
         }
 
         return coverage;

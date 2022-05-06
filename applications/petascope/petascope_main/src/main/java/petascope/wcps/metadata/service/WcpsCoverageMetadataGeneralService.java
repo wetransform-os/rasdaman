@@ -37,6 +37,7 @@ import petascope.wcps.exception.processing.IncompatibleAxesNumberException;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.ListIterator;
 import org.rasdaman.domain.cis.NilValue;
@@ -45,6 +46,7 @@ import org.springframework.stereotype.Service;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.PetascopeException;
 import petascope.core.AxisTypes;
+import petascope.core.BoundingBox;
 import petascope.core.GeoTransform;
 import petascope.core.Pair;
 import petascope.core.gml.metadata.model.Envelope;
@@ -152,12 +154,12 @@ public class WcpsCoverageMetadataGeneralService {
      * @return
      */
     public void transformSubsettingCrsXYSubsets(WcpsCoverageMetadata metadata, List<Subset> subsets) throws PetascopeException {
-        String xyAxis = metadata.getXYCrs();
-        if (!CrsUtil.isValidTransform(xyAxis)) {
+        String xyAxisCRSURL = metadata.getXYCrs();
+        if (!CrsProjectionUtil.isValidTransform(xyAxisCRSURL)) {
             // No need to transform if XY axis is not geo-referenced or Authority is not EPSG
             return;
         }
-
+        
         List<Axis> xyAxes = metadata.getXYAxes();
         Axis xAxis = xyAxes.get(0);
         String subsettingCrsX = xAxis.getNativeCrsUri();
@@ -167,31 +169,31 @@ public class WcpsCoverageMetadataGeneralService {
         String subsettingCrsY = yAxis.getNativeCrsUri();
         String yAxisName = yAxis.getLabel();
 
-        Double xMin = null, yMin = null, xMax = null, yMax = null;
+        BigDecimal xMin = null, yMin = null, xMax = null, yMax = null;
 
         // Target CRS is the nativeCrs
-        String nativeCrs = subsettingCrsX;
+        String nativeCRS = subsettingCrsX;
 
         for (Subset subset : subsets) {
             if (CrsUtil.axisLabelsMatch(xAxisName, subset.getAxisName())) {
                 // subset can contain CRS or not (e.g: Long(0:20) is not, but Long:"http://.../4326" is)
-                String crs = subset.getCrs();
-                if (crs != null) {
-                    if (CrsUtil.isValidTransform(crs)) {
-                        subsettingCrsX = crs;
-                        xMin = subset.getNumericSubset().getLowerLimit().doubleValue();
-                        xMax = subset.getNumericSubset().getUpperLimit().doubleValue();
+                String crsURL = subset.getCrs();
+                if (crsURL != null) {
+                    if (CrsProjectionUtil.isValidTransform(crsURL)) {
+                        subsettingCrsX = crsURL;
+                        xMin = subset.getNumericSubset().getLowerLimit();
+                        xMax = subset.getNumericSubset().getUpperLimit();
                     }
                 }
             }
-            if (yAxisName.equals(subset.getAxisName())) {
+            if (CrsUtil.axisLabelsMatch(yAxisName, subset.getAxisName())) {
                 // subset can contain CRS or not (e.g: Long(0:20) is not, but Long:"http://.../4326" is)
-                String crs = subset.getCrs();
-                if (crs != null) {
-                    if (CrsUtil.isValidTransform(crs)) {
-                        subsettingCrsY = crs;
-                        yMin = subset.getNumericSubset().getLowerLimit().doubleValue();
-                        yMax = subset.getNumericSubset().getUpperLimit().doubleValue();
+                String crsURL = subset.getCrs();
+                if (crsURL != null) {
+                    if (CrsProjectionUtil.isValidTransform(crsURL)) {
+                        subsettingCrsY = crsURL;
+                        yMin = subset.getNumericSubset().getLowerLimit();
+                        yMax = subset.getNumericSubset().getUpperLimit();
                     }
                 }
             }
@@ -203,51 +205,52 @@ public class WcpsCoverageMetadataGeneralService {
             boolean isXAxisNotSpecified = false;
             boolean isYAxisNotSpecified = false;
             
-            if (subsettingCrsX.equals(nativeCrs)) {
+            if (subsettingCrsX.equals(nativeCRS)) {
                 // Axis X is not specified in subsets, only axis Y is specified
                 subsettingCRS = subsettingCrsY;
                 isXAxisNotSpecified = true;
-            } else if (subsettingCrsY.equals(nativeCrs)) {
+            } else if (subsettingCrsY.equals(nativeCRS)) {
                 // Axis Y is not specified in subsets, only axis X is specified
                 subsettingCRS = subsettingCrsX;
                 isYAxisNotSpecified = true;
             }
             
-            List<BigDecimal> xyMin;
-            List<BigDecimal> xyMax;
             
             // Transform the geo XY bounding box of current coverage before subsetting in original CRS (e.g: EPSG:4326) to subsettingCRS (e.g: EPSG:3857)
-            xyMin = CrsProjectionUtil.transform(nativeCrs, subsettingCRS, 
-                                                                new double[] {xAxis.getGeoBounds().getLowerLimit().doubleValue(),
-                                                                              yAxis.getGeoBounds().getLowerLimit().doubleValue()}); 
-            xyMax = CrsProjectionUtil.transform(nativeCrs, subsettingCRS, 
-                                                                new double[] {xAxis.getGeoBounds().getUpperLimit().doubleValue(),
-                                                                              yAxis.getGeoBounds().getUpperLimit().doubleValue()}); 
+            BoundingBox sourceCRSBBOX = new BoundingBox(xAxis.getGeoBounds().getLowerLimit(), yAxis.getGeoBounds().getLowerLimit(),
+                                                        xAxis.getGeoBounds().getUpperLimit(), yAxis.getGeoBounds().getUpperLimit());
+            BoundingBox targetCRSBBOX = CrsProjectionUtil.transformBBox(sourceCRSBBOX, nativeCRS, subsettingCRS); 
+            
+            List<BigDecimal> xyMin = Arrays.asList(targetCRSBBOX.getXMin(), targetCRSBBOX.getYMin());
+            List<BigDecimal> xyMax = Arrays.asList(targetCRSBBOX.getXMax(), targetCRSBBOX.getYMax());
             
             if (isXAxisNotSpecified) {
-                xMin = xyMin.get(0).doubleValue();
-                xMax = xyMax.get(0).doubleValue();
+                xMin = xyMin.get(0);
+                xMax = xyMax.get(0);
             }
             if (isYAxisNotSpecified) {
-                yMin = xyMin.get(1).doubleValue();
-                yMax = xyMax.get(1).doubleValue();
+                yMin = xyMin.get(1);
+                yMax = xyMax.get(1);
             }
         }
 
         // Only consider about transform when subsettingCrsX = subsetSettingCrsY but it is not the same as native CRS XY
         // e.g: subsetss are Lat:"http://.../3857", Long:"http://..../3857"
-        if (!subsettingCrsX.equals(nativeCrs)) {
+        if (!subsettingCrsX.equals(nativeCRS)) {
             // sourceCrs
-            String subsettingCrs = subsettingCrsX;
+            String subsettingCRS = subsettingCrsX;
             // Transform from sourceCrs to targetCrs and change the values of List subsets (only when targetCrs is different from soureCrs)
             List<BigDecimal> xyMin = null, xyMax  = null;
             try {
-                xyMin = CrsProjectionUtil.transform(subsettingCrs, nativeCrs, new double[] {xMin, yMin});
-                xyMax = CrsProjectionUtil.transform(subsettingCrs, nativeCrs, new double[] {xMax, yMax});                
+                BoundingBox sourceCRSBBOX = new BoundingBox(xMin, yMin, xMax, yMax);
+                BoundingBox targetCRSBBox = CrsProjectionUtil.transformBBox(sourceCRSBBOX, subsettingCRS, nativeCRS);
+                
+                xyMin = Arrays.asList(targetCRSBBox.getXMin(), targetCRSBBox.getYMin());
+                xyMax = Arrays.asList(targetCRSBBox.getXMax(), targetCRSBBox.getYMax());
             } catch (Exception ex) {
                 String bboxStr = "xmin=" + xMin + "," + "ymin=" + yMin + ","
                                + "xmax=" + xMax + "," + "ymax=" + yMax;
-                throw new InvalidBoundingBoxInCrsTransformException(bboxStr, subsettingCrs, ex.getMessage(), ex);
+                throw new InvalidBoundingBoxInCrsTransformException(bboxStr, subsettingCRS, ex.getMessage(), ex);
             }
 
             // NOTE: when using subsettingCRS, both of XY-georefenced axis must exist in coverage expression
@@ -559,7 +562,7 @@ public class WcpsCoverageMetadataGeneralService {
         String coverageType = sourceMetadata.getCoverageType();
         String crsURI = CrsUtil.OPENGIS_INDEX_ND_PATTERN.replace(CrsUtil.INDEX_CRS_PATTERN_NUMBER, numberOfAxes.toString());
         List<RangeField> rangeFields = sourceMetadata.getRangeFields();
-        List<NilValue> nilValues = sourceMetadata.getNilValues();
+        List<List<NilValue>> nilValues = sourceMetadata.getNilValues();
         String metadata = sourceMetadata.getMetadata();
         
         // Create index axes
@@ -651,7 +654,7 @@ public class WcpsCoverageMetadataGeneralService {
         RangeField rangeField = new RangeField(RangeField.DATA_TYPE, RangeField.DEFAULT_NAME, null, new ArrayList<NilValue>(), RangeField.UOM_CODE, null, null);
         rangeFields.add(rangeField);
 
-        List<NilValue> nilValues = new ArrayList<>();
+        List<List<NilValue>> nilValues = new ArrayList<>();
 
         WcpsCoverageMetadata result = new WcpsCoverageMetadata(coverageName, null, XMLSymbols.LABEL_GRID_COVERAGE, axes, indexNDCrsUri, rangeFields, nilValues, "", axes);
         return result;
@@ -749,13 +752,8 @@ public class WcpsCoverageMetadataGeneralService {
         boolean lessThanHalfPixel = geoDistance.compareTo(halfGeoResolution) < 0;
         
         if (axis instanceof RegularAxis && !lessThanHalfPixel) {
-            
-            // e.g: 4326 from EPSG:4326
-            int code = 0;
-            if (CrsUtil.isEPSGCrs(axis.getNativeCrsUri())) {
-                String epsgCode = CrsUtil.getEPSGCode(axis.getNativeCrsUri());
-                code = CrsUtil.getEpsgCodeAsInt(epsgCode);
-            }
+            String sourceCRS = axis.getNativeCrsUri();
+            String sourceCRSWKT = CrsUtil.getWKT(sourceCRS);
             
             // e.g: [0:4] = 4 - 0 + 1 = 5 pixels
             int numberOfGridPixels = gridDomainMax.subtract(gridDomainMin).intValue() + 1;
@@ -763,7 +761,7 @@ public class WcpsCoverageMetadataGeneralService {
             if (axis.getResolution().compareTo(BigDecimal.ZERO) > 0) {
                 // axis X
                 
-                GeoTransform adfGeoTransform = new GeoTransform(code, geoDomainMin.doubleValue(), 0, numberOfGridPixels, 0, axis.getResolution().doubleValue(), 0);
+                GeoTransform adfGeoTransform = new GeoTransform(sourceCRSWKT, geoDomainMin, BigDecimal.ZERO, numberOfGridPixels, 0, axis.getResolution(), BigDecimal.ZERO);
                 Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairX = coordinateTranslationService.calculateGeoGridXBounds(axis, adfGeoTransform, lowerLimit, upperLimit);
                 parsedSubset = pairX.fst;
                 translatedSubset = pairX.snd;
@@ -772,7 +770,7 @@ public class WcpsCoverageMetadataGeneralService {
             } else if (axis.getResolution().compareTo(BigDecimal.ZERO) < 0) {
                 // axis Y
             
-                GeoTransform adfGeoTransform = new GeoTransform(code, 0, geoDomainMax.doubleValue(), 0, numberOfGridPixels, 0, axis.getResolution().doubleValue());
+                GeoTransform adfGeoTransform = new GeoTransform(sourceCRSWKT, BigDecimal.ZERO, geoDomainMax, 0, numberOfGridPixels, BigDecimal.ZERO, axis.getResolution());
                 Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairY = coordinateTranslationService.calculateGeoGridYBounds(axis, adfGeoTransform, lowerLimit, upperLimit);
                 parsedSubset = pairY.fst;
                 translatedSubset = pairY.snd;
@@ -1138,11 +1136,13 @@ public class WcpsCoverageMetadataGeneralService {
             // Then the geo bound is the coefficient + axis original origin
             // e.g: test_irr_cube_2, ansi:"CRS:1"(0) then coefficient is 0, the original origin is the dateTime in number from the first date (note the AnsiDate's origin)
             
-            // e.g: coverage has list of coefficents (-30, -20, -10, -2, 0, 5, 7) and request ansi:"CRS:1"(-1), then the index of -1 in the list is: -3.
-            int lowerCoefficientIndex = ((IrregularAxis) axis).getIndexOfCoefficientZero() + parsedSubset.getLowerLimit().intValue();
-            int upperCoefficientIndex = ((IrregularAxis) axis).getIndexOfCoefficientZero() + parsedSubset.getUpperLimit().intValue();
-            BigDecimal lowerCoefficient = ((IrregularAxis) axis).getDirectPositions().get(lowerCoefficientIndex);
-            BigDecimal upperCoefficient = ((IrregularAxis) axis).getDirectPositions().get(upperCoefficientIndex);
+            // e.g: coverage has list of coefficents (-30, -20, -10, -2, 0, 5, 7) and request ansi:"CRS:1"(-1), then the index of ":CRS:1"(-1) in the list is: -3.
+            IrregularAxis irregularAxis = ((IrregularAxis) axis);
+            
+            int lowerCoefficientIndex = parsedSubset.getLowerLimit().intValue() - irregularAxis.getOriginalGridBounds().getLowerLimit().intValue();
+            int upperCoefficientIndex = parsedSubset.getUpperLimit().intValue() - irregularAxis.getOriginalGridBounds().getLowerLimit().intValue();
+            BigDecimal lowerCoefficient = irregularAxis.getDirectPositions().get(lowerCoefficientIndex);
+            BigDecimal upperCoefficient = irregularAxis.getDirectPositions().get(upperCoefficientIndex);
             
             // Calculate the distance from this coefficient for CRS:1(GRID_INDEX) to coefficient zero.
             // (NOTE: coefficient zero can be in random position, not only the first element in list of directPositions)
@@ -1203,8 +1203,8 @@ public class WcpsCoverageMetadataGeneralService {
         }
         
         if (subset != null) {
-            String axisLowerGeoBound = axis.getLowerGeoBoundRepresentation().replace("\"", "");
-            String axisUpperGeoBound = axis.getUpperGeoBoundRepresentation().replace("\"", "");
+            String axisLowerGeoBound = axis.getLowerGeoBoundRepresentation();
+            String axisUpperGeoBound = axis.getUpperGeoBoundRepresentation();
             throw new OutOfBoundsSubsettingException(GEO_TYPE, axisName, subset, axisLowerGeoBound, axisUpperGeoBound);
         }
     }

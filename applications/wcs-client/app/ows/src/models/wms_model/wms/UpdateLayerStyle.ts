@@ -23,7 +23,6 @@
 
 module wms {
     export class UpdateLayerStyle implements rasdaman.common.ISerializable {
-        public request:string;
         public layerName:string;
         public name:string;
         public abstract:string;                
@@ -31,10 +30,11 @@ module wms {
         public query:string;
         public colorTableType:string;
         public colorTableDefinition:string;
+        public defaultStyle:boolean;
+        public legendGraphicBase64:string;
 
         public constructor(layerName:string, name:string, abstract:string, queryType:string, query:string,
-                           colorTableType:string, colorTableDefintion:string) {  
-            this.request = "UpdateStyle";
+                           colorTableType:string, colorTableDefintion:string, defaultStyle:boolean, legendGraphicBase64:string) {  
             this.layerName = layerName;
             this.name = name;
             this.abstract = abstract;
@@ -42,18 +42,30 @@ module wms {
             this.query = query;
             this.colorTableType = colorTableType;
             this.colorTableDefinition = colorTableDefintion;
+            this.defaultStyle = defaultStyle;
+            this.legendGraphicBase64 = legendGraphicBase64;
         }
 
         public toKVP():string {
-            var result = "&request=" + this.request +
-                    "&name=" + this.name +
-                    "&layer=" + this.layerName +
+            var result = "COVERAGEID=" + this.layerName +
+                    "&STYLEID=" + this.name +
                     "&abstract=" + this.abstract;
 
-            result += "&" + this.queryFragmentType + "=" + this.query;
-                        
-            result += "&ColorTableType=" + this.colorTableType + 
-                        "&ColorTableDefinition=" + this.colorTableDefinition;         
+            if (this.queryFragmentType != "none") {
+                result += "&" + this.queryFragmentType + "=" + this.query;
+            }
+
+            if (this.colorTableType != "none") {                       
+                result += "&ColorTableType=" + this.colorTableType + 
+                            "&ColorTableDefinition=" + this.colorTableDefinition;         
+            }
+
+            result += "&default=" + this.defaultStyle;
+
+            // base64 string
+            if (this.legendGraphicBase64 != null) {
+                result += "&legendGraphic=" + this.legendGraphicBase64;
+            }
             
             return result;                
         }

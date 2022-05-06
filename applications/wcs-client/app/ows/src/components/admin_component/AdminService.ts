@@ -27,10 +27,37 @@
 
 module rasdaman {
     export class AdminService {
-        public static $inject = ["$http", "$q", "rasdaman.WCSSettingsService",                                
+        public static $inject = ["$rootScope", "$http", "$q", "rasdaman.WCSSettingsService",                                
                                 "rasdaman.CredentialService"];
 
-        public constructor(private $http:angular.IHttpService,
+        public static RW_RIGHTS_COMMUNITY:string = "RW";
+
+        public static PRIV_OWS_UPDATE_SRV:string = "PRIV_OWS_UPDATE_SRV";
+        public static PRIV_OWS_WCS_INSERT_COV:string = "PRIV_OWS_WCS_INSERT_COV";
+        public static PRIV_OWS_WCS_UPDATE_COV:string = "PRIV_OWS_WCS_UPDATE_COV";
+        public static PRIV_OWS_WCS_DELETE_COV:string = "PRIV_OWS_WCS_DELETE_COV";
+
+        public static PRIV_OWS_WMS_INSERT_LAYER:string = "PRIV_OWS_WMS_INSERT_LAYER";
+        public static PRIV_OWS_WMS_UPDATE_LAYER:string = "PRIV_OWS_WMS_UPDATE_LAYER";
+        public static PRIV_OWS_WMS_DELETE_LAYER:string = "PRIV_OWS_WMS_DELETE_LAYER";
+
+        public static PRIV_OWS_WMS_INSERT_STYLE:string = "PRIV_OWS_WMS_INSERT_STYLE";
+        public static PRIV_OWS_WMS_UPDATE_STYLE:string = "PRIV_OWS_WMS_UPDATE_STYLE";
+        public static PRIV_OWS_WMS_DELETE_STYLE:string = "PRIV_OWS_WMS_DELETE_STYLE";
+
+        public static PRIV_OWS_WCS_BLACKWHITELIST_COV = "PRIV_OWS_WCS_BLACKWHITELIST_COV";
+        public static PRIV_OWS_WMS_BLACKWHITELIST_LAYER = "PRIV_OWS_WMS_BLACKWHITELIST_LAYER";
+
+
+        public static adminRoles = [AdminService.PRIV_OWS_UPDATE_SRV, AdminService.PRIV_OWS_WCS_INSERT_COV, AdminService.PRIV_OWS_WCS_UPDATE_COV, AdminService.PRIV_OWS_WCS_DELETE_COV,
+                        AdminService.PRIV_OWS_WMS_INSERT_LAYER, AdminService.PRIV_OWS_WMS_UPDATE_LAYER, AdminService.PRIV_OWS_WMS_DELETE_LAYER,
+                        AdminService.PRIV_OWS_WMS_INSERT_STYLE, AdminService.PRIV_OWS_WMS_UPDATE_STYLE, AdminService.PRIV_OWS_WMS_DELETE_STYLE,
+                        AdminService.PRIV_OWS_WCS_BLACKWHITELIST_COV, AdminService.PRIV_OWS_WMS_BLACKWHITELIST_LAYER,
+                        AdminService.RW_RIGHTS_COMMUNITY // -- special rights for community
+        ];                                
+
+        public constructor(private $rootScope:angular.IRootScopeService,
+                           private $http:angular.IHttpService,
                            private $q:angular.IQService,
                            private settings:rasdaman.WCSSettingsService,
                            private credentialService:rasdaman.CredentialService) {
@@ -50,8 +77,17 @@ module rasdaman {
         // Check if petascope admin user logged in
         public getPersistedAdminUserCredentials = ():login.Credential => {            
             let persistedCredentialsString = window.localStorage.getItem("petascopeAdminUserCredentials");
+
             if (persistedCredentialsString != null) {
                 var credentials:login.Credential = login.Credential.fromString(persistedCredentialsString);
+                // NOTE: petauser was petascope admin user and since v10+, 
+                // it has no use anymore in petascope (user doesn't exist in rasdaman)
+                //  and user must login with different user in admin's tab
+                if (credentials["username"] == "petauser") {
+                    this.persitLoggedOut();
+                    return null;
+                }
+
                 return credentials;
             }
 
@@ -61,9 +97,12 @@ module rasdaman {
 
         // Fetch the stored petascope admin user credentials from local storage
         // and create a basic authentication headers for them
-        public getAuthentcationHeaders = ():{} => {
+        public getAuthenticationHeaders = ():{} => {
             var credentials:login.Credential = this.getPersistedAdminUserCredentials();
-            var headers = this.credentialService.createBasicAuthenticationHeader(credentials.username, credentials.password);
+            var headers = {};
+            if (credentials != null) {
+                headers = this.credentialService.createBasicAuthenticationHeader(credentials.username, credentials.password);
+            }
 
             return headers;
         }
@@ -74,14 +113,28 @@ module rasdaman {
             var result = this.$q.defer();                                               
             var requestUrl = this.settings.contextPath + "/login";            
             var success = false;
+
+            let adminRolesObj = AdminService.adminRoles;
+            
             // send request to Petascope and get response (headers and contents)
             this.$http.get(requestUrl, {
                 headers: this.credentialService.createBasicAuthenticationHeader(inputCredentials.username, inputCredentials.password)
             }).then(function (response:any) {
-                if (response.data.includes("admin")) {
-                    result.resolve(inputCredentials);
+                let roles = response.data.split(",");
+                let hasAdminRole = false;
+
+                for (let i = 0; i < adminRolesObj.length; i++){
+                    let adminRole = adminRolesObj[i];
+                    if (roles.includes(adminRole)) {
+                        hasAdminRole = true;
+                        break;
+                    }
+                }
+
+                if (hasAdminRole) {                    
+                    result.resolve(roles);
                 } else {
-                    result.reject("Given credentials are not valid for admin user.");
+                    result.reject("Given credentials are not valid for an admin user with granted adequate roles.");
                 }
             }, function (error) {
                 result.reject(error);
@@ -90,12 +143,19 @@ module rasdaman {
             return result.promise;
         }
 
+        /**
+            Check from the list of granted roles of an admin user, if a given role exists
+         */
+        public static hasRole(roles:any[], role:string) {
+            return roles.includes(AdminService.RW_RIGHTS_COMMUNITY)
+               || roles.includes(role);
+        }
 
         // OWS Metadata Management
 
         public updateServiceIdentification(serviceIdentification:admin.ServiceIdentification):angular.IPromise<any> {
             var result = this.$q.defer();                                               
-            var requestUrl = this.settings.adminEndpoint + "/UpdateServiceIdentification";
+            var requestUrl = this.settings.adminEndpoint + "/ows/serviceinfo";
 
             var credentials = this.getPersistedAdminUserCredentials();
             var requestHeaders = this.credentialService.createBasicAuthenticationHeader(credentials.username, credentials.password);
@@ -121,7 +181,7 @@ module rasdaman {
         
         public updateServiceProvider(serviceProvider:admin.ServiceProvider):angular.IPromise<any> {
             var result = this.$q.defer();                                               
-            var requestUrl = this.settings.adminEndpoint + "/UpdateServiceProvider";
+            var requestUrl = this.settings.adminEndpoint + "/ows/serviceinfo";
 
             var credentials = this.getPersistedAdminUserCredentials();
             var requestHeaders = this.credentialService.createBasicAuthenticationHeader(credentials.username, credentials.password);

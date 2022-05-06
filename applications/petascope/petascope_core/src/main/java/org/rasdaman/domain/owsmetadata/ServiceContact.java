@@ -24,6 +24,7 @@ package org.rasdaman.domain.owsmetadata;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -57,7 +58,7 @@ import javax.persistence.Table;
  * <ElectronicMailAddress>user@host.com</ElectronicMailAddress>
  * </Address>
  * </ContactInfo>
- * <ows:OnlineResource xlink:href="http://geoserver.org"/>
+ * <ows:OnlineResource xlink:href="http://rasdaman.org"/>
  * <ows:Role>string</ows:Role>
  * </ServiceContact>
  *
@@ -88,7 +89,7 @@ public class ServiceContact {
     // One, mandatory
     private String role;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = ContactInfo.COLUMN_ID)
     // One, mandatory
     private ContactInfo contactInfo;

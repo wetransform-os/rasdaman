@@ -52,6 +52,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.logging.Level;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -77,6 +79,7 @@ import nu.xom.Node;
 import nu.xom.Nodes;
 import nu.xom.ParentNode;
 import nu.xom.ParsingException;
+import nu.xom.Serializer;
 import nu.xom.Text;
 import nu.xom.XPathContext;
 import nu.xom.converters.DOMConverter;
@@ -265,12 +268,14 @@ public class XMLUtil {
      * @param baseURI
      * @param document input XML string
      * @return XOM Document
-     * @throws IOException
-     * @throws ParsingException
      */
-    public static Document buildDocument(String baseURI, String document) throws IOException, ParsingException, PetascopeException {
-        InputStream in = new ByteArrayInputStream(document.getBytes(XML_STD_ENCODING));
-        return buildDocument(baseURI, in);
+    public static Document buildDocument(String baseURI, String document) throws PetascopeException {
+        try {
+            InputStream in = new ByteArrayInputStream(document.getBytes(XML_STD_ENCODING));
+            return buildDocument(baseURI, in);
+        } catch (Exception ex) {
+            throw new PetascopeException(ExceptionCode.RuntimeError, "Cannot build XOM document from XML string: " + document + ". Reason: " + ex.getMessage());
+        }
     }
 
     /**
@@ -284,11 +289,8 @@ public class XMLUtil {
      * @param baseURI
      * @param in an input stream
      * @return the document
-     * @throws IOException
-     * @throws ParsingException
-     * @throws petascope.exceptions.PetascopeException
      */
-    public static Document buildDocument(String baseURI, InputStream in) throws IOException, ParsingException, PetascopeException {
+    public static Document buildDocument(String baseURI, InputStream in) throws PetascopeException {
         Document doc = null;
 
         try {
@@ -296,14 +298,16 @@ public class XMLUtil {
         } catch (ParsingException ex) {
             throw new PetascopeException(ExceptionCode.InternalComponentError, "Error while building XML document '" + baseURI + "'. error '" + ex.getMessage() + "', line '" + ex.getLineNumber() + "', column '" + ex.getColumnNumber() + "'.");
         } catch (IOException ex) {
-            log.error(StringUtil.join("Error while building XML document: " + baseURI,
-                    "Error reading from the input stream.", ex.getMessage()));
-            throw ex;
+            throw new PetascopeException(ExceptionCode.RuntimeError, 
+                    "Error while building XML document: " + baseURI + ". Error reading from the input stream. Reason: " + ex.getMessage(), ex);
         } catch (Exception ex) {
-            log.error(StringUtil.join("Error while building XML document: " + baseURI, ex.getMessage()), ex);
-            throw new RuntimeException("Error while building XML document: " + baseURI, ex);
+            throw new PetascopeException(ExceptionCode.RuntimeError, "Error while building XML document: " + baseURI + ". Reason: " + ex.getMessage(), ex);
         } finally {
-            in.close();
+            try {
+                in.close();
+            } catch (IOException ex) {
+                throw new PetascopeException(ExceptionCode.RuntimeError, "Error while closing inputstream after building XML document. Reason: " + ex.getMessage(), ex);
+            }
         }
 
         if (baseURI != null && doc != null) {
@@ -579,8 +583,11 @@ public class XMLUtil {
             }
             if (xml.charAt(start + 1) != '?') {
                 int end = start + 1;
-                while (end < xml.length() && xml.charAt(end) != ' ' && xml.charAt(end) != '>') {
-                    if (xml.charAt(end) == ':') {
+                String charTmp = String.valueOf(xml.charAt(end)).trim();
+                
+                while (end < xml.length() && !charTmp.equals("") && !charTmp.equals(">")) {
+                    charTmp = String.valueOf(xml.charAt(end)).trim();
+                    if (charTmp.equals(":")) {
                         start = end;
                     }
                     ++end;
@@ -1178,6 +1185,20 @@ public class XMLUtil {
         }
         return (Element) fragmentNode.copy();
     }
+    
+    
+    public static Element parseXmlFragmentWithoutReplacingAmpersand(String fragment) throws PetascopeException {
+
+        Builder docBuilder = new Builder();
+        Element fragmentNode = null;
+                
+        try {
+            fragmentNode = docBuilder.build(new StringReader(fragment)).getRootElement();
+        } catch (Exception ex) {
+            throw new PetascopeException(ExceptionCode.InternalComponentError, "Cannot parse XML fragment '" + fragment + "'. Reason: " + ex.getMessage(), ex);
+        }
+        return (Element) fragmentNode.copy();
+    }
 
     /**
      * Extract the WCS request from the SOAP message.
@@ -1187,7 +1208,7 @@ public class XMLUtil {
      * @throws Exception in case of error when parsing the SOAP message, or
      * serializing the WCS request to XML
      */
-    public static String extractWcsRequest(String request) throws Exception {
+    public static String extractWcsRequest(String request) throws PetascopeException {
         // Substring any parameter before the XML element characeter "<?xml..."
         // e.g: query=<?xml....>
         request = request.substring(request.indexOf("<"));
@@ -1200,7 +1221,13 @@ public class XMLUtil {
         }
         Element wcsRequest = XMLUtil.firstChild(body);
         wcsRequest.detach();
-        return XMLUtil.serialize(new Document(wcsRequest));
+        
+        try {
+            return XMLUtil.serialize(new Document(wcsRequest));
+        } catch (IOException ex) {
+            throw new PetascopeException(ExceptionCode.RuntimeError, 
+                    "Cannot serialize XOM document for WCS request in XML: " + request + ". Reason: " + ex.getMessage());
+        }
     }
 
     /**
@@ -1231,13 +1258,34 @@ public class XMLUtil {
         return null;*/
         return inputXML.replaceAll(">\\s*<", "><");
     }
+    
+    public static String formatXML(Element rootElement) throws PetascopeException {
+        Document document = new Document(rootElement);
+        
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        Serializer serializer = new Serializer(baos);
+        serializer.setIndent(4);
+        try {
+            serializer.write(document);
+        } catch (IOException ex) {
+            throw new PetascopeException(ExceptionCode.InternalComponentError, "Failed writing XML document. Reason: " + ex.getMessage());
+        }
+        
+        // indented XML
+        String result = new String(baos.toByteArray());
+        
+        if (ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
+            return formatXMLForOGCCITE(result);
+        }
+        
+        return result;
+    }
 
     /**
      * Format a string in XML with indentation
-     *
-     * @param inputXML
-     * @return
+     * NOTE: much slower than formatXML(Element)
      */
+    @Deprecated
     public static String formatXML(String inputXML) {
         
         // Add XML declaration if not exist
@@ -1349,26 +1397,18 @@ public class XMLUtil {
      * @throws WCSException
      */
     public static Element parseInput(String input) throws WCSException, PetascopeException {
-        try {
-            Document doc = XMLUtil.buildDocument(null, input);
-            Element rootElement = doc.getRootElement();
+        Document doc = XMLUtil.buildDocument(null, input);
+        Element rootElement = doc.getRootElement();
 
-            // Validate the request which must contain the serviceType and the version
-            String service = rootElement.getAttributeValue(ATT_SERVICE);
-            String version = rootElement.getAttributeValue(ATT_VERSION);
-            if ((null == service) || (!service.equals(KVPSymbols.WCS_SERVICE))
-                    || (version != null && !version.matches(KVPSymbols.WCS_VERSION_PATTERN))) {
-                throw new WCSException(ExceptionCode.VersionNegotiationFailed, "Service/Version not supported.");
-            }
-
-            return rootElement;
-        } catch (ParsingException ex) {
-            throw new WCSException(ExceptionCode.XmlNotValid.locator(
-                    "line: " + ex.getLineNumber() + ", column:" + ex.getColumnNumber()),
-                    ex.getMessage(), ex);
-        } catch (IOException | WCSException ex) {
-            throw new WCSException(ExceptionCode.XmlNotValid, ex.getMessage(), ex);
+        // Validate the request which must contain the serviceType and the version
+        String service = rootElement.getAttributeValue(ATT_SERVICE);
+        String version = rootElement.getAttributeValue(ATT_VERSION);
+        if ((null == service) || (!service.equals(KVPSymbols.WCS_SERVICE))
+                || (version != null && !version.matches(KVPSymbols.WCS_VERSION_PATTERN))) {
+            throw new WCSException(ExceptionCode.VersionNegotiationFailed, "Service/Version not supported.");
         }
+
+        return rootElement;
     }
 
     /**
@@ -1390,7 +1430,8 @@ public class XMLUtil {
      * @return
      */
     public static String replaceEnquotes(String input) {
-        return input.replaceAll("&lt;", "<").replaceAll("&amp;lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;gt;", ">");
+        return input.replaceAll("&lt;", "<").replaceAll("&amp;lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;gt;", ">")
+                     .replaceAll("&amp;amp;", "&");
     }
 
     /**

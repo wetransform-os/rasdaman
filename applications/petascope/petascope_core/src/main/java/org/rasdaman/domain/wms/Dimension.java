@@ -21,6 +21,7 @@
  */
 package org.rasdaman.domain.wms;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.Serializable;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -205,7 +206,13 @@ public class Dimension implements Serializable {
      *
      * @return
      */
+    @JsonIgnore
     public String getRepresentation() {
+        return getElement().toXML();
+    }
+    
+    @JsonIgnore
+    public Element getElement() {
         
         Element dimensionElement = new Element(XMLSymbols.LABEL_WMS_DIMENSION);
         Attribute nameAttribute = new Attribute(XMLSymbols.ATT_WMS_NAME, this.name);
@@ -229,7 +236,7 @@ public class Dimension implements Serializable {
         // Extent (e.g: 0,1000,3000,5000,10000), built when Petascope inserts layers
         dimensionElement.appendChild(this.extent);
 
-        return dimensionElement.toXML();
-    }
+        return dimensionElement;
+    }    
 
 }

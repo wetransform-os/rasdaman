@@ -29,6 +29,8 @@ from lxml import etree
 import sys
 
 
+from master.error.validate_exception import RecipeValidationException
+
 if sys.version_info[0] < 3:
     import urlparse
 else:
@@ -37,7 +39,6 @@ else:
 from config_manager import ConfigManager
 from master.error.runtime_exception import RuntimeException
 from .url_util import validate_and_read_url
-from util.coverage_util import CoverageUtil
 from util.log import log
 from .time_util import DateTimeUtil
 
@@ -56,11 +57,11 @@ class CRSAxis:
     AXIS_TYPE_UNKNOWN = "UNKNOWN"
 
     # These axis abbreviations are collected from EPSG database, http://localhost:8080/def/cs/EPSG
-    X_AXES = ["X", "E", "M", "E(X)", "x", "e", "Long", "Lon", "i"]
-    Y_AXES = ["Y", "N", "P", "E(Y)", "y", "n", "Lat", "j"]
+    X_AXES = ["X".lower(), "E".lower(), "M".lower(), "E(X)".lower(), "Long".lower(), "Lon".lower(), "i"]
+    Y_AXES = ["Y".lower(), "N".lower(), "P".lower(), "E(Y)".lower(), "Lat".lower(), "j"]
 
-    ELEVATION_UP_AXES = ["h", "H"]
-    ELEVATION_DOWN_AXES = ["D"]
+    ELEVATION_UP_AXES = ["H".lower()]
+    ELEVATION_DOWN_AXES = ["D".lower()]
 
     UOM_UCUM = "uom/UCUM"
 
@@ -109,6 +110,8 @@ class CRSAxis:
         :param str axis_label: name of axis
         :return: str type of axis
         """
+        axis_label = axis_label.lower()
+
         if axis_label in CRSAxis.X_AXES:
             return CRSAxis.AXIS_TYPE_X
         elif axis_label in CRSAxis.Y_AXES:
@@ -140,27 +143,11 @@ class CRSAxis:
 
 class CRSUtil:
 
+    LONG_AXIS_LABEL_EPSG_8_5 = "Long".lower()
+    LONG_AXIS_LABEL_EPSG_0 = "Lon".lower()
+    LAT_AXIS_AXIS = "Lat".lower()
+
     axes = []
-    LAT_AXIS_LABEL = "Lat"
-
-    LONG_AXIS_LABEL_EPSG_VERSION_85 = "Long"
-    LONG_AXIS_LABEL_EPSG_VERSION_0 = "Lon"
-
-    AUTHORITY = "authority"
-    VERSION = "version"
-
-    EPSG = "EPSG"
-    EPSG_VERSION_85 = "8.5"
-    EPSG_VERSION_0 = "0"
-
-    # CRS in REST format
-    EPSG_VERSION_85_REST = EPSG + "/" + EPSG_VERSION_85
-    EPSG_VERSION_0_REST = EPSG + "/" + EPSG_VERSION_0
-
-    # CRS in KVP format
-    EPSG_AUTHORITY_KVP = AUTHORITY + "=" + EPSG
-    EPSG_VERSION_85_KVP = VERSION + "=" + EPSG_VERSION_85
-    EPSG_VERSION_0_KVP = VERSION + "=" + EPSG_VERSION_0
 
     # NOTE: Only fetch coverage axis labels once only for 1 coverage Id
     coverage_axis_labels = []
@@ -183,11 +170,6 @@ class CRSUtil:
         :param dict{ axis1(dict), axis2(dict),... }: dictionary of configurations from ingredient file
         :rtype: list[CRSAxis]
         """
-        # e.g: in case of sentinel 1 customized recipe with coverage_id: test_S1_GRD_${modebeam}_${polarisation}
-        if "${" not in coverage_id:
-            # update crs_axes if necessary for EPSG:4326
-            CRSUtil.update_lon_axis_to_epsg_version_85_if_needed(coverage_id, self.axes, axes_configurations)
-
         return self.axes
 
     def get_crs_code(self):
@@ -215,6 +197,14 @@ class CRSUtil:
             return self.get_compound_crs(found_crses)
         elif len(found_crses) == 1:
             return found_crses[0]
+
+    @staticmethod
+    def axis_label_match(axis_label1, axis_label2):
+        axis_label1 = str(axis_label1).lower()
+        axis_label2 = str(axis_label2).lower()
+
+        return (axis_label1 == axis_label2) \
+                or (CRSUtil.is_longitude_axis(axis_label1) and CRSUtil.is_longitude_axis(axis_label2))
 
     @staticmethod
     def get_crs_url(authority, code):
@@ -252,48 +242,13 @@ class CRSUtil:
         return compound
 
     @staticmethod
-    def update_lon_axis_to_epsg_version_85_if_needed(coverage_id, crs_axes, axes_configurations=None):
-        """
-        NOTE: since rasdaman version 9.7+, in SECORE def/crs/EPSG/0 points to the newest EPSG version (e.g: 9.4.2 instead
-        of 8.5 as before). The problem is for EPSG:4326, Longitude axis's abbreviation changes from "Long" -> "Lon".
-        This method is used to allow import slices to existing coverage ("Lat Long" axes).
-        :param str coverage_id: existing coverage
-        :param list[CRSAxis] crs_axes: parsed CRSAxes from SECORE URL (e.g: def/crs/EPSG/4326 returns 2 CRSAxes: Lat, Lon)
-        :param dict{ axis1(dict), axis2(dict),... }: dictionary of configurations from ingredient file
-        """
-
-        cov = CoverageUtil(coverage_id)
-
-        # Case 1: Coverage exists with "Lat Long" axes
-        if len(CRSUtil.coverage_axis_labels) == 0:
-            if cov.exists():
-                CRSUtil.coverage_axis_labels = cov.get_axes_labels()
-
-                for index, axis_label in enumerate(CRSUtil.coverage_axis_labels):
-                    if axis_label == CRSUtil.LONG_AXIS_LABEL_EPSG_VERSION_85:
-                        CRSUtil.log_crs_replacement_epsg_version_0_by_version_85()
-                        crs_axes[index].label = CRSUtil.LONG_AXIS_LABEL_EPSG_VERSION_85
-                        break
-
-        # Case 2: Coverage not exist, but in ingredient file for general recipes, it contains configuration for "Lat Long" axes
-        if axes_configurations is not None:
-            for key, value in axes_configurations.items():
-                CRSUtil.coverage_axis_labels.append(key)
-
-                for crs_axis in crs_axes:
-                    # "Long" axis exists in configuration for ingredient file
-                    if key == CRSUtil.LONG_AXIS_LABEL_EPSG_VERSION_85:
-                        if crs_axis.label == CRSUtil.LONG_AXIS_LABEL_EPSG_VERSION_0:
-                            crs_axis.label = CRSUtil.LONG_AXIS_LABEL_EPSG_VERSION_85
-                            break
-    @staticmethod
     def is_longitude_axis(axis_label):
         """
         Check if axis label is longitude
         :return: boolean
         """
-        return axis_label == CRSUtil.LONG_AXIS_LABEL_EPSG_VERSION_0 \
-                or axis_label == CRSUtil.LONG_AXIS_LABEL_EPSG_VERSION_85
+        return axis_label == CRSUtil.LONG_AXIS_LABEL_EPSG_0 \
+                or axis_label == CRSUtil.LONG_AXIS_LABEL_EPSG_8_5
 
     @staticmethod
     def is_latitude_axis(axis_label):
@@ -301,7 +256,7 @@ class CRSUtil:
         Check if axis label is latitude
         :return: boolean
         """
-        return axis_label == CRSUtil.LAT_AXIS_LABEL
+        return axis_label == CRSUtil.LAT_AXIS_AXIS
 
 
     @staticmethod
@@ -376,14 +331,33 @@ class CRSUtil:
 
         crs = replace_crs_by_working_crs(crs)
         try:
-            gml = validate_and_read_url(crs)
+            # allow SECORE to return result in maximum 2 minutes
+            timeout_in_seconds = 120
+
+            gml = validate_and_read_url(crs, None, timeout_in_seconds)
             root = etree.fromstring(gml)
-            cselem = root.xpath("./*[contains(local-name(), 'CS')]")[0]
-            xml_axes = cselem.xpath(".//*[contains(local-name(), 'SystemAxis')]")
+
+            xpath_str = ".//*[not(ancestor::gml:baseCRS) and contains(local-name(), 'CS')]"
+
+            # e.g. ellipsoidalCS or CartesianCS elements
+            # but they must be not nested inside <gml:baseCRS> (COSMO 101 CRS has this special case)
+            elements = root.xpath(xpath_str,
+                                  namespaces={"gml": "http://www.opengis.net/gml/3.2"})
+
+            if len(elements) > 0:
+                # as proper CRS axes definitions are at the bottom of CRS definition
+                cselem = elements[len(elements) - 1]
+
+                xml_axes = cselem.xpath(".//*[contains(local-name(), 'SystemAxis')]")
+            else:
+                # Not sure when it can happen
+                raise RuntimeException("Cannot parse axes elements from CRS '" + crs
+                                       + "' with xpath: " + xpath_str + ". Hint: the CRS may have invalid definition.")
+
             return xml_axes
         except Exception as ex:
             raise RuntimeException("Failed parsing the crs at: {}. "
-                                   "Detail error: {}".format(crs, str(ex)))
+                                   "Reason: {}".format(crs, str(ex)))
 
     @staticmethod
     def get_axis_labels_from_single_crs(crs):
@@ -399,6 +373,12 @@ class CRSUtil:
             axis_labels.append(axis_label)
 
         return axis_labels
+
+    @staticmethod
+    def validate_crs(coverage_crs, geo_axis_crs):
+        if geo_axis_crs not in coverage_crs:
+            error_message = "File CRS '" + geo_axis_crs + "' does not match coverage CRS '" + coverage_crs + "'."
+            raise RecipeValidationException(error_message)
 
     def _parse_single_crs(self, crs):
         """
@@ -444,7 +424,7 @@ class CRSUtil:
             self.individual_crs_axes[crs] = axis_labels
         except Exception as ex:
             raise RuntimeException("Failed parsing the crs at: {}. "
-                                   "Detail error: {}".format(crs, str(ex)))
+                                   "Reason: {}".format(crs, str(ex)))
 
     def save_to_cache(self, crs, axes, individual_crs_axes):
         self.__CACHE__[crs] = OrderedDict()
@@ -468,5 +448,4 @@ def replace_crs_by_working_crs(crs):
     from session import Session
     result = Session.RUNNING_SECORE_URL + "/" + crs.split("/def/")[1]
     return result
-
 

@@ -50,6 +50,8 @@ public class TimeUtil {
 
     // Standard codes for supported temporal Unit of Measures (which provide ISO8601 interface to the user)
     // http://unitsofmeasure.org/ucum.html
+    public static final String UCUM = "UCUM";
+    
     public static final String UCUM_MILLIS = "ms";
     public static final String UCUM_SECOND = "s";
     public static final String UCUM_MINUTE = "min";
@@ -169,7 +171,7 @@ public class TimeUtil {
         } catch (ArithmeticException ex) {
             log.error("Error while computing milliseconds between " + dtLo + " and " + dtHi + ".");
             throw new WCSException(ExceptionCode.InternalComponentError,
-                    "Cannot convert input datetimes to numeric time coordinates: duration exceeds a 64 bit long.", ex);
+                    "Error while computing milliseconds between " + dtLo + " and " + dtHi + ". Reason: " + ex.getMessage(), ex);
         }
         return (millis.getMillis() >= 0);
     }
@@ -215,9 +217,8 @@ public class TimeUtil {
         try {
             millis = new Duration(dtLo, dtHi);
         } catch (ArithmeticException ex) {
-            log.error("Error while computing milliseconds between " + dtLo + " and " + dtHi + ".");
             throw new PetascopeException(ExceptionCode.InternalComponentError,
-                    "Cannot convert input datetimes to numeric time coordinates: duration exceeds a 64 bit long.", ex);
+                    "Error while computing milliseconds between " + dtLo + " and " + dtHi + ". Reason: " + ex.getMessage(), ex);
         }
 
         // Compute how many vectors of distance are there between dtLo and dtHi along this time CRS

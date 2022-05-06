@@ -88,58 +88,65 @@ public abstract class Coverage implements Serializable {
     @JsonIgnore
     @Column(name = COLUMN_ID)
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private long id;
+    protected long id;
 
-    @Column(name = "coverage_id")
+    @Column(name = "coverage_id", unique = true)
     // this is the id of coverage (or coverage name)
     protected String coverageId;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = CoverageFunction.COLUMN_ID)
     private CoverageFunction coverageFunction;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = Envelope.COLUMN_ID)
     // persist this object before persist the container object (i.e: it needs the PK of the cascading to make the FK)    
     protected Envelope envelope;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = DomainSet.COLUMN_ID)
-    private DomainSet domainSet;
+    protected DomainSet domainSet;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = RasdamanRangeSet.COLUMN_ID)
-    private RasdamanRangeSet rasdamanRangeSet;
+    protected RasdamanRangeSet rasdamanRangeSet;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = RangeType.COLUMN_ID)
-    private RangeType rangeType;
+    protected RangeType rangeType;
 
     @Column(name = "metadata")
     @Lob
     // NOTE: As this could be long text, so varchar(255) is not enough
     // Hibernate will detect suitable datatype for target database (e.g: in Postgreql is text for String)
-    private String metadata;
+    protected String metadata;
 
     @Column(name = "coverage_type")
     // To determine coverage is: GridCoverage, RectifiedGridCoverage, ReferenceableGridCoverage
     protected String coverageType;
     
-    @Transient
+    @Column(name = "coverage_size_in_bytes")
     // Store the calculated size of coverage in bytes for overview
-    protected long coverageSizeInBytes;
+    protected Long coverageSizeInBytes = 0L;
+    
+    @Column(name = "coverage_size_in_bytes_with_pyramid")
+    protected Long coverageSizeInBytesWithPyramid = 0L;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)    
     @JoinColumn(name = FK_COVERAGE_ID)
     @OrderColumn
     protected List<CoveragePyramid> pyramid = new ArrayList<>();
-
+    
+    @Column(name = "inspire_metadata_url")
+    @Lob
+    protected String inspireMetadataURL;
+    
     public Coverage() {
 
     }
 
     public Coverage(String coverageId, String coverageType, long coverageSizeInBytes, 
-                    Envelope envelope, DomainSet domainSet, RangeType rangeType, RasdamanRangeSet rasdamanRangeSet, String metadata) {
+                    Envelope envelope, DomainSet domainSet, RangeType rangeType, RasdamanRangeSet rasdamanRangeSet, String metadata, long coverageSizeInBytesWithPyramid) {
         this.coverageId = coverageId;
         this.envelope = envelope;
         this.domainSet = domainSet;
@@ -151,18 +158,18 @@ public abstract class Coverage implements Serializable {
     }
     
     public Coverage(String coverageId, String coverageType, long coverageSizeInBytes, Envelope envelope, RasdamanRangeSet rasdamanRangeSet) {
-        this(coverageId, coverageType, 0, envelope, rasdamanRangeSet, null, new ArrayList<CoveragePyramid>());
+        this(coverageId, coverageType, 0, envelope, rasdamanRangeSet, null, new ArrayList<CoveragePyramid>(), null, 0L);
     }
     
     public Coverage(String coverageId, String coverageType, long coverageSizeInBytes, Envelope envelope, RasdamanRangeSet rasdamanRangeSet,
-                    List<String> sourceCoverageIds, List<CoveragePyramid> pyramid) {
+                    List<String> sourceCoverageIds, List<CoveragePyramid> pyramid, String inspireMetadataURL, long coverageSizeInBytesWithPyramid) {
         this.coverageId = coverageId;
         this.coverageType = coverageType;
         this.coverageSizeInBytes = coverageSizeInBytes;
         this.envelope = envelope;
         this.rasdamanRangeSet = rasdamanRangeSet;        
-
         this.pyramid = pyramid;
+        this.inspireMetadataURL = inspireMetadataURL;
     }
 
     public long getId() {
@@ -238,13 +245,34 @@ public abstract class Coverage implements Serializable {
         this.coverageType = coverageType;
     }
 
-    public long getCoverageSizeInBytes() {
+    public Long getCoverageSizeInBytes() {        
+        if (coverageSizeInBytes == null) {
+            coverageSizeInBytes = 0L;
+        }
         return coverageSizeInBytes;
     }
-
-    public void setCoverageSizeInBytes(long coverageSizeInBytes) {
+    
+    public void setCoverageSizeInBytes(Long coverageSizeInBytes) {
+        if (coverageSizeInBytes == null) {
+            coverageSizeInBytes = 0L;
+        }
         this.coverageSizeInBytes = coverageSizeInBytes;
     }
+    
+    public Long getCoverageSizeInBytesWithPyramid() {
+        if (this.coverageSizeInBytesWithPyramid == null) {
+            this.coverageSizeInBytesWithPyramid = 0L;
+        }
+        return this.coverageSizeInBytesWithPyramid;
+    }    
+    
+    public void setCoverageSizeInBytesWithPyramid(Long inputValue) {
+        if (inputValue == null) {
+            inputValue = 0L;
+        }
+        this.coverageSizeInBytesWithPyramid = inputValue;
+    }    
+    
 
     public List<CoveragePyramid> getPyramid() {
         return pyramid;
@@ -252,6 +280,14 @@ public abstract class Coverage implements Serializable {
 
     public void setPyramid(List<CoveragePyramid> pyramid) {
         this.pyramid = pyramid;
+    }
+
+    public String getInspireMetadataURL() {
+        return inspireMetadataURL;
+    }
+
+    public void setInspireMetadataURL(String inspireMetadataURL) {
+        this.inspireMetadataURL = inspireMetadataURL;
     }
     
     /**
@@ -277,24 +313,19 @@ public abstract class Coverage implements Serializable {
      * @return
      */
     @JsonIgnore
-    public List<NilValue> getAllUniqueNullValues() {
-        List<NilValue> uniqueNilValues = new ArrayList<NilValue>();
+    public List<List<NilValue>> getNilValues() {
+        // e.g. [ [1, 2], [3], [5, 6] ] 
+        List<List<NilValue>> results = new ArrayList<>();
 
         List<Field> fields = this.getRangeType().getDataRecord().getFields();
 
         for (Field field : fields) {
             Quantity quantity = field.getQuantity();
             
-            if (quantity.getNilValuesList() != null) {
-                for (NilValue nilValue : quantity.getNilValuesList()) {
-                    if (!uniqueNilValues.contains(nilValue)) {
-                        uniqueNilValues.add(nilValue);
-                    }
-                }
-            }
+            results.add(quantity.getNilValues());
         }
 
-        return uniqueNilValues;
+        return results;
     }
     
     @JsonIgnore
@@ -305,7 +336,7 @@ public abstract class Coverage implements Serializable {
 
         for (Field field : fields) {
             Quantity quantity = field.getQuantity();
-            result.addAll(quantity.getNilValuesList());            
+            result.addAll(quantity.getNilValues());            
         }
 
         return result;

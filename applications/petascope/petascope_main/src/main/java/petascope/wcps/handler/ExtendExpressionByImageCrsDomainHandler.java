@@ -23,12 +23,17 @@ package petascope.wcps.handler;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
 import petascope.util.CrsUtil;
+import petascope.util.StringUtil;
 import petascope.wcps.exception.processing.IncompatibleAxesNumberException;
+import static petascope.wcps.handler.AbstractOperatorHandler.checkOperandIsCoverage;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.NumericTrimming;
 import petascope.wcps.metadata.model.Subset;
@@ -49,16 +54,38 @@ import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
  * @author <a href="mailto:vlad@flanche.net">Vlad Merticariu</a>
  */
 @Service
-public class ExtendExpressionByImageCrsDomainHandler extends AbstractOperatorHandler {
+@Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
+public class ExtendExpressionByImageCrsDomainHandler extends Handler {
     
     @Autowired
     private WcpsCoverageMetadataGeneralService wcpsCoverageMetadataService;
     
     public static final String OPERATOR = "extend";
-
-    public WcpsResult handle(WcpsResult coverageExpression, WcpsMetadataResult wcpsMetadataResult, String dimensionIntervalList) throws PetascopeException {
+    
+    public ExtendExpressionByImageCrsDomainHandler() {
         
-        checkOperandIsCoverage(coverageExpression, OPERATOR); 
+    }
+    
+    public ExtendExpressionByImageCrsDomainHandler create(Handler coverageExpressionHandler, Handler domainExpressionHandler) {
+        ExtendExpressionByImageCrsDomainHandler result = new ExtendExpressionByImageCrsDomainHandler();
+        result.setChildren(Arrays.asList(coverageExpressionHandler, domainExpressionHandler));
+        result.wcpsCoverageMetadataService = wcpsCoverageMetadataService;
+        
+        return result;
+    }
+    
+    public WcpsResult handle() throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
+        WcpsMetadataResult wcpsMetadataResult = ((WcpsMetadataResult)this.getSecondChild().handle());
+        
+        WcpsResult result = this.handle(coverageExpression, wcpsMetadataResult);
+        return result;
+    }
+
+    private WcpsResult handle(WcpsResult coverageExpression, 
+                              WcpsMetadataResult wcpsMetadataResult) throws PetascopeException {
+        
+        checkOperandIsCoverage(coverageExpression, OPERATOR);  
 
         WcpsCoverageMetadata metadata = coverageExpression.getMetadata();
         // scale(coverageExpression, {domainIntervals})
@@ -67,6 +94,9 @@ public class ExtendExpressionByImageCrsDomainHandler extends AbstractOperatorHan
         List<Subset> numericSubsets = new ArrayList<>();
         
         List<Axis> axes = metadata.getSortedAxesByGridOrder();
+        String dimensionIntervalList = StringUtil.stripParentheses(wcpsMetadataResult.getResult());
+        
+        
         // e.g: imageCrsdomain(c) returns 0:30,0:40,0:60
         String[] values = dimensionIntervalList.split(",");
         
@@ -87,7 +117,7 @@ public class ExtendExpressionByImageCrsDomainHandler extends AbstractOperatorHan
         
         // NOTE: from WCPS 1.0 standard: In this sense the extendExpr is a generalization of the trimExpr; still the trimExpr should be
         // used whenever the application needs to be sure that a proper subsetting has to take place.
-        wcpsCoverageMetadataService.applySubsets(false, metadata, subsetDimensions, numericSubsets);
+        wcpsCoverageMetadataService.applySubsets(false, false, metadata, subsetDimensions, numericSubsets);
 
         // it will not get all the axis to build the intervals in case of (extend() and scale())
         String rasql = TEMPLATE.replace("$coverage", coverageExpression.getRasql())

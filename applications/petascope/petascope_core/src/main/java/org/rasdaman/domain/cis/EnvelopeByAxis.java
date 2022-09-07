@@ -352,7 +352,7 @@ public class EnvelopeByAxis implements Serializable {
      * Return the list of crss of a coverage
      */
     @JsonIgnore
-    public List<String> getCrsList() {
+    public List<String> getCrsList() throws PetascopeException {
         Set<String> results = new LinkedHashSet<>();
         
         for (AxisExtent axisExtent : this.axisExtents) {
@@ -361,6 +361,32 @@ public class EnvelopeByAxis implements Serializable {
         }
         
         return new ArrayList<>(results);
+    }
+    
+    @JsonIgnore
+    public String getGeoXYCrs() throws PetascopeException {
+        List<AxisExtent> axisExtents = this.axisExtents;
+        String coverageCRS = this.srsName;
+        
+        int i = 0;
+        for (AxisExtent axisExtent : axisExtents) {
+            String axisExtentCRSURL = axisExtent.getSrsName();
+            // NOTE: the basic coverage metadata can have the abstract SECORE URL, so must replace it first
+            axisExtentCRSURL = CrsUtil.CrsUri.fromDbRepresentation(axisExtentCRSURL);
+            
+            if (CrsProjectionUtil.isValidTransform(axisExtentCRSURL)) {
+                // x, y
+                String axisType = CrsUtil.getAxisTypeByIndex(coverageCRS, i);
+                if (axisType.equals(AxisTypes.X_AXIS)
+                    || axisType.equals(AxisTypes.Y_AXIS)) {
+                    return axisExtentCRSURL;
+                }
+            }
+            
+            i++;
+        }
+        
+        return null;
     }
     
     /**

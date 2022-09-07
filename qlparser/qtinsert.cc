@@ -59,6 +59,7 @@ rasdaman GmbH.
 #include "tilemgr/tile.hh"
 
 #include "qlparser/qtmintervaldata.hh"
+#include "qlparser/qtpointdata.hh"
 #include "raslib/basetype.hh"
 #include "raslib/collectiontype.hh"
 #include "storagemgr/sstoragelayout.hh"
@@ -67,6 +68,7 @@ rasdaman GmbH.
 #include "relcatalogif/mddbasetype.hh"
 #include "relcatalogif/mdddomaintype.hh"
 #include "relcatalogif/collectiontype.hh"
+#include "common/string/stringutil.hh"
 
 #include <logging.hh>
 
@@ -80,10 +82,10 @@ QtInsert::QtInsert(const QtCollection &initCollection, QtOperation *initSource)
     : QtExecute(), source(initSource), dataToInsert(NULL), stgLayout(NULL), collection(initCollection)
 {
     source->setParent(this);
-    if (collection.getHostname() != "" && collection.getHostname() != "localhost")
+    if (collection.getHostname() != "" && !common::StringUtil::equalsCaseInsensitive(collection.getHostname(), "localhost"))
     {
         LERROR << "Error: QtInsert::QtInsert(): Non-local collection is unsupported";
-        parseInfo.setErrorNo(499);
+        parseInfo.setErrorNo(FEATURENOTSUPPORTED);
         throw parseInfo;
     }
 }
@@ -95,7 +97,7 @@ QtInsert::QtInsert(const QtCollection &initCollection, QtOperation *initSource, 
     if (collection.getHostname() != "" && collection.getHostname() != "localhost")
     {
         LERROR << "Error: QtInsert::QtInsert(): Non-local collection is unsupported";
-        parseInfo.setErrorNo(499);
+        parseInfo.setErrorNo(FEATURENOTSUPPORTED);
         throw parseInfo;
     }
 }
@@ -107,7 +109,7 @@ QtInsert::QtInsert(const QtCollection &initCollection, QtData *data)
     if (collection.getHostname() != "" && collection.getHostname() != "localhost")
     {
         LERROR << "Error: QtInsert::QtInsert(): Non-local collection is unsupported";
-        parseInfo.setErrorNo(499);
+        parseInfo.setErrorNo(FEATURENOTSUPPORTED);
         throw parseInfo;
     }
 }
@@ -181,13 +183,13 @@ QtInsert::evaluate()
         {
 
             LERROR << "Error: QtInsert::evaluate() - collection name not found";
-            parseInfo.setErrorNo(355);
+            parseInfo.setErrorNo(COLLECTIONNAMEUNKNOWN);
             throw parseInfo;
         }
         if (!almost->isPersistent())
         {
             LERROR << "QtInsert: User tries to insert into system table";
-            parseInfo.setErrorNo(355);
+            parseInfo.setErrorNo(COLLECTIONNAMEUNKNOWN);//needs new err code
             throw parseInfo;
         }
         else
@@ -238,7 +240,7 @@ QtInsert::evaluate()
             persColl = NULL;
             // return error
             LERROR << "Error: QtInsert::evaluate() - MDD and collection types are incompatible";
-            parseInfo.setErrorNo(959);
+            parseInfo.setErrorNo(MDDANDCOLLECTIONTYPESINCOMPATIBLE);
             throw parseInfo;
         }
 
@@ -251,7 +253,7 @@ QtInsert::evaluate()
             persColl = NULL;
             // return error
             LERROR << "Error: QtInsert::evaluate() - MDD and collection domains are incompatible";
-            parseInfo.setErrorNo(959);
+            parseInfo.setErrorNo(MDDANDCOLLECTIONTYPESINCOMPATIBLE);
             throw parseInfo;
         }
 
@@ -390,7 +392,7 @@ QtInsert::evaluate()
             persColl->releaseAll();
             delete persColl;
             persColl = NULL;
-            parseInfo.setErrorNo(958);
+            parseInfo.setErrorNo(OID_NEWOIDALLOCATIONFAILED);
             throw parseInfo;
         }
 #endif
@@ -507,7 +509,7 @@ QtInsert::checkType()
         if (inputType.getDataType() != QT_MDD)
         {
             LERROR << "Error: QtInsert::checkType() - insert expression must be of type r_Marray<T>";
-            parseInfo.setErrorNo(960);
+            parseInfo.setErrorNo(INSERT_INVALIDTYPE);
             throw parseInfo;
         }
     }
@@ -518,7 +520,7 @@ QtInsert::checkType()
         if (dataToInsert->getDataType() != QT_MDD)
         {
             LERROR << "Error: QtInsert::checkType() - inserted data must be of type r_Marray<T>";
-            parseInfo.setErrorNo(960);
+            parseInfo.setErrorNo(INSERT_INVALIDTYPE);
             throw parseInfo;
         }
     }
@@ -788,8 +790,17 @@ QtInsert::getTileConfig(QtMDDConfig *cfg, int baseTypeSize, r_Dimension sourceDi
     }
     QtNode::QtDataList *nextTuple = new QtNode::QtDataList(0);
     QtData *data = op->evaluate(nextTuple);
-    QtMintervalData *intervalData = static_cast<QtMintervalData *>(data);
-    tileConfig = intervalData->getMintervalData();
+    if (data->getDataType() == QT_MINTERVAL)
+    {
+        QtMintervalData *intervalData = static_cast<QtMintervalData *>(data);
+        tileConfig = intervalData->getMintervalData();
+    }
+    else if (data->getDataType() == QT_POINT)
+    {
+        QtPointData *intervalData = static_cast<QtPointData *>(data);
+        const auto &point = intervalData->getPointData();
+        tileConfig = r_Minterval::fromPoint(point);
+    }
     delete data;
     delete nextTuple;
     return tileConfig;

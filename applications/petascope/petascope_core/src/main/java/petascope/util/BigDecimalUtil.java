@@ -198,6 +198,18 @@ public class BigDecimalUtil {
         return new Pair<>(firstValue, secondValue);
     }
     
+    /**
+     * if first > second -> swap
+     * if first <= second -> no change
+     */
+    public static Pair<BigDecimal, BigDecimal> swapIfFirstLarger(BigDecimal firstValue, BigDecimal secondValue) {
+        if (firstValue.compareTo(secondValue) > 0) {
+            return new Pair<>(secondValue, firstValue);
+        } else {
+            return new Pair<>(firstValue, secondValue);
+        }
+    }
+    
     
     /**
      * Check if number A >= number B
@@ -305,6 +317,39 @@ public class BigDecimalUtil {
     
     public static double toDouble(BigDecimal number) {
         return Double.valueOf(number.toPlainString());
+    }
+    
+    /**
+     * Check if a big decimal number is actually an integer value without having non-zero fractional part
+     * e.g. 3.0000 -> 3 (true) or 3.0000000001 -> 3 (true)
+     *      3.0111 -> false
+     */
+    public static boolean approximateInteger(BigDecimal input) {
+        BigDecimal fractionalPart = input.remainder( BigDecimal.ONE );
+        return fractionalPart.compareTo(AXIS_RESOLUTION_EPSILION) < 0;
+    }
+    
+    /**
+     * The input bound must be in the inveral [lowerBound:upperBound]
+     */
+    public static BigDecimal getValidValue(BigDecimal minLowerBound, BigDecimal maxLowerBound, BigDecimal bound) {
+        BigDecimal result = bound;
+        if (bound.compareTo(minLowerBound) < 0) {
+            result = minLowerBound;
+        }
+        
+        if (bound.compareTo(maxLowerBound) > 0) {
+            result = maxLowerBound;
+        }
+        
+        return result;
+    }
+    
+    /**
+     * The value must be in the inveral [min, max]
+     */
+    public static boolean isValidValue(BigDecimal minLowerBound, BigDecimal maxLowerBound, BigDecimal bound) {
+        return bound.compareTo(minLowerBound) >=0 && bound.compareTo(maxLowerBound) <= 0;
     }
 
 }

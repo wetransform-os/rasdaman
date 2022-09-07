@@ -42,13 +42,12 @@
             "i": {
               "min": "0",
               "max": "21",
-              "resolution": 1,
-              "gridOrder": 0
+              "resolution": 1
             }
           }
         }
       },
-      "tiling": "ALIGNED [0:0, 0:1023, 0:1023]"
+      "tiling": "ALIGNED [0:1023]"
     }
   }
 }

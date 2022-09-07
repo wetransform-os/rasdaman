@@ -38,19 +38,17 @@
               "Lat": {
 		      "min": "${gdal:minY}",
 		      "max": "${gdal:maxY}",
-		      "resolution": "${gdal:resolutionY}",
-		      "gridOrder": 1
+		      "resolution": "${gdal:resolutionY}"
               },
               "Long": {
 		      "min": "${gdal:minX}",
 		      "max": "${gdal:maxX}",
-		       "resolution": "${gdal:resolutionX}",
-		       "gridOrder": 0
+		       "resolution": "${gdal:resolutionX}"
               }
           }
         }      
       },
-      "tiling": "ALIGNED [0:366, 0:500, 0:500, 0:10]",
+      "tiling": "ALIGNED [0:366, 0:500]",
       "wms_import": true
     }
   }

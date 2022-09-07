@@ -22,6 +22,8 @@
  *
 """
 import os
+from collections import OrderedDict
+
 from config_manager import ConfigManager
 from master.error.validate_exception import RecipeValidationException
 from master.helper.inspire import Inspire
@@ -50,13 +52,16 @@ class Session:
 
     RUNNING_SECORE_URL = None
 
+    # store the map of import files and their axis bboxes dict
+    IMPORTED_FILE_AXIS_BBOX_DICT = OrderedDict()
+
     def __init__(self, config, inp, recipe, hooks, ingredient_file_name, ingredients_dir_path):
         """
         This class is used to hold the configuration for this importing session
         :param dict[str,str] config: the config part of the json input
         :param dict[str,str] inp: the input part of the json input
         :param dict[str,dict|str] recipe: the recipe configuration
-        :param list[dict{}] hooks: list of command shoud be run before/after importing data
+        :param list[dict{}] hooks: list of command shoud be run befbeore/after importing data
         :param str ingredient_file_name: the input file name of wcst_import.sh
         :param str ingredients_dir_path: the filepath to the directory containing the ingredients to be used
         for relative paths
@@ -82,6 +87,7 @@ class Session:
         self.recipe = recipe
         self.input = inp
         self.wcs_service = config['service_url'] if "service_url" in config else None
+        self.service_is_local = bool(config['service_is_local']) if "service_is_local" in config else True
         if "tmp_directory" in config:
             self.tmp_directory = config['tmp_directory']
         else:
@@ -102,7 +108,7 @@ class Session:
 
         self.insitu = config['insitu'] if "insitu" in config else None
         self.black_listed = config["black_listed"] if "black_listed" in config else None
-        self.default_null_values = config['default_null_values'] if "default_null_values" in config else []
+        self.default_null_values = config['default_null_values'] if "default_null_values" in config else None
         self.mock = False if "mock" not in config else bool(self.config["mock"])
         # By default, analyze all files then import (blocking import mode). With non_blocking_import mode, analyze and import each file separately.
         self.blocking = True if "blocking" not in config else bool(self.config["blocking"])
@@ -182,6 +188,10 @@ class Session:
         ConfigManager.tmp_directory = self.tmp_directory if self.tmp_directory[-1] == "/" else self.tmp_directory + "/"
         ConfigManager.root_url = self.root_url
         ConfigManager.wcs_service = self.wcs_service
+        ConfigManager.service_is_local = self.service_is_local
+        if ConfigManager.service_is_local is False and ConfigManager.insitu is True:
+            raise RecipeValidationException("Setting \"service_is_local\": false is not supported for registering data as insitu.")
+
         ConfigManager.admin_service = get_petascope_endpoint_without_ows(self.wcs_service) + "/admin"
 
         ConfigManager.executor = self.get_executor()
@@ -528,3 +538,7 @@ class Session:
         As petascope currently does not seem to support acceptversions parameter, use the exact version
         """
         return "2.0.1"
+
+    @staticmethod
+    def clear_caches():
+        Session.IMPORTED_FILE_AXIS_BBOX_DICT.clear()

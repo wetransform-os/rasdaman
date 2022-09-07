@@ -97,10 +97,6 @@ public class WcpsCoverageMetadata {
     private CoveragePyramid coveragePyramid;
     
     
-    // c = vc1 + vc2 + normal_coverage
-    // then this set contains vc1, vc2 and normal_coverage
-    private Map<String, WcpsCoverageMetadata> contributingRasqlWcpsCoverageMetadataMap = new LinkedHashMap<>();
-    
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(WcpsCoverageMetadata.class);
     
     public WcpsCoverageMetadata() {
@@ -168,6 +164,10 @@ public class WcpsCoverageMetadata {
      * @return
      */
     public List<Axis> getAxes() {
+        if (this.axes == null) {
+            return new ArrayList<>();
+        }
+        
         return this.axes;
     }
     
@@ -443,7 +443,7 @@ public class WcpsCoverageMetadata {
     @JsonIgnore
     public List<Axis> getXYAxes() {
         Map<Integer, Axis> map = new HashMap<>();
-        for (Axis axis : this.axes) {
+        for (Axis axis : this.getAxes()) {
             // NOTE: the order must be XY if the coverage has X-Y axes, or only X or only Y when the coverage has CRS combination (e.g: Lat and Time axes)
             if (axis.getAxisType().equals(AxisTypes.X_AXIS)) {
                 map.put(0, axis);
@@ -532,11 +532,13 @@ public class WcpsCoverageMetadata {
     public List<NilValue> getNodata() {
         List<NilValue> nodataValues = new ArrayList<>();
         
-        // NOTE: null values are the same for all bands
-        List<NilValue> nilValuesTmp = this.rangeFields.get(0).getNodata();
-        if (nilValuesTmp != null) {
-            for (NilValue nilValue : this.rangeFields.get(0).getNodata()) {
-                nodataValues.add(nilValue);
+        if (this.rangeFields != null) {
+            // NOTE: null values are the same for all bands
+            List<NilValue> nilValuesTmp = this.rangeFields.get(0).getNodata();
+            if (nilValuesTmp != null) {
+                for (NilValue nilValue : this.rangeFields.get(0).getNodata()) {
+                    nodataValues.add(nilValue);
+                }
             }
         }
         
@@ -701,8 +703,7 @@ public class WcpsCoverageMetadata {
         Axis axisY = xyAxes.get(1);
         
         BoundingBox bbox = new BoundingBox(axisX.getOriginalGeoBounds().getLowerLimit(), axisY.getOriginalGeoBounds().getLowerLimit(),
-                                           axisX.getOriginalGeoBounds().getUpperLimit(), axisY.getOriginalGeoBounds().getUpperLimit());
-        
+                                           axisX.getOriginalGeoBounds().getUpperLimit(), axisY.getOriginalGeoBounds().getUpperLimit(), axisX.getNativeCrsUri());
         return bbox;
     }
     
@@ -750,14 +751,16 @@ public class WcpsCoverageMetadata {
      * If coverage has no null value, then return 0
      */
     public String getFirstBandSingleNullValue() {
-        RangeField firstRangeField = this.rangeFields.get(0);
-        if (firstRangeField.getNodata() != null) {
-            for (NilValue nilValue : firstRangeField.getNodata()) {
-                String nullValue = nilValue.getValue();
-                if (!nullValue.contains(":")) {
-                    // e.g: 30;
-                    String value = BigDecimalUtil.stripDecimalZeros(new BigDecimal(nullValue)).toPlainString();
-                    return value;
+        if (this.rangeFields != null) {
+            RangeField firstRangeField = this.rangeFields.get(0);
+            if (firstRangeField.getNodata() != null) {
+                for (NilValue nilValue : firstRangeField.getNodata()) {
+                    String nullValue = nilValue.getValue();
+                    if (!nullValue.contains(":")) {
+                        // e.g: 30;
+                        String value = BigDecimalUtil.stripDecimalZeros(new BigDecimal(nullValue)).toPlainString();
+                        return value;
+                    }
                 }
             }
         }
@@ -768,45 +771,6 @@ public class WcpsCoverageMetadata {
     @Override
     public String toString() {
         return "Coverage Id '" + this.coverageName  + "'"; 
-    }
-    
-        
-    public Map<String, WcpsCoverageMetadata> getContributingRasqlWcpsCoverageMetadataMap() {
-        return this.contributingRasqlWcpsCoverageMetadataMap;
-    }
-    
-    /**
-     * Check if the contributing coverage expressions (e.g: c + c + c + c)
-     * are the same coverage
-     */
-    public boolean isSingleCoverageExpression() {
-        String previousCoverageId = null;
-        
-        for (Map.Entry<String, WcpsCoverageMetadata> entry : this.contributingRasqlWcpsCoverageMetadataMap.entrySet()) {
-            String coverageId = entry.getValue().getCoverageName();
-            if (previousCoverageId == null) {
-                previousCoverageId = entry.getValue().getCoverageName();
-            }
-            
-            if (!previousCoverageId.equals(coverageId)) {
-                return false;
-            }
-        }
-        
-        return true;
-    }
-    
-    public void addToContributingMetadatasSet(WcpsCoverageMetadata metadata, String rasql){
-        if (metadata != null) {
-
-            try {
-                WcpsCoverageMetadata cloneMetadata = (WcpsCoverageMetadata) JSONUtil.clone(metadata);
-                this.contributingRasqlWcpsCoverageMetadataMap.put(rasql, cloneMetadata);
-            } catch (PetascopeException ex) {
-                throw new WCPSException(ExceptionCode.InternalComponentError, "Cannot clone WcpsCoverageMetadata object via JSON. Reason: " + ex.getMessage(), ex);
-            }
-            
-        }
     }
     
     @JsonIgnore 

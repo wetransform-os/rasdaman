@@ -117,6 +117,7 @@ TEST_NULL=nulltest
 TEST_NULL_FLOAT=test_nulltest_float
 TEST_GREY_NULL=test_grey_null
 TEST_NULL3D=test_nulltest3d
+TEST_NULL3D_HOLES=test_nulltest3d_holes
 TEST_SUBSETTING_1D=test_subsetting_1d
 TEST_SUBSETTING=test_subsetting
 TEST_SUBSETTING_SINGLE=test_subsetting_single
@@ -1057,6 +1058,19 @@ run_test()
               
               post_request_kvp "$endpoint" "$QUERY" "$out"
               ;;
+
+      wmts)    
+              endpoint="$PETASCOPE_URL"
+              if [[ "$f" =~ "insert" ]]; then                
+                endpoint="$PETASCOPE_ADMIN_URL/layer/style/add"
+              elif [[ "$f" =~ "update" ]]; then
+                endpoint="$PETASCOPE_ADMIN_URL/layer/style/update"              
+              elif [[ "$f" =~ "delete" ]]; then
+                endpoint="$PETASCOPE_ADMIN_URL/layer/style/remove"
+              fi
+              
+              post_request_kvp "$endpoint" "$QUERY" "$out"
+              ;;              
 
       oapi)   
               get_request_rest "$PETASCOPE_OAPI" "$QUERY" "$out"

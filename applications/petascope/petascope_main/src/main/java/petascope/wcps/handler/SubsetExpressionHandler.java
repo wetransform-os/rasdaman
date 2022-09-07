@@ -22,32 +22,40 @@
 package petascope.wcps.handler;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
-import petascope.util.StringUtil;
 import petascope.wcps.exception.processing.CoverageAxisNotFoundExeption;
 import petascope.wcps.metadata.model.Axis;
-import petascope.wcps.metadata.model.NumericTrimming;
+import petascope.core.BoundingBox;
+import petascope.core.Pair;
+import petascope.util.StringUtil;
 import petascope.wcps.metadata.model.Subset;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
-import petascope.wcps.metadata.service.AxisIteratorAliasRegistry;
 import petascope.wcps.metadata.service.RasqlTranslationService;
 import petascope.wcps.metadata.service.SubsetParsingService;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataGeneralService;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.DimensionIntervalList;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
+import petascope.wcps.metadata.model.NumericTrimming;
+import petascope.wcps.metadata.service.AxisIteratorAliasRegistry;
 import petascope.wcps.metadata.service.CollectionAliasRegistry;
 import petascope.wcps.metadata.service.CoverageAliasRegistry;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
+import petascope.wcps.result.VisitorResult;
 import petascope.wcps.subset_axis.model.AxisIterator;
+import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
+
 
 /**
  * Translation class for slice/trim expression in wcps.  <code>
@@ -60,6 +68,7 @@ import petascope.wcps.subset_axis.model.AxisIterator;
  * @author <a href="mailto:vlad@flanche.net">Vlad Merticariu</a>
  */
 @Service
+@Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class SubsetExpressionHandler extends AbstractOperatorHandler {
 
     @Autowired
@@ -92,7 +101,11 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
         String rasql = coverageExpression.getRasql();
 
         WcpsCoverageMetadata metadata = coverageExpression.getMetadata();
-        List<WcpsSubsetDimension> subsetDimensions = dimensionIntervalList.getIntervals();
+        
+        List<WcpsSubsetDimension> subsetDimensions = new ArrayList<>();
+        if (dimensionIntervalList != null) {
+            subsetDimensions = dimensionIntervalList.getIntervals();
+        }
 
         String beforeCoverageId = metadata.getCoverageName();
         String aliasTmp = this.coverageAliasRegistry.getAliasByCoverageName(beforeCoverageId);
@@ -150,7 +163,8 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
                     for (Axis axis : metadata.getAxes()) {
                         if (CrsUtil.axisLabelsMatch(axis.getLabel(), subset.getAxisName()) 
                             && subset.getCrs() != null
-                            && subset.getCrs().equals(CrsUtil.GRID_CRS)) {
+                            && (subset.getCrs().equals(CrsUtil.GRID_CRS))
+                            ) {
                             numericSubsets.add(subset);
                             break;
                         }
@@ -160,7 +174,7 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
         }
         
         // Update the coverage expression metadata with the new subsets
-        wcpsCoverageMetadataService.applySubsets(checkBounds, metadata, subsetDimensions, numericSubsets);
+        wcpsCoverageMetadataService.applySubsets(checkBounds, checkBounds, metadata, subsetDimensions, numericSubsets);
         
         if (!checkBounds) {
             // As WMS it can query with out of bounds for XY axes domains (e.g: request BBOX only intersects with a corner)

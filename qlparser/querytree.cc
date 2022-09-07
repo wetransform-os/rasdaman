@@ -143,7 +143,7 @@ QueryTree::evaluateRetrieval()
         {
             LERROR << "Retrieval query must start with an ONC node.";
             ParseInfo errorInfo = rootNode->getParseInfo();
-            errorInfo.setErrorNo(371);
+            errorInfo.setErrorNo(QT_SELECTSTATEMENTMISSING);
             throw errorInfo;
         }
 
@@ -195,7 +195,7 @@ QueryTree::evaluateRetrieval()
 
                     LERROR << "QueryTree::evaluateTree() - multiple query targets are not supported.";
                     ParseInfo errorInfo = oncRootNode->getParseInfo();
-                    errorInfo.setErrorNo(361);
+                    errorInfo.setErrorNo(MULTIPLEQUERYTARGETSNOTSUPPORTED);
                     throw errorInfo;
                 }
 
@@ -326,7 +326,7 @@ QueryTree::evaluateUpdate()
         {
             LERROR << "Update query must start with an INSERT, UPDATE, DELETE, DROP or CREATE statement.";
             ParseInfo errorInfo = rootNode->getParseInfo();
-            errorInfo.setErrorNo(372);
+            errorInfo.setErrorNo(QT_UPDATEQUERYINCOMPLETE);
             throw errorInfo;
         }
 
@@ -422,10 +422,8 @@ void QueryTree::removeDynamicObject(vector<QtONCStream *> *node)
 
 void QueryTree::releaseDynamicObjects()
 {
-
     for (list<QtNode *>::iterator iter = qtNodeList.begin(); iter != qtNodeList.end(); iter++)
     {
-
         if (*iter != NULL)
         {
             delete *iter;

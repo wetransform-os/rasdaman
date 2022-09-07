@@ -419,7 +419,7 @@ Further clipping patterns include ``curtain`` and ``corridor`` on 3D+ coverages
 from ``Polygon (2D)`` and ``Linestring (1D)``. The result of ``curtain``
 clipping has the same dimensionality as the input coverage whereas the result of
 ``corridor`` clipping is always a 3D coverage, with the first axis being the
-*trackline* of the corridor by convention. 
+*trackline* of the corridor by convention.
 
 In WCS, clipping is expressed by adding a ``&CLIP=`` parameter to the
 request. If the ``SUBSETTINGCRS`` parameter is specified then this CRS also
@@ -869,28 +869,107 @@ For example, the below request will update the metadata of coverage
 
 .. _petascope-make_inspire_coverage:
 
+INSPIRE Coverages
+-----------------
+
+The INSPIRE Download Service is an implementation of the Technical Guidance
+for the implementation of INSPIRE Download Services using Web Coverage Services (WCS) version 2.0+.
+
+In order to achieve INSPIRE Download Service compliance, the following enhancements
+have been implemented in rasdaman for ``WCS GetCapabilities`` response.
+
+- Under ``<ows:OperationsMetadata>`` there is a new section for INSPIRE metadata for the service. 
+  For example, the result below contains two INSPIRE coverages ``cov_1`` and ``cov_2``.
+
+    .. hidden-code-block:: xml
+
+        <ows:OperationsMetadata>
+            <ows:ExtendedCapabilities>
+                <inspire_dls:ExtendedCapabilities>
+                    <inspire_common:MetadataUrl>
+                        <inspire_common:URL>https://inspire.rasdaman.org/rasdaman/ows</inspire_common:URL>
+                        <inspire_common:MediaType>application/vnd.iso.19139+xml</inspire_common:MediaType>
+                    </inspire_common:MetadataUrl>
+                    <inspire_common:SupportedLanguages>
+                        <inspire_common:DefaultLanguage>
+                            <inspire_common:Language>eng</inspire_common:Language>
+                        </inspire_common:DefaultLanguage>
+                    </inspire_common:SupportedLanguages>
+                    <inspire_common:ResponseLanguage>
+                        <inspire_common:Language>eng</inspire_common:Language>
+                    </inspire_common:ResponseLanguage>
+                    <inspire_dls:SpatialDataSetIdentifier metadataURL="https://inspire-geoportal.ec.europa.eu/resources/INSPIRE-f670705f-f4e9-11e6-81e4-52540023a883_20211012-160902/services/1/PullResults/521-540/16.iso19139.xml">
+                        <inspire_common:Code>cov_1</inspire_common:Code>
+                        <inspire_common:Namespace>https://inspire.rasdaman.org/rasdaman/ows</inspire_common:Namespace>
+                    </inspire_dls:SpatialDataSetIdentifier>
+                    <inspire_dls:SpatialDataSetIdentifier metadataURL="https://sh.de/csw?record_id=SH_DEM">
+                        <inspire_common:Code>cov_2</inspire_common:Code>
+                        <inspire_common:Namespace>https://inspire.rasdaman.org/rasdaman/ows</inspire_common:Namespace>
+                    </inspire_dls:SpatialDataSetIdentifier>
+                </inspire_dls:ExtendedCapabilities>
+            </ows:ExtendedCapabilities>
+        </ows:OperationsMetadata>
+
+- Service Metadata URL field (``<inspire_common:URL>``), a URL containing the location of the metadata associated
+  with the WCS service which is configured by setting ``inspire_common_url`` in ``petascope.properties``.
+
+- Under ``<inspire_common:SupportedLanguages>`` section, the supported language is fixed to ``eng`` (English) only.
+
+- A coverage is considered INSPIRE coverage, if it has a specific URL set by ``metadataURL attribute``.
+  All INSPIRE coverages is listed in the list of XML elements ``<inspire_dls:SpatialDataSetIdentifier>``.
+  The example above contains two INSPIRE coverages, each ``<inspire_dls:SpatialDataSetIdentifier>`` element
+  containing an attribute metadataURL to provide more information about the coverages. 
+  The value for ``<inspire_common:Namespace>`` elements of each INSPIRE coverage is derived from the service endpoint.
+
+
 Create an INSPIRE coverage
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-`INSPIRE coverages <https://inspire-wcs.eu/>`__ have an extra XML section
-``<ows:ExtendedCapabilities>`` in the result of WCS GetCapabilities, which
-stores the coverage metadata in a format complying to the INSPIRE standard.
 Controlling whether a local coverage is treated as an INSPIRE coverage can be
-done by sending a request to ``/rasdaman/admin/inspire/metadata/update`` with
-two mandatory parameters:
+done by:
 
-- ``COVERAGEID`` - the coverage to be converted to an INSPIRE coverage
-- ``METADATAURL`` - a URL to an INSPIRE-compliant catalog entry for this coverage; 
-  if set to empty, i.e. ``METADATAURL=`` then the coverage is marked as non-INSPIRE
-  coverage.
+- Manually sending a request to ``/rasdaman/admin/inspire/metadata/update`` with
+  two mandatory parameters:
 
-For example, the coverage ``test_inspire_metadata`` can be marked as INSPIRE
-coverage as follows: ::
+   - ``COVERAGEID`` - the coverage to be converted to an INSPIRE coverage
+   - ``METADATAURL`` - a URL to an INSPIRE-compliant catalog entry for this coverage; 
+     if set to empty, i.e. ``METADATAURL=`` then the coverage is marked as non-INSPIRE
+     coverage.
+
+  For example, the coverage ``test_inspire_metadata`` can be marked as INSPIRE
+  coverage as follows: ::
 
     curl --user rasadmin:rasadmin -X POST \
          -F 'COVERAGEID=test_inspire_metadata' \
          -F 'METADATAURL=https://inspire-geoportal.ec.europa.eu/16.iso19139.xml' \
          'http://localhost:8080//rasdaman/admin/inspire/metadata/update'
+
+- Via ``wcst_import.sh``, in an ingredients files with inspire section contains
+  the settings for importing INSPIRE coverage:
+
+   - ``metadata_url`` - If set to non-empty string, then the importing coverage
+     will be marked as INSPIRE coverage. If set to empty string or omitted, 
+     then the coverage will be updated as non-INSPIRE coverage.
+
+  For example, the coverage ``cov_3`` will be imported as INSPIRE coverage with this configuration in the ingredients file:
+
+     .. hidden-code-block:: json
+
+         { 
+              "config": {
+                 ...
+              },
+              "input": {
+                 "coverage_id": "cov_3", 
+                  "paths": [
+                       "mean_summer_airtemp.tif"
+                  ],
+                  "inspire": {
+                      "metadata_url": "https://inspire-geoportal.ec.europa.eu/resources/INSPIRE-f670705f-f4e9-11e6-81e4-52540023a883_20211012-160902/services/1/PullResults/521-540/16.iso19139.xml"
+                  }
+             },
+             ... 
+         }
 
 .. _petascope-check-coverage-exists:
 
@@ -1549,6 +1628,117 @@ Specific Exceptions
 - This format is only supported for General Grid Coverage
 - Illegal extra parameter
 
+.. _wcps-flip-operator:
+
+Flip Operator in WCPS
+---------------------
+
+The non-standard ``FLIP`` function enables reversing values from an axis belonging to a coverage expression.
+The output coverage expression has *no* changes in the grid domains, base type and dimensionality, but with
+reversed values and geo bounds of the selected axis; if this axis is irregular then 
+its list coeffcients is reversed as well. See more :ref:`details <sec-flip>` in rasql.
+
+
+**Syntax**
+
+.. code-block:: rasql
+
+	flipExp: FLIP coverageExpression ALONG axisLabel
+
+        axisLabel: identifier
+
+A ``FLIP`` expression consists of ``coverageExpression`` which denotes the input coverage,
+and one ``axisLabel`` of the coverage to flip values.
+
+**Examples**
+
+The following examples illustrate the syntax of the ``FLIP`` operator.
+
+- Flipping the 2D coverage expression on its ``Long`` axis, by using:
+
+  .. code-block:: 
+
+     for $c in (test_mean_summer_airtemp) 
+     return 
+        encode(
+                FLIP $c[Lat(-30:-15), Long(125:145)] ALONG Long
+              , "image/png")
+
+- Flipping the 3D coverage expression on its ``unix`` time axis, by using:
+
+  .. code-block:: 
+
+    for $c in (test_wms_3d_time_series_irregular)
+    return 
+        encode(
+                FLIP $c[Lat(40:90), Long(80:140)] + 20 ALONG unix
+              , "json")
+
+
+.. _wcps-sort-operator:
+
+Sort Operator in WCPS
+---------------------
+
+The ``SORT`` operator enables the user to sort a coverage expression along an axis. 
+The sorting is done by slicing the array of the coverage along that axis, calculating a slice rank
+for each of the slices, and then rearranging the slices according to their ranks, 
+in an ascending or descending order.
+
+The sorting causes no change in the spatial domain, base type, or dimensionality.
+This means that the resulting array is the original array but with its values sorted at the sorting axis.
+See more :ref:`details <sec-sort>` in rasql.
+
+.. NOTE::
+
+   After sorting, the geo domains (and coefficients for irregular axis) of the sorted axis are not changed,
+   even though the grid values associated with geo coordinates are changed.
+
+**Syntax**
+
+.. code-block::
+
+    sortExp: SORT coverageExp ALONG sortAxis [listingOrder] BY cellExp
+
+    coverageExp: a general coverage expression
+    sortAxis: identifier.
+    listingOrder: ASC (default if omitted) | DESC
+    cellExp: an expression that produces scalar ranks for each slice
+    along the sortAxis.
+
+.. NOTE::
+
+   One should not do subset (slice/trim) on the ``sortAxis`` in the ``cellExp``
+
+
+
+**Examples**
+
+The following examples illustrate the syntax of the ``SORT`` operator.
+
+- Sort the 2D coverage expression on its ``Lon`` axis according
+  to the coverage values at each longitude index and -40 latitude
+  in ascending order:
+
+  .. code-block:: 
+
+     for $c in (test_mean_summer_airtemp) 
+     return 
+        encode(
+                SORT $c ALONG Lon BY $c[Lat(-40)]
+              , "image/png")
+
+- Sort the 3D coverage expression on its ``unix`` time axis in
+  descending order by the sum of each time slice along it:
+
+  .. code-block:: 
+
+    for $c in (test_wms_3d_time_series_irregular)
+    return 
+      encode(
+         SORT $c.Red + 30 ALONG unix DESC BY add($c)
+      , "json")
+
 
 .. _ogc-wms:
 
@@ -1558,7 +1748,7 @@ OGC Web Map Service (WMS)
 The OGC Web Map Service (WMS) standard provides a simple HTTP interface
 for requesting overlays of geo-registered map images, ready for display.
 
-With petascope, geo data can be served simultaneously via WMS, WCS,
+With petascope, geo data can be served simultaneously via WMS, WMTS, WCS,
 and WCPS. Further information:
 
 - :ref:`How to publish a WMS layer via WCST\_Import <wms-import>`.
@@ -2107,6 +2297,133 @@ the last request so the new layer does not exist (see `clear cache solution
 <https://lists.osgeo.org/pipermail/qgis-developer/2016-February/041418.html>`__).
 
 
+.. _ogc-wmts:
+
+OGC Web Map Tile Service (WMTS)
+===============================
+
+The OGC Web Map Tile Service (WMTS) standard provides a simple HTTP interface
+for requesting overlays of geo-registered map images as small tiles, ready for display.
+WMTS works like a subset of OGC Web Map Service (WMS) standard and it provides extra functionalities
+from the imported WMS Layer. See more :ref:`details <ogc-wms>` for processing WMS requests in rasdaman.
+
+rasdaman supports WMTS with the following request types in key-value pairs (KVP) format:
+
+- ``GetCapabilities`` for obtaining a list of layers and their associated ``TileMatrixSets``
+  offered together with an overall service description;
+
+- ``GetTile`` for downloading a 2D image (called ``Tile``) as a small subset from a requesting Layer.
+  This request works mostly as same as WMS ``GetMap`` request with some extra parameters for selecting
+  the requested tile.
+
+GetCapabilities extension
+-------------------------
+
+This request is used to describe the general information (e.g. service owner, contacts,...) about the server,
+and most importantly are the advertised WMTS Layers with supported styles and associated ``TileMatrixSet`` objects.
+
+ - A ``TileMatrixSet`` contains the list of pyramid members (each member is called ``TileMatrix`` in WTMS standard)
+   in a CRS (typically EPSG:4326) of an associated layer.
+ - A ``TileMatrix`` is a 2D matrix of ``Tiles``, each ``Tile`` is a 2D image and it has the fixed size: 256 x 256 pixels.
+   To obtain a ``Tile`` from a ``TileMatrix``, one needs two zero-based indices: ``TileRow`` in the height dimension
+   and ``TileCol`` in the width dimension.
+   In case, a dimension (width/height) of a ``TileMatrix`` is less than 256 pixels, then, this dimension contains 
+   only 1 Tile with the number of pixels from this dimension. For example, a pyramid member has grid domains 36 x 20 pixels,
+   then, the associated ``TileMatrix`` contains only 1 ``Tile`` with size 36 x 20 pixels.
+   
+Each layer has a mandatory reference to a ``TileMatrixSet`` in CRS EPSG:4326; if layer's native CRS is not EPSG:4326,
+then, it has an extra reference to another ``TileMatrixSet`` in this CRS (e.g. EPSG:32633).
+
+The naming convention for ``TileMatrixSet`` is: ``LayerName:EPSG:code``.
+For example a WMTS layer's, called ``germany_temperature`` has a native CRS EPSG:32633, then it has references
+to two ``TileMatrixSets``: 1. ``germany_temperature:EPSG:4326`` and 2. ``germany_temperature:EPSG:32633``.
+
+The WTMS GetCapabilities parameters are described in the below table:
+
+.. table:: WMTS GetCapabilities Standard Parameters
+
+    +----------+----------------+-----------------------------+---------+
+    |Request   |Value           |Description                  |Required |
+    |Parameter |                |                             |         |
+    +==========+================+=============================+=========+
+    |SERVICE   |WMTS            |Service standard             |Yes      |
+    +----------+----------------+-----------------------------+---------+
+    |VERSION   |1.0.0           |WMTS version used            |Yes      |
+    +----------+----------------+-----------------------------+---------+
+    |REQUEST   |GetCapabilities |Request type to be performed |Yes      |
+    +----------+----------------+-----------------------------+---------+
+
+For example, a WMTS ``GetCapabilities`` request in KVP format:
+
+.. hidden-code-block:: text
+
+    http://localhost:8080/rasdaman/ows?SERVICE=WMTS&VERSION=1.0.0
+        &REQUEST=GetCapabilities
+
+.. _wmts-get-tile:
+
+GetTile extension
+-----------------
+
+This request is used to get a 2D small subset (called a ``Tile``; typically it has fixed size 256 x 256 pixels)
+of a requesting layer. The result is encoded in supported formats (``image/png`` and ``image/jpeg``).
+
+Based on the result of WMTS ``GetCapabilities`` request, one can pick the proper ``TileMatrixSet``
+and ``TileMatrix`` (pyramid member) referenced by a layer to get the best detailed result at a zoom level
+with good performance.
+
+.. NOTE::
+
+    Unlike WMS ``GetMap`` request, WMTS ``GetTile`` request only supports processing
+    on a layer and an optional associated style of this layer.
+
+
+The WTMS ``GetTile`` parameters are described in the below table:
+
+.. table:: WMTS GetTile Standard Parameters
+
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |Request           |Value           |Description                                               |Required |
+    |Parameter         |                |                                                          |         |
+    +==================+================+==========================================================+=========+
+    |SERVICE           |WMTS            |service standard                                          |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |VERSION           |1.0.0           |WMTS version used                                         |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |REQUEST           |GetTile         |Request type to be performed                              |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |LAYER             |{layerName}     |A layer name to be requested                              |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |STYLE             |{styleName}     |A style name (can be null) of the layer to be requested   |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |FORMAT            |{format}        |Encoded format (image/png or image/jpeg) of the output    |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |TILEMATRIXSET     |{tileMatrixSet} |A TileMatrixSet name to be requested                      |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |TILEMATRIX        |{tileMatrix}    |A TileMatrix name to be requested                         |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |TILEROW           |{tileRow}       |A row index of the requesting TileMatrix                  |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |TILECOL           |{tileCol}       |A column index of the requesting TileMatrix               |Yes      |
+    +------------------+----------------+----------------------------------------------------------+---------+
+    |Other dimensions  |{value}         |Value allowed for this dimension (e.g. TIME, ELEVATION...)|No       |
+    +------------------+----------------+----------------------------------------------------------+---------+
+
+For example, a WMTS ``GetTile`` request in KVP format to get a tile, encoded in image/png from a ``TileMatrixSet`` in CRS EPSG:4326:
+
+.. hidden-code-block:: text
+
+    http://localhost:8080/rasdaman/ows?SERVICE=WMTS&VERSION=1.0.0
+    &REQUEST=GetTile
+    &LAYER=germany_temperature
+    &STYLE=colorized
+    &FORMAT=image/png
+    &TILEMATRIXSET=germany_temperature:EPSG:4326
+    &TILEMATRIX=germany_temperature
+    &TILEROW=0
+    &TILECOL=0
+
+
 .. _data-import:
 
 Data Import
@@ -2217,6 +2534,13 @@ config section
 
       "service_url": "http://localhost:8080/rasdaman/ows"
 
+* ``service_is_local`` -  ``true`` if the WCS service endpoint runs locally on the same machine,
+   ``false`` otherwise. When set to ``false``, the data to be imported will be uploaded
+   to the remote host. This may also be done even when the WCS service endpoint runs locally
+   but has no read permissions on the data files, in which case the only way to import the data
+   is by uploading it to the server; note, however, that this adds a performance penalty, 
+   so it should be avoided whenever possible. By default this setting is ``true``.
+
 * ``mock`` - Print WCS-T requests but do not execute anything if set to ``true``.
   Set to ``false`` by default.
 
@@ -2243,6 +2567,7 @@ config section
       collect metadata to be sorted by DateTime as in default *blocking*
       import mode.
 
+.. _data-import-default-null-values:
 
 * ``default_null_values`` - This parameter adds default null values for bands that
   do *not* have a null value provided by the file itself. The value for this
@@ -2255,8 +2580,12 @@ config section
 
   .. NOTE::
 
-     If set this parameter will override the null/nodata values present in
-     the input files.
+     - If set this parameter will override the null/nodata values present in
+       the input files.
+     - If this parameter is not set, wcst_import will try to detect these values
+       for bands implicity from the first input file.
+     - If set this parameter to: ``[]``, then, wcst_import will
+       create a coverage without any null values.
 
   .. NOTE::
 
@@ -2576,7 +2905,17 @@ JSON array, with parameters as follows:
     instance already running wcst_import with the `exec() method <https://docs.python.org/3/library/functions.html#exec>`__.
     It may be preferable to Bash ``cmd`` when there are many files to import, or
     more complex tasks need to be performed with advance math calculations, for
-    example.  
+    example. 
+
+    .. _code_security-node: 
+
+    .. NOTE::
+
+       As an ingredients file can contain arbitrary Python or Shell code which wcst_import will
+       execute before/after importing files or during the evaluation of sentence expressions,
+       it can pose a security issue if untrusted users are allowed to write ingredients files
+       to be executed with wcst_import. In this case, it is recommended to make sure the user executing 
+       wcst_import is properly restricted on their ingredients files.
 
 * ``abort_on_error`` - Only valid for ``before_import`` hook. If set to ``true``,
   when a ``cmd`` bash command returns an error or when a ``python_cmd`` raises an ``Exception``,
@@ -2950,12 +3289,11 @@ bounds and resolution corresponding to each file.
   the following options, of which ``identifier`` and ``name`` are mandatory to 
   specify while the rest are optional:
 
-  * ``identifier`` - The name of the band in the input file; With GRIB recipe,
-    only one band can be specified in the ingredients file and the band identifier must be
-    fetched from ``shortName`` attribute from GRIB messsages. wcst_import only collects the messages
-    matching this selected band identifier. If no messages containing ``shortName`` matched
-    with the specified band identifier, then all GRIB messages will be collected
-    (only works for input GRIB files with only one band).
+  * ``identifier`` - The name of the band in the input file. With GRIB data,
+    only one band can be specified in the ingredients file, and the band identifier must
+    match the ``shortName`` field in the GRIB messsages so only those messages will be
+    imported. If no messages matched the band identifier, then all GRIB messages will be
+    imported; this only works for input GRIB files with only one band.
   * ``name`` - The name of the band which will be used in the created coverage;
     this can be set to different from the ``indentifier``;
   * ``description`` - Metadata description of the band;
@@ -2965,6 +3303,10 @@ bounds and resolution corresponding to each file.
     setting it directly, it can also be derived from the input file metadata,
     with e.g. ``${netcdf:variable:NAME:units}`` for NetCDF or
     ``${grib:unitsOfFirstFixedSurface}`` for GRIB.
+  * ``filterMessagesMatching`` - Default is empty. If not-empty (a dictionary of 
+    user input GRIB keys:values; keys (e.g. ``shortName``) must exist in the input GRIB files),
+    then it filters any GRIB message which has a GRIB value not contain a user input value of a GRIB key.
+    
   * Further ``"key": "value"`` entries can be specified to add customized band
     metadata to the global coverage metadata.
 
@@ -2974,15 +3316,36 @@ bounds and resolution corresponding to each file.
   and ``resolution`` have to be specified, except for irregular axes where
   ``resolution`` is not applicable.
 
-  * ``gridOrder`` - The index of the axis in the input file (0-based);
-    Note: Each axis must have an unique index ``gridOrder`` specified.
-    For example, in a 2-D coverage in standard EPSG:4326 CRS, the Lat
-    axis would have ``gridOrder`` 0 and the Lon axis would have ``gridOrder``
-    1. In a 3-D coverage with time, Lat, and Lon axes, however, the Lat and Lon 
-    axes would have ``gridOrder`` 1 and 2, and gridOrder 0 would be set for
-    the time axis. For more details, see `this example
-    <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/130-wcs_pml_global_metadata_auto/ingest.template.json>`__ 
-    for importing netCDF files to a 3-D coverage.
+  * ``gridOrder`` - specify the grid order of axes defined by the coverage CRS.
+    If not specified, wcst_import will try to automatically derive the gridOrder
+    according to the documentation below. That may fail with unusual data, in which
+    case it will be necessary to set this setting manually for each axis.
+
+    Axes of a CRS which is not part of the file CRS have gridOrder that is 
+    same as the order in the CRS definition. For example, if the coverage CRS is
+    a compound CRS ``OGC/0/AnsiDate@EPSG/0/4326`` and data files themselves have CRS
+    ``EPSG/0/4326``, then gridOrder for the ansi axis in ``OGC/0/AnsiDate`` will be
+    0, and the gridOrder of the ``EPSG/0/4326`` axes will follow with 1 and 2. If
+    the CRS order was reversed to ``EPSG/0/4326@OGC/0/AnsiDate``, then the gridOrder
+    of 4326 axes (Long/Lat) would be 0 and 1, and of AnsiDate (ansi) would be 2.
+    Usually axes of non-file CRS (AnsiDate in this example) will also have setting
+    ``dataBound: false``.
+
+    Below we give hints on how to determine the gridOrder of axes in the file CRS.
+
+    * When data is imported with the ``gdal`` or ``grib`` slicer, generally the 
+      gridOrder is ``n`` for X axes (Longitude, E, ...), and ``n+1`` for Y axes 
+      (Latitude, N, ...).
+
+    * When importing data with the ``netcdf`` slicer, the gridOrder should usually
+      match the dimension order of the imported variable, which can be checked
+      with ``ncdump -h``; e.g. a variable ``float dc(time, lat, lon)`` will have
+      gridOrder ``n`` for time, ``n+1`` for lat, and ``n+2`` for lon. This will work
+      well as long as the data conforms to the `CF-conventions
+      <https://cfconventions.org/Data/cf-conventions/cf-conventions-1.7/cf-conventions.html#dimensions>`,
+      and may otherwise need adjustments if the spatial dimensions are not in Y/X
+      order.
+
   * ``crsOrder`` - The index of the geo axis in the coverage's CRS (0-based).
     Note: By default it is not required. Only set when one specifies a different name for this axis,
     than the one configured in the CRS's definition; more details can be found :ref:`here 
@@ -3002,11 +3365,14 @@ bounds and resolution corresponding to each file.
     a time axis with irregular datetime indexes; if not specified, it is set to 
     ``false`` by default;
   * ``directPositions`` - A list of coefficients which are extracted and 
-    calculated based on the axis's lower bound from the irregular axis values
-    specified in the input netCDF/GRIB file. 
-    For example, a netCDF file has ``time`` dimension with ``units``: ``"days since 1970-01-01 00:00:00"``,
-    then, all stored valued of ``time`` axis must be calculated as datetime,
-    based on the lower bound value (``"1970-01-01"``), see `ingredients file <https://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/132-wcs_scientfic_null_value_with_trailing_zero/ingest.template.json#L42>`__.
+    calculated based on the axis lower bound from the irregular axis values
+    specified in the input netCDF/GRIB file.
+    
+    For example, let's consider a netCDF file that has a ``time`` dimension with attribute
+    ``units: "days since 1970-01-01 00:00:00"``. All stored values of the ``time`` axis 
+    must be converted to datetime based on the lower bound value (``"1970-01-01"``) as an origin.
+    See this `ingredients file <https://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/132-wcs_scientfic_null_value_with_trailing_zero/ingest.template.json#L42>`__
+    for a full example.
 
     .. hidden-code-block:: json
     
@@ -3019,15 +3385,18 @@ bounds and resolution corresponding to each file.
                 "irregular": true,
   	            "resolution": 1,
                 "gridOrder": 0
-             },
-           ...
+             }
+        }
 
   * ``dataBound`` - Set to ``false`` to specify that this axis should be 
     imported as a slicing point instead of a subset with lower and upper bounds;
     typical use case for this is when extracting irregular datetime values from 
     the input file names. When not specified it is set to ``true`` by default.
-    For example, a coverage has an irregular axis ``ansi`` with values fetched from
-    input netCDF file names (e.g. ``GlobLAI-20030101-20030110-H01V06-1.0_MERIS-FR-LAI-HA.nc``).
+    
+    For example, the indexes of an irregular axis ``ansi`` could be extracted from
+    dates in the file names of input netCDF files
+    (e.g. ``GlobLAI-20030101-20030110-H01V06-1.0_MERIS-FR-LAI-HA.nc``) through a 
+    regular expression.
 
     .. hidden-code-block:: json
 
@@ -3037,8 +3406,8 @@ bounds and resolution corresponding to each file.
                 "gridOrder": 0,
                 "irregular": true,
                 "dataBound": false
-            },
-         ...
+            }
+         }
 
   * ``sliceGroupSize`` - Group multiple input slices into a single slice in the
     created coverage, e.g., multiple daily data files onto a single week index
@@ -3447,6 +3816,23 @@ File
 |                 |This variable is used only in ``after_import`` hooks.               |                             |
 +-----------------+--------------------------------------------------------------------+-----------------------------+
 
+.. _data-import-expressions-bbox:
+
+BBox
+~~~~
+
++----------------------------------+--------------------------------------------------------------------+-----------------------------+
+|  **Type**                        |                **Description**                                     |  **Examples**               |
++==================================+====================================================================+=============================+
+|Coverage axis information         |``${bbox:AXIS_LABEL:PROPERTY}`` where axis_label is one of          |                             |
+|                                  |coverage's axis name and property can be one of ``min|max`` (return |``${bbox:Lat:min}``          |
+|                                  |the lower/upper geo bound of the selected axis).                    |                             |
+|                                  |Used only in ``after_import`` hooks where each bbox containing      |                             |
+|                                  |the multi-dimensional bounding box of the data region affected      |                             |
+|                                  |by the update of an input file                                      |                             |
++----------------------------------+--------------------------------------------------------------------+-----------------------------+
+
+
 .. _data-import-expressions-special-functions:
 
 Special functions
@@ -3516,6 +3902,11 @@ Python functions imported in this way override the :ref:`special functions
 example, the special utility function ``datetime(date_time_string, format)`` to
 convert a string of datetime to an ISO date time format will be overridden when
 the ``datetime`` module is imported with a ``statements`` setting.
+
+.. NOTE::
+
+   See :ref:`details <code_security-node>` about potential issue
+   for running python code in the ingredients file.
 
 
 .. _local-metadata:
@@ -3818,12 +4209,12 @@ axis metadata
   .. hidden-code-block:: json
 
       "slicer": {
-         ...
+         //...
          "axes": {
             "Long": {
-               # 'lon' is variable name in netCDF file for CRS axis 'Long'.
+               // 'lon' is variable name in netCDF file for CRS axis 'Long'.
                "min": "${netcdf:variable:lon:min}"
-                ...
+               // ...
              }
           }
        }
@@ -3969,7 +4360,7 @@ the coverage might look as below, for example:
         "grid_north_pole_latitude": "40.0",
         "semi_major_axis": "6371229.0",
         "semi_minor_axis": "6371229.0"
-      },
+      }
 
 When encoding to netCDF in WCS or WCPS requests with the same
 ``COSMO:101`` CRS, rasdaman will add this grid mapping metadata 

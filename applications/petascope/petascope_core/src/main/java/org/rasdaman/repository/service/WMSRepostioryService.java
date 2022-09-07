@@ -49,6 +49,10 @@ public class WMSRepostioryService {
 
     @Autowired
     private LayerRepository layerRepository;
+    @Autowired
+    private CoverageRepositoryService coverageRepositoryService;
+    @Autowired
+    private WMTSRepositoryService wmtsRepositoryService;
 
     // NOTE: for migration, Hibernate caches the object in first-level cache internally
     // and recheck everytime a new entity is saved, then with thousands of cached objects for nothing
@@ -112,7 +116,6 @@ public class WMSRepostioryService {
         // Check if layer already cached in local cache
         layer = localLayersCacheMap.get(layerName);
 
-
         return layer;
     }
 
@@ -164,6 +167,7 @@ public class WMSRepostioryService {
 
         // Read all layers from database
         List<Layer> layers = this.readAllLocalLayers();
+        this.wmtsRepositoryService.initializeLocalTileMatrixSetsMapCache();
 
         return layers;
     }
@@ -173,8 +177,19 @@ public class WMSRepostioryService {
      */
     public List<Layer> readAllLayersFromCaches() throws PetascopeException {
         List<Layer> layers = new ArrayList<>(localLayersCacheMap.values());
+        
+        List<Layer> results = new ArrayList<>();
+        
+        for (Layer layer : layers) {
+            String layerName = layer.getName();
+            if (!this.coverageRepositoryService.isInCache(layerName)) {
+                log.warn("Coverage associated with the layer: " + layer.getName() + " does not exist.");
+            } else {
+                results.add(layer);
+            }
+        }
 
-        return layers;
+        return results;
     }
 
 

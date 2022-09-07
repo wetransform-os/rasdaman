@@ -30,6 +30,7 @@ import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.cis.GeneralGridCoverage;
 import org.rasdaman.domain.cis.GeoAxis;
 import org.rasdaman.domain.cis.IndexAxis;
+import org.rasdaman.domain.cis.IrregularAxis;
 import org.rasdaman.domain.cis.RasdamanDownscaledCollection;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.slf4j.LoggerFactory;
@@ -44,8 +45,12 @@ import petascope.util.ListUtil;
 import petascope.util.ras.RasUtil;
 import static petascope.util.ras.RasConstants.RASQL_BOUND_SEPARATION;
 import static petascope.util.ras.RasConstants.RASQL_INTERVAL_SEPARATION;
+import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.ParsedSubset;
 import petascope.wcps.metadata.service.CoordinateTranslationService;
+import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
+import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
+import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 
 /**
  * Utility class to create downscaled collections for input WCS Coverage on
@@ -518,16 +523,74 @@ public class PyramidService {
         return result;
     }
     
+    /**
+     * Check if this pyramid member also contains the subsets for non-XY axes (e.g. time).
+     */
+    private boolean isGoodPyramidMemberForNonXYSubsets(List<WcpsSubsetDimension> nonXYSubsetDimensions, CoveragePyramid coveragePyramid) throws PetascopeException {
+        
+        if (nonXYSubsetDimensions != null && !nonXYSubsetDimensions.isEmpty()) {
+            // e.g. pyramid_member_2
+            String coverageId = coveragePyramid.getPyramidMemberCoverageId();
+            GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage)this.coverageRepostioryService.readCoverageFullMetadataByIdFromCache(coverageId);
+            
+            for (WcpsSubsetDimension subsetDimension : nonXYSubsetDimensions) {
+                String axisLabel = subsetDimension.getAxisName();
+                GeoAxis geoAxis = pyramidMemberCoverage.getGeoAxisByName(axisLabel);
+                
+                BigDecimal geoLowerBound = null;
+                BigDecimal geoUpperBound = null;
+                
+                if (subsetDimension instanceof WcpsSliceSubsetDimension) {
+                    WcpsSliceSubsetDimension sliceSubset = (WcpsSliceSubsetDimension)subsetDimension;
+                    geoLowerBound = new BigDecimal((sliceSubset.getBound()));
+                } else {
+                    WcpsTrimSubsetDimension trimSubset = (WcpsTrimSubsetDimension)subsetDimension;
+                    geoLowerBound = new BigDecimal((trimSubset.getLowerBound()));
+                    geoUpperBound = new BigDecimal((trimSubset.getUpperBound()));
+                }
+                
+                if (!BigDecimalUtil.isValidValue(geoAxis.getLowerBoundNumber(), geoAxis.getUpperBoundNumber(), geoLowerBound)) {
+                    return false;
+                }
+                if (!BigDecimalUtil.isValidValue(geoAxis.getLowerBoundNumber(), geoAxis.getUpperBoundNumber(), geoUpperBound)) {
+                    return false;
+                }
+                
+                if (geoAxis instanceof IrregularAxis) {
+                    IrregularAxis irregularAxis = (IrregularAxis)geoAxis;
+                    BigDecimal coefficientZeroGeoBound = irregularAxis.getCoefficientZeroBoundNumber();
+                    
+                    // Check if subset on irregular axis of this pyramid member touches the existing coefficients
+                    // NOTE: a pyramid member can contain less coefficients than the base coverage
+                    BigDecimal geoLowerBoundCoefficient = geoLowerBound.subtract(coefficientZeroGeoBound);
+                    BigDecimal geoUpperBoundCoefficient = geoLowerBoundCoefficient;
+                    if (geoUpperBound != null) {
+                        geoUpperBoundCoefficient = geoUpperBound.subtract(coefficientZeroGeoBound);
+                    }
+
+                    Pair<Long, Long> pair = irregularAxis.getGridIndices(geoLowerBoundCoefficient, geoUpperBoundCoefficient);
+                    if (pair.fst == null || pair.snd == null) {
+                        return false;
+                    }
+                    
+                }
+            }
+            
+        }
+        
+        return true;
+    }
+    
     
     /**
     *  Given geo subsets on X and Y axes, and their scale target grid domains,
     * return the suitable coverage pyramid member.
     */
     public CoveragePyramid getSuitableCoveragePyramidForScaling(GeneralGridCoverage baseCoverage, 
-                                             Pair<BigDecimal, BigDecimal> geoSubsetX, Pair<BigDecimal, BigDecimal> geoSubsetY, 
-                                             int width, int height) throws PetascopeException {
-        CoveragePyramid result = this.createBaseCoveragePyramid(baseCoverage);
-        
+                                             Pair<BigDecimal, BigDecimal> geoSubsetX, Pair<BigDecimal, BigDecimal> geoSubsetY,
+                                             Axis subsettedAxisX, Axis subsettedAxisY,
+                                             int width, int height,
+                                             List<WcpsSubsetDimension> nonXYSubsetDimensions) throws PetascopeException {
         Pair<GeoAxis, GeoAxis> baseXYGeoAxes = baseCoverage.getXYGeoAxes();
         GeoAxis baseXGeoAxis = baseXYGeoAxes.fst;
         GeoAxis baseYGeoAxis = baseXYGeoAxes.snd;
@@ -547,44 +610,66 @@ public class PyramidService {
                                                                                                        new BigDecimal(baseYIndexAxis.getLowerBound()));
         long numberOfBaseYGridPixels = baseYGridBounds.getUpperLimit() - baseYGridBounds.getLowerLimit() + 1;
         
-        for (CoveragePyramid coveragePyramid : baseCoverage.getPyramid()) {
+        CoveragePyramid result = this.createBaseCoveragePyramid(baseCoverage);
+        
+        List<CoveragePyramid> coveragePyramids = new ArrayList<>();
+        coveragePyramids.add(result);
+        coveragePyramids.addAll(baseCoverage.getPyramid());
+        
+        for (CoveragePyramid coveragePyramid : coveragePyramids) {
             GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage)this.coverageRepostioryService.readCoverageFullMetadataByIdFromCache(coveragePyramid.getPyramidMemberCoverageId());
             Pair<GeoAxis, GeoAxis> pyramidMemberXYGeoAxes = pyramidMemberCoverage.getXYGeoAxes();
             
-            GeoAxis pyramidMemberXGeoAxis = pyramidMemberXYGeoAxes.fst;
-            GeoAxis pyramidMemberYGeoAxis = pyramidMemberXYGeoAxes.snd;
-            IndexAxis pyramidMemberXIndexAxis = pyramidMemberCoverage.getIndexAxisByName(pyramidMemberXGeoAxis.getAxisLabel());
-            IndexAxis pyramidMemberYIndexAxis = pyramidMemberCoverage.getIndexAxisByName(pyramidMemberYGeoAxis.getAxisLabel());
+            GeoAxis pyramidMemberGeoAxisX = pyramidMemberXYGeoAxes.fst;
+            GeoAxis pyramidMemberGeoAxisY = pyramidMemberXYGeoAxes.snd;
+            IndexAxis pyramidMemberIndexAxisX = pyramidMemberCoverage.getIndexAxisByName(pyramidMemberGeoAxisX.getAxisLabel());
+            IndexAxis pyramidMemberIndexAxisY = pyramidMemberCoverage.getIndexAxisByName(pyramidMemberGeoAxisY.getAxisLabel());
+            
+            if (subsettedAxisX != null && subsettedAxisY != null
+                && subsettedAxisX.isTransatedGridToGeoBounds() && subsettedAxisY.isTransatedGridToGeoBounds()) {
+                Long gridLowerBoundX = subsettedAxisX.getGridBounds().getLowerLimit().longValue();
+                Long gridUpperBoundX = subsettedAxisX.getGridBounds().getUpperLimit().longValue();
+                
+                Long gridLowerBoundY = subsettedAxisY.getGridBounds().getLowerLimit().longValue();
+                Long gridUpperBoundY = subsettedAxisY.getGridBounds().getUpperLimit().longValue();
+                
+                if (pyramidMemberIndexAxisX.getLowerBound() > gridLowerBoundX
+                    || pyramidMemberIndexAxisX.getUpperBound() < gridUpperBoundX
+                    || pyramidMemberIndexAxisY.getLowerBound() > gridLowerBoundY
+                    || pyramidMemberIndexAxisY.getUpperBound() < gridUpperBoundY) {
+                    // NOTE: in this case, pyramid member doesn't have adequate grid domains on XY axes as the ones from subsetted X,Y axes
+                    // so this pyramid member cannot be chosen
+                    return result;
+                }
+            }
+            
             
             // NOTE: if a pyramid member has a bit smaller geo extents then the request XY subsets, then it is still ok to use this pyramid member
             BigDecimal RATIO = new BigDecimal("0.1");
             BigDecimal epsilonX = geoSubsetX.fst.subtract(geoSubsetX.snd).abs().multiply(RATIO);
             BigDecimal epsilonY = geoSubsetY.fst.subtract(geoSubsetY.snd).abs().multiply(RATIO);
             
-            BigDecimal pyramidMemberGeoLowerBoundX = pyramidMemberXGeoAxis.getLowerBoundNumber().subtract(epsilonX);
-            BigDecimal pyramidMemberGeoUpperBoundX = pyramidMemberXGeoAxis.getUpperBoundNumber().add(epsilonX);
-            BigDecimal pyramidMemberGeoLowerBoundY = pyramidMemberYGeoAxis.getLowerBoundNumber().subtract(epsilonY);
-            BigDecimal pyramidMemberGeoUpperBoundY = pyramidMemberYGeoAxis.getUpperBoundNumber().add(epsilonY);
+            BigDecimal pyramidMemberGeoLowerBoundX = pyramidMemberGeoAxisX.getLowerBoundNumber().subtract(epsilonX);
+            BigDecimal pyramidMemberGeoUpperBoundX = pyramidMemberGeoAxisX.getUpperBoundNumber().add(epsilonX);
+            BigDecimal pyramidMemberGeoLowerBoundY = pyramidMemberGeoAxisY.getLowerBoundNumber().subtract(epsilonY);
+            BigDecimal pyramidMemberGeoUpperBoundY = pyramidMemberGeoAxisY.getUpperBoundNumber().add(epsilonY);
             
-            if (pyramidMemberGeoLowerBoundX.compareTo(geoSubsetX.fst) <= 0 && 
-                pyramidMemberGeoUpperBoundX.compareTo(geoSubsetX.snd) >= 0 && 
-                pyramidMemberGeoLowerBoundY.compareTo(geoSubsetY.fst) <= 0 && 
-                pyramidMemberGeoUpperBoundY.compareTo(geoSubsetY.snd) >= 0) {
-                
-                ParsedSubset<BigDecimal> pyramidMemberXParsedSubset = new ParsedSubset<>(geoSubsetX.fst, geoSubsetX.snd);
-                ParsedSubset<Long> pyramidMemberXGridBounds = this.coordinateTranslationService.geoToGridForRegularAxis(pyramidMemberXParsedSubset, pyramidMemberXGeoAxis.getLowerBoundNumber(),
-                                                                                                       pyramidMemberXGeoAxis.getUpperBoundNumber(), pyramidMemberXGeoAxis.getResolution(), 
-                                                                                                       new BigDecimal(pyramidMemberXIndexAxis.getLowerBound()));
-                long numberOfPyramidMemberXGridPixels = pyramidMemberXGridBounds.getUpperLimit() - pyramidMemberXGridBounds.getLowerLimit() + 1;
+            ParsedSubset<BigDecimal> pyramidMemberXParsedSubset = new ParsedSubset<>(geoSubsetX.fst, geoSubsetX.snd);
+            ParsedSubset<Long> pyramidMemberXGridBounds = this.coordinateTranslationService.geoToGridForRegularAxis(pyramidMemberXParsedSubset, pyramidMemberGeoAxisX.getLowerBoundNumber(),
+                                                                                                       pyramidMemberGeoAxisX.getUpperBoundNumber(), pyramidMemberGeoAxisX.getResolution(), 
+                                                                                                       new BigDecimal(pyramidMemberIndexAxisX.getLowerBound()));
+            long numberOfPyramidMemberXGridPixels = pyramidMemberXGridBounds.getUpperLimit() - pyramidMemberXGridBounds.getLowerLimit() + 1;
         
-                ParsedSubset<BigDecimal> pyramidMemberYParsedSubset = new ParsedSubset<>(geoSubsetY.fst, geoSubsetY.snd);
-                ParsedSubset<Long> pyramidMemberYGridBounds = this.coordinateTranslationService.geoToGridForRegularAxis(pyramidMemberYParsedSubset, pyramidMemberYGeoAxis.getLowerBoundNumber(),
-                                                                                                       pyramidMemberYGeoAxis.getUpperBoundNumber(), pyramidMemberYGeoAxis.getResolution(), 
-                                                                                                       new BigDecimal(pyramidMemberYIndexAxis.getLowerBound()));
-                long numberOfPyramidMemberYGridPixels = pyramidMemberYGridBounds.getUpperLimit() - pyramidMemberYGridBounds.getLowerLimit() + 1;
+            ParsedSubset<BigDecimal> pyramidMemberYParsedSubset = new ParsedSubset<>(geoSubsetY.fst, geoSubsetY.snd);
+            ParsedSubset<Long> pyramidMemberYGridBounds = this.coordinateTranslationService.geoToGridForRegularAxis(pyramidMemberYParsedSubset, pyramidMemberGeoAxisY.getLowerBoundNumber(),
+                                                                                                       pyramidMemberGeoAxisY.getUpperBoundNumber(), pyramidMemberGeoAxisY.getResolution(), 
+                                                                                                       new BigDecimal(pyramidMemberIndexAxisY.getLowerBound()));
+            long numberOfPyramidMemberYGridPixels = pyramidMemberYGridBounds.getUpperLimit() - pyramidMemberYGridBounds.getLowerLimit() + 1;            
                 
+            // NOTE: if a pyramid member also contains subsetting coefficients for irregular axis (e.g. time), then it can be considered as a candidate
+            if (this.isGoodPyramidMemberForNonXYSubsets(nonXYSubsetDimensions, coveragePyramid)) {
                 if ((numberOfPyramidMemberXGridPixels <= numberOfBaseXGridPixels && numberOfPyramidMemberXGridPixels > width)
-                    || (numberOfPyramidMemberYGridPixels <= numberOfBaseYGridPixels && numberOfPyramidMemberYGridPixels > height)) {
+                    && (numberOfPyramidMemberYGridPixels <= numberOfBaseYGridPixels && numberOfPyramidMemberYGridPixels > height)) {
                     result = coveragePyramid;
                 } else {
                     return result;

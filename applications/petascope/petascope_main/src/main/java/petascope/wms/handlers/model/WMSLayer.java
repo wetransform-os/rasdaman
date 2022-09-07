@@ -21,7 +21,10 @@
  */
 package petascope.wms.handlers.model;
 
+import java.util.List;
+import java.util.Map;
 import petascope.core.BoundingBox;
+import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 
 /**
  * Model class contains some basic properties for a WMS layer
@@ -31,6 +34,9 @@ import petascope.core.BoundingBox;
 public class WMSLayer {
     
    private String layerName;
+   // NOTE: used only when WMS GetMap request is generated from WMTS GetTile request
+   private String wmtsTileMatrixName;
+   
    // original min and max XY geo bounds of a layer (e.g: in UTM 32)
    private BoundingBox originalXYBoundsBBox;
    // min and max XY geo bounds of a requesting BBOX from client (e.g: EPSG:4326)
@@ -39,14 +45,23 @@ public class WMSLayer {
    private BoundingBox extendedRequestBBox;
    private final Integer width;
    private final Integer height;
+   
+   // List of WCPS subsets on nonXY axes (e.g. time / elevation,...)
+   private List<WcpsSubsetDimension> nonXYSubsetDimensions;
 
-    public WMSLayer(String layerName, BoundingBox originalXYBoundsBBox, BoundingBox requestBBox, BoundingBox extendedRequestBBox, Integer width, Integer height) {
+    public WMSLayer(String layerName, BoundingBox originalXYBoundsBBox, BoundingBox requestBBox, BoundingBox extendedRequestBBox, Integer width, Integer height,
+                    List<WcpsSubsetDimension> nonXYSubsetDimensions
+                    , String wmtsTileMatrixName
+                    ) {
         this.layerName = layerName;
         this.originalXYBoundsBBox = originalXYBoundsBBox;
         this.requestBBox = requestBBox;
         this.extendedRequestBBox = extendedRequestBBox;
         this.width = width;
         this.height = height;
+        this.nonXYSubsetDimensions = nonXYSubsetDimensions;
+
+        this.wmtsTileMatrixName = wmtsTileMatrixName;
     }
 
     public void setLayerName(String layerName) {
@@ -55,6 +70,14 @@ public class WMSLayer {
 
     public String getLayerName() {
         return layerName;
+    }
+
+    public String getWMTSTileMatrixName() {
+        return wmtsTileMatrixName;
+    }
+
+    public void setWMTSTileMatrixName(String wmtsTileMatrixName) {
+        this.wmtsTileMatrixName = wmtsTileMatrixName;
     }
 
     public BoundingBox getRequestBBox() {
@@ -84,5 +107,13 @@ public class WMSLayer {
     public BoundingBox getExtendedRequestBBox() {
         return extendedRequestBBox;
     }
+
+    public List<WcpsSubsetDimension> getNonXYSubsetDimensions() {
+        return nonXYSubsetDimensions;
+    }
     
+    @Override
+    public String toString() {
+        return this.layerName;
+    }
 }

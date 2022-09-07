@@ -45,14 +45,13 @@
               },
               "i": {
                     "min": "int(regex_extract('${file:name}', 'test_(.*).tiff', 1))",
-                    "gridOrder": 0,
                     "irregular": true,
                     "dataBound": false
               }
           }
         }      
       },
-      "tiling": "ALIGNED [0:366, 0:500]"
+      "tiling": "ALIGNED [0:0, 0:366, 0:500]"
     }
   }
 }

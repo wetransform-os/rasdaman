@@ -22,14 +22,15 @@
 package petascope.wms.handlers.service;
 
 import java.math.BigDecimal;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.core.BoundingBox;
 import petascope.core.Pair;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
+import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wms.handlers.model.WMSLayer;
 
 /**
@@ -47,8 +48,13 @@ public class WMSGetMapWCPSMetadataTranslatorService {
      * Create a WMSLayer from input parameters of GetMap request
      */
     public WMSLayer createWMSLayer(String layerName, BoundingBox originalXYBoundsBBox, BoundingBox requestBBox,
-                                   BoundingBox extendedRequestBBox, int width, int height) {
-        WMSLayer wmsLayer = new WMSLayer(layerName, originalXYBoundsBBox, requestBBox, extendedRequestBBox, width, height);
+                                   BoundingBox extendedRequestBBox, int width, int height
+                                   , List<WcpsSubsetDimension> subsetDimensions
+                                   , String wmtsTileMatrixName) {
+        WMSLayer wmsLayer = new WMSLayer(layerName, originalXYBoundsBBox, requestBBox, extendedRequestBBox, width, height,
+                                        subsetDimensions
+                                        , wmtsTileMatrixName
+                                        ); 
         return wmsLayer;
     }
     
@@ -64,12 +70,22 @@ public class WMSGetMapWCPSMetadataTranslatorService {
      * Create a WCPS Coverage metadata object based on layerName (coverageId) and original XY bounding box of coverage's XY axes which fits on a rasdaman downscaled collection.
      */
     public WcpsCoverageMetadata createWcpsCoverageMetadataForDownscaledLevelByOriginalXYBBox(WMSLayer wmsLayer) throws PetascopeException {
-        WcpsCoverageMetadata wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(wmsLayer.getLayerName());
-        Pair<BigDecimal, BigDecimal> geoSubsetX = new Pair(wmsLayer.getOriginalBoundsBBox().getXMin(), wmsLayer.getOriginalBoundsBBox().getXMax());
-        Pair<BigDecimal, BigDecimal> geoSubsetY = new Pair(wmsLayer.getOriginalBoundsBBox().getYMin(), wmsLayer.getOriginalBoundsBBox().getYMax());
-        wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.createForDownscaledLevelByGeoXYSubsets(wcpsCoverageMetadata, 
-                                                                                                     geoSubsetX, geoSubsetY, 
-                                                                                                     wmsLayer.getWidth(), wmsLayer.getHeight());
+        WcpsCoverageMetadata wcpsCoverageMetadata;
+        String tileMatrixName = wmsLayer.getWMTSTileMatrixName();
+        
+        if (tileMatrixName == null) {
+            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(wmsLayer.getLayerName());
+            Pair<BigDecimal, BigDecimal> geoSubsetX = new Pair(wmsLayer.getOriginalBoundsBBox().getXMin(), wmsLayer.getOriginalBoundsBBox().getXMax());
+            Pair<BigDecimal, BigDecimal> geoSubsetY = new Pair(wmsLayer.getOriginalBoundsBBox().getYMin(), wmsLayer.getOriginalBoundsBBox().getYMax());
+
+            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.createForDownscaledLevelByGeoXYSubsets(wcpsCoverageMetadata, 
+                                                                                                         geoSubsetX, geoSubsetY, 
+                                                                                                         wmsLayer.getWidth(), wmsLayer.getHeight(),
+                                                                                                         wmsLayer.getNonXYSubsetDimensions());
+
+        } else {
+            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.create(tileMatrixName);
+        }
         
         return wcpsCoverageMetadata;
     }
@@ -79,12 +95,21 @@ public class WMSGetMapWCPSMetadataTranslatorService {
      * Create a WCPS Coverage metadata object based on layerName (coverageId) and input extended BBOX on XY axes which fits on a rasdaman downscaled collection.
      */
     public WcpsCoverageMetadata createWcpsCoverageMetadataForDownscaledLevelByExtendedRequestBBox(WMSLayer wmsLayer) throws PetascopeException {
-        WcpsCoverageMetadata wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(wmsLayer.getLayerName());
-        Pair<BigDecimal, BigDecimal> geoSubsetX = new Pair(wmsLayer.getExtendedRequestBBox().getXMin(), wmsLayer.getExtendedRequestBBox().getXMax());
-        Pair<BigDecimal, BigDecimal> geoSubsetY = new Pair(wmsLayer.getExtendedRequestBBox().getYMin(), wmsLayer.getExtendedRequestBBox().getYMax());
-        wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.createForDownscaledLevelByGeoXYSubsets(wcpsCoverageMetadata, 
-                                                                                                     geoSubsetX, geoSubsetY, 
-                                                                                                     wmsLayer.getWidth(), wmsLayer.getHeight());
+        WcpsCoverageMetadata wcpsCoverageMetadata;
+        String tileMatrixName = wmsLayer.getWMTSTileMatrixName();
+        
+        if (tileMatrixName == null) {
+            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(wmsLayer.getLayerName());
+            Pair<BigDecimal, BigDecimal> geoSubsetX = new Pair(wmsLayer.getExtendedRequestBBox().getXMin(), wmsLayer.getExtendedRequestBBox().getXMax());
+            Pair<BigDecimal, BigDecimal> geoSubsetY = new Pair(wmsLayer.getExtendedRequestBBox().getYMin(), wmsLayer.getExtendedRequestBBox().getYMax());
+
+            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.createForDownscaledLevelByGeoXYSubsets(wcpsCoverageMetadata, 
+                                                                                                         geoSubsetX, geoSubsetY, 
+                                                                                                         wmsLayer.getWidth(), wmsLayer.getHeight(),
+                                                                                                         wmsLayer.getNonXYSubsetDimensions());
+        } else {
+            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.create(tileMatrixName);
+        }
         
         return wcpsCoverageMetadata;
     }

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.rasdaman.config.ConfigManager;
 import org.rasdaman.domain.wms.Layer;
 import org.rasdaman.repository.service.WMSRepostioryService;
 import org.slf4j.Logger;
@@ -46,6 +47,8 @@ import petascope.util.CrsProjectionUtil;
 import petascope.util.ListUtil;
 import petascope.util.MIMEUtil;
 import petascope.util.StringUtil;
+import petascope.wcps.metadata.model.Axis;
+import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wms.exception.WMSInvalidBoundingBoxExcpetion;
 import petascope.wms.exception.WMSInvalidCrsUriException;
 import petascope.wms.exception.WMSInvalidHeight;
@@ -58,6 +61,7 @@ import petascope.wms.exception.WMSUnsupportedFormatException;
 import petascope.wms.handlers.service.WMSGetMapCachingService;
 import petascope.wms.handlers.service.WMSGetMapExceptionService;
 import petascope.wms.handlers.service.WMSGetMapService;
+import petascope.wms.handlers.service.WMSGetMapWCPSMetadataTranslatorService;
 
 /**
  * Class to handle the KVP WMS GetMap request, e.g:
@@ -88,6 +92,9 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
     private HttpServletRequest httpServletRequest;
     @Autowired
     private PetascopeController petascopeController;    
+    
+    @Autowired
+    private WMSGetMapWCPSMetadataTranslatorService wmsGetMapWCPSMetadataTranslatorService;    
 
     public KVPWMSGetMapHandler() {
 
@@ -191,7 +198,7 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
         try {
             // NOTE: If first query returns success, then just fetch it from cache
             String queryString = StringUtil.buildQueryString(kvpParameters);
-            if (WMSGetMapCachingService.responseCachingMap.containsKey(queryString)) {
+            if (ConfigManager.MAX_WMS_CACHE_SIZE > 0 && WMSGetMapCachingService.responseCachingMap.containsKey(queryString)) {
                 return wmsGetMapCachingService.getResponseFromCache(queryString);
             }
             // Validate before handling the request
@@ -266,6 +273,16 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
                 }
             }
             
+            // Support for non-standard dim_ prefix for non-XY axes
+            WcpsCoverageMetadata wcpsCoverageMetadataTmp = this.wmsGetMapWCPSMetadataTranslatorService.translate(layerNames.get(0));
+            for (Axis axis : wcpsCoverageMetadataTmp.getNonXYAxes()) {
+                String axisName = axis.getLabel();
+                String[] valueTmps = kvpParameters.get(axisName);
+                if (valueTmps != null) {
+                    dimSubsetsMap.put(axisName, valueTmps[0]);
+                }
+            }
+            
             String interpolation = "";
             
             // Optional value (used only when requesting different CRS from layer's native CRS)
@@ -277,18 +294,27 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
             } else {
                 interpolation = WMSGetMapService.DEFAULT_INTERPOLATION;
             }
-
+            
             wmsGetMapService.setLayerNames(layerNames);
             wmsGetMapService.setStyleNames(styleNames);
             wmsGetMapService.setOutputCRS(outputCRS);
             wmsGetMapService.setWidth(width);
             wmsGetMapService.setHeight(height);
-            wmsGetMapService.setBBoxes(bbox);
-            wmsGetMapService.setFormat(format);
-            wmsGetMapService.setTransparent(transparent);
             wmsGetMapService.setDimSubsetsMap(dimSubsetsMap);
+            wmsGetMapService.setBBoxes(bbox, layerNames);
+            wmsGetMapService.setFormat(format);
+            wmsGetMapService.setTransparent(transparent);            
             wmsGetMapService.setInterpolation(interpolation);
-
+            
+            // In case, GetMap request is generated from a WMTS GetTile service
+            String tileMatrixName = AbstractController.getValueByKeyAllowNull(kvpParameters, 
+                                                                KVPSymbols.KEY_WMTS_RASDAMAN_INTERNAL_FOR_GETMAP_REQUEST_PYRAMID_COVERAGE_ID);
+            if (tileMatrixName != null) {
+                wmsGetMapService.setWMTSTileMatrixName(tileMatrixName);
+            }
+            
+            wmsGetMapService.setBBoxes(bbox, layerNames);
+            
             response = wmsGetMapService.createGetMapResponse();
             // Add the successful result to the cache
             wmsGetMapCachingService.addResponseToCache(queryString, response);

@@ -31,6 +31,7 @@ from lib import arrow
 from collections import OrderedDict
 from time import sleep
 from config_manager import ConfigManager
+from master.importer.bbox import BBox
 from master.importer.coverage import Coverage
 from master.importer.slice import Slice
 from master.importer.slice_restricter import SliceRestricter
@@ -137,12 +138,26 @@ class Importer:
                 if ConfigManager.mock:
                     request = WCSTUpdateRequest(self.coverage.coverage_id, gml_obj.get_url(), subsets, ConfigManager.insitu, None)
                 else:
-                    request = WCSTUpdateRequest(self.coverage.coverage_id, None, subsets, ConfigManager.insitu, gml_obj)
+                    file_path = None
+                    if hasattr(current.data_provider, "file"):
+                        file_path = current.data_provider.file.filepath
+
+                    request = WCSTUpdateRequest(self.coverage.coverage_id, None, subsets, ConfigManager.insitu, gml_obj, file_path)
 
                 executor = ConfigManager.executor
                 executor.execute(request, mock=ConfigManager.mock)
 
+                file_path = None
+
+                if hasattr(current.data_provider, "file"):
+                    file_path = current.data_provider.file.filepath
+                bbox_dict = self.__get_bbox_dict(current.axis_subsets)
+
+                if self.session is not None and file_path is not None:
+                    self.session.IMPORTED_FILE_AXIS_BBOX_DICT[file_path] = bbox_dict
+
                 self.resumer.add_imported_data(self.current_data_provider)
+
             except Exception as e:
                 if ConfigManager.retry is True:
                     log.warn(
@@ -158,6 +173,19 @@ class Importer:
         else:
             log.warn("\nFailed to insert slice. Attempted " + str(ConfigManager.retries) + " times.")
             raise current_exception
+
+    def __get_bbox_dict(self, axis_subsets):
+        """
+        Return the dict of bboxes (one bbox for one coverage's axis)
+        :param List<AxisSubset> axis_subsets
+        """
+        bbox_dict = {}
+        for axis_subset in axis_subsets:
+            axis = axis_subset.coverage_axis.axis
+            bbox = BBox(axis.label, axis.low, axis.high)
+            bbox_dict[axis.label] = bbox
+
+        return bbox_dict
 
     def get_slices_for_description(self):
         """
@@ -196,7 +224,7 @@ class Importer:
         for axis_subset in slice.axis_subsets:
             grid_axis = axis_subset.coverage_axis.grid_axis
 
-            if axis_subset.coverage_axis.data_bound is False:
+            if axis_subset.coverage_axis.dataBound is False:
                 values.append(str(grid_axis.grid_low))
             else:
                 values.append(str(grid_axis.grid_low) + ":" + str(grid_axis.grid_high))
@@ -488,7 +516,7 @@ class Importer:
         """
         crsAxes = []
         for axis_subset in slice.axis_subsets:
-            if axis_subset.coverage_axis.data_bound:
+            if axis_subset.coverage_axis.dataBound:
                 crsAxes.append(axis_subset.coverage_axis.axis.crs_axis)
         crsUtil = CRSUtil(crs)
         return crsUtil.get_crs_for_axes(crsAxes)
@@ -514,7 +542,7 @@ class Importer:
         """
         axes = OrderedDict()
         for axis_subset in slice.axis_subsets:
-            if axis_subset.coverage_axis.data_bound:
+            if axis_subset.coverage_axis.dataBound:
                 axes[axis_subset.coverage_axis.axis] = axis_subset.coverage_axis.grid_axis
         return axes
 

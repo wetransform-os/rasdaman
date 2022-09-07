@@ -76,8 +76,7 @@ public class StringUtil {
 
     public static final String POST_XML_CONTENT_TYPE = "text/xml";
     public static final String POST_XML_SOAP_CONTENT_TYPE = "application/soap+xml";
-
-    
+  
     public static final Pattern squareBracketsPattern = Pattern.compile("\\[(.*?)\\]");
     
     /**
@@ -724,6 +723,23 @@ public class StringUtil {
      */
     public static String stripZerosAfterDecimal(String str) {
         return str.replaceAll("^([-?\\d,]+)$|^([-?\\d,]+)\\.0*$|^([-?\\d,]+\\.[0-9]*?)0*$", "$1$2$3");
+    }
+    
+    /**
+     * Return an iterator label, starting with char: i
+     * size = 1 -> char j
+     * size = 2 -> char k
+     */
+    public static String getIteratorLabel(int incrementSize) {
+        return Character.toString((char) ('i' + incrementSize));
+    }
+    
+    public static Boolean stringToBoolean(String value) {
+        if (value == null) {
+            return null;
+        } else {
+            return Boolean.valueOf(value);
+        }
     }
     
 }

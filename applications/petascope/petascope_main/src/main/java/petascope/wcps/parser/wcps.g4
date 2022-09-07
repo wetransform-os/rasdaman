@@ -405,7 +405,7 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                   | coverageExpression LEFT_BRACKET dimensionIntervalList RIGHT_BRACKET
                     #CoverageExpressionShorthandSubsetLabel
                   | coverageExpression LEFT_BRACKET coverageVariableName RIGHT_BRACKET
-                    #coverageXpressionShortHandSubsetWithLetClauseVariableLabel
+                    #coverageExpressionShortHandSubsetWithLetClauseVariableLabel
                   | TRIM LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionTrimCoverageLabel
@@ -443,6 +443,8 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                     #CoverageExpressionClipCorridorLabel
                   | crsTransformExpression
                     #CoverageExpressionCrsTransformLabel
+                  | crsTransformShorthandExpression
+                    #CoverageExpressionCrsTransformShorthandLabel
 		          | switchCaseExpression
                     #CoverageExpressionSwitchCaseLabel
                   | SCALE LEFT_PARENTHESIS
@@ -476,7 +478,11 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
   		          | coverageExpression IS (NOT)? NULL
 		            #CoverageIsNullExpression
                   | coverageExpression OVERLAY coverageExpression
-                    #CoverageExpressionOverlayLabel;
+                    #CoverageExpressionOverlayLabel
+                  | flipExpression
+                    #coverageExpresisonFlipLabel
+                  | sortExpression
+                    #coverageExpressionSortLabel;
 /**
  * Example:
  *   $c1 AND $c2
@@ -613,8 +619,15 @@ fieldName: COVERAGE_VARIABLE_NAME | INTEGER;
       select  { c.red, c.green, c.blue } from COV as c
  */
 rangeConstructorExpression: LEFT_BRACE
-                              (fieldName COLON coverageExpression) (SEMICOLON fieldName COLON coverageExpression)*
+                                  rangeConstructorElementList
                             RIGHT_BRACE                                                                                 #RangeConstructorExpressionLabel;
+
+rangeConstructorElement: fieldName COLON coverageExpression
+#rangeConstructorElementLabel;
+
+rangeConstructorElementList: rangeConstructorElement (SEMICOLON rangeConstructorElement)*
+#rangeConstructorElementListLabel;
+
 
 /**
  This is used in switch case which return range constructor
@@ -766,6 +779,12 @@ crsTransformExpression: CRS_TRANSFORM LEFT_PARENTHESIS
                         RIGHT_PARENTHESIS
 #CrsTransformExpressionLabel;
 
+crsTransformShorthandExpression: CRS_TRANSFORM LEFT_PARENTHESIS
+                              coverageExpression COMMA crsName
+                          (COMMA LEFT_BRACE interpolationType? RIGHT_BRACE)?
+                        RIGHT_PARENTHESIS
+#CrsTransformShorthandExpressionLabel;
+
 
 /*
  * e.g: { Lat:"http://localhost:8080/def/crs/EPSG/0/4326", Long:"http://localhost:8080/def/crs/EPSG/0/4326"}
@@ -844,6 +863,14 @@ generalCondenseExpression: CONDENSE condenseExpressionOperator
 #GeneralCondenseExpressionLabel;
 
 
+flipExpression: FLIP coverageExpression ALONG axisName
+#flipExpressionLabel;
+
+// e.g. SORT $c ALONG ansi BY min($c[Long(30:30)])
+sortExpression: SORT coverageExpression ALONG axisName sortingOrder? BY coverageExpression
+#sortExpressionLabel;
+
+
 /*
 * Switch - Case
 1. Return range constructor
@@ -858,30 +885,15 @@ generalCondenseExpression: CONDENSE condenseExpressionOperator
 		       case c > 70 and c < 100 return (char)5
                 default return 2, "csv")
 */
-switchCaseExpression: SWITCH CASE (LEFT_PARENTHESIS)*
-					booleanSwitchCaseCombinedExpression
-                                  (RIGHT_PARENTHESIS)*
-				  RETURN rangeConstructorSwitchCaseExpression
 
-			     (CASE (LEFT_PARENTHESIS)*
-					booleanSwitchCaseCombinedExpression
-				   (RIGHT_PARENTHESIS)*
-			     RETURN rangeConstructorSwitchCaseExpression)*
+switchCaseExpression: SWITCH switchCaseElementList
+  		              switchCaseDefaultElement
+          #switchCaseExpressionLabel;
 
-		      DEFAULT RETURN rangeConstructorSwitchCaseExpression
-          #switchCaseRangeConstructorExpressionLabel
-        | SWITCH CASE (LEFT_PARENTHESIS)*
-					booleanSwitchCaseCombinedExpression
-				   (RIGHT_PARENTHESIS)*
-				  RETURN scalarValueCoverageExpression
 
-			    (CASE (LEFT_PARENTHESIS)*
-					booleanSwitchCaseCombinedExpression
-				   (RIGHT_PARENTHESIS)*
-			    RETURN scalarValueCoverageExpression)*
-
-		      DEFAULT RETURN scalarValueCoverageExpression
-          #switchCaseScalarValueExpressionLabel;
+switchCaseElement: CASE booleanSwitchCaseCombinedExpression RETURN coverageExpression;
+switchCaseElementList: switchCaseElement (switchCaseElement)*;
+switchCaseDefaultElement: DEFAULT RETURN  coverageExpression;
 
 
 /**
@@ -899,3 +911,5 @@ constant: STRING_LITERAL
         | TRUE | FALSE
         | (MINUS)? number
         | complexNumberConstant;
+
+sortingOrder: ASC | DESC;

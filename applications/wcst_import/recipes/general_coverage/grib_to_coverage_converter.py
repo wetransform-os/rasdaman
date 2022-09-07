@@ -25,6 +25,7 @@ import copy
 
 from config_manager import ConfigManager
 from lib import arrow
+from master.error.validate_exception import RecipeValidationException
 from util.time_util import DateTimeUtil
 from util import list_util
 from master.evaluator.evaluator_slice import GribMessageEvaluatorSlice
@@ -51,16 +52,14 @@ from util.import_util import import_pygrib
 
 
 class GRIBMessage:
-    def __init__(self, id, axes, message):
+    def __init__(self, id, axes):
         """
         A representation of a grib message
         :param int id: the id of the message
         :param list[UserAxis] axes: the axes corresponding to this message
-        :param pygrib.message message: the message as a pygrib data structure
         """
         self.id = id
         self.axes = axes
-        self.message = message
 
     def to_json(self):
         """
@@ -80,6 +79,8 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
     DEFAULT_DATA_TYPE = "Float64"
     MIMETYPE = "application/grib"
     RECIPE_TYPE = "grib"
+
+    GRIB_MESSAGES_FILTER_BY_SETTING = "filterMessagesMatching"
 
     def __init__(self, resumer, default_null_values, recipe_type, sentence_evaluator, coverage_id, bands, files, crs, user_axes, tiling,
                  global_metadata_fields, local_metadata_fields, bands_metadata_fields, axes_metadata_fields,
@@ -141,7 +142,7 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
         if len(self.files) < 1:
             raise RuntimeException("No files to import were specified.")
 
-        if len(self.default_null_values) > 0:
+        if self.default_null_values is not None:
             return self.default_null_values
 
         # NOTE: all files should have same bands's metadata
@@ -174,11 +175,13 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             out_messages.append(message.to_json())
         return out_messages
 
-    def _evaluated_messages(self, grib_file):
+    def _collect_evaluated_messages(self, grib_file):
         """
-        Returns the evaluated_messages for all grib_messages
+        Returns the tuple of:
+        - The list of evaluated_messages (NOTE: not contain actual GRIB messages) for all grib_messages
+        - The first actual GRIB message from the input grib_file for collecting local metadata
         :param String grib_file: path to a grib file
-        :rtype: list[GRIBMessage]
+        :rtype: (list[GRIBMessage], grib_message)
         """
         # NOTE: grib only supports 1 band
         band = self.bands[0]
@@ -187,12 +190,33 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
 
         self.dataset = pygrib.open(grib_file.filepath)
         evaluated_messages = []
+        collected_evaluated_messages = []
 
-        collected_messages = []
+        first_grib_message = None
 
         # Message id starts with "1"
         for i in range(1, self.dataset.messages + 1):
             grib_message = self.dataset.message(i)
+            if i == 1:
+                first_grib_message = grib_message
+
+            is_message_to_select = True
+            if band.filterMessagesMatching is not None:
+                for grib_key, user_input_value in band.filterMessagesMatching.items():
+                    if grib_key not in grib_message._all_keys:
+                        raise RecipeValidationException("Key: " + grib_key + " of setting: "
+                                                        + self.GRIB_MESSAGES_FILTER_BY_SETTING
+                                                        + " does not exist in the input GRIB files.")
+                    else:
+                        grib_value = grib_message[grib_key]
+                        if user_input_value not in grib_value:
+                            # Here, a message doesn't contain GRIB key with value which should contain user's input value
+                            # then, this message is not selected to import
+                            is_message_to_select = False
+                            break
+
+            if is_message_to_select is False:
+                continue
 
             axes = []
             # Iterate all the axes and evaluate them with message
@@ -233,16 +257,19 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             # e.g. 2d for 2m_dewpoint_temperature
             band_name = grib_message["shortName"]
             if band_name == band.identifier:
-                evaluated_messages.append(GRIBMessage(i, axes, grib_message))
+                evaluated_messages.append(GRIBMessage(i, axes))
 
-            collected_messages.append(GRIBMessage(i, axes, grib_message))
+            collected_evaluated_messages.append(GRIBMessage(i, axes))
 
         if len(evaluated_messages) == 0:
             # NOTE: in case, input file has only 1 band, but user defined random band identifier (backward compatibility),
             # instead of the one from shortName then, this collect every available messages from the input files
-            evaluated_messages = collected_messages
+            if len(collected_evaluated_messages) > 0:
+                evaluated_messages = collected_evaluated_messages
+            else:
+                raise RuntimeException("Grib file '" + grib_file.filepath + "' does not contain any selected messages to import.")
 
-        return evaluated_messages
+        return evaluated_messages, first_grib_message
 
     def _axis_subset(self, grib_file, evaluated_messages, crs_axis):
         """
@@ -304,7 +331,7 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             self._translate_decimal_to_datetime(user_axis, geo_axis)
 
         return AxisSubset(CoverageAxis(geo_axis, grid_axis, user_axis.dataBound),
-                                       Interval(user_axis.interval.low, user_axis.interval.high))
+                          Interval(user_axis.interval.low, user_axis.interval.high))
 
     def _set_low_high(self, messages, user_axis):
         """
@@ -315,10 +342,11 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
         """
         values = self._get_axis_values(messages, user_axis)
         low = values[0]
-        high = values[len(values) - 1]
 
         user_axis.interval.low = low
-        user_axis.interval.high = high
+        if user_axis.dataBound is True:
+            high = values[len(values) - 1]
+            user_axis.interval.high = high
 
     def _get_axis_values(self, messages, user_axis):
         """
@@ -366,7 +394,7 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
         :param list[number] axis_resolutions
         :rtype: Slice
         """
-        evaluated_messages = self._evaluated_messages(grib_file)
+        evaluated_messages, first_grib_message = self._collect_evaluated_messages(grib_file)
         axis_subsets = []
 
         # Build slice for grib files which contains all the axes (i.e: min, max, origin, resolution of geo, grid bounds)
@@ -375,4 +403,10 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             axis_subset = self._axis_subset(grib_file, evaluated_messages, crs_axis)
             axis_subsets.append(axis_subset)
 
-        return Slice(axis_subsets, FileDataProvider(grib_file, self._evaluated_messages_to_dict(evaluated_messages), self.MIMETYPE))
+        # Generate local metadata string for current coverage slice
+        # This is used only for collecting local metadata
+        evaluator_slice.grib_message = first_grib_message
+        local_metadata = self._generate_local_metadata(axis_subsets, evaluator_slice)
+
+        return Slice(axis_subsets, FileDataProvider(grib_file, self._evaluated_messages_to_dict(evaluated_messages)),
+                     local_metadata)

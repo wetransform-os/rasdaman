@@ -21,18 +21,23 @@
  */
 package petascope.wcps.handler;
 
+import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.AxisTypes;
 import petascope.exceptions.PetascopeException;
 import petascope.util.CrsUtil;
-import petascope.util.ListUtil;
 import petascope.wcps.exception.processing.InvalidAxisInDomainExpressionException;
+import static petascope.wcps.handler.AbstractOperatorHandler.checkOperandIsCoverage;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.NumericSlicing;
 import petascope.wcps.metadata.model.NumericTrimming;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
+import petascope.wcps.metadata.service.CrsUtility;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataGeneralService;
+import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsMetadataResult;
 import petascope.wcps.result.WcpsResult;
 
@@ -55,12 +60,35 @@ import petascope.wcps.result.WcpsResult;
  * @author <a href="mailto:bphamhuu@jacobs-university.de">Bang Pham Huu</a>
  */
 @Service
-public class DomainExpressionHandler extends AbstractOperatorHandler {
+@Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
+public class DomainExpressionHandler extends Handler {
     
     public static final String OPERATOR = "domain";
     
     @Autowired
     private WcpsCoverageMetadataGeneralService generateWcpsMetadataWithOneGridAxis;
+    
+    public DomainExpressionHandler() {
+        
+    }
+    
+    public DomainExpressionHandler create(Handler coverageExpressionHandler, StringScalarHandler axisNameHandler, StringScalarHandler axisCrsHandler) {
+        DomainExpressionHandler result = new DomainExpressionHandler();
+        result.setChildren(Arrays.asList(coverageExpressionHandler, axisNameHandler, axisCrsHandler));
+        result.generateWcpsMetadataWithOneGridAxis = this.generateWcpsMetadataWithOneGridAxis;
+        
+        return result;
+    }
+    
+    public VisitorResult handle() throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
+        String axisName = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+        String axisCrs = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+        
+        VisitorResult result = this.handle(coverageExpression, axisName, axisCrs);
+        return result;       
+    }
+    
 
     /**
      * Constructor for the class
@@ -70,12 +98,16 @@ public class DomainExpressionHandler extends AbstractOperatorHandler {
      * @param axisCrs
      * @return
      */
-    public WcpsMetadataResult handle(WcpsResult coverageExpression, String axisName, String axisCrs) throws PetascopeException {
+    private VisitorResult handle(WcpsResult coverageExpression, String axisName, String axisCrs) throws PetascopeException {
         
-        checkOperandIsCoverage(coverageExpression, OPERATOR); 
-
+        checkOperandIsCoverage(coverageExpression, OPERATOR);
+        
         WcpsMetadataResult metadataResult = null;
         if (axisName != null) {
+            if (axisCrs == null) {
+                axisCrs = coverageExpression.getMetadata().getAxisByName(axisName).getNativeCrsUri();
+            }
+            
             // if axisName and axisCrs is belonge to coverageExpression then can just get the bounding of axis from coverageExpression
             if (isValid(coverageExpression, axisName, axisCrs)) {
                 String result = getDomainByAxisCrs(coverageExpression, axisName, axisCrs);
@@ -106,7 +138,7 @@ public class DomainExpressionHandler extends AbstractOperatorHandler {
      * @param crsUri
      * @return
      */
-    private String getDomainByAxisCrs(WcpsResult coverageExpression, String axisName, String axisCrs) {
+    private String getDomainByAxisCrs(WcpsResult coverageExpression, String axisName, String axisCrs) throws PetascopeException {
         String result = "";
 
         Axis axis = coverageExpression.getMetadata().getAxisByName(axisName);
@@ -121,18 +153,17 @@ public class DomainExpressionHandler extends AbstractOperatorHandler {
                 lowBound = ((NumericTrimming) axis.getGridBounds()).getLowerLimit().toPlainString();
                 highBound = ((NumericTrimming) axis.getGridBounds()).getUpperLimit().toPlainString();
             } else if (axis.getAxisType().equals(AxisTypes.T_AXIS)) {
-                // Time - now only in grid axis
-                lowBound = ((NumericTrimming) axis.getGridBounds()).getLowerLimit().toPlainString();
-                highBound = ((NumericTrimming) axis.getGridBounds()).getUpperLimit().toPlainString();
-            } else if (axis.getAxisType().equals(AxisTypes.X_AXIS)
+                lowBound = axis.getLowerGeoBoundRepresentation();
+                highBound = axis.getUpperGeoBoundRepresentation();
+            } else if (axis.getAxisType().equals(AxisTypes.X_AXIS) 
                     || axis.getAxisType().equals(AxisTypes.Y_AXIS)) {
                 // geo-referenced axis , e.g: Lat, Long or Index2D(*)
                 lowBound = ((NumericTrimming) axis.getGeoBounds()).getLowerLimit().toPlainString();
                 highBound = ((NumericTrimming) axis.getGeoBounds()).getUpperLimit().toPlainString();
             } else {
-                // Unknow axisType, use grid bounds
-                lowBound = ((NumericTrimming) axis.getGridBounds()).getLowerLimit().toPlainString();
-                highBound = ((NumericTrimming) axis.getGridBounds()).getUpperLimit().toPlainString();
+                // Unknow axisType
+                lowBound = ((NumericTrimming) axis.getGeoBounds()).getLowerLimit().toPlainString();
+                highBound = ((NumericTrimming) axis.getGeoBounds()).getUpperLimit().toPlainString();
             }
 
             result = TRIMMING_TEMPLATE.replace("$lowBound", lowBound).replace("$highBound", highBound);

@@ -129,6 +129,8 @@ public class CrsUtil {
     public static final String ISO_AUTH = "ISO";
     public static final String AUTO_AUTH = "AUTO";
     public static final String OGC_AUTH = "OGC";
+    public static final String URN_EPSG_PREFIX = "urn:ogc:def:crs:EPSG::";
+    
     // rotated-CRS netCDF
     public static final String COSMO_AUTH = "COSMO";
     // COSMO 101 CRS
@@ -314,7 +316,11 @@ public class CrsUtil {
      * Check if the crs should go to the internal SECORE or not
      */
     public static boolean isInternalSecoreURL(String url) {
-        if (url.contains(LOCALHOST + ":" + ConfigManager.EMBEDDED_PETASCOPE_PORT)) {
+        if (url.contains(LOCALHOST + ":" + ConfigManager.EMBEDDED_PETASCOPE_PORT)
+            || url.contains("www.opengis.net/def/uom/")) {
+            // NOTE: server opengis.net/def limit number of requests for UoM URI requests ("Rate limit exceeded: 15 per 1 minute"})
+            // then, use internal SECORE instead
+            
             // If SECORE url is localhost, then check it should be resolved internally by petascope or not
             String tmpCRS = url.replace(ConfigManager.DEFAULT_PETASCOPE_PORT, ConfigManager.EMBEDDED_PETASCOPE_PORT);
             return url.startsWith(ConfigManager.DEFAULT_SECORE_INTERNAL_URL) || url.startsWith(tmpCRS);
@@ -1049,9 +1055,12 @@ public class CrsUtil {
      * Return the opengis full uri for EPSG code, e.g: EPSG:4326 ->
      * http://www.opengis.net/def/crs/EPSG/0/4326
      */
-    public static String getFullCRSURLByAuthorityCode(String authorityCode) {
+    public static String getFullCRSURLByAuthorityCode(String authorityCode) throws PetascopeException {
         // e.g. EPSG:4326
         String[] tmps = authorityCode.split(":");
+        if (tmps.length != 2) {
+            throw new PetascopeException(ExceptionCode.InvalidRequest, "CRS authority code is not valid. Given: " + authorityCode);
+        }
         // e.g. EPSG
         String authortiy = tmps[0];
         // e.g. 4326
@@ -1072,7 +1081,7 @@ public class CrsUtil {
      * Ultility to get the code from CRS (e.g: EPSG:4326 -> 4326)
      */
     public static String getCode(String crs) {
-        if (crs.contains(":")) {
+        if (!crs.contains("/")) {
             return crs.split(":")[1];
         }
         return CrsUri.getCode(crs);
@@ -1082,7 +1091,7 @@ public class CrsUtil {
      * Given a CRS URL or Authority:Code, return authority:code
      * e.g: http://localhost:8080/def/crs/EPSG/0/4326 -> EPSG:4326
      */
-    public static String getAuthorityCode(String crs) {
+    public static String getAuthorityCode(String crs) throws PetascopeException {
         crs = crs.trim();
         
         if (isAuthorityCode(crs)) {
@@ -1090,6 +1099,10 @@ public class CrsUtil {
         }
         
         String prefix = "/crs/";
+        if (!crs.contains(prefix)) {
+            throw new PetascopeException(ExceptionCode.InvalidRequest, "Cannot get authority code from the given CRS: " + crs);
+        }
+        
         String[] values = crs.substring(crs.indexOf(prefix), crs.length()).replace(prefix, "").split("/");
         String result = values[0] + ":" + values[2];
         return result;
@@ -1170,7 +1183,7 @@ public class CrsUtil {
     /**
      * return true if both axis labels are longitude axes
      */
-    private static boolean isLongitudeAxis(String axisLabel1, String axisLabel2) {
+    public static boolean isLongitudeAxis(String axisLabel1, String axisLabel2) {
         if (axisLabel1.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85) 
            || axisLabel1.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0)) {
             if (axisLabel2.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85)
@@ -1397,6 +1410,8 @@ public class CrsUtil {
          */
         public static List<String> decomposeUri(String uri) {
             String decUri = StringUtil.urldecode(uri, null);
+            decUri = CrsUri.fromDbRepresentation(decUri);
+            
             List<String> crss = new ArrayList<>();
 
             if (isCompound(decUri)) {

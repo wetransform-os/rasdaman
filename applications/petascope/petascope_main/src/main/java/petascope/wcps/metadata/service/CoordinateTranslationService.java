@@ -32,8 +32,10 @@ import petascope.core.GeoTransform;
 import petascope.core.Pair;
 import petascope.wcps.metadata.model.IrregularAxis;
 import petascope.core.service.CrsComputerService;
+import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.util.CrsUtil;
+import petascope.util.TimeUtil;
 import petascope.wcps.exception.processing.IrreguarAxisCoefficientNotFoundException;
 import petascope.wcps.exception.processing.IrregularAxisTrimmingCoefficientNotFoundException;
 import petascope.wcps.metadata.model.Axis;
@@ -60,11 +62,16 @@ public class CoordinateTranslationService {
      * return the grid bound and number of grid pixel
      */
     private Pair<BigDecimal, BigDecimal> calculateGridXBounds(GeoTransform adfGeoTransform, BigDecimal geoXMin, BigDecimal geoXMax) {
+        
         BigDecimal gridXMin = BigDecimalUtil.divide(geoXMin.subtract(adfGeoTransform.getUpperLeftGeoXDecimal()), adfGeoTransform.getGeoXResolution());
         BigDecimal numberOfXPixels = BigDecimalUtil.divide(geoXMax.subtract(geoXMin), adfGeoTransform.getGeoXResolution());
         
         // Default nearest neighbor
-        gridXMin = gridXMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.FLOOR);
+        if (!BigDecimalUtil.approximateInteger(gridXMin)) {
+            gridXMin = gridXMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.CEILING);
+        } else {
+            gridXMin = gridXMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.FLOOR);
+        }
         numberOfXPixels = numberOfXPixels.add(GDAL_EPSILON_MAX).setScale(0, RoundingMode.FLOOR);
         
         return new Pair<>(gridXMin, numberOfXPixels);
@@ -79,7 +86,11 @@ public class CoordinateTranslationService {
         BigDecimal numberOfYPixels = BigDecimalUtil.divide(geoYMin.subtract(geoYMax), adfGeoTransform.getGeoYResolutionDecimal());
         
         // Default nearest neighbor
-        gridYMin = gridYMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.FLOOR);
+        if (!BigDecimalUtil.approximateInteger(gridYMin)) {
+            gridYMin = gridYMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.CEILING);
+        } else {
+            gridYMin = gridYMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.FLOOR);
+        } 
         numberOfYPixels = numberOfYPixels.add(GDAL_EPSILON_MAX).setScale(0, RoundingMode.FLOOR);
         
         return new Pair<>(gridYMin, numberOfYPixels);
@@ -89,7 +100,7 @@ public class CoordinateTranslationService {
      * Get a pair of lower:upper bounds for geo and grid by geo trimming subset of X axis
      * as gdal_translate -projwin
      */
-    public Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> calculateGeoGridXBounds(Axis axisX, GeoTransform adfGeoTransform, 
+    public Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> calculateGeoGridXBounds(boolean checkBoundary, boolean checkGridBound, Axis axisX, GeoTransform adfGeoTransform, 
                                                                                       BigDecimal geoXMin, BigDecimal geoXMax) {
         Pair<BigDecimal, BigDecimal> gridPair = this.calculateGridXBounds(adfGeoTransform, geoXMin, geoXMax);
         
@@ -99,6 +110,15 @@ public class CoordinateTranslationService {
         
         gridXMin = gridXMin.add(axisX.getGridBounds().getLowerLimit());
         gridXMax = gridXMax.add(axisX.getGridBounds().getLowerLimit());
+        
+        if (checkGridBound) {
+            gridXMin = BigDecimalUtil.getValidValue(axisX.getGridBounds().getLowerLimit(), axisX.getGridBounds().getUpperLimit(), gridXMin);
+            gridXMax = BigDecimalUtil.getValidValue(axisX.getGridBounds().getLowerLimit(), axisX.getGridBounds().getUpperLimit(), gridXMax);
+        }
+        
+        if (gridXMin.compareTo(gridXMax) > 0) {
+            gridXMin = gridXMax;
+        }        
         
         BigDecimal updatedGeoXMin = adfGeoTransform.getUpperLeftGeoXDecimal().add(gridPair.fst.multiply(adfGeoTransform.getGeoXResolution()));
         BigDecimal updatedGeoXMax = updatedGeoXMin.add(adfGeoTransform.getGeoXResolution().multiply(dfOXSize));
@@ -113,7 +133,7 @@ public class CoordinateTranslationService {
      * Get a pair of lower:upper bounds for geo and grid by geo trimming subset of Y axis
      * as gdal_translate -projwin
      */
-    public Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> calculateGeoGridYBounds(Axis axisY, GeoTransform adfGeoTransform, 
+    public Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> calculateGeoGridYBounds(boolean checkBoundary, boolean checkGridBound, Axis axisY, GeoTransform adfGeoTransform, 
                                                                                       BigDecimal geoYMin, BigDecimal geoYMax) {
         Pair<BigDecimal, BigDecimal> gridPair = this.calculateGridYBounds(adfGeoTransform, geoYMin, geoYMax);
         
@@ -123,6 +143,15 @@ public class CoordinateTranslationService {
         
         gridYMin = gridYMin.add(axisY.getGridBounds().getLowerLimit());
         gridYMax = gridYMax.add(axisY.getGridBounds().getLowerLimit());
+        
+        if (checkGridBound) {
+            gridYMin = BigDecimalUtil.getValidValue(axisY.getGridBounds().getLowerLimit(), axisY.getGridBounds().getUpperLimit(), gridYMin);
+            gridYMax = BigDecimalUtil.getValidValue(axisY.getGridBounds().getLowerLimit(), axisY.getGridBounds().getUpperLimit(), gridYMax);
+        }
+        
+        if (gridYMin.compareTo(gridYMax) > 0) {
+            gridYMin = gridYMax;
+        } 
         
         BigDecimal updatedGeoYMax = adfGeoTransform.getUpperLeftGeoY().add(gridPair.fst.multiply(adfGeoTransform.getGeoYResolutionDecimal()));
         BigDecimal updatedGeoYMin = updatedGeoYMax.add(adfGeoTransform.getGeoYResolutionDecimal().multiply(dfOYSize));
@@ -136,7 +165,7 @@ public class CoordinateTranslationService {
     /**
      * Return a pair of geo / grid bboxes as same as gdal from an input bbox on XY axes
      */
-    public Pair<BoundingBox, BoundingBox> calculateGridGeoXYBoundingBoxes(Axis axisX, Axis axisY, BoundingBox inputBBoxNativeCRS) throws PetascopeException {
+    public Pair<BoundingBox, BoundingBox> calculateGridGeoXYBoundingBoxes(boolean checkBoundary, boolean checkGridBound, Axis axisX, Axis axisY, BoundingBox inputBBoxNativeCRS) throws PetascopeException {
         String sourceCRS = axisX.getNativeCrsUri();
         String sourceCRSWKT = CrsUtil.getWKT(sourceCRS);
         
@@ -145,7 +174,7 @@ public class CoordinateTranslationService {
 
         GeoTransform adfGeoTransformX = new GeoTransform(sourceCRSWKT, axisX.getGeoBounds().getLowerLimit(), BigDecimal.ZERO,
                                                          gridWidth, 0, axisX.getResolution(), BigDecimal.ZERO);
-        Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairX = this.calculateGeoGridXBounds(axisX, adfGeoTransformX,
+        Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairX = this.calculateGeoGridXBounds(checkBoundary, checkGridBound, axisX, adfGeoTransformX,
                                                                                                 inputBBoxNativeCRS.getXMin(), inputBBoxNativeCRS.getXMax());
         
         // axis Y
@@ -153,7 +182,7 @@ public class CoordinateTranslationService {
 
         GeoTransform adfGeoTransformY = new GeoTransform(sourceCRSWKT, BigDecimal.ZERO, axisY.getGeoBounds().getUpperLimit(),
                                                          0, gridHeight, BigDecimal.ZERO, axisY.getResolution());
-        Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairY = this.calculateGeoGridYBounds(axisY, adfGeoTransformY,
+        Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairY = this.calculateGeoGridYBounds(checkBoundary, checkGridBound, axisY, adfGeoTransformY,
                                                                                                 inputBBoxNativeCRS.getYMin(), inputBBoxNativeCRS.getYMax());
         
         BoundingBox geoBBox = new BoundingBox(new BigDecimal(pairX.fst.getLowerLimit().toString()), new BigDecimal(pairY.fst.getLowerLimit().toString()),
@@ -176,16 +205,16 @@ public class CoordinateTranslationService {
     /**
      * From a geo XY bounding box with geo bounds calculates an adjusted XY bounding box with geo bounds.
      */
-    public BoundingBox calculageGeoXYBoundingBox(Axis axisX, Axis axisY, BoundingBox inputBBoxNativeCRS) throws PetascopeException {
-        BoundingBox geoBBox = this.calculateGridGeoXYBoundingBoxes(axisX, axisY, inputBBoxNativeCRS).fst;
+    public BoundingBox calculageGeoXYBoundingBox(boolean checkBoundary, boolean checkGridBound, Axis axisX, Axis axisY, BoundingBox inputBBoxNativeCRS) throws PetascopeException {
+        BoundingBox geoBBox = this.calculateGridGeoXYBoundingBoxes(checkBoundary, checkGridBound, axisX, axisY, inputBBoxNativeCRS).fst;
         return geoBBox;
     }
     
      /**
      * From a geo XY bounding box with geo bounds calculates a grid XY bounding box with grid bounds.
      */
-    public BoundingBox calculageGridXYBoundingBox(Axis axisX, Axis axisY, BoundingBox inputBBoxNativeCRS) throws PetascopeException {
-        BoundingBox gridBBox = this.calculateGridGeoXYBoundingBoxes(axisX, axisY, inputBBoxNativeCRS).snd;
+    public BoundingBox calculageGridXYBoundingBox(boolean checkBoundary, boolean checkGridBound, Axis axisX, Axis axisY, BoundingBox inputBBoxNativeCRS) throws PetascopeException {
+        BoundingBox gridBBox = this.calculateGridGeoXYBoundingBoxes(checkBoundary, checkGridBound, axisX, axisY, inputBBoxNativeCRS).snd;
         return gridBBox;
     }
     
@@ -342,13 +371,18 @@ public class CoordinateTranslationService {
 
         // e.g: t(148654) in irr_cube_2
         NumericSubset originalGeoBounds = irregularAxis.getOriginalGeoBounds();
-        BigDecimal orginalGeoDomainMin = originalGeoBounds.getLowerLimit();
+        BigDecimal originalGeoDomainMin = originalGeoBounds.getLowerLimit();
+        BigDecimal originalGeoDomainMax = originalGeoBounds.getUpperLimit();
+        if (originalGeoDomainMin.compareTo(originalGeoDomainMax) > 0) {
+            originalGeoDomainMin = originalGeoDomainMax;
+        }
         
-        BigDecimal lowerCoefficient = (lowerLimit.subtract(orginalGeoDomainMin)).divide(scalarResolution);
-        BigDecimal upperCoefficient = (upperLimit.subtract(orginalGeoDomainMin)).divide(scalarResolution);
+        BigDecimal lowerCoefficient = (lowerLimit.subtract(originalGeoDomainMin)).divide(scalarResolution);
+        BigDecimal upperCoefficient = (upperLimit.subtract(originalGeoDomainMin)).divide(scalarResolution);
         
-        lowerCoefficient = lowerCoefficient.add(irregularAxis.getFirstCoefficient());
-        upperCoefficient = upperCoefficient.add(irregularAxis.getFirstCoefficient());
+        BigDecimal firstCoefficient = irregularAxis.getLowestCoefficientValue();
+        lowerCoefficient = lowerCoefficient.add(firstCoefficient);
+        upperCoefficient = upperCoefficient.add(firstCoefficient);
         
         if (numericSubset.isSlicing()) {
             // e.g: irregular date axis has values "2015-01", "2016-01", "2018-01" and request "2017-01"
@@ -357,13 +391,46 @@ public class CoordinateTranslationService {
             }
         }
         
+        // In case of flip(), lowerbound and upperbound are swapped
+        BigDecimal originalLowerBoundNumber = originalGeoBounds.getLowerLimit().compareTo(originalGeoBounds.getUpperLimit()) < 0 
+                                                ? originalGeoBounds.getLowerLimit() 
+                                                : originalGeoBounds.getUpperLimit();
+        BigDecimal originalUpperBoundNumber = originalGeoBounds.getUpperLimit().compareTo(originalGeoBounds.getLowerLimit()) > 0 
+                                        ? originalGeoBounds.getUpperLimit()
+                                        : originalGeoBounds.getLowerLimit();
+        
+        if (lowerLimit.compareTo(originalLowerBoundNumber) < 0) {
+            String subsetGeoLowerBound = lowerLimit.toPlainString();
+            String axisGeoLowerBound = originalLowerBoundNumber.toPlainString();
+            
+            if (irregularAxis.isTimeAxis()) {
+                subsetGeoLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, lowerLimit, irregularAxis.getCrsDefinition());
+                axisGeoLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, originalLowerBoundNumber, irregularAxis.getCrsDefinition());
+            }
+            
+            throw new PetascopeException(ExceptionCode.InvalidRequest, 
+                    "Request lower bound: " + subsetGeoLowerBound + " must be greater than the axis geo lower bound: " + axisGeoLowerBound);
+        } else if (upperLimit.compareTo(originalUpperBoundNumber) > 0) {
+            String subsetGeoUpperBound = upperLimit.toPlainString();
+            String axisGeoUpperBound = originalUpperBoundNumber.toPlainString();
+            
+            if (irregularAxis.isTimeAxis()) {
+                subsetGeoUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, upperLimit, irregularAxis.getCrsDefinition());
+                axisGeoUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, originalUpperBoundNumber, irregularAxis.getCrsDefinition());
+            }
+            
+            throw new PetascopeException(ExceptionCode.InvalidRequest, 
+                    "Request upper bound: " + subsetGeoUpperBound + " must be smaller than the axis geo upper bound: " + axisGeoUpperBound);
+        }
+        
         // Return the grid indices of the lower and upper coefficients in an irregular axis
         Pair<Long, Long> gridIndicePair = irregularAxis.getGridIndices(lowerCoefficient, upperCoefficient);
         if (gridIndicePair.fst > gridIndicePair.snd) {
             if (irregularAxis.isTimeAxis()) {
-                    originalLowerBound = "\"" + originalLowerBound + "\"";
-                    originalUpperBound = "\"" + originalUpperBound + "\"";
-                }
+                originalLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, irregularAxis.getOriginalGeoBounds().getLowerLimit(), irregularAxis.getCrsDefinition());
+                originalUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, irregularAxis.getOriginalGeoBounds().getUpperLimit(), irregularAxis.getCrsDefinition());
+            }
+            
             throw new IrregularAxisTrimmingCoefficientNotFoundException(irregularAxis.getLabel(), originalLowerBound, originalUpperBound);
         }
         Pair<Long, Long> gridBoundsPair = irregularAxis.calculateGridBoundsByZeroCoefficientIndex(gridIndicePair.fst, gridIndicePair.snd);

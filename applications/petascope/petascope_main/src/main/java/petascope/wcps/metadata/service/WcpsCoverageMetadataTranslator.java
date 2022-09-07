@@ -51,6 +51,7 @@ import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.metadata.model.Subset;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
+import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 
 /**
  * This class translates different types of metadata into WcpsCoverageMetadata.
@@ -149,29 +150,53 @@ public class WcpsCoverageMetadataTranslator {
      * Based on width and height, calculate the downscaledLevel should be applied on grid XY bounds of original WCPS coverage object
      * e.g: Lat axis with grid bound (0:10) will change to (0/2:10/2) = (0:5)
      */
-    public void applyDownscaledLevelOnXYGridAxesForScale(WcpsResult coverageExpression, 
+    public WcpsCoverageMetadata applyDownscaledLevelOnXYGridAxesForScale(WcpsResult coverageExpression, 
                                                          WcpsCoverageMetadata wcpsCoverageMetadataBase, List<Subset> numericSubsets) throws PetascopeException {
+        // @TODO: NOTE: it needs to find out which pyramid member should be selected before subsetting in scale() operator
+        // e.g. for c in (base) return encode(
+        //      scale(c[ansi("2016-01-01":"2020-01-01")], {Lat:"CRS:1"(0:30), Long:"CRS:1"(0:20)}), "csv")
+        // Here, with ANTLR4, c[ansi("2016-01-01":"2020-01-01")] will be processed first by using base coverage, 
+        // instead of coverage pyramid pyramid_2 with the given target grid domain for Lat and Long axes.
+        // This requires ticket: https://projects.rasdaman.com/ticket/299
+        
+        WcpsCoverageMetadata result = wcpsCoverageMetadataBase;
         
         if (wcpsCoverageMetadataBase.hasXYAxes()) {
             
             List<Axis> xyAxes = wcpsCoverageMetadataBase.getXYAxes();
-            Axis axisX = xyAxes.get(0);
-            Axis axisY = xyAxes.get(1);
+            Axis subsettedAxisX = xyAxes.get(0);
+            Axis subsettedAxisY = xyAxes.get(1);
             
-            Pair<BigDecimal, BigDecimal> geoSubsetX = new Pair<>(axisX.getGeoBounds().getLowerLimit(), axisX.getGeoBounds().getUpperLimit());
-            Pair<BigDecimal, BigDecimal> geoSubsetY = new Pair<>(axisY.getGeoBounds().getLowerLimit(), axisY.getGeoBounds().getUpperLimit());
+            Pair<BigDecimal, BigDecimal> geoSubsetX = new Pair<>(subsettedAxisX.getGeoBounds().getLowerLimit(), subsettedAxisX.getGeoBounds().getUpperLimit());
+            Pair<BigDecimal, BigDecimal> geoSubsetY = new Pair<>(subsettedAxisY.getGeoBounds().getLowerLimit(), subsettedAxisY.getGeoBounds().getUpperLimit());
             
-            int width = axisX.getGridBounds().getUpperLimit().intValue() - axisY.getGridBounds().getLowerLimit().intValue() + 1;
-            int height = axisY.getGridBounds().getUpperLimit().intValue() - axisY.getGridBounds().getLowerLimit().intValue() + 1;
+            int width = subsettedAxisX.getGridBounds().getUpperLimit().intValue() - subsettedAxisY.getGridBounds().getLowerLimit().intValue() + 1;
+            int height = subsettedAxisY.getGridBounds().getUpperLimit().intValue() - subsettedAxisY.getGridBounds().getLowerLimit().intValue() + 1;
+            
+            List<WcpsSubsetDimension> nonXYSubsetDimensions = new ArrayList<>();
+            List<Axis> nonXYAxes = wcpsCoverageMetadataBase.getNonXYAxes();
 
             for (Subset numericSubset : numericSubsets) {
                 // In case X or Y axis is speficied in the target scaling of scale() operator
-                if (CrsUtil.axisLabelsMatch(axisX.getLabel(), numericSubset.getAxisName())) {
+                if (CrsUtil.axisLabelsMatch(subsettedAxisX.getLabel(), numericSubset.getAxisName())) {
                     width = numericSubsets.get(0).getNumericSubset().getUpperLimit().toBigInteger().intValue() - numericSubsets.get(0).getNumericSubset().getLowerLimit().toBigInteger().intValue();
                 }
                 
-                if (CrsUtil.axisLabelsMatch(axisY.getLabel(), numericSubset.getAxisName())) {
+                if (CrsUtil.axisLabelsMatch(subsettedAxisY.getLabel(), numericSubset.getAxisName())) {
                     height = numericSubsets.get(1).getNumericSubset().getUpperLimit().toBigInteger().intValue() - numericSubsets.get(1).getNumericSubset().getLowerLimit().toBigInteger().intValue();
+                }
+                
+                for (Axis nonXYAxis : nonXYAxes) {
+                    String axisLabel = nonXYAxis.getLabel();
+                    
+                    if (CrsUtil.axisLabelsMatch(axisLabel, numericSubset.getAxisName())) {
+                        String geoLowerBound = numericSubset.getNumericSubset().getLowerLimit().toPlainString();
+                        String geoUpperBound = numericSubset.getNumericSubset().getUpperLimit().toPlainString();
+                        
+                        WcpsSubsetDimension nonXYSubsetDimension = new WcpsTrimSubsetDimension(axisLabel, nonXYAxis.getNativeCrsUri(), geoLowerBound, geoUpperBound);
+                        nonXYSubsetDimensions.add(nonXYSubsetDimension);
+                        break;
+                    }
                 }
             }
             
@@ -184,11 +209,13 @@ public class WcpsCoverageMetadataTranslator {
             // NOTE: only support scale() with pyramid on a single coverage expression
             // @TODO: https://projects.rasdaman.com/ticket/308 to support scale on pyramid member of a virtual coverage // -- rasdaman enterprise
                 
-            if (wcpsCoverageMetadataBase.isSingleCoverageExpression()) {
                 String contributingCoverageId = wcpsCoverageMetadataBase.getCoverageName();
 
                 GeneralGridCoverage baseCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(contributingCoverageId);
-                CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY, width, height);
+                CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY,
+                                                                                                        subsettedAxisX, subsettedAxisY,
+                                                                                                        width, height, nonXYSubsetDimensions);
+                
 
                 GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(coveragePyramid.getPyramidMemberCoverageId());
 
@@ -199,20 +226,17 @@ public class WcpsCoverageMetadataTranslator {
                 // remove c0 -> level 1 coverage
                 String coverageAlias = this.coverageAliasRegistry.getAliasByCoverageName(contributingCoverageId);
 
+                // e.g. test_pyramid_8
                 WcpsCoverageMetadata wcpsCoverageMetadataPyramid = this.translate(coveragePyramid.getPyramidMemberCoverageId());
+                result = wcpsCoverageMetadataPyramid;
+                
                 // Remove any stripped axes of input coverage in pyramid member coverage (e.g: slicing in time axis of a virtual coverage, 
                 // then the pyramid member of it also needs to remove this time axis)
                 this.applyGeoSubsetOnPyramidCoverage(wcpsCoverageMetadataBase, wcpsCoverageMetadataPyramid);
-                
-                WcpsCoverageMetadata tmpMetadataPyramid = this.translate(coveragePyramid.getPyramidMemberCoverageId());
-                // e.g: e -> cov1 is replaced by e -> cov8
-                this.coverageAliasRegistry.updateCoverageMapping(coverageAlias, contributingCoverageId, tmpMetadataPyramid.getRasdamanCollectionName());
-
-                String downscaledContributingRasql = this.updateGridDomainsForNormalCoverage(originalContributingRasql, pyramidMemberCoverage, coveragePyramid);
-                String newRasql = fullRasql.replace(originalContributingRasql, downscaledContributingRasql);
-                coverageExpression.setRasql(newRasql);
-            }
+            
         }
+        
+        return result;
     }
     
     /**
@@ -312,12 +336,15 @@ public class WcpsCoverageMetadataTranslator {
      * NOTE: It needs to select a suitable downscaled collection based on geo XY subsets to help reduce the time to process Rasql on lower resolution collection.
      */
     public WcpsCoverageMetadata createForDownscaledLevelByGeoXYSubsets(WcpsCoverageMetadata metadata, 
-            Pair<BigDecimal, BigDecimal> geoSubsetX, Pair<BigDecimal, BigDecimal> geoSubsetY, Integer width, Integer height) throws PetascopeException {
+            Pair<BigDecimal, BigDecimal> geoSubsetX, Pair<BigDecimal, BigDecimal> geoSubsetY, Integer width, Integer height, 
+            List<WcpsSubsetDimension> nonXYSubsetDimensions) throws PetascopeException {
         
         GeneralGridCoverage baseCoverage = (GeneralGridCoverage)this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(metadata.getCoverageName());
         
         // Depend on the geo XY axes subsets, select a suitable pyramid member coverage (it must be the lowest level which is valid for both X and Y axes).
-        CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY, width, height);
+        CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY,
+                                                            null, null,
+                                                            width, height, nonXYSubsetDimensions);
         GeneralGridCoverage pyramidMemeberCoverage = (GeneralGridCoverage)this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(coveragePyramid.getPyramidMemberCoverageId());
         WcpsCoverageMetadata newMetadata = this.translate(pyramidMemeberCoverage.getCoverageId());
         

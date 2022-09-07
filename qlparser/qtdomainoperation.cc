@@ -202,7 +202,7 @@ QtDomainOperation::setInput(QtOperation *inputOld, QtOperation *inputNew)
 
 void
 QtDomainOperation::optimizeLoad(QtTrimList *trimList, vector<r_Minterval> *intervals)
-{   
+{
     //here is the only place where we have other domainsm they are dimension by dimesnion presented in newTrimList elems
     //however, they are disregarded immediately, and that causes normal execution
     //we want to compare whether that domain fits into domain of the MDD
@@ -284,7 +284,7 @@ QtDomainOperation::optimizeLoad(QtTrimList *trimList, vector<r_Minterval> *inter
 
     // pass optimization process to the input tree
     if (input)
-    {   
+    {
         if (input->getNodeType() == QT_DOMAIN_OPERATION)
         {
             static_cast<QtDomainOperation*>(input)->optimizeLoad(trimList, intervals);
@@ -453,7 +453,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                 else
                 {
                     LERROR << "Error: QtDomainOperation::evaluate() - The dimension of the subset domain is not equal to the dimension of the subsetted marray. The subset domain dimension is: " << projPoint.dimension() << " while the marray domain dimension is: " << currentMDDObj->getDimension();
-                    parseInfo.setErrorNo(362);
+                    parseInfo.setErrorNo(DIMENSIONALITYMISMATCH);
                     throw parseInfo;
                 }
 
@@ -533,7 +533,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                 if (axisNames->size() > axisNamesCorrect->size())
                 {
                     LERROR << "Error: QtDomainOperation::evaluate() - More axes are provided than defined for the type.";
-                    parseInfo.setErrorNo(345);
+                    parseInfo.setErrorNo(DOMAINOP_TOOMANYAXES);
                     throw parseInfo;
                 }
 
@@ -549,7 +549,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                             if (check)
                             {
                                 LERROR << "Error: QtDomainOperation::evaluate() - Axes must have unique names.";
-                                parseInfo.setErrorNo(346);
+                                parseInfo.setErrorNo(DOMAINOP_AXESNAMESMUSTBEUNIQUE);
                                 throw parseInfo;
                             }
                             if (count1 != count2)
@@ -577,7 +577,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                 if (axisNamesCorrect->size()<domain.dimension())
                 {
                     LERROR << "Error: QtDomainOperation::evaluate() - Name of the axis doesn't correspond with any defined axis name of the type.";
-                    parseInfo.setErrorNo(347);
+                    parseInfo.setErrorNo(DOMAINOP_INVALIDAXISNAME);
                     throw parseInfo;
                 }
             }
@@ -655,14 +655,14 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                             if (!it->intersects_with(currentDomain))
                             {
                                 LERROR << "Subset domain " << *it << " does not intersect with the spatial domain of MDD" << currentDomain;
-                                parseInfo.setErrorNo(356);
-                                throw parseInfo; 
+                                parseInfo.setErrorNo(DOMAINDOESNOTINTERSECT);
+                                throw parseInfo;
                             }
                             else
                             {
                                 LERROR << "Subset domain " << *it << " extends outside of the spatial domain of MDD" << currentDomain;
-                                parseInfo.setErrorNo(344);
-                                throw parseInfo; 
+                                parseInfo.setErrorNo(DOMAINOP_SUBSETOUTOFBOUNDS);
+                                throw parseInfo;
                             }
                         }
                     }
@@ -672,16 +672,16 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                             if (!it->intersects_with(*(it-1)))
                             {
                                 LERROR << "Subset domain " << *it << " does not intersect with the previous subset of MDD" << *(it-1);
-                                parseInfo.setErrorNo(356);
-                                throw parseInfo; 
+                                parseInfo.setErrorNo(DOMAINDOESNOTINTERSECT);
+                                throw parseInfo;
                             }
                             else
                             {
                                 LERROR << "Subset domain " << *it << " extends outside of the previous subset of MDD" << *(it-1);
-                                parseInfo.setErrorNo(344);
-                                throw parseInfo; 
+                                parseInfo.setErrorNo(DOMAINOP_SUBSETOUTOFBOUNDS);
+                                throw parseInfo;
                             }
-                        }  
+                        }
                     }
                 }
 
@@ -760,6 +760,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                         returnValue = new QtMDD(static_cast<MDDObj *>(resultMDD));
                         returnValue->setNullValues(nullValues);
 
+
                         // delete the tile vector
                         delete relevantTiles;
                         relevantTiles = NULL;
@@ -784,7 +785,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                         returnValue = new QtMDD(static_cast<MDDObj *>(resultMDD));
 
 //                LERROR << "Error: QtDomainOperation::evaluate() - the load domain does not intersect with tiles in the current MDD.";
-//                parseInfo.setErrorNo(356);
+//                parseInfo.setErrorNo(DOMAINDOESNOTINTERSECT);
 //
 //                // delete index and operand data
 //                indexData->deleteRef();
@@ -868,7 +869,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                 if (indexPoint.dimension() != 1)
                 {
                     LERROR << "Error: QtDomainOperation::evaluate() - Operand of minterval selection must be of type unsigned integer.";
-                    parseInfo.setErrorNo(397);
+                    parseInfo.setErrorNo(MINTERVALSEL_WRONGOPERANDTYPE);
 
                     // delete ressources
                     if (operandData)
@@ -905,7 +906,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
             if (indexValue >= minterval.dimension())
             {
                 LERROR << "Error: QtDomainOperation::evaluate() - index for minterval selection is out of range.";
-                parseInfo.setErrorNo(398);
+                parseInfo.setErrorNo(MINTERVALSEL_INDEXVIOLATION);
 
                 // delete ressources
                 if (operandData)
@@ -979,7 +980,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                 if (indexPoint.dimension() != 1)
                 {
                     LERROR << "Operand of point selection must be of type unsigned integer.";
-                    parseInfo.setErrorNo(399);
+                    parseInfo.setErrorNo(POINTSEL_WRONGOPERANDTYPE);
                     // delete ressources
                     if (operandData)
                         operandData->deleteRef();
@@ -1011,7 +1012,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
             if (indexValue >= pt.dimension())
             {
                 LERROR << "index for point selection is out of range.";
-                parseInfo.setErrorNo(411);
+                parseInfo.setErrorNo(POINTSEL_INDEXVIOLATION);
                 // delete ressources
                 if (operandData)
                     operandData->deleteRef();
@@ -1034,7 +1035,7 @@ QtDomainOperation::evaluate(QtDataList *inputList)
     default:
     {
         LERROR << "selection operation is not supported on this data type.";
-        parseInfo.setErrorNo(396);
+        parseInfo.setErrorNo(SELECT_WRONGOPERANDTYPE);
         throw parseInfo;
     }
     }
@@ -1136,7 +1137,7 @@ QtDomainOperation::checkType(QtTypeTuple *typeTuple)
                )
             {
                 LERROR << "spatial domain expressions must be either of type minterval, point, or integer.";
-                parseInfo.setErrorNo(391);
+                parseInfo.setErrorNo(DOMAINOP_SPATIALOPINVALID);
                 throw parseInfo;
             }
 
@@ -1158,7 +1159,7 @@ QtDomainOperation::checkType(QtTypeTuple *typeTuple)
             if (!indexType.isInteger() && indexType.getDataType() != QT_POINT)
             {
                 LERROR << "Operand of minterval selection must be of type integer.";
-                parseInfo.setErrorNo(397);
+                parseInfo.setErrorNo(MINTERVALSEL_WRONGOPERANDTYPE);
                 throw parseInfo;
             }
 
@@ -1170,7 +1171,7 @@ QtDomainOperation::checkType(QtTypeTuple *typeTuple)
             if (!indexType.isInteger() && indexType.getDataType() != QT_POINT)
             {
                 LERROR << "Operand of point selection must be of type integer.";
-                parseInfo.setErrorNo(399);
+                parseInfo.setErrorNo(POINTSEL_WRONGOPERANDTYPE);
                 throw parseInfo;
             }
 
@@ -1179,10 +1180,10 @@ QtDomainOperation::checkType(QtTypeTuple *typeTuple)
         else
         {
             LERROR << "selection operation is not supported on this data type.";
-            parseInfo.setErrorNo(396);
+            parseInfo.setErrorNo(SELECT_WRONGOPERANDTYPE);
             throw parseInfo;
         }
-        
+
         if (namedAxisFlag)
         {   r_Minterval domainDef = *((static_cast<MDDDomainType *>(const_cast<Type *>(inputType.getType())))->getDomain());
             vector<string> axisDef = (&domainDef)->getAxisNames();

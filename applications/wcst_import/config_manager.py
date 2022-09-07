@@ -31,6 +31,8 @@ class ConfigManager:
      below serve only as documentation
     """
     wcs_service = "http://localhost:8080/rasdaman/ows"
+    service_is_local = True
+
     admin_service = "http://localhost:8080/rasdaman/admin"
     crs_resolver = ""
     default_crs = "http://localhost:8080/def/OGC/0/Index2D"
@@ -39,7 +41,7 @@ class ConfigManager:
     insitu = False
     black_listed = False
     automated = False
-    default_null_values = []
+    default_null_values = None
     root_url = "file://"
     executor = WCSTExecutor(wcs_service)
     default_field_name_prefix = "field_"

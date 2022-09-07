@@ -114,7 +114,7 @@ int string_yyinput( char* buf, int max_size )
   columnNo += static_cast<unsigned int>(yyleng);                         \
   parseQueryTree->addDynamicObject( yylval.TYPE.info );                  \
   return TOKEN;
-  
+
 
 #define SETINTTOKEN( VALUE, NEGATIVE, BYTES )                            \
   yylval.integerToken.negative = NEGATIVE;                               \
@@ -167,7 +167,7 @@ int string_yyinput( char* buf, int max_size )
 "members"                                { SETTOKEN( MEMBERS, commandToken, MEMBERS ) }
 "add"                                    { SETTOKEN( ADD, commandToken, ADD ) }
 "alter"                                  { SETTOKEN( ALTER, commandToken, ALTER ) }
-"list"                                   { SETTOKEN( LIST, commandToken, LIST ) }                        
+"list"                                   { SETTOKEN( LIST, commandToken, LIST ) }
 "select"                                 { SETTOKEN( SELECT, commandToken, SELECT ) }
 "from"                                   { SETTOKEN( FROM, commandToken, FROM ) }
 "where"                                  { SETTOKEN( WHERE, commandToken, WHERE ) }
@@ -198,9 +198,9 @@ int string_yyinput( char* buf, int max_size )
 "avg_cell"|"avg_cells"                   { SETTOKEN( AVGCELLS, commandToken, AVGCELLS ) }
 "min_cell"|"min_cells"                   { SETTOKEN( MINCELLS, commandToken, MINCELLS ) }
 "max_cell"|"max_cells"                   { SETTOKEN( MAXCELLS, commandToken, MAXCELLS ) }
-"var_pop"                                { SETTOKEN( VAR_POP, commandToken, VAR_POP ) } 
+"var_pop"                                { SETTOKEN( VAR_POP, commandToken, VAR_POP ) }
 "var_samp"                               { SETTOKEN( VAR_SAMP, commandToken, VAR_SAMP ) }
-"stddev_pop"                             { SETTOKEN( STDDEV_POP, commandToken, STDDEV_POP ) } 
+"stddev_pop"                             { SETTOKEN( STDDEV_POP, commandToken, STDDEV_POP ) }
 "stddev_samp"                            { SETTOKEN( STDDEV_SAMP, commandToken, STDDEV_SAMP ) }
 "sdom"                                   { SETTOKEN( SDOM, commandToken, SDOM ) }
 "over"                                   { SETTOKEN( OVER, commandToken, OVER ) }
@@ -252,6 +252,9 @@ int string_yyinput( char* buf, int max_size )
 "scale"                                  { SETTOKEN( SCALE, commandToken, SCALE ) }
 "dbinfo"                                 { SETTOKEN( DBINFO, commandToken, DBINFO ) }
 "version"                                { SETTOKEN( RAS_VERSION, commandToken, RAS_VERSION ) }
+
+"sort"                                   { SETTOKEN( SORT, commandToken, SORT)}
+"flip"                                 { SETTOKEN( FLIP, commandToken, FLIP)}
 
 "."                                      { SETTOKEN( DOT, commandToken, DOT ) }
 ","                                      { SETTOKEN( COMMA, commandToken, COMMA ) }
@@ -380,6 +383,15 @@ int string_yyinput( char* buf, int max_size )
 "}"                                      { SETTOKEN( RCPAR, commandToken, RCPAR ) }
 #MDD[0-9]+#                              { SETTOKEN( MDDPARAM, commandToken, atoi(&(yytext[1])) ) }
 $[0-9]+                                  { llerror("unresolved query parameter"); columnNo++; }
+
+  /*
+  *ASC is true
+  *DESC is false
+  **as sortAsc defined in qtsort.hh, used for SORT operation
+  */
+
+[aA][sS][cC]                              { SETTOKEN( sortOrderLit, sortOrderToken,  true  ) }
+[dD][eE][sS][cC]                            { SETTOKEN( sortOrderLit, sortOrderToken,  false ) }
 
 "true"|"false"|"TRUE"|"FALSE"            { SETTOKEN( BooleanLit, booleanToken, yytext[0] == 't' || yytext[0] == 'T') }
 [a-zA-Z_][a-zA-Z0-9_]*                   {

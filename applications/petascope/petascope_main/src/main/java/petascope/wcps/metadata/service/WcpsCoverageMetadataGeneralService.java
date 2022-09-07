@@ -130,7 +130,9 @@ public class WcpsCoverageMetadataGeneralService {
      */
     public WcpsCoverageMetadata getResultingMetadata(WcpsCoverageMetadata firstMeta, WcpsCoverageMetadata secondMeta,
                                                      String firstRasql, String secondRasql) {
-        validateCoveragesCompatibility(firstMeta, secondMeta);
+        if (firstMeta != null && secondMeta != null && (firstMeta.getAxes().size() > 0 && secondMeta.getAxes().size() > 0)) {
+            validateCoveragesCompatibility(firstMeta, secondMeta);
+        }
         
         if (firstMeta != null) {
             return firstMeta;
@@ -295,13 +297,13 @@ public class WcpsCoverageMetadataGeneralService {
      * (c[Lat(20:30), Long(40:50)]) then need to apply the subsets [(20:30),
      * (40:50)] in the coverage metadata expression
      *
-     * @param checkBoundary should the subset needed to check the boundary (e.g:
+     * @param checkGeoBound should the subset needed to check the boundary (e.g:
      * with scale(..., {subset})) will not need to check.
      * @param metadata
      * @param numericSubsets
      * @throws petascope.exceptions.PetascopeException
      */
-    public void applySubsets(Boolean checkBoundary, WcpsCoverageMetadata metadata, List<WcpsSubsetDimension> subsetDimensions, List<Subset> numericSubsets) throws PetascopeException {
+    public void applySubsets(Boolean checkGeoBound, boolean checkGridBound, WcpsCoverageMetadata metadata, List<WcpsSubsetDimension> subsetDimensions, List<Subset> numericSubsets) throws PetascopeException {
         checkSubsetConsistency(metadata, numericSubsets);
 
         // If the subsets contain subsettingCrs which is different from XY-georeferenced axis's nativeCRS, then do the transform for both XY axes
@@ -334,10 +336,10 @@ public class WcpsCoverageMetadataGeneralService {
                     
                     // Trimming
                     if (numericSubset.getNumericSubset() instanceof NumericTrimming) {
-                        applyTrimmingSubset(checkBoundary, metadata, subsetDimension, numericSubset, axis);
+                        applyTrimmingSubset(checkGeoBound, checkGridBound, metadata, subsetDimension, numericSubset, axis);
                     } else {
                         // slicing
-                        applySlicing(checkBoundary, metadata, subsetDimension, numericSubset, axis);
+                        applySlicing(checkGeoBound, checkGridBound, metadata, subsetDimension, numericSubset, axis);
                         axis.setSlicing();
                     }
 
@@ -345,11 +347,14 @@ public class WcpsCoverageMetadataGeneralService {
                     if (axis instanceof IrregularAxis) {
                         IrregularAxis irregularAxis = (IrregularAxis) axis;
                         // NOTE: must normalize the inputs with origin first (e.g: for AnsiDate: origin is: 1601-01-01 and input is: 2008-01-01T01:00:02Z)
-                        BigDecimal normalizedLowerBound = irregularAxis.getGeoBounds().getLowerLimit().subtract(axis.getOriginalOrigin());
-                        BigDecimal normalizedUpperBound = irregularAxis.getGeoBounds().getUpperLimit().subtract(axis.getOriginalOrigin());
+                        BigDecimal geoLowerBound = irregularAxis.getGeoBounds().getLowerLimit();
+                        BigDecimal geoUpperBound = irregularAxis.getGeoBounds().getUpperLimit();
                         
-                        normalizedLowerBound = normalizedLowerBound.add(irregularAxis.getFirstCoefficient());
-                        normalizedUpperBound = normalizedUpperBound.add(irregularAxis.getFirstCoefficient());
+                        BigDecimal normalizedLowerBound = geoLowerBound.subtract(axis.getOriginalOrigin());
+                        BigDecimal normalizedUpperBound = geoUpperBound.subtract(axis.getOriginalOrigin());
+                        
+                        normalizedLowerBound = normalizedLowerBound.add(irregularAxis.getLowestCoefficientValue());
+                        normalizedUpperBound = normalizedUpperBound.add(irregularAxis.getLowestCoefficientValue());
                         
                         List<BigDecimal> newCoefficients = ((IrregularAxis) axis).getAllCoefficientsInInterval(normalizedLowerBound, normalizedUpperBound);
                         irregularAxis.setDirectPositions(newCoefficients);
@@ -624,7 +629,7 @@ public class WcpsCoverageMetadataGeneralService {
             }
 
             // the crs of axis
-            String crsUri = numericSubset.getCrs();
+            String crsUri = CrsUtil.INDEX_CRS_PATTERN;
 
             // the created coverage now is only RectifiedGrid then it will use GridSpacing UoM
             String axisUoM = CrsUtil.INDEX_UOM;
@@ -667,7 +672,7 @@ public class WcpsCoverageMetadataGeneralService {
      * and correspondent translated grid bound from the new geo bound.
      *
      */
-    private void applyTrimmingSubset(Boolean checkBoundary, WcpsCoverageMetadata metadata, WcpsSubsetDimension subsetDimension, Subset numericSubset, Axis axis) throws PetascopeException {
+    private void applyTrimmingSubset(Boolean checkGeoBound, boolean checkGridBound, WcpsCoverageMetadata metadata, WcpsSubsetDimension subsetDimension, Subset numericSubset, Axis axis) throws PetascopeException {
 
         boolean geoToGrid = true;
         //set the lower, upper bounds and crs
@@ -687,7 +692,7 @@ public class WcpsCoverageMetadataGeneralService {
             throw new InvalidSubsettingException(axis.getLabel(), lowerBound, upperBound);
         }
 
-        if (checkBoundary) {
+        if (checkGeoBound) {
             // NOTE: if crs is not CRS:1 then need to check valid geo boundary otherwise check valid grid boundary
             if (geoToGrid) {
                 validParsedSubsetGeoBounds(subsetDimension, parsedSubset, axis);
@@ -714,13 +719,15 @@ public class WcpsCoverageMetadataGeneralService {
             // Apply subset from geo domain to grid domain
             unAppliedNumericSubset = (NumericTrimming) axis.getGeoBounds();
             unTranslatedNumericSubset = (NumericTrimming) axis.getGridBounds();
-            this.translateTrimmingGeoToGridSubset(axis, subsetDimension, numericSubset, unAppliedNumericSubset, unTranslatedNumericSubset);
+            this.translateTrimmingGeoToGridSubset(checkGeoBound, checkGridBound, axis, subsetDimension, numericSubset, unAppliedNumericSubset, unTranslatedNumericSubset);
         } else {
             // Lat:"CRS:1"[0:50] -> Lat(0:20)
             // Apply subset from grid domain to geo domain
             unAppliedNumericSubset = (NumericTrimming) axis.getGridBounds();
             unTranslatedNumericSubset = (NumericTrimming) axis.getGeoBounds();
             this.translateTrimmingGridToGeoSubset(axis, subsetDimension, numericSubset, unAppliedNumericSubset, unTranslatedNumericSubset);
+            
+            axis.setTransatedGridToGeoBounds(true);
         }
     }
 
@@ -728,7 +735,7 @@ public class WcpsCoverageMetadataGeneralService {
      * Apply the trimming subset on the unAppliedNumericSubset (geo bound) and
      * calculate this bound to unTranslatedNumericSubset (grid bound)
      */
-    private void translateTrimmingGeoToGridSubset(Axis axis, WcpsSubsetDimension subsetDimension, Subset numericSubset,
+    private void translateTrimmingGeoToGridSubset(boolean checkBoundary, boolean checkGridBound, Axis axis, WcpsSubsetDimension subsetDimension, Subset numericSubset,
             NumericTrimming unAppliedNumericSubset, NumericTrimming unTranslatedNumericSubset) throws PetascopeException {
         
         BigDecimal geoDomainMin = ((NumericTrimming) axis.getGeoBounds()).getLowerLimit();
@@ -751,7 +758,7 @@ public class WcpsCoverageMetadataGeneralService {
         // NOTE: gdal_translate doesn't allow to subset by projwin with less than half grid pixel
         boolean lessThanHalfPixel = geoDistance.compareTo(halfGeoResolution) < 0;
         
-        if (axis instanceof RegularAxis && !lessThanHalfPixel) {
+        if (axis instanceof RegularAxis && !lessThanHalfPixel && !axis.isNonXYAxis()) {
             String sourceCRS = axis.getNativeCrsUri();
             String sourceCRSWKT = CrsUtil.getWKT(sourceCRS);
             
@@ -762,7 +769,7 @@ public class WcpsCoverageMetadataGeneralService {
                 // axis X
                 
                 GeoTransform adfGeoTransform = new GeoTransform(sourceCRSWKT, geoDomainMin, BigDecimal.ZERO, numberOfGridPixels, 0, axis.getResolution(), BigDecimal.ZERO);
-                Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairX = coordinateTranslationService.calculateGeoGridXBounds(axis, adfGeoTransform, lowerLimit, upperLimit);
+                Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairX = coordinateTranslationService.calculateGeoGridXBounds(checkBoundary, checkGridBound, axis, adfGeoTransform, lowerLimit, upperLimit);
                 parsedSubset = pairX.fst;
                 translatedSubset = pairX.snd;
                 
@@ -771,7 +778,7 @@ public class WcpsCoverageMetadataGeneralService {
                 // axis Y
             
                 GeoTransform adfGeoTransform = new GeoTransform(sourceCRSWKT, BigDecimal.ZERO, geoDomainMax, 0, numberOfGridPixels, BigDecimal.ZERO, axis.getResolution());
-                Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairY = coordinateTranslationService.calculateGeoGridYBounds(axis, adfGeoTransform, lowerLimit, upperLimit);
+                Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> pairY = coordinateTranslationService.calculateGeoGridYBounds(checkBoundary, checkGridBound, axis, adfGeoTransform, lowerLimit, upperLimit);
                 parsedSubset = pairY.fst;
                 translatedSubset = pairY.snd;
                 
@@ -833,10 +840,10 @@ public class WcpsCoverageMetadataGeneralService {
      * (Lat(0:70)) then need to update coverage metadata with geo bound(20) and
      * correspondent translated grid bound from the new geo bound.
      *
-     * @param checkBoundary should subset needed to be check within boundary
+     * @param checkGeoBound should subset needed to be check within boundary
      * (e.g: scale(..., {subset}) does not need to check)
      */
-    private void applySlicing(Boolean checkBoundary, WcpsCoverageMetadata metadata, WcpsSubsetDimension subsetDimension,
+    private void applySlicing(Boolean checkGeoBound, boolean checkGridBound, WcpsCoverageMetadata metadata, WcpsSubsetDimension subsetDimension,
             Subset numericSubset, Axis axis) throws PetascopeException {
         boolean geoToGrid = true;
         BigDecimal bound = ((NumericSlicing) numericSubset.getNumericSubset()).getBound();
@@ -848,7 +855,7 @@ public class WcpsCoverageMetadataGeneralService {
 
         ParsedSubset<BigDecimal> geoParsedSubset = new ParsedSubset<>(bound);
         // check if parsed subset is valid
-        if (checkBoundary) {
+        if (checkGeoBound) {
             // NOTE: if crs is not CRS:1 then need to check valid geo boundary otherwise check valid grid boundary.
             if (!CrsUtil.isGridCrs(numericSubset.getCrs())) {
                 validParsedSubsetGeoBounds(subsetDimension, geoParsedSubset, axis);
@@ -1100,12 +1107,16 @@ public class WcpsCoverageMetadataGeneralService {
      * NOTE: this is used to determine in the case of axis iterator in condenser over $pt t (imageCrsdomain(c[time("2015":"2015")], t))
      */
     public WcpsCoverageMetadata generateWcpsMetadataWithOneGridAxis(String coverageId, Axis axis) throws PetascopeException {
-        axis.setNativeCrsUri(CrsUtil.GRID_CRS);
         List<Axis> axesTmp = new ArrayList<>();
         axesTmp.add(axis);
         
+        String crs = CrsUtil.GRID_CRS;
+        if (!axis.getNativeCrsUri().equals(CrsUtil.GRID_CRS)) {
+            crs = axis.getNativeCrsUri();
+        }
+        
         // NOTE: this is used to determine in the case of axis iterator in condenser over $pt t (imageCrsdomain(c[time("2015":"2015")], t))
-        WcpsCoverageMetadata tmpMetadata = new WcpsCoverageMetadata(coverageId, null, null, axesTmp, CrsUtil.GRID_CRS, null, null, null, null);
+        WcpsCoverageMetadata tmpMetadata = new WcpsCoverageMetadata(coverageId, null, null, axesTmp, crs, null, null, null, null);
         return tmpMetadata;
     }
 
@@ -1146,8 +1157,8 @@ public class WcpsCoverageMetadataGeneralService {
             
             // Calculate the distance from this coefficient for CRS:1(GRID_INDEX) to coefficient zero.
             // (NOTE: coefficient zero can be in random position, not only the first element in list of directPositions)
-            lowerCoefficient = ((IrregularAxis) axis).getFirstCoefficient().abs().add(lowerCoefficient);
-            upperCoefficient = ((IrregularAxis) axis).getFirstCoefficient().abs().add(upperCoefficient);
+            lowerCoefficient = ((IrregularAxis) axis).getLowestCoefficientValue().abs().add(lowerCoefficient);
+            upperCoefficient = ((IrregularAxis) axis).getLowestCoefficientValue().abs().add(upperCoefficient);
             
             BigDecimal geoLowerBound = lowerCoefficient.add(axis.getOriginalOrigin());
             BigDecimal geoUpperBound = upperCoefficient.add(axis.getOriginalOrigin());
@@ -1167,6 +1178,12 @@ public class WcpsCoverageMetadataGeneralService {
         
         BigDecimal lowerLimit = ((NumericTrimming) axis.getGeoBounds()).getLowerLimit();
         BigDecimal upperLimit = ((NumericTrimming) axis.getGeoBounds()).getUpperLimit();
+        
+        // NOTE: in case the axis is flipped by flip operator
+        Pair<BigDecimal, BigDecimal> pair = BigDecimalUtil.swapIfFirstLarger(lowerLimit, upperLimit);
+        lowerLimit = pair.fst;
+        upperLimit = pair.snd;
+        
         ParsedSubset<String> subset = null;
         
         // Check if subset is inside the domain of geo bound

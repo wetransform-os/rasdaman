@@ -218,6 +218,17 @@ class Recipe(BaseRecipe):
                                                         "Given: '" + band_name + "'. "
                                                         "Hint: it must match this pattern '" + BAND_NAME_PATTERN + "'.")
 
+                grib_messages_filter_by_dict = None
+                grib_messages_filter_by_setting = GRIBToCoverageConverter.GRIB_MESSAGES_FILTER_BY_SETTING
+                if recipe_type != GRIBToCoverageConverter.RECIPE_TYPE:
+                    if grib_messages_filter_by_setting in band:
+                        raise RecipeValidationException("Band setting: " + grib_messages_filter_by_setting
+                                                        + " can be used only for " + GRIBToCoverageConverter.RECIPE_TYPE + " recipe.")
+                else:
+                    grib_messages_filter_by_dict = None
+                    if grib_messages_filter_by_setting in band:
+                        grib_messages_filter_by_dict = band[grib_messages_filter_by_setting]
+
                 ret_bands.append(UserBand(
                     identifier,
                     self._read_or_empty_string(band, "name"),
@@ -225,7 +236,8 @@ class Recipe(BaseRecipe):
                     self._read_or_empty_string(band, "definition"),
                     self._read_or_empty_string(band, "nilReason"),
                     self._read_or_empty_string(band, "nilValue").split(","),
-                    self._read_or_empty_string(band, "uomCode")
+                    self._read_or_empty_string(band, "uomCode"),
+                    grib_messages_filter_by_dict
                 ))
 
                 i += 1
@@ -260,6 +272,31 @@ class Recipe(BaseRecipe):
             else:
                 raise RuntimeError("'bands' must be specified in ingredient file for netCDF/GRIB recipes.")
 
+    def _update_crs_axes_grid_orders(self, crs_axes):
+        """
+        Set gridOrder implicitly per CRSAxis
+        """
+        slicer_type = self.options['coverage']['slicer']["type"]
+        i = 0
+        previous_crs_axis = None
+        for crs_axis in crs_axes:
+            if slicer_type == GdalToCoverageConverter.RECIPE_TYPE or slicer_type == GRIBToCoverageConverter.RECIPE_TYPE:
+                if crs_axis.is_x_axis() and previous_crs_axis is not None and previous_crs_axis.is_y_axis():
+                    # e.g. EPSG:4326 (GDAL and GRIB is always X and Y gridOrder)
+                    grid_order_tmp = i
+                    crs_axis.grid_order = previous_crs_axis.grid_order
+                    previous_crs_axis.grid_order = grid_order_tmp
+                else:
+                    # XY geoCRS order
+                    crs_axis.grid_order = i
+            else:
+                # NOTE: for netCDF, the typical case is with Y,X gridOrder, hence, does nothing
+                crs_axis.grid_order = i
+
+            i += 1
+            if i > 0 and i < len(crs_axes):
+                previous_crs_axis = crs_axes[i - 1]
+
     def _read_axes(self, crs):
         """
         Returns a list of user axes extracted from the ingredients file
@@ -270,8 +307,8 @@ class Recipe(BaseRecipe):
         user_axes = []
 
         crs_axes = CRSUtil(crs).get_axes(self.session.coverage_id, axes_configurations)
+        self._update_crs_axes_grid_orders(crs_axes)
 
-        default_order = 0
         for index, crs_axis in enumerate(crs_axes):
             exist = False
 
@@ -297,16 +334,17 @@ class Recipe(BaseRecipe):
             else:
                 type = UserAxisType.NUMBER
 
-            order = axis["gridOrder"] if "gridOrder" in axis else default_order
+            # In case users specified gridOrder in the ingredients file
+            order = axis["gridOrder"] if "gridOrder" in axis else crs_axis.grid_order
+
             irregular = axis["irregular"] if "irregular" in axis else False
-            data_bound = axis["dataBound"] if "dataBound" in axis else True
+            dataBound = axis["dataBound"] if "dataBound" in axis else True
             # for irregular axes we consider the resolution 1 / -1 as gmlcov requires resolution for all axis types,
             # even irregular
             if "resolution" in axis:
                 resolution = axis["resolution"]
             else:
                 resolution = 1
-            default_order += 1
 
             if "statements" in axis:
                 if isinstance(axis["statements"], list):
@@ -338,7 +376,7 @@ class Recipe(BaseRecipe):
 
             if not irregular:
                 user_axes.append(
-                    RegularUserAxis(crs_axis.label, resolution, order, axis["min"], max, type, data_bound,
+                    RegularUserAxis(crs_axis.label, resolution, order, axis["min"], max, type, dataBound,
                                     statements))
             else:
                 # NOTE: irregular axis cannot set any resolution != 1
@@ -348,7 +386,7 @@ class Recipe(BaseRecipe):
 
                 user_axes.append(
                     IrregularUserAxis(crs_axis.label, resolution, order, axis["min"], axis["directPositions"], max,
-                                      type, data_bound, statements, slice_group_size))
+                                      type, dataBound, statements, slice_group_size))
 
         number_of_specified_axes = len(axes_configurations.items())
         number_of_crs_axes = len(crs_axes)
@@ -791,8 +829,8 @@ class Recipe(BaseRecipe):
                                            self._read_bands(),
                                            self.session.get_files(), crs, self._read_axes(crs),
                                            self.options['tiling'], self._global_metadata_fields(),
-                                           self._bands_metadata_fields(),
                                            self._local_metadata_fields(),
+                                           self._bands_metadata_fields(),
                                            self._axes_metadata_fields(),
                                            self._metadata_type(),
                                            self.options['coverage']['grid_coverage'], pixel_is_point,
@@ -808,7 +846,7 @@ class Recipe(BaseRecipe):
         """
         number_of_data_bounded_axes = 0
         for user_axis in user_axes:
-            if user_axis.dataBound == True:
+            if user_axis.dataBound is True:
                 number_of_data_bounded_axes += 1
 
         if number_of_data_bounded_axes != number_of_dimensions:

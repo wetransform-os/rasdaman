@@ -96,6 +96,10 @@ public class BoundingBox {
     public void setYMax(BigDecimal ymax) {
         this.ymax = ymax;
     }
+    
+    public void setGeoXYCrs(String geoXYCrs) {
+        this.geoXYCrs = geoXYCrs;
+    }
 
     public String getGeoXYCrs() {
         return geoXYCrs;
@@ -132,7 +136,7 @@ public class BoundingBox {
      */
     public static BoundingBox parse(String representation) {
         String[] values = StringUtil.stripQuotes(representation).split(",");
-        return new BoundingBox(new BigDecimal(values[0]), new BigDecimal(values[1]), new BigDecimal(values[2]), new BigDecimal(values[3]));
+        return new BoundingBox(new BigDecimal(values[0]), new BigDecimal(values[1]), new BigDecimal(values[2]), new BigDecimal(values[3]), values[4]);
     }
     
     /**
@@ -154,6 +158,21 @@ public class BoundingBox {
         
         return matchX || matchY;
         
+    }
+    
+    public boolean intersects(BoundingBox inputBBox) {
+        BigDecimal inputXMin = inputBBox.getXMin();
+        BigDecimal inputXMax = inputBBox.getXMax();
+        BigDecimal inputYMin = inputBBox.getYMin();
+        BigDecimal inputYMax = inputBBox.getYMax();
+        
+        boolean matchX = this.xmin.compareTo(inputXMin) >= 0 && this.xmin.compareTo(inputXMax) <= 0
+                         || inputXMin.compareTo(this.xmin) >=0 && inputXMin.compareTo(this.xmax) <= 0;
+        
+        boolean matchY = this.ymin.compareTo(inputYMin) >= 0 && this.ymin.compareTo(inputYMax) <= 0
+                         || inputYMin.compareTo(this.ymin) >=0 && inputYMin.compareTo(this.ymax) <= 0;
+        
+        return matchX && matchY;
     }
     
     /**

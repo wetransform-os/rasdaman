@@ -24,8 +24,7 @@ package petascope.wms.handlers.kvp;
 import petascope.ihandlers.kvp.IKVPHandler;
 
 /**
- * Abstract class for WCS Handlers (GetCapabilities, DescribeCoverage,
- * GetCoverage and ProcessCoverage)
+ * Abstract class for WMS Handlers (GetCapabilities, GetMap,...)
  *
  * @author <a href="mailto:b.phamhuu@jacobs-university.de">Bang Pham Huu</a>
  */

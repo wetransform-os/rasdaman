@@ -52,7 +52,7 @@ def get_type_structure_from_string(input_str):
     and return data type (e.g: scalar with band type: char)
     :return: object {"type", "base_type", "sub_type"(optional)}
     """
-    primary_regex = "set\s*<marray\s*<(" \
+    marray_regex = "set\s*<marray\s*<(" \
                     "char|ushort|short|ulong|long|float|double|complexd|complex|cint16|cint32|bool|octet),\s*.*>>"
     scalar_regex = "set\s*<(char|ushort|short|ulong|long|float|double|complexd|complex|cint16|cint32|bool|octet)\s*>"
     struct_regex = (
@@ -64,28 +64,23 @@ def get_type_structure_from_string(input_str):
         "set\s*<struct\s*{((char|ushort|short|ulong|long|float|double|octet)\s*.*,"
         ")*\s*((char|ushort|short|ulong|long|float|double|octet)\s*.*)}\s*>"
     )
-    # sdom(c)
     minterval_regex = "set<minterval>"
-    # sdom(c)[0]
     sinterval_regex = "set<interval>"
-    primary_match = re.match(primary_regex, input_str)
+    string_regex = "set<string>"
+    marray_match = re.match(marray_regex, input_str)
     scalar_match = re.match(scalar_regex, input_str)
     complex_scalar_match = re.match(complex_scalar_regex, input_str)
     struct_match = re.match(struct_regex, input_str)
-    minterval_match = re.match(minterval_regex, input_str)
-    sinterval_match = re.match(sinterval_regex, input_str)
-    if primary_match is not None:
+    if marray_match is not None:
         result = {
             'base_type': 'marray',
+            'type': marray_match.group(1)
         }
-        primary_type = primary_match.group(1)
-        result['type'] = primary_type
     elif scalar_match is not None:
         result = {
-            'base_type': 'scalar'
+            'base_type': 'scalar',
+            'type': scalar_match.group(1)
         }
-        primary_type = scalar_match.group(1)
-        result['type'] = primary_type
     elif complex_scalar_match is not None:
         result = {
             'base_type': 'scalar'
@@ -126,15 +121,20 @@ def get_type_structure_from_string(input_str):
 
         result['type'] = 'struct'
         result['sub_type'] = sub_type
-    elif minterval_match is not None:
+    elif minterval_regex == input_str:
         result = {
             'base_type': 'scalar',
             'type': 'minterval'
         }
-    elif sinterval_match is not None:
+    elif sinterval_regex == input_str:
         result = {
             'base_type': 'scalar',
             'type': 'sinterval'
+        }
+    elif string_regex == input_str:
+        result = {
+            'base_type': 'scalar',
+            'type': 'string'
         }
     else:
         raise Exception("Invalid Type Structure: Could not retrieve type structure from: {}.".format(input_str))
@@ -207,9 +207,13 @@ def get_size_from_data_type(dtype):
         result = 8
     elif dtype == "complex":
         result = 8
+    elif dtype == "cfloat32":
+        result = 8
     elif dtype == "double":
         result = 8
     elif dtype == "complexd":
+        result = 16
+    elif dtype == "cfloat64":
         result = 16
     else:
         raise Exception("Unknown Data type provided: " + dtype)
@@ -326,6 +330,8 @@ def convert_binary_data_stream(dtype, data):
         complex_number = Complex(real_number, imagine_number)
 
         return complex_number
+    elif base_type == "scalar" and type == "string":
+        return encoded_bytes_to_str(data)
     else:
         # e.g: query return 1 double value and data will have length = 8 bytes
         scalar_value = convert_data_from_bin(type, data)

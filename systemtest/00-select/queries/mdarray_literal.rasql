@@ -1,0 +1,1 @@
+select encode( mdarray [0:1] [ (double)add_cells(c[0:10,*:*]), avg_cells(c[0:10,*:*]) ] , "json") from test_grey as c

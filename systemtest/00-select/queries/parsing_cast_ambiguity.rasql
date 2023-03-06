@@ -1,0 +1,1 @@
+select add_cells( (c0)[0:50,0:50] ) from test_rgb2 as c0

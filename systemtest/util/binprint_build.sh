@@ -30,7 +30,7 @@ while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 # load config file
-CONF_FILE="$SCRIPT_DIR/../conf/test.cfg"
+CONF_FILE="$SCRIPT_DIR/test.cfg"
 if [ -f "$CONF_FILE" ]; then
     . "$CONF_FILE"
 else

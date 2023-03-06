@@ -213,7 +213,7 @@ config.sub
 phantomjs
 phantomjsdriver.log
 test_web_interfaces-spring-boot.jar
-systemtest/conf/test.cfg
+systemtest/util/test.cfg
 *.resume.json
 
 #core

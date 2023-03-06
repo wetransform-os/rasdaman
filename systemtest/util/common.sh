@@ -39,39 +39,46 @@ SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
 UTIL_SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
-. "$UTIL_SCRIPT_DIR"/../conf/test.cfg
+. "$UTIL_SCRIPT_DIR"/test.cfg
 
 
 # --------------------------------------------------------
-# command shortcuts; variables configured in conf/test.cfg
+# command shortcuts; variables configured in test.cfg
 #
-export RASQL_OPTS="--server $RASMGR_HOST --port $RASMGR_PORT --user $RASMGR_ADMIN_USER --passwd $RASMGR_ADMIN_PASSWD"
-export RASQL_OPTS_GUEST="--server $RASMGR_HOST --port $RASMGR_PORT --user $RASMGR_GUEST_USER --passwd $RASMGR_GUEST_PASSWD"
-export RASQL="rasql --server $RASMGR_HOST $RASQL_OPTS"
-export RASQL_GUEST="rasql --server $RASMGR_HOST $RASQL_OPTS_GUEST"
-export PY_RASQL="$SCRIPT_DIR/rasql.py $RASQL_OPTS --database $RASDB"
-export DIRECTQL="directql --user $RASMGR_ADMIN_USER --passwd $RASMGR_ADMIN_PASSWD --connect $RASDB"
-export RASCONTROL="rascontrol --host $RASMGR_HOST --port $RASMGR_PORT"
+TIMEOUT="timeout"
+export RASQL_OPTS="--server $RASMGR_HOST --port $RASMGR_PORT --user $RASADMIN_USER --passwd $RASADMIN_PASS"
+export RASQL_OPTS_GUEST="--server $RASMGR_HOST --port $RASMGR_PORT --user $RASGUEST_USER --passwd $RASGUEST_PASS"
+export RASQL="$TIMEOUT 30 $RMANHOME/bin/rasql --server $RASMGR_HOST $RASQL_OPTS"
+export RASQL_GUEST="$TIMEOUT 30 $RMANHOME/bin/rasql --server $RASMGR_HOST $RASQL_OPTS_GUEST"
+export PY_RASQL="$TIMEOUT 30 $SCRIPT_DIR/rasql.py $RASQL_OPTS --database $RASDB"
+export DIRECTQL="$TIMEOUT 30 $RMANHOME/bin/rasserver --user $RASADMIN_USER --passwd $RASADMIN_PASS --connect $RASDB"
+export RASCONTROL="$TIMEOUT 30 $RMANHOME/bin/rascontrol --host $RASMGR_HOST --port $RASMGR_PORT"
 
-export START_RAS=start_rasdaman.sh
-export STOP_RAS=stop_rasdaman.sh
-export CREATE_DB=create_db.sh
+export START_RAS="$RMANHOME/bin/start_rasdaman.sh"
+export STOP_RAS="$RMANHOME/bin/stop_rasdaman.sh"
+export CREATE_DB="$RMANHOME/bin/create_db.sh"
 
 export GDALINFO="gdalinfo -noct -checksum"
 export VALGRIND="valgrind --tool=memcheck --leak-check=full --track-origins=yes"
+export PYTHONBIN=python3
+export WGET="wget --timeout=30 --auth-no-challenge --user $RASADMIN_USER --password $RASADMIN_PASS"
+export CURL="curl --max-time 30 -u $RASADMIN_USER:$RASADMIN_PASS -s"
 
-# filestorage
-export DB_DIR="/tmp/rasdb"
-export LOG_DIR="$RMANHOME/log"
-export RASMGR_CONF="$RMANHOME/etc/rasmgr.conf"
-export RASSERVER_COUNT="$(grep 'define srv ' "$RASMGR_CONF" -c)"
-export PETASCOPE_PROPERTIES_FILE="$RMANHOME/etc/petascope.properties"
+# credentials files for wcst_import to authenticate to petascope
+export RASADMIN_CREDENTIALS_FILE="/tmp/rasadmin_credentials.txt"
+if [ ! -f "$RASADMIN_CREDENTIALS_FILE" ]; then
+  echo "$RASADMIN_USER:$RASADMIN_PASS" > "$RASADMIN_CREDENTIALS_FILE"
+  chmod 600 "$RASADMIN_CREDENTIALS_FILE"
+fi
+export WCST_IMPORT="$TIMEOUT 30 $RMANHOME/bin/wcst_import.sh -i $RASADMIN_CREDENTIALS_FILE"
 
 # Run up to 8 test queries in parallel
 PARALLEL_QUERIES=4
+RASSERVER_COUNT="$(grep 'define srv ' "$RASMGR_CONF" -c)"
 if [ $PARALLEL_QUERIES -gt "$RASSERVER_COUNT" ]; then
     PARALLEL_QUERIES=$RASSERVER_COUNT
 fi
+export RASSERVER_COUNT
 export PARALLEL_QUERIES
 # if number of background jobs does not decrease within 120 seconds, the test
 # will terminate with an error.
@@ -80,14 +87,12 @@ export WAIT_TIMEOUT_SEC=120
 
 # -------------------
 # script return codes
-#
 RC_OK=0
 RC_ERROR=1
 RC_SKIP=2
 
 # ----------------
 # test case status
-#
 ST_PASS=OK    # test passed
 ST_FAIL=FAIL  # test failed
 ST_SKIP=SKIP  # test failed, and also marked in known_fails so it was skipped
@@ -96,103 +101,43 @@ ST_COPY=COPY  # oracle not found = copy output file to the oracle
 
 # ------------------
 # testing statistics
-#
 NUM_TOTAL=0 # the number of tests
 NUM_FAIL=0  # the number of failed tests
 NUM_SUC=0   # the number of successful tests
 
-# ----------------------
-# testing data
-# TODO: move to rasql.sh
-#
-TEST_STRUCT=test_struct
-TEST_GREY=test_grey
-TEST_GREY2=test_grey2
-TEST_RGB2=test_rgb2
-TEST_GREY3D=test_grey3d
-TEST_GREY3D_EMPTY_IN_MIDDLE=test_grey3d_empty_in_middle
-TEST_GREY4D=test_grey4d
-TEST_COMPLEX=test_complex
-TEST_CFLOAT32=test_cfloat32
-TEST_CFLOAT64=test_cfloat64
-TEST_CINT16=test_cint16
-TEST_CINT32=test_cint32
-TEST_NULL=nulltest
-TEST_NULL_FLOAT=test_nulltest_float
-TEST_GREY_NULL=test_grey_null
-TEST_NULL3D=test_nulltest3d
-TEST_NULL3D_HOLES=test_nulltest3d_holes
-TEST_SUBSETTING_1D=test_subsetting_1d
-TEST_SUBSETTING=test_subsetting
-TEST_SUBSETTING_SINGLE=test_subsetting_single
-TEST_SUBSETTING_3D=test_subsetting_3d
-TEST_SUBSETTING_HOLES=test_subsetting_holes
-TEST_OVERLAP=test_overlap
-TEST_OVERLAP_3D=test_overlap_3d
-TEST_INSITU_BIN=test_insitu_bin
-TEST_DWD_TX24=test_DWD_TX24
-TEST_DWD_NIEDERSCHLAG=test_DWD_Niederschlag
 # ------------------------------------------------------------------------------
-# OS version; the current os can be determined with the get_os function
-#
+# OS version
 OS_UNKNOWN="unknown"
-OS_CENTOS7="centos7"        # CentOS 7.x
-OS_CENTOS8="centos8"        # CentOS 8.x
-OS_DEBIAN8="debian8"        # Debian 8
-OS_DEBIAN9="debian9"        # Debian 9
-OS_DEBIAN10="debian10"      # Debian 10 (buster)
-OS_DEBIAN11="debian11"      # Debian 11 (bullseye)
-OS_UBUNTU1404="ubuntu1404" 
-OS_UBUNTU1410="ubuntu1410"
-OS_UBUNTU1504="ubuntu1504" 
-OS_UBUNTU1510="ubuntu1510"
-OS_UBUNTU1604="ubuntu1604" 
-OS_UBUNTU1610="ubuntu1610"
-OS_UBUNTU1704="ubuntu1704" 
-OS_UBUNTU1710="ubuntu1710"
-OS_UBUNTU1804="ubuntu1804"
-OS_UBUNTU1810="ubuntu1810"
-OS_UBUNTU1904="ubuntu1904"
-OS_UBUNTU1910="ubuntu1910"
 OS_UBUNTU2004="ubuntu2004"
 OS_UBUNTU2204="ubuntu2204"
+. /etc/os-release
+case "$VERSION_CODENAME" in
+  focal) OS_VERSION=$OS_UBUNTU2004;;
+  jammy) OS_VERSION=$OS_UBUNTU2204;;
+  *)     OS_VERSION=$OS_UNKNOWN;;
+esac
 
 # ------------------------------------------------------------------------------
 # logging
-#
-
 LOG_FILE="$SCRIPT_DIR/test.log"
 FAILED_LOG_FILE="$SCRIPT_DIR/failed_cases.log"
 SVC_NAME=
 
 # ---------------------------
 # terminal color escape codes
-#
 C_OFF="\e[0m"
 C_BOLD="\e[1m"
-C_UNDERLINE="\e[4m"
-# color text is also bold for better visibility
 C_RED="$C_BOLD\e[31m"
 C_GREEN="$C_BOLD\e[32m"
 C_YELLOW="$C_BOLD\e[33m"
-
-# print the color passed as an argument only if it's a terminal
-get_color() { [[ -t 0 || -t 1 || -t 2 ]] && echo "$1"; }
-
 # colors set properly depending on whether the test is run in a terminal
 # (rather than output redirected for example)
-c_off=$(get_color "$C_OFF")
-c_bold=$(get_color "$C_BOLD")
-c_underline=$(get_color "$C_UNDERLINE")
-c_green=$(get_color "$C_GREEN")
-c_red=$(get_color "$C_RED")
-c_yellow=$(get_color "$C_YELLOW")
-
-# create output dir to store test outputs for test scripts
-if [ -n "$SCRIPT_DIR" ]; then
-  export OUTPUT_DIR="$SCRIPT_DIR/output"
-  [ -d "$OUTPUT_DIR" ] && rm -rf "$OUTPUT_DIR"
-  mkdir -p "$OUTPUT_DIR"
+if [[ -t 0 || -t 1 || -t 2 ]]; then
+  c_off="$C_OFF"
+  c_bold="$C_BOLD"
+  c_green="$C_GREEN"
+  c_red="$C_RED"
+  c_yellow="$C_YELLOW"
 fi
 
 # $1: test status
@@ -201,8 +146,8 @@ get_status_color()
 {
   [ "$1" == $ST_PASS ] && return # pass, no special color
   case "$1" in
-    $ST_FAIL) echo "$c_red";;
-    *)        echo "$c_yellow";;
+    "$ST_FAIL") echo "$c_red";;
+    *)          echo "$c_yellow";;
   esac
 }
 
@@ -245,31 +190,25 @@ check_exit() {
   fi
 }
 # test status -> return code (e.g: OK -> 0)
-get_return_code() { [ "$1" = "$ST_PASS" ] && return "$RC_OK" || return "$RC_ERROR"; }
+get_return_code() {
+  if [[ "$1" = "$ST_PASS" ]]; then
+    return "$RC_OK"
+  else
+    return "$RC_ERROR"
+  fi
+}
 
 # ---------
 # setup log
-#
 if [ -n "$SCRIPT_DIR" ] ; then
   rm -f "$LOG_FILE" "$FAILED_LOG_FILE"
   log "starting test at $(date)"
   log ""
 fi
 
-# setup python binary
-PYTHONBIN=
-for b in python3 python python2; do
-  if $b --version > /dev/null 2>&1; then
-    PYTHONBIN=$b; break;
-  fi
-done
-[ -n "$PYTHONBIN" ] || error "python/python2/python3 not found, please install python first."
-export PYTHONBIN
-
 # ------------------------------------------------------------------------------
 # manage timing, in ms
 # @global variable: timer_start
-#
 start_timer(){ timer_start=$(date +%s%N); }
 stop_timer() { timer_stop=$(date +%s%N); }
 # ms
@@ -279,80 +218,8 @@ get_time_s() { echo "scale=2; ($timer_stop - $timer_start) / 1000000000.0" | bc;
 
 # set a global timestamp when this file is loaded by a test script
 # @global variable: total_timer_start
-#
 start_timer
 total_timer_start="$timer_start"
-
-
-#
-# Print the test result of a test with elapsed time format
-# e.g: test.sh:   1/103    OK   .81s   3D_Timeseries_Regular
-#
-# $1 test case name
-# $2 result of test case (OK/FAIL)
-# $3 total number of test cases
-# $4 index of test case in list of test cases
-print_testcase_result() {
-  local test_case_name=$1
-  local status=$2
-  local total_test_no=$3
-  local curr_test_no=$4
-  local c_on
-  c_on=$(get_status_color "$status")
-  local msg
-  msg=$(printf "%3d/$total_test_no ${c_on}%5s${c_off} %5ss   $test_case_name\n" "$curr_test_no" "$status" "$(get_time_s)")
-  log_colored "$msg"
-}
-
-
-# ------------------------------------------------------------------------------
-# OS mgmt
-#
-
-# @global variable: OS_VERSION (one of the $OS_* values)
-get_os()
-{
-  OS_VERSION=$OS_UNKNOWN
-  if [ -f "/etc/centos-release" ]; then
-    grep -q "CentOS Linux release 7" /etc/centos-release
-    [ $? -eq 0 ] && OS_VERSION=$OS_CENTOS7
-    grep -q "CentOS Linux release 8" /etc/centos-release
-    [ $? -eq 0 ] && OS_VERSION=$OS_CENTOS8
-  else
-    local version
-    version=$(lsb_release -a 2>&1 | grep Description \
-      | sed 's/Description: *//' | tr -d '[:space:]')
-
-    case "$version" in
-      Ubuntu14.0*)       OS_VERSION=$OS_UBUNTU1404;;
-      Ubuntu14.1*)       OS_VERSION=$OS_UBUNTU1410;;
-      Ubuntu15.0*)       OS_VERSION=$OS_UBUNTU1504;;
-      Ubuntu15.1*)       OS_VERSION=$OS_UBUNTU1510;;
-      Ubuntu16.0*)       OS_VERSION=$OS_UBUNTU1604;;
-      Ubuntu16.1*)       OS_VERSION=$OS_UBUNTU1610;;
-      Ubuntu17.0*)       OS_VERSION=$OS_UBUNTU1704;;
-      Ubuntu17.1*)       OS_VERSION=$OS_UBUNTU1710;;
-      Ubuntu18.0*)       OS_VERSION=$OS_UBUNTU1804;;
-      Ubuntu18.1*)       OS_VERSION=$OS_UBUNTU1810;;
-      Ubuntu19.0*)       OS_VERSION=$OS_UBUNTU1904;;
-      Ubuntu19.1*)       OS_VERSION=$OS_UBUNTU1910;;
-      Ubuntu20.0*)       OS_VERSION=$OS_UBUNTU2004;;
-      Ubuntu22.0*)       OS_VERSION=$OS_UBUNTU2204;;
-      UbuntuJammy*)      OS_VERSION=$OS_UBUNTU2204;;
-      Debian*8*)         OS_VERSION=$OS_DEBIAN8;;
-      Debian*9*)         OS_VERSION=$OS_DEBIAN9;;
-      Debian*buster*)    OS_VERSION=$OS_DEBIAN10;;
-      Debian*bullseye*)  OS_VERSION=$OS_DEBIAN11;;
-    esac
-  fi
-  if [ "$OS_VERSION" != $OS_UNKNOWN ]; then
-    OS_VERSION_NUMBER="$(echo "$OS_VERSION" | sed 's/[a-z]*//g')"
-    OS_NAME="$(echo "$OS_VERSION" | sed 's/[0-9]*//g')"
-  fi
-}
-
-# determine $OS_VERSION on startup
-get_os
 
 # ------------------------------------------------------------------------------
 # dependency checks
@@ -424,32 +291,17 @@ check_gdal()
 #   1 - otherwise
 check_gdal_version()
 {
-  GDAL_VERSION="$( $GDALINFO --version | awk -F ' |,' '{ print $2 }' | grep -o -e '[0-9]\+.[0-9]\+' )" # M.m version
-  GDAL_VERSION_MAJOR=$(echo $GDAL_VERSION | awk -F '.' '{ print $1; }')
-  GDAL_VERSION_MINOR=$(echo $GDAL_VERSION | awk -F '.' '{ print $2; }')
+  GDAL_VERSION="$($GDALINFO --version | grep -o -e '[0-9]\+\.[0-9]\+')" # 3.4
+  GDAL_VERSION_MAJOR=${GDAL_VERSION%.*} # 3
+  GDAL_VERSION_MINOR=${GDAL_VERSION#*.} # 4
   [[ $GDAL_VERSION_MAJOR -gt 1 || ( $GDAL_VERSION_MAJOR -eq $1 && $GDAL_VERSION_MINOR -ge $2 ) ]] && echo 0 || echo 1
 }
 
-check_jpeg2000_enabled()
+check_python()
 {
-  # check if gdal supports JP2OpenJPEG then run test cases with encode in this format
-  gdalinfo --formats | grep JP2OpenJPEG &> /dev/null
-  if [ $? -ne 0 ]; then
-    log "skipping test for GMLJP2 encoding."
-    return 1
+  if ! $PYTHONBIN --version > /dev/null 2>&1; then
+    error "python3 not found, please install python first."
   fi
-  return 0
-}
-
-# check if query should be run (e.g: JPEG2000)
-check_query_runable()
-{
-  if [[ "$1" == *"jp2"* || "$1" == *"jpeg2000"*  || "$1" == *"jp2openjpeg"* ]]; then
-    # call the function and get the return in integer by $?
-    check_jpeg2000_enabled
-    return $?
-  fi
-  return 0
 }
 
 check_filestorage_dependencies()
@@ -472,32 +324,23 @@ check_java_enabled() {
 # e.g. H2 petascopedb cannot run some tests which only postgresql can run
 skip_test_if_not_postgresql_petascopedb()
 {
-  props="$RMANHOME/etc/petascope.properties"
-  if ! grep -q 'spring.datasource.url=jdbc:postgresql' "$props"; then
+  if ! grep -q 'spring.datasource.url=jdbc:postgresql' "$PETASCOPE_PROPERTIES_FILE"; then
     log "this test works only with postgresql backend, skipping."
     exit $RC_SKIP
   fi
 }
 
-# --------- properties
-
 # return the value of key=value from properties file ($1: the key, $2: the file)
 get_key_value()
 {    
-    key_value=$(grep -E "^$1=" "$2") && echo ${key_value#*=} || echo ""
+    key_value=$(grep -E "^$1=" "$2")
+    if [[ -n "$key_value" ]]; then
+      echo "${key_value#*=}"
+    else
+      echo ""
+    fi
 }
 
-export RASADMIN_USER="$(get_key_value "rasdaman_admin_user" "$PETASCOPE_PROPERTIES_FILE")"
-export RASADMIN_PASS="$(get_key_value "rasdaman_admin_pass" "$PETASCOPE_PROPERTIES_FILE")"
-
-# credentials files for wcst_import to authenticate to petascope
-export RASADMIN_CREDENTIALS_FILE="/tmp/rasadmin_credentials.txt"
-echo "$RASADMIN_USER:$RASADMIN_PASS" > "$RASADMIN_CREDENTIALS_FILE"
-chmod 600 "$RASADMIN_CREDENTIALS_FILE"
-
-export WCST_IMPORT="wcst_import.sh -i $RASADMIN_CREDENTIALS_FILE"
-export WGET="wget --auth-no-challenge --user $RASADMIN_USER --password $RASADMIN_PASS"
-export CURL="curl -u $RASADMIN_USER:$RASADMIN_PASS -s"
 
 # ------------------------------------------------------------------------------
 # print test summary
@@ -545,6 +388,25 @@ print_summary()
   else
     RC=$RC_OK
   fi
+}
+
+# Print the test result of a test with elapsed time format
+# e.g: test.sh:   1/103    OK   .81s   3D_Timeseries_Regular
+#
+# $1 test case name
+# $2 result of test case (OK/FAIL)
+# $3 total number of test cases
+# $4 index of test case in list of test cases
+print_testcase_result() {
+  local test_case_name=$1
+  local status=$2
+  local total_test_no=$3
+  local curr_test_no=$4
+  local c_on
+  c_on=$(get_status_color "$status")
+  local msg
+  msg=$(printf "%3d/$total_test_no ${c_on}%5s${c_off} %5ss   $test_case_name\n" "$curr_test_no" "$status" "$(get_time_s)")
+  log_colored "$msg"
 }
 
 #
@@ -668,11 +530,24 @@ update_result()
   return $rc
 }
 
+# create output dir to store outputs from test scripts
+prepare_output_dir() {
+  if [ -n "$SCRIPT_DIR" ]; then
+    export OUTPUT_DIR="$SCRIPT_DIR/output"
+    [ -d "$OUTPUT_DIR" ] && rm -rf "$OUTPUT_DIR"
+    mkdir -p "$OUTPUT_DIR"
+  else
+    echo "warning: SCRIPT_DIR must be set before calling prepare_output_dir()."
+  fi
+}
+
 prepare_json_file()
 {
   local json_file="$1"
   if [[ -n "$json_file" && -f "$json_file" ]]; then
-    sed -i -e '/href/d' -e 's/ *Result element [[:digit:]]: *//' \
+    sed -i -e '/href/d' \
+           -e 's/ *Result element [[:digit:]]: *//' \
+           -e 's/-9.223372036854776e+18/-9.22337204e+18/g' \
            "$json_file"
   fi
 }
@@ -703,6 +578,8 @@ prepare_xml_file()
            -e '/<valid_range>/s/ //g' \
            -e '/_NCProperties/d' \
            -e '/version=".*"/d' \
+           -e 's/-9.223372036854776e+18/-9.22337204e+18/g' \
+           -e 's/-3.3999999521443642e+38/-3.4e+38/g' \
            "$xml_file"
   fi
 }
@@ -794,8 +671,6 @@ delete_coverage() {
   fi
 
   if [[ "$delete_coverage" = "true" ]]; then
-    local OUTPUT_DIR="$SCRIPT_DIR/output"
-    mkdir -p "$OUTPUT_DIR"
     local OUTPUT_FILE="$OUTPUT_DIR/DeleteCoverage-$1.out"
     # Store the result of deleting request to a temp file
     local delete_request="$PETASCOPE_URL?service=WCS&version=2.0.1&request=DeleteCoverage&CoverageId=$input_coverage_id"
@@ -944,11 +819,9 @@ compare_output_to_oracle() {
 
 
 # ------------------------------------------------------------------------------
-#
 # run a test suite, expected global vars:
 #  $SVC_NAME - service name, e.g. wcps, wcs, etc.
 #  "$f"        - test file
-#
 run_test()
 {
   local f="$1"
@@ -967,8 +840,8 @@ run_test()
   # If there is a special oracle file for the OS (e.g: test.oracle.ubuntu1804, then use this file as oracle)
   [ -f "$oracle.$OS_VERSION" ] && oracle="$oracle.$OS_VERSION"
 
-  local out="$OUTPUT_PATH/$f.out"
-  local err="$OUTPUT_PATH/$f.err"
+  local out="$OUTPUT_DIR/$f.out"
+  local err="$OUTPUT_DIR/$f.err"
   local pre_script="$QUERIES_PATH/${f%\.*}.pre.sh"
   local post_script="$QUERIES_PATH/${f%\.*}.post.sh"
   local check_script="$QUERIES_PATH/${f%\.*}.check.sh"
@@ -1006,9 +879,7 @@ run_test()
               case "$test_type" in
                 kvp)
                     QUERY=$(cat "$f")
-                    if check_query_runable "$QUERY"; then
-                      post_request_kvp "$RASQL_SERVLET" "$QUERY" "$out"
-                    fi
+                    post_request_kvp "$RASQL_SERVLET" "$QUERY" "$out"
                     ;;
                 input)
                     local templateFile="$SCRIPT_DIR/queries/post-upload.template"
@@ -1035,34 +906,17 @@ run_test()
                     
                     # File to upload to server, same name with test request file but with .file                
                     local upload_file="${f%.*}.file"
-                    if check_query_runable "$QUERY"; then
-                      post_request_file "$PETASCOPE_URL" "query=$QUERY" "$upload_file" "$out"
-                    else
-                      return
-                    fi
+                    post_request_file "$PETASCOPE_URL" "query=$QUERY" "$upload_file" "$out"
                     ;;
                 test)
 
-                    if [[ ( "$OS_VERSION" == "$OS_CENTOS7" || "$OS_VERSION" == "$OS_UBUNTU1604" ) && "$f" == *"overview"* ]]; then
-                        # NOTE: centos 7 and ubuntu 16.04 with gdal version 1.x does not support importing overview
-                        return
-                    fi
-
                     QUERY=$(cat "$f")
-                    if check_query_runable "$QUERY"; then
-                      post_request_kvp_with_breaklines "$PETASCOPE_URL" "query=$QUERY" "$out"
-                    else
-                      return
-                    fi
+                    post_request_kvp_with_breaklines "$PETASCOPE_URL" "query=$QUERY" "$out"
                     ;;
                 xml)
                     QUERY=$(cat "$f")
-                    if check_query_runable "$QUERY"; then
-                      # send POST/SOAP to petascope
-                      post_request_kvp_with_breaklines "$PETASCOPE_URL" "query=$QUERY" "$out"
-                    else
-                      return
-                    fi
+                    # send POST/SOAP to petascope
+                    post_request_kvp_with_breaklines "$PETASCOPE_URL" "query=$QUERY" "$out"
                     ;;
                 *)  error "unknown wcps test type: $test_type"
               esac
@@ -1076,32 +930,16 @@ run_test()
                     QUERY=$(sed 's/\$/%24/g' "$f")
                     # File to upload to server, same name with test request file but with .file                
                     local upload_file="${f%.*}.file"
-                    if check_query_runable "$QUERY"; then
-                      post_request_file "$PETASCOPE_URL" "$QUERY" "$upload_file" "$out"
-                    else
-                      return
-                    fi
+                    post_request_file "$PETASCOPE_URL" "$QUERY" "$upload_file" "$out"
                     ;;
                 kvp)
-                    if [[ ( "$OS_VERSION" == "$OS_CENTOS7" || "$OS_VERSION" == "$OS_UBUNTU1604" ) && "$f" == *"overview"* ]]; then
-                      # NOTE: centos 7 and ubuntu 16.04 with gdal version 1.x does not support importing overview
-                      return
-                    fi
                     QUERY=$(cat "$f")
-                    if check_query_runable "$QUERY"; then
-                      post_request_kvp "$PETASCOPE_URL" "$QUERY" "$out"
-                    else
-                      return
-                    fi
+                    post_request_kvp "$PETASCOPE_URL" "$QUERY" "$out"
                     ;;
                 xml) 
                     QUERY=$(cat "$f")
-                    if check_query_runable "$QUERY"; then
-                      # send POST/SOAP XML
-                      post_request_xml "$PETASCOPE_URL" "query=$QUERY" "$out"
-                    else
-                      return
-                    fi
+                    # send POST/SOAP XML
+                    post_request_xml "$PETASCOPE_URL" "query=$QUERY" "$out"
                     ;;
                 xml_wcps) 
                     # WCPS query exists in XML-wrapper
@@ -1151,7 +989,7 @@ run_test()
               get_request_kvp "$SECORE_URL" "$QUERY" "$out" "secore"
               ;;
 
-      select|nullvalues|subsetting|clipping|rasdapy3)
+      select|nullvalues|subsetting|clipping|insitu|rasdapy3)
 
               QUERY=$(cat "$f")
 
@@ -1220,7 +1058,6 @@ run_test()
 
 # ------------------------------------------------------------------------------
 # exit test script with/without error code
-#
 exit_script() { if [ $NUM_FAIL -ne 0 ]; then exit $RC_ERROR; else exit $RC_OK; fi; }
 
 # ------------------------------------------------------------------------------
@@ -1249,24 +1086,6 @@ restart_rasdaman()
 {
   stop_rasdaman "$@"
   start_rasdaman "$@"
-  if [[ $# = 0 ]]; then
-      # everything is restarted including petascope; wait til petascope is up
-      local wait_seconds=120 # wait up to 2 minutes for petascope to start
-      local waited=0
-      local sleep_seconds=5
-      local petascope_available=false
-      while [[ $waited -lt $wait_seconds ]]; do
-          sleep $sleep_seconds
-          waited=$((waited + sleep_seconds))
-          if check_petascope > /dev/null 2>&1; then
-              petascope_available=true
-              break # petascope check returned 0 (success), stop waiting
-          fi
-      done
-      if [[ $petascope_available = false ]]; then
-          log "warning: petascope failed to start and respond within $wait_seconds seconds after restarting rasdaman."
-      fi
-  fi
   log "rasdaman restarted."
 }
 
@@ -1321,11 +1140,9 @@ recreate_rasbase()
 }
 # ------------------------------------------------------------------------------
 
-# print the server pid (single rasserver should be running, otherwise wrong pid might be determined)
-get_server_pid()
-{
-  local -r server_pid=$(ps aux | grep 'bin/rasserver' | grep -v grep | awk '{ print $2; }' | head -n 1)
-  [ -n "$server_pid" ] && echo "$server_pid"
+# print the server pid
+get_server_pid() {
+  pgrep -o rsserver
 }
 
 # if there are more background jobs than $PARALLEL_QUERIES, then this function

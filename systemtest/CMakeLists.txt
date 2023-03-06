@@ -19,16 +19,9 @@
 # For more information please see <http://www.rasdaman.org>
 # or contact Peter Baumann via <baumann@rasdaman.com>.
 
-set(TEST_SEQUENCE "testcases_mandatory/* ")
-if (ENABLE_JAVA)
-	set(TEST_SEQUENCE "testcases_mandatory/* testcases_services/*")
-endif()
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh.in"
-               "${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh" @ONLY)
-
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/conf/test.cfg.in"
-               "${CMAKE_CURRENT_SOURCE_DIR}/conf/test.cfg" @ONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/util/test.cfg.in"
+               "${CMAKE_CURRENT_SOURCE_DIR}/util/test.cfg" @ONLY)
                
 
 add_custom_target(check
@@ -36,7 +29,7 @@ add_custom_target(check
         DEPENDS run_test.sh
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "Running system tests."
-        VERBATIM )
+        VERBATIM)
 
 file(GLOB_RECURSE TEST_FILES_TO_CLEAN *.log failed_cases output)
 

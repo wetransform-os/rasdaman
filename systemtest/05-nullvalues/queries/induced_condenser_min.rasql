@@ -1,0 +1,1 @@
+select encode(condense min over i in [0:1] using (( <[0:1,0:2,0:2] 3, 3, 3; 2, 2, 2; 0, 0, 0; 0, 0, 0; 1, 1, 1; 2, 2, 2>[i[0], *:*, *:*]) null values [2]), "csv")

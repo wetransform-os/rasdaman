@@ -1,0 +1,11 @@
+SELECT encode(
+
+  MARRAY px in [151:152,364:365] 
+  VALUES  count_cells( 
+    (col0[-6119:-6115, px[0], px[1]] > 10) and
+    (col1[-2832:-2828, px[0], px[1]] < 10)
+  )
+
+  , "json")  
+
+FROM test_DWD_TX24 AS col0, test_DWD_Niederschlag AS col1

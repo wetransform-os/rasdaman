@@ -13,13 +13,9 @@ several tools and services running:
 = Execution =
 -------------
 
-To run the systemtest, execute in this directory:
+To run the systemtest, execute in the build directory:
 
   make check
 
-By default this will run all test_*/test.sh scripts in the following dirs:
+By default this will run all [0-9][0-9]-*/test.sh scripts.
 
-  testcases_fixed
-  testcases_mandatory
-  testcases_open
-  testcases_services (if petascope is installed and available)

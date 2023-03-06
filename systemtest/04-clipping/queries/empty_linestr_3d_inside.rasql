@@ -1,0 +1,1 @@
+select encode(clip( c, linestring(0 0 0, 19 19 3, 3 16 1)), "json") from test_grey3d_empty_in_middle as c

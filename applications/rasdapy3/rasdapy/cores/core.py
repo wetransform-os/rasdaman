@@ -174,8 +174,6 @@ class Database(object):
         self.rasmgr_db = rasmgr_open_db(self.connection.stub,
                                         self.connection.session.clientId,
                                         self.name)
-        if self.rasmgr_db.dbSessionId == self.connection.session.clientId:
-            self.connection._stop_keep_alive()
         options = [
             ('grpc.max_send_message_length', 100 * 1024 * 1024),
             ('grpc.max_receive_message_length', 100 * 1024 * 1024)

@@ -1,0 +1,1 @@
+select c[0,55:67,32:50][1,55:67,32:50] from test_subsetting_3d as c

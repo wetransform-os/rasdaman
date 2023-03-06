@@ -1,0 +1,1 @@
+select encode(clip(c, corridor(projection(1,2), linestring(13 1 501, 14 2 503), polygon((1 501, 98 501, 97 503)))), "json") from test_grey3d_empty_in_middle as c

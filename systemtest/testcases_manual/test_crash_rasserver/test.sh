@@ -44,6 +44,7 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 . "$SCRIPT_DIR"/../../util/common.sh
 
 export RASDATA=
+export DB_DIR="/tmp/rasdb"
 
 #set -u
 #set -e
@@ -135,7 +136,7 @@ record_query_metrics()
 
     set_query_execution_time "$query_file" "$(get_time)"
 
-    restart_rasdaman
+    restart_rasdaman --service core
     set_post_db_checksum "$query_file"
   done
 
@@ -195,7 +196,7 @@ _cleanup()
   loge ""
   log "exiting..."
   restore_configuration
-  restart_rasdaman
+  restart_rasdaman --service core
   rm -rf "$DB_DIR"
   log "done."
   trap - EXIT
@@ -254,7 +255,7 @@ while [ true ]; do
   [ -n "$pid" ] && kill -"$KILL_SIGNAL" "$pid"
   sleep 0.3
 
-  restart_rasdaman
+  restart_rasdaman --service core
   sleep 0.3
 
   curr_db_checksum=$(get_db_checksum "$DB_DIR")

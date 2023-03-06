@@ -1,0 +1,9 @@
+SELECT encode(
+
+  CONDENSE + OVER t in [-6119:-6119]  
+  USING (( col0[-6119:-6119,151:152,364:365] > 10 )  and  
+         ( SCALE( col1[-2832:-2832,151:152,363:364],
+                  [-6119:-6119,151:152,364:365]) < 10 ))[t[0],151:152,364:365]
+
+  , "json")
+FROM test_DWD_TX24 AS col0, test_DWD_Niederschlag AS col1

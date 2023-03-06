@@ -1,0 +1,1 @@
+select count_cells( project(c, "0.0, 0.0, 25.5, 21.1", "EPSG:3857", "EPSG:4326") is null) from test_grey_null as c

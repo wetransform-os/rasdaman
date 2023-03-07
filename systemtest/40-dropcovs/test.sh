@@ -34,6 +34,8 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 # standard case
 [ -f "$SCRIPT_DIR"/../util/common.sh ] && . "$SCRIPT_DIR"/../util/common.sh
+# make sure it can work one level deeper inside test_zero_insitu
+[ -f "$SCRIPT_DIR"/../../util/common.sh ] && . "$SCRIPT_DIR"/../../util/common.sh
 
 delete_cov() {
     cov_id="$1"
@@ -46,7 +48,7 @@ delete_cov() {
     print_testcase_result "$cov_id" "$status" "$total_test_no" "$curr_test_no"
 }
 
-rm -rf "$SCRIPT_DIR/output"
+prepare_output_dir
 
 coverage_ids=($(get_coverage_ids))
 total_test_no=${#coverage_ids[@]}

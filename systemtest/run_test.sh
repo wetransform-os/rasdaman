@@ -63,8 +63,11 @@ for test_case in [0-9][0-9]*; do
         continue
     fi
 
+    pushd "$test_case" > /dev/null
+    TEST_SCRIPT="$(basename "$TEST_SCRIPT")"
+
     # execute test script, check result and log it along with execution time (s)
-    $TEST_SCRIPT
+    ./$TEST_SCRIPT
     rc=$?
     case $rc in
         0) status=OK;;
@@ -72,6 +75,8 @@ for test_case in [0-9][0-9]*; do
         *) status=FAIL; ret=$rc;;
     esac
     printf "%5s %4ds  $TEST_SCRIPT\n" $status $SECONDS | tee -a "$logf"
+
+    popd > /dev/null
 done
 
 echo

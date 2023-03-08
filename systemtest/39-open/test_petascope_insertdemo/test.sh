@@ -35,6 +35,8 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 . "$SCRIPT_DIR"/../../util/common.sh
 
+prepare_output_dir
+
 # run the petascope_insertdemo script
 log "petascope_insertdemo.sh exit code is 0... "
 petascope_insertdemo.sh >> "$LOG_FILE" 2>&1

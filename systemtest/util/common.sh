@@ -39,308 +39,24 @@ SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
 UTIL_SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
+# shellcheck source=./test.cfg
 . "$UTIL_SCRIPT_DIR"/test.cfg
+# shellcheck source=./logging.sh
+. "$UTIL_SCRIPT_DIR"/logging.sh
+# shellcheck source=./measure.sh
+. "$UTIL_SCRIPT_DIR"/measure.sh
+# shellcheck source=./tools.sh
+. "$UTIL_SCRIPT_DIR"/tools.sh
+# shellcheck source=./parallel.sh
+. "$UTIL_SCRIPT_DIR"/parallel.sh
 
-
-# --------------------------------------------------------
-# command shortcuts; variables configured in test.cfg
-#
-TIMEOUT="timeout"
-export RASQL_OPTS="--server $RASMGR_HOST --port $RASMGR_PORT --user $RASADMIN_USER --passwd $RASADMIN_PASS"
-export RASQL_OPTS_GUEST="--server $RASMGR_HOST --port $RASMGR_PORT --user $RASGUEST_USER --passwd $RASGUEST_PASS"
-export RASQL="$TIMEOUT 30 $RMANHOME/bin/rasql --server $RASMGR_HOST $RASQL_OPTS"
-export RASQL_GUEST="$TIMEOUT 30 $RMANHOME/bin/rasql --server $RASMGR_HOST $RASQL_OPTS_GUEST"
-export PY_RASQL="$TIMEOUT 30 $SCRIPT_DIR/rasql.py $RASQL_OPTS --database $RASDB"
-export DIRECTQL="$TIMEOUT 30 $RMANHOME/bin/rasserver --user $RASADMIN_USER --passwd $RASADMIN_PASS --connect $RASDB"
-export RASCONTROL="$TIMEOUT 30 $RMANHOME/bin/rascontrol --host $RASMGR_HOST --port $RASMGR_PORT"
-
-export START_RAS="$RMANHOME/bin/start_rasdaman.sh"
-export STOP_RAS="$RMANHOME/bin/stop_rasdaman.sh"
-export CREATE_DB="$RMANHOME/bin/create_db.sh"
-
-export GDALINFO="gdalinfo -noct -checksum"
-export VALGRIND="valgrind --tool=memcheck --leak-check=full --track-origins=yes"
-export PYTHONBIN=python3
-export WGET="wget --timeout=30 --auth-no-challenge --user $RASADMIN_USER --password $RASADMIN_PASS"
-export CURL="curl --max-time 30 -u $RASADMIN_USER:$RASADMIN_PASS -s"
-
-# credentials files for wcst_import to authenticate to petascope
-export RASADMIN_CREDENTIALS_FILE="/tmp/rasadmin_credentials.txt"
-if [ ! -f "$RASADMIN_CREDENTIALS_FILE" ]; then
-  echo "$RASADMIN_USER:$RASADMIN_PASS" > "$RASADMIN_CREDENTIALS_FILE"
-  chmod 600 "$RASADMIN_CREDENTIALS_FILE"
-fi
-export WCST_IMPORT="$TIMEOUT 30 $RMANHOME/bin/wcst_import.sh -i $RASADMIN_CREDENTIALS_FILE"
-
-# Run up to 8 test queries in parallel
-PARALLEL_QUERIES=4
-RASSERVER_COUNT="$(grep 'define srv ' "$RASMGR_CONF" -c)"
-if [ $PARALLEL_QUERIES -gt "$RASSERVER_COUNT" ]; then
-    PARALLEL_QUERIES=$RASSERVER_COUNT
-fi
-export RASSERVER_COUNT
-export PARALLEL_QUERIES
-# if number of background jobs does not decrease within 120 seconds, the test
-# will terminate with an error.
-export WAIT_TIMEOUT_SEC=120
-
-
-# -------------------
-# script return codes
-RC_OK=0
-RC_ERROR=1
-RC_SKIP=2
-
-# ----------------
-# test case status
-ST_PASS=OK    # test passed
-ST_FAIL=FAIL  # test failed
-ST_SKIP=SKIP  # test failed, and also marked in known_fails so it was skipped
-ST_FIX=FIX    # marked as known_fail but actually passes, i.e. it was fixed
-ST_COPY=COPY  # oracle not found = copy output file to the oracle
-
-# ------------------
 # testing statistics
 NUM_TOTAL=0 # the number of tests
 NUM_FAIL=0  # the number of failed tests
 NUM_SUC=0   # the number of successful tests
 
-# ------------------------------------------------------------------------------
-# OS version
-OS_UNKNOWN="unknown"
-OS_UBUNTU2004="ubuntu2004"
-OS_UBUNTU2204="ubuntu2204"
-. /etc/os-release
-case "$VERSION_CODENAME" in
-  focal) OS_VERSION=$OS_UBUNTU2004;;
-  jammy) OS_VERSION=$OS_UBUNTU2204;;
-  *)     OS_VERSION=$OS_UNKNOWN;;
-esac
-
-# ------------------------------------------------------------------------------
-# logging
-LOG_FILE="$SCRIPT_DIR/test.log"
-FAILED_LOG_FILE="$SCRIPT_DIR/failed_cases.log"
+# name of service currently tested
 SVC_NAME=
-
-# ---------------------------
-# terminal color escape codes
-C_OFF="\e[0m"
-C_BOLD="\e[1m"
-C_RED="$C_BOLD\e[31m"
-C_GREEN="$C_BOLD\e[32m"
-C_YELLOW="$C_BOLD\e[33m"
-# colors set properly depending on whether the test is run in a terminal
-# (rather than output redirected for example)
-if [[ -t 0 || -t 1 || -t 2 ]]; then
-  c_off="$C_OFF"
-  c_bold="$C_BOLD"
-  c_green="$C_GREEN"
-  c_red="$C_RED"
-  c_yellow="$C_YELLOW"
-fi
-
-# $1: test status
-# stdout: $color_on and $color_on if $1 != $ST_PASS
-get_status_color()
-{
-  [ "$1" == $ST_PASS ] && return # pass, no special color
-  case "$1" in
-    "$ST_FAIL") echo "$c_red";;
-    *)          echo "$c_yellow";;
-  esac
-}
-
-# log as is to stdout, but remove colors from file output
-log_colored()
-{
-  echo -e "$PROG: $*"
-  echo -e "$PROG: $*" | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g" >> "$LOG_FILE"
-}
-log_colored_failed()
-{
-  echo -e "$PROG: ${c_red}$*${c_off}"
-  echo -e "$PROG: $*" >> "$LOG_FILE"
-}
-loge_colored()
-{
-  echo -e "$*"
-  echo -e "$*" | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g" >> "$LOG_FILE"
-}
-loge_colored_failed()
-{
-  echo -e "${c_red}$*${c_off}"
-  echo -e "$*" >> "$LOG_FILE"
-}
-
-# normal log
-log()   { echo -e "$PROG: $*" | tee -a "$LOG_FILE"; }
-loge()  { echo -e "$*" | tee -a "$LOG_FILE"; }
-logn()  { echo -n -e "$PROG: $*" | tee -a "$LOG_FILE"; }
-error() { log_colored_failed "$*"; log_colored_failed "exiting."; exit $RC_ERROR; }
-log_failed() { echo "$PROG: $*" >> "$FAILED_LOG_FILE"; }
-
-feedback()   { if [ $? -ne 0 ]; then loge_colored_failed failed.; else loge ok.; fi; }
-check_exit() {
-  if [ $? -ne 0 ]; then
-    log_colored_failed "failed, exiting."
-    exit $RC_ERROR
-  else
-    loge ok.
-  fi
-}
-# test status -> return code (e.g: OK -> 0)
-get_return_code() {
-  if [[ "$1" = "$ST_PASS" ]]; then
-    return "$RC_OK"
-  else
-    return "$RC_ERROR"
-  fi
-}
-
-# ---------
-# setup log
-if [ -n "$SCRIPT_DIR" ] ; then
-  rm -f "$LOG_FILE" "$FAILED_LOG_FILE"
-  log "starting test at $(date)"
-  log ""
-fi
-
-# ------------------------------------------------------------------------------
-# manage timing, in ms
-# @global variable: timer_start
-start_timer(){ timer_start=$(date +%s%N); }
-stop_timer() { timer_stop=$(date +%s%N); }
-# ms
-get_time()   { echo "scale=2; ($timer_stop - $timer_start) / 1000000.0" | bc; }
-# s
-get_time_s() { echo "scale=2; ($timer_stop - $timer_start) / 1000000000.0" | bc; }
-
-# set a global timestamp when this file is loaded by a test script
-# @global variable: total_timer_start
-start_timer
-total_timer_start="$timer_start"
-
-# ------------------------------------------------------------------------------
-# dependency checks
-#
-check_rasdaman()
-{
-  type rasmgr &> /dev/null || error "rasdaman not installed, please add rasdaman bin directory to the PATH."
-  pgrep rasmgr &> /dev/null || error "rasdaman not started, please start with start_rasdaman.sh"
-  $RASCONTROL -x 'list srv -all' &> /dev/null || error "no rasdaman servers started."
-}
-check_rasdaman_available()
-{
-  # check if rasdaman is running and exit if not
-  if ! $RASQL -q 'select c from RAS_COLLECTIONNAMES as c' --out string &> /dev/null; then
-    # retry test
-    sleep 2
-    if ! $RASQL -q 'select c from RAS_COLLECTIONNAMES as c' --out string &> /dev/null; then
-        log "rasdaman down, exiting..."
-        # cleanup if cleanup function is defined
-        if declare -f "cleanup" &> /dev/null; then
-            cleanup
-        else
-            exit $RC_ERROR
-        fi
-    fi
-  fi
-}
-
-check_postgres()
-{
-  type psql &> /dev/null || error "PostgreSQL missing, please add psql to the PATH."
-  if ! pgrep postgres &> /dev/null; then
-    pgrep postmaster > /dev/null || error "The PostgreSQL service is not started."
-  fi
-}
-check_curl()
-{
-  type curl &> /dev/null || error "curl missing, please install."
-}
-check_petascope()
-{
-  if ! curl -sL "$PETASCOPE_URL" -o /dev/null; then
-    log "failed connecting to Petascope at $PETASCOPE_URL, please deploy it first."
-    return 1
-  fi
-  return 0
-}
-check_secore()
-{
-  if ! curl -sL "$SECORE_URL/crs" -o /dev/null; then
-    log "failed connecting to SECORE at $SECORE_URL, please deploy it first."
-    return 1
-  fi
-  return 0
-}
-check_netcdf()
-{
-  type ncdump &> /dev/null || error "netcdf tools missing, please add ncdump to the PATH."
-}
-check_gdal()
-{
-  type gdal_translate &> /dev/null || error "gdal missing, please add gdal_translate to the PATH."
-}
-
-# Check if GDAL version is greater-equal than specified (M.m)
-# usage: $0 <major> <minor>
-# return
-#   0 - if GDAL version is >= <major>.<minor>
-#   1 - otherwise
-check_gdal_version()
-{
-  GDAL_VERSION="$($GDALINFO --version | grep -o -e '[0-9]\+\.[0-9]\+')" # 3.4
-  GDAL_VERSION_MAJOR=${GDAL_VERSION%.*} # 3
-  GDAL_VERSION_MINOR=${GDAL_VERSION#*.} # 4
-  [[ $GDAL_VERSION_MAJOR -gt 1 || ( $GDAL_VERSION_MAJOR -eq $1 && $GDAL_VERSION_MINOR -ge $2 ) ]] && echo 0 || echo 1
-}
-
-check_python()
-{
-  if ! $PYTHONBIN --version > /dev/null 2>&1; then
-    error "python3 not found, please install python first."
-  fi
-}
-
-check_filestorage_dependencies()
-{
-  [ -f "$RASMGR_CONF" ] || error "$RASMGR_CONF not found, RMANHOME not defined properly?"
-  type sqlite3 &> /dev/null || error "sqlite3 not found, please install."
-}
-
-# Check if rasdaman was built with -DENABLE_JAVA=ON
-check_java_enabled() {
-  if [ "$ENABLE_JAVA" == "ON" ]; then
-    return 0
-  else
-    log "Test cannot be executed as compilation of Java components in rasdaman is disabled."
-    log "To enable it, please run cmake again with -DENABLE_JAVA=ON, followed by make and make install."
-    return 1
-  fi
-}
-
-# e.g. H2 petascopedb cannot run some tests which only postgresql can run
-skip_test_if_not_postgresql_petascopedb()
-{
-  if ! grep -q 'spring.datasource.url=jdbc:postgresql' "$PETASCOPE_PROPERTIES_FILE"; then
-    log "this test works only with postgresql backend, skipping."
-    exit $RC_SKIP
-  fi
-}
-
-# return the value of key=value from properties file ($1: the key, $2: the file)
-get_key_value()
-{    
-    key_value=$(grep -E "^$1=" "$2")
-    if [[ -n "$key_value" ]]; then
-      echo "${key_value#*=}"
-    else
-      echo ""
-    fi
-}
-
 
 # ------------------------------------------------------------------------------
 # print test summary
@@ -388,6 +104,7 @@ print_summary()
   else
     RC=$RC_OK
   fi
+  export RC
 }
 
 # Print the test result of a test with elapsed time format
@@ -459,7 +176,7 @@ check_result_fuzzy()
 # if $1 is specified then the test is silent (doesn't print anything)
 check_failed()
 {
-  [ -z "$1" ] && loge_colored_failed failed.
+  loge_colored_failed failed.
   NUM_FAIL=$((NUM_FAIL + 1))
   NUM_TOTAL=$((NUM_TOTAL + 1))
   return $RC_ERROR
@@ -468,34 +185,37 @@ check_failed()
 # if $1 is specified then the test is silent (doesn't print anything)
 check_passed()
 {
-  [ -z "$1" ] && loge ok.
+  loge ok.
   NUM_SUC=$((NUM_SUC + 1))
   NUM_TOTAL=$((NUM_TOTAL + 1))
   return $RC_OK
 }
 # check the result of previously executed command ($? variable)
 # and print failed/ok accordingly + update NUM_* variables
-check() { if [ $? -ne 0 ]; then check_failed "$1"; else check_passed "$1"; fi; }
-
-#
-# Ultilities functions
-#
-
-# $1 is a URL; return the HTTP code from the URL by curl
-get_http_return_code() { $CURL -sL -w "%{http_code}\\n" "$1" -o /dev/null; }
+check() {
+  if [ $? -ne 0 ]; then
+    check_failed
+  else
+    check_passed
+  fi
+}
 
 # if "$f" is found in known_fails, then return 0, otherwise to 1
 check_known_fail()
 {
   local testcase="$f"
-  [ -n "$1" ] && testcase="$1"
-
   if [[ -f "$KNOWN_FAILS" && -n "$testcase" ]]; then
     grep -F "$testcase" "$KNOWN_FAILS" --quiet
     return $? # 0 if "$f" is a known fail
   fi
   return 1
 }
+
+# exit test script with/without error code
+exit_script() { if [ $NUM_FAIL -ne 0 ]; then exit $RC_ERROR; else exit $RC_OK; fi; }
+
+# $1 is a URL; return the HTTP code from the URL by curl
+get_http_return_code() { $CURL -sL -w "%{http_code}\\n" "$1" -o /dev/null; }
 
 #
 # Check return code ($?) and update variables tracking number of
@@ -643,7 +363,6 @@ urlencode() {
     LC_COLLATE=$old_lc_collate
 }
 
-
 # Get all available coverage Ids
 get_coverage_ids() {
   $WGET -qO- "$PETASCOPE_URL?service=WCS&version=2.0.1&request=GetCapabilities" | \
@@ -689,77 +408,32 @@ delete_coverage() {
 
 # -----------------------------------------------------------------------------
 
-# e.g: https://oapi.rasdaman.org/rasdaman/oapi/collections/mean_summer_airtemp
-get_request_rest() {
-  # $1 is servlet endpoint (e.g: localhost:8080/rasdaman/oapi)
-  # $2 is the request contex path and KVP if any
-  local url="$1"
-  local context
-  context=$(echo "$2" | tr -d '\n')
-  $CURL -G -X GET "$url/$context" > "$3" 
-}
-
-# GET KVP request
-get_request_kvp() {
-  # $1 is servlet endpoint (e.g: localhost:8080/rasdaman/ows)
-  # $2 is KVP parameters (e.g: service=WCS&version=2.0.1&query=....)
-  # $3 is output file
-  # $4 only use for SECORE as it will only GET KVP in the URL directly without encoding
-  local url="$1"
-  # replace the "\n" in the query to be a valid GET request without break lines
-  local kvpValues
-  kvpValues="$(echo "$2" | tr -d '\n')"
-  if [ -z "$4" ]; then
-    $CURL -G -X GET "$url" --data-urlencode "$kvpValues" > "$3"
-  else
-    # SECORE (just send the request as it is without encoding)
-    $CURL -X GET "$url""$kvpValues" > "$3"
-  fi
-}
-
 # Only use it GET parameter is too long (e.g: WCPS big query) (file name convention: *.post.test)
+# $1 is servlet endpoint (e.g: localhost:8080/rasdaman/ows)
+# $2 is the query file containing KVP parameters (e.g: service=WCS&version=2.0.1&query=....);
+#    new lines are removed from the file.
+# $3 is output file
 post_request_kvp() {
-  # $1 is servlet endpoint (e.g: localhost:8080/rasdaman/ows)
-  # $2 is KVP parameters (e.g: service=WCS&version=2.0.1&query=....)
-  # $3 is output file
   local url="$1"
   local kvpValues
-  kvpValues="$(echo "$2" | tr -d '\n')"
-  $CURL -X POST --data-urlencode "$kvpValues" "$url" > "$3"
-}
-
-
-post_request_kvp_with_breaklines() {
-  # $1 is servlet endpoint (e.g: localhost:8080/rasdaman/ows)
-  # $2 is KVP parameters (e.g: service=WCS&version=2.0.1&query=for $c in \n return \n encode(...))
-  # $3 is output file
-  local url="$1"
-  local kvpValues
-  kvpValues="$(echo "$2")"
-  $CURL -X POST --data-urlencode "$kvpValues" "$url" > "$3"
-}
-
-# this function will be used to send XML/SOAP request for WCS, WCPS
-post_request_xml() {
-  # curl -s -X POST --data-urlencode "$kvpValues" "$PETASCOPE_URL" -o "$2"
-  local url="$1"
-  local kvpValues
-  kvpValues="$(echo "$2" | tr -d '\n')"
+  kvpValues="$(tr -d '\n' < "$2")"  # remove new lines from $2
   $CURL -X POST --data-urlencode "$kvpValues" "$url" > "$3"
 }
 
 # this function will send a POST request to server with an upload file
 # e.g: used by WCS clipping extension with POST request
+# $1 is servlet endpoint (e.g: localhost:8080/rasdaman/ows)
+# $2 is file with KVP parameters (e.g: service=WCS&version=2.0.1&request=GetCoverage&clip=$1...)
+# $3 is the path to the file to be uploaded to server
+# $4 is output file from HTTP response
 post_request_file() {
-  # $1 is servlet endpoint (e.g: localhost:8080/rasdaman/ows)
-  # $2 is KVP parameters (e.g: service=WCS&version=2.0.1&request=GetCoverage&clip=$1...)
-  # $3 is the path to the file to be uploaded to server
-  # $4 is output file from HTTP response
   local url="$1"
   local kvpValues
-  kvpValues="$(echo "$2" | tr -d '\n')"
+  # $ is not valid character for curl, it must be escaped inside test request file;
+  # also new lines are removed
+  kvpValues="$(sed 's/\$/%24/g' "$2" | tr -d '\n')"
   local upload_file="$3"
-  $CURL -F "file=@$upload_file" "$url?$kvpValues" > "$4"
+  $CURL -F "file=@$upload_file" "$url$kvpValues" > "$4"
 }
 
 # check if the output produced by the test ($1) matches the expected oracle ($2)
@@ -768,7 +442,9 @@ compare_output_to_oracle() {
   local out="$1"
   local ora="$2"
 
-  if [[ -n "$check_script" && -f "$check_script" ]]; then
+  # QUERIES_PATH comes from test_runner.sh
+  local check_script="$QUERIES_PATH/${f%\.*}.check.sh"
+  if [[ -f "$check_script" ]]; then
     export -f prepare_xml_file
     "$check_script" "$out" "$ora"
   else
@@ -781,7 +457,7 @@ compare_output_to_oracle() {
 
     # normalize files to remove irrelevant differences across systems
     if gdalinfo "$ora" &> /dev/null; then
-      if [[ "$orafiletype" =~ "NetCDF" || "$orafiletype" =~ "Hierarchical Data Format" ]]; then
+      if [[ "$orafiletype" =~ "NetCDF" || "$orafiletype" =~ "Hierarchical Data" ]]; then
         prepare_netcdf_file "$out_tmp"
         prepare_netcdf_file "$ora_tmp"
       else
@@ -803,18 +479,28 @@ compare_output_to_oracle() {
 
     if [[ "$rc" != 0 && "$orafiletype" == *XML* ]]; then
       # ignore random error by SECORE BaseX
-      # the grep below will result in $? == 0 if the random error is found in the output, so it will pass in update_result
+      # the grep below will result in $? == 0 if the random error is found in 
+      # the output, so it will pass in update_result
       grep --quiet "Your feedback is welcome" "$out_tmp"
     else
-      # this is necessary in order to set $? for update_result, as the $? from diff was lost because of the if checks above
+      # this is necessary in order to set $? for update_result, as the $? from 
+      # diff was lost because of the if checks above
       [ "$rc" -eq 0 ]
     fi
 
   fi
 
-  # any previous statement must have been a comparison (diff, check_script, ...),\
+  # any previous statement must have been a comparison (diff, check_script, ...),
   # so that at this point the $? points to the result of that comparison.
   update_result
+}
+
+# arg $1: pre/post script to be executed
+# arg $2: script name to be logged in warning in case the script fails
+run_script() {
+  if [[ -f "$1" ]]; then
+    "$1" || log "warning: $2 script failed execution - $1"
+  fi
 }
 
 
@@ -825,425 +511,155 @@ compare_output_to_oracle() {
 run_test()
 {
   local f="$1"
-  if [ ! -f "$f" ]; then
-    error "test case not found: $f"
-  fi
-
+  [[ -f "$f" ]] || error "test case not found: $f"
   # get test type - file extension
-  local test_type
-  test_type=$(echo "$f" | sed 's/.*\.//')
-
-  # various other files expected  by the run_*_test functions
-  # NOTE: remove input protocol extension: all queries with the same basename
-  #       shall refer to the same oracle.
+  local test_type="${f##*.}"
+  # oracle file has an .oracle extensions, but may be
+  # set to a custom OS oracle file if it exists (e.g test.oracle.ubuntu2204)
   local oracle="$ORACLE_PATH/${f%\.*}.oracle"
-  # If there is a special oracle file for the OS (e.g: test.oracle.ubuntu1804, then use this file as oracle)
-  [ -f "$oracle.$OS_VERSION" ] && oracle="$oracle.$OS_VERSION"
-
+  [[ -f "$oracle.$OS_VERSION" ]] && oracle="$oracle.$OS_VERSION"
+  # test outputs
   local out="$OUTPUT_DIR/$f.out"
   local err="$OUTPUT_DIR/$f.err"
-  local pre_script="$QUERIES_PATH/${f%\.*}.pre.sh"
-  local post_script="$QUERIES_PATH/${f%\.*}.post.sh"
-  local check_script="$QUERIES_PATH/${f%\.*}.check.sh"
 
-  #
   # run pre script if present
-  #
-  if [ -f "$pre_script" ]; then
-    if ! $pre_script; then
-      log "warning: pre script failed execution - $pre_script"
-    fi
-  fi
+  run_script "$QUERIES_PATH/${f%\.*}.pre.sh" "pre"
 
   if [[ "$f" == *.sh ]]; then
 
-    #
     # 0. run custom test script if present
-    #
     "$f" "$out" "$oracle"
     update_result
 
   else
-    # error: if file contents has "*" then it replaces it with file name, 
-    # then must turn off this feature
-    local QUERY
-    QUERY=$(cat "$f" | tr -d '\n')
 
-    #
-    # 1. execute test query (NOTE: rasql is actually test_rasql_servlet)
-    #
+    # 1. execute test query
+    local QUERY
     case "$SVC_NAME" in
 
       servlet)
-              # test_rasql_servlet
-              case "$test_type" in
-                kvp)
-                    QUERY=$(cat "$f")
-                    post_request_kvp "$RASQL_SERVLET" "$QUERY" "$out"
-                    ;;
-                input)
-                    local templateFile="$SCRIPT_DIR/queries/post-upload.template"
-                    local inputFile="$SCRIPT_DIR/queries/$f"
-                    # read parameters from *.input file (NOTE: need to escape special characters like: &)
-                    local parameters
-                    parameters=$(cat "$inputFile")
-                    # replace the parameters from current .input file into templateFile
-                    sed "s#PARAMETERS#$parameters#g" "$templateFile" > "$templateFile.tmp.sh"
-                    # run the replaced script to upload file and rasql query to 
-                    # rasql-servlet and redirect output to /out directory
-                    bash "$templateFile.tmp.sh" > "$out" 2> "$err"
-                    # remove the temp bash script
-                    rm -f "$templateFile.tmp.sh"
-              esac
+        # test_rasql_servlet
+        case "$test_type" in
+          kvp)
+              post_request_kvp "$RASQL_SERVLET" "$f" "$out"
               ;;
+          input)
+              local templateFile="$SCRIPT_DIR/queries/post-upload.template"
+              local inputFile="$SCRIPT_DIR/queries/$f"
+              # read parameters from *.input file (NOTE: need to escape special characters like: &)
+              local parameters
+              parameters=$(cat "$inputFile")
+              # replace the parameters from current .input file into templateFile
+              sed "s#PARAMETERS#$parameters#g" "$templateFile" > "$templateFile.tmp.sh"
+              # run the replaced script to upload file and rasql query to 
+              # rasql-servlet and redirect output to /out directory
+              bash "$templateFile.tmp.sh" > "$out" 2> "$err"
+              # remove the temp bash script
+              rm -f "$templateFile.tmp.sh"
+        esac
+        ;;
 
-      wcps)   case "$test_type" in
-                post_file)
-                    # It will send a WCS POST request with a file to petascope 
-                    # (e.g: for WCS clipping extension: &clip=$1 and file=FILE_PATH_TO_WKT)
-                    # NOTE: $ is not valid character for curl, it must be escaped inside test request file
-                    QUERY=$(sed 's/\$/%24/g' "$f")
-                    
-                    # File to upload to server, same name with test request file but with .file                
-                    local upload_file="${f%.*}.file"
-                    post_request_file "$PETASCOPE_URL" "query=$QUERY" "$upload_file" "$out"
-                    ;;
-                test)
-
-                    QUERY=$(cat "$f")
-                    post_request_kvp_with_breaklines "$PETASCOPE_URL" "query=$QUERY" "$out"
-                    ;;
-                xml)
-                    QUERY=$(cat "$f")
-                    # send POST/SOAP to petascope
-                    post_request_kvp_with_breaklines "$PETASCOPE_URL" "query=$QUERY" "$out"
-                    ;;
-                *)  error "unknown wcps test type: $test_type"
-              esac
+      wcps)
+        case "$test_type" in
+          post_file)
+              # File to upload to server, same name with test request file but with .file                
+              local upload_file="${f%.*}.file"
+              post_request_file "$PETASCOPE_URL?query=" "$f" "$upload_file" "$out"
               ;;
-
-      wcs)    case "$test_type" in
-                post_file)
-                    # It will send a WCS POST request with a file to petascope 
-                    # (e.g: for WCS clipping extension: &clip=$1 and file=FILE_PATH_TO_WKT)
-                    # NOTE: $ is not valid character for curl, it must be escaped inside test request file
-                    QUERY=$(sed 's/\$/%24/g' "$f")
-                    # File to upload to server, same name with test request file but with .file                
-                    local upload_file="${f%.*}.file"
-                    post_request_file "$PETASCOPE_URL" "$QUERY" "$upload_file" "$out"
-                    ;;
-                kvp)
-                    QUERY=$(cat "$f")
-                    post_request_kvp "$PETASCOPE_URL" "$QUERY" "$out"
-                    ;;
-                xml) 
-                    QUERY=$(cat "$f")
-                    # send POST/SOAP XML
-                    post_request_xml "$PETASCOPE_URL" "query=$QUERY" "$out"
-                    ;;
-                xml_wcps) 
-                    # WCPS query exists in XML-wrapper
-                    if [[ -f "$f" ]]; then
-                      QUERY=$(cat "$f")
-                      post_request_xml "$PETASCOPE_URL?service=WCS&version=2.0.1&request=ProcessCoverages" "query=$QUERY" "$out"
-                    else
-                      return
-                    fi
-                    ;;                    
-                *)  error "unknown wcs test type: $test_type"
-              esac
+          test|xml)
+              QUERY="$(cat "$f")"
+              $CURL -X POST --data-urlencode "query=$QUERY" "$PETASCOPE_URL" > "$out"
               ;;
+          *)  error "unknown wcps test type: $test_type";;
+        esac
+        ;;
 
-      wms)    
-              endpoint="$PETASCOPE_URL"
-              if [[ "$f" =~ "insert" ]]; then                
-                endpoint="$PETASCOPE_ADMIN_URL/layer/style/add"
-              elif [[ "$f" =~ "update" ]]; then
-                endpoint="$PETASCOPE_ADMIN_URL/layer/style/update"              
-              elif [[ "$f" =~ "delete" ]]; then
-                endpoint="$PETASCOPE_ADMIN_URL/layer/style/remove"
+      wcs)
+        case "$test_type" in
+          post_file)
+              # File to upload to server, same name with test request file but with .file                
+              local upload_file="${f%.*}.file"
+              post_request_file "$PETASCOPE_URL?" "$f" "$upload_file" "$out"
+              ;;
+          kvp)
+              post_request_kvp "$PETASCOPE_URL" "$f" "$out"
+              ;;
+          xml|xml_wcps) 
+              QUERY=$(tr -d '\n' < "$f")
+              local url="$PETASCOPE_URL"
+              if [[ $test_type = xml_wcps ]]; then
+                [[ -f "$f" ]] || return
+                url="$url?service=WCS&version=2.0.1&request=ProcessCoverages"
               fi
-              
-              post_request_kvp "$endpoint" "$QUERY" "$out"
+              $CURL -X POST --data-urlencode "query=$QUERY" "$url" > "$out"
               ;;
+          *)  error "unknown wcs test type: $test_type";;
+        esac
+        ;;
 
-      wmts)    
-              endpoint="$PETASCOPE_URL"
-              if [[ "$f" =~ "insert" ]]; then                
-                endpoint="$PETASCOPE_ADMIN_URL/layer/style/add"
-              elif [[ "$f" =~ "update" ]]; then
-                endpoint="$PETASCOPE_ADMIN_URL/layer/style/update"              
-              elif [[ "$f" =~ "delete" ]]; then
-                endpoint="$PETASCOPE_ADMIN_URL/layer/style/remove"
-              fi
-              
-              post_request_kvp "$endpoint" "$QUERY" "$out"
-              ;;              
+      wms|wmts)
+        case "$f" in
+          *insert*) endpoint="$PETASCOPE_ADMIN_URL/layer/style/add";;
+          *update*) endpoint="$PETASCOPE_ADMIN_URL/layer/style/update";;
+          *delete*) endpoint="$PETASCOPE_ADMIN_URL/layer/style/remove";;
+                 *) endpoint="$PETASCOPE_URL";;
+        esac
+        post_request_kvp "$endpoint" "$f" "$out"
+        ;;          
 
-      oapi)   
-              get_request_rest "$PETASCOPE_OAPI" "$QUERY" "$out"
-              ;;
+      oapi)
+        QUERY=$(tr -d '\n' < "$f")
+        $CURL -G -X GET "$PETASCOPE_OAPI/$QUERY" > "$out"
+        ;;
 
-      secore) 
-              QUERY=$(echo "$QUERY" | sed 's|%SECORE_URL%|'$SECORE_URL'|g')
-              get_request_kvp "$SECORE_URL" "$QUERY" "$out" "secore"
-              ;;
+      secore)
+        QUERY=$(sed 's|%SECORE_URL%|'"$SECORE_URL"'|g' "$f" | tr -d '\n')
+        $CURL -X GET "$SECORE_URL$QUERY" > "$out"
+        ;;
 
-      select|nullvalues|subsetting|clipping|insitu|rasdapy3)
+      select|nullvalues|subsetting|clipping|insitu|rasdapy3)  # rasql queries
+        QUERY=$(cat "$f")
+        local RASQL_CMD="$RASQL"
+        [ "$SVC_NAME" = "rasdapy3" ] && RASQL_CMD="$PY_RASQL"
 
-              QUERY=$(cat "$f")
+        $RASQL_CMD -q "$QUERY" --out file --outfile "$out" > "${out}_stdout" 2> "$err"
 
-              local RASQL_CMD="$RASQL"
-              [ "$SVC_NAME" = "rasdapy3" ] && RASQL_CMD="$PY_RASQL"
-              local out_scalar="${out}_scalar"
-              local out_stdout="${out}_stdout"
+        # if an exception was thrown, then the err file has non-zero size
+        # however, ignore GDAL warnings
+        if [[ $? -ne 0 && -s "$err" ]] && ! grep -q "Warning 6: PNG" "$err"; then
+          mv "$err" "$out"
+        else
+          # move the file produced by --outfile to $out 
+          # (e.g output.rasql.out.uknown to output.rasql.out)
+          local tmpf
+          for tmpf in "$out".*; do
+              [ -f "$tmpf" ] || continue
+              mv "$tmpf" "$out"
+              break
+          done
+          # if no output exists then the query didn't return any results; create
+          # an empty file as the oracle will be an empty file as well.
+          [[ -f "$out" ]] || touch "$out"
+        fi
+        ;;
 
-              $RASQL_CMD -q "$QUERY" --out file --outfile "$out" 2> "$err" | tee "$out_stdout" | grep "  Result " > "$out_scalar"
-
-              # if an exception was thrown, then the err file has non-zero size
-              grep -q "Warning 6: PNG" "$err"
-              rc=$?
-              if [[ -s "$err" && $rc -ne 0 ]]; then
-                mv "$err" "$out"
-              else
-                # move to proper output file (e.g: output.rasql.out.uknown to output.rasql.out)
-                local tmpf
-                for tmpf in $(ls "$out".* 2> /dev/null); do
-                    # $tmpf here is  a file in the output directory from --outfile
-                    [ -f "$tmpf" ] || continue
-                    mv "$tmpf" "$out"
-                    break
-                done
-
-                # if the result is a scalar, there will be no tmp file by rasql,
-                # here we move the Result lines in stdout to $out
-                if [[ ! -f "$out" && -f "$out_scalar" ]]; then
-                    mv "$out_scalar" "$out"
-                fi
-              fi
-              ;;
-
-      *)      error "unknown service: $SVC_NAME"
+      *)
+        error "unknown service: $SVC_NAME"
     esac
 
-    #
     # 2a. create $oracle from $output, if missing
-    #
-    local outfiletype
-    outfiletype=$(file "$out" | awk -F ':' '{print $2;}')
     if [ ! -f "$oracle" ]; then
       status=$ST_COPY
-      if [[ "$outfiletype" == *XML* ]]; then
-          prepare_xml_file "$out"
-      fi
       cp "$out" "$oracle"
     fi
 
-    #
     # 2b. check result
-    #
-    compare_output_to_oracle "$out" "$oracle"
+    compare_output_to_oracle "$out" "$oracle" "$f"
 
   fi # end of if not sh file
 
-  #
   # run post script if present
-  #
-  if [ -f "$post_script" ]; then
-    if ! $post_script; then
-      log "warning: post script failed execution - $post_script"
-    fi
-  fi
-}
-
-# ------------------------------------------------------------------------------
-# exit test script with/without error code
-exit_script() { if [ $NUM_FAIL -ne 0 ]; then exit $RC_ERROR; else exit $RC_OK; fi; }
-
-# ------------------------------------------------------------------------------
-# rasdaman administration
-#
-
-stop_rasdaman()
-{
-  logn "stopping rasdaman $*..."
-  if pgrep rasmgr &> /dev/null; then
-    $STOP_RAS $* &> /dev/null
-    sleep 0.2 || sleep 1
-  fi
-  loge ok
-}
-
-start_rasdaman()
-{
-  logn "starting rasdaman $*..."
-  $START_RAS $* &> /dev/null
-  sleep 0.2 || sleep 1
-  loge ok.
-}
-
-restart_rasdaman()
-{
-  stop_rasdaman "$@"
-  start_rasdaman "$@"
-  log "rasdaman restarted."
-}
-
-# ------------------------------------------------------------------------------
-# server/config management for using local SQLite / file storage database
-#
-get_backup_rasmgr_conf()
-{
-  BACKUP_RASMGR_CONF=$(mktemp -u "$RASMGR_CONF.XXXXXXX")
-  while [ -f "$BACKUP_RASMGR_CONF" ]; do
-    BACKUP_RASMGR_CONF=$(mktemp -u "$RASMGR_CONF.XXXXXXX")
-  done
-}
-prepare_configuration()
-{
-  local server_no="$1"
-  [ -n "$server_no" ] || server_no=1
-  get_backup_rasmgr_conf
-  logn "backing up $RASMGR_CONF to $BACKUP_RASMGR_CONF... "
-  cp "$RASMGR_CONF" "$BACKUP_RASMGR_CONF"
-  check
-  logn "updating connect string in $RASMGR_CONF to $DB_DIR/RASBASE... "
-  echo "define dbh rasdaman_host -connect $DB_DIR/RASBASE" > "$RASMGR_CONF"
-  echo "define db RASBASE -dbh rasdaman_host" >> "$RASMGR_CONF"
-  echo "" >> "$RASMGR_CONF"
-  for i in $(seq 1 "$server_no"); do
-    local port=$((i + 1))
-    {
-      echo "define srv N$i -host blade -type n -port 700$port -dbh rasdaman_host"
-      echo "change srv N$i -countdown 200000 -autorestart on -xp --timeout 300000"
-      echo ""
-    } >> "$RASMGR_CONF"
-  done
-}
-restore_configuration()
-{
-  if [[ -n "$BACKUP_RASMGR_CONF" && -f "$BACKUP_RASMGR_CONF" ]]; then
-    logn "restoring $RASMGR_CONF from $BACKUP_RASMGR_CONF... "
-    cp "$BACKUP_RASMGR_CONF" "$RASMGR_CONF"
-    feedback
-    rm -f "$BACKUP_RASMGR_CONF"
-  fi
-}
-recreate_rasbase()
-{
-  rm -rf "$DB_DIR"; mkdir -p "$DB_DIR"
-  rm -rf "${LOG_DIR:?}"/*
-  logn "recreating RASBASE... "
-  "$RMANHOME"/bin/create_db.sh
-  check
-  restart_rasdaman
-}
-# ------------------------------------------------------------------------------
-
-# print the server pid
-get_server_pid() {
-  pgrep -o rsserver
-}
-
-# if there are more background jobs than $PARALLEL_QUERIES, then this function
-# will wait until there are less. It has a timeout of 60 seconds and will exit
-# with error if the timeout is reached.
-wait_for_background_jobs()
-{
-  local major=${BASH_VERSINFO[0]}
-  local minor=${BASH_VERSINFO[1]}
-  if ((major > 4 || (major = 4 && minor >= 3))); then
-    # The wait bash command has option -n since Bash 4.3
-    if [ "$(jobs -p | wc -l)" -gt "$PARALLEL_QUERIES" ]; then
-      #echo waiting, currently "$(jobs -p | wc -l)" jobs running
-      wait -n
-    fi
-  else
-    # CentOS 7 has Bash 4.2 without wait -n; we emulate it here with sleep
-    elapsed_sec=0
-    while ((elapsed_sec < WAIT_TIMEOUT_SEC)); do
-      if [ "$(jobs -p | wc -l)" -gt "$PARALLEL_QUERIES" ]; then
-        sleep 0.2
-        elapsed_sec=$((elapsed_sec + 1))
-      else
-        break
-      fi
-    done
-    if ((elapsed_sec >= WAIT_TIMEOUT_SEC)); then
-      error "background jobs did not terminate after waiting for $elapsed_sec seconds."
-    fi
-  fi
-}
-
-# Call to start measuring CPU utilization.
-# Sets global variables cpu_active_prev and cpu_total_prev.
-# It also calls the start_timer function.
-# Note: adapted from https://stackoverflow.com/a/26791468
-measure_cpu_utilization_start()
-{
-  # Read /proc/stat file (for first datapoint)
-  read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
-  # compute active and total utilizations
-  cpu_active_prev=$((user+system+nice+softirq+steal))
-  cpu_total_prev=$((user+system+nice+softirq+steal+idle+iowait))
-  cpus_active_prev=()
-  cpus_total_prev=()
-  cpu_count=$(nproc)
-  for i in $(seq 0 $((cpu_count-1))); do
-    read cpu user nice system idle iowait irq softirq steal guest < <(grep "cpu$i " /proc/stat)
-    cpus_active_prev+=($((user+system+nice+softirq+steal)))
-    cpus_total_prev+=($((user+system+nice+softirq+steal+idle+iowait)))
-  done
-  start_timer
-}
-
-# Call to end measuring CPU utilization; measure_cpu_utilization_start must have
-# been called first. It also calls the stop_timer function.
-# By default a report is printed with overal and per-CPU utilization as well as
-# execution since measure_cpu_utilization_start was called.
-# If an argument "noreport" is specified nothing is printed. 
-# In both cases a global variable cpu_util is set.
-measure_cpu_utilization_end()
-{
-  stop_timer
-  # Read /proc/stat file (for first datapoint)
-  read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
-  # compute active and total utilizations
-  local cpu_active_cur=$((user+system+nice+softirq+steal))
-  local cpu_total_cur=$((user+system+nice+softirq+steal+idle+iowait))
-  # compute CPU utilization (%)
-  cpu_util=$((100*( cpu_active_cur-cpu_active_prev ) / (cpu_total_cur-cpu_total_prev) ))
-
-  # compute individual CPU utilization in %
-  declare -a cpus_active_cur
-  declare -a cpus_total_cur
-  declare -a cpus_util
-  for i in $(seq 0 $((cpu_count-1))); do
-    read cpu user nice system idle iowait irq softirq steal guest < <(grep "cpu$i " /proc/stat)
-    cpus_active_cur+=($((user+system+nice+softirq+steal)))
-    cpus_total_cur+=($((user+system+nice+softirq+steal+idle+iowait)))
-    cpus_util+=($((100*( cpus_active_cur[i]-cpus_active_prev[i] ) / (cpus_total_cur[i]-cpus_total_prev[i]) )))
-  done
-
-  if [ "$1" = report ]; then
-    printf "Total execution time: ${c_bold}%s seconds${c_off}\n" $(get_time_s)
-    printf "CPU core utilization:\n"
-    for i in $(seq 0 $((cpu_count-1))); do
-      printf "|%4d " "$i"
-    done
-    printf "| ${c_bold}Total${c_off} |\n"
-
-    for i in $(seq 0 $((cpu_count-1))); do
-      if [ "${cpus_util[$i]}" -gt 80 ]; then
-        printf "|${c_red}%3d%%${c_off} " "${cpus_util[$i]}"
-      elif [ "${cpus_util[$i]}" -gt 40 ]; then
-        printf "|${c_yellow}%3d%%${c_off} " "${cpus_util[$i]}"
-      else
-        printf "|${c_green}%3d%%${c_off} " "${cpus_util[$i]}"
-      fi
-    done
-    printf "| ${c_bold}%3d%%${c_off}  |\n" "$cpu_util"
-  fi
+  run_script "$QUERIES_PATH/${f%\.*}.post.sh" "post"
 }
 
 #

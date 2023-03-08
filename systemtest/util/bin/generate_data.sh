@@ -31,10 +31,10 @@
 # determine script directory
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
-SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+BIN_SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 # loads also rasql.sh
-. "$SCRIPT_DIR/common.sh"
+. "$BIN_SCRIPT_DIR/../common.sh"
 
 usage()
 {

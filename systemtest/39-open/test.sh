@@ -36,8 +36,10 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 . "$SCRIPT_DIR"/../util/common.sh
 
+pushd "$SCRIPT_DIR" > /dev/null
+
 # list all the subdirectories of test_open
-total_test_no=$(ls -ld test_*/ | wc -l)
+total_test_no=$(ls -d test_*/ | wc -l)
 curr_test_no=0
 ret=0
 
@@ -64,5 +66,7 @@ for d in test_*/ ; do
   # print result of this test case
   print_testcase_result "$test_case_name" "$status" "$total_test_no" "$curr_test_no"
 done
+
+popd > /dev/null
 
 exit $ret

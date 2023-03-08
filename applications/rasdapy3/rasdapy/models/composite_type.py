@@ -21,21 +21,28 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  *
 """
+from rasdapy.cores.format_utils import format_scalar
 
 
 class CompositeType(object):
     """
     Represent a composite object of bands's values (e.g: select {1, 2, 3})
     """
-    def __init__(self, bands_values):
+    def __init__(self, bands_values, bands_types):
         # bands_values is an array of values
         self.bands_values = bands_values
+        self.bands_types = bands_types
 
     def __str__(self):
         """
         String representing the composite object (e.g: array bands_values: [1, 2, 3] -> { 1, 2, 3 } in String)
         :return: String (e.g: { 1, 2, 3 })
         """
-        output = "{ " + ", ".join(str(x) for x in self.bands_values) + " }"
-        return output
-
+        output = ""
+        for i in range(len(self.bands_values)):
+            val = self.bands_values[i]
+            dt = self.bands_types[i]
+            if len(output) > 0:
+                output += ", "
+            output += format_scalar(val, dt)
+        return "{ " + output + " }"

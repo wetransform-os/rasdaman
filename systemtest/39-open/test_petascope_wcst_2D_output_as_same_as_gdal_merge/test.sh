@@ -24,9 +24,6 @@
 # get script name
 PROG=$( basename $0 )
 
-RC_OK=0
-RC_ERROR=1
-
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
@@ -39,7 +36,7 @@ sed "s@PETASCOPE_URL@$PETASCOPE_URL@g" "$SCRIPT_DIR/ingest.template.json" > "$SC
 # Run the import test and compare with result from gdal_merge
 $PYTHONBIN "$SCRIPT_DIR/main.py" "$PETASCOPE_URL" "$RASADMIN_USER" "$RASADMIN_PASS" \
            "$RASADMIN_CREDENTIALS_FILE" >> "$LOG_FILE" 2>&1
-check 0 $? "check import = gdal_merge result"
+check_result 0 $? "check import = gdal_merge result"
 
 print_summary
 exit_script

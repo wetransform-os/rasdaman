@@ -29,6 +29,16 @@ SYSTEST_DIR=$(echo "$SCRIPT_DIR" | sed 's|\(.*/systemtest\).*|\1|')
 # load common functions
 . "$SYSTEST_DIR"/util/common.sh
 
+
+_cleanup()
+{
+  sleep 0.5
+  loge ""
+  log "done."
+  trap - EXIT
+}
+trap '_cleanup' EXIT
+
 logf="test.log"
 rm -f "$logf"
 

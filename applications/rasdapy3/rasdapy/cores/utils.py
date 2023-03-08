@@ -61,12 +61,13 @@ def get_type_structure_from_string(input_str):
         "char|ushort|short|ulong|long|float|double|complexd|complex|cint16|cint32|bool|octet)\s*.*)},\s*.*>>"
     )
     complex_scalar_regex = (
-        "set\s*<struct\s*{((char|ushort|short|ulong|long|float|double|octet)\s*.*,"
-        ")*\s*((char|ushort|short|ulong|long|float|double|octet)\s*.*)}\s*>"
+        "set\s*<struct\s*{((char|ushort|short|ulong|long|float|double|octet|complexd|complex|cint16|cint32)\s*.*,"
+        ")*\s*((char|ushort|short|ulong|long|float|double|octet|complexd|complex|cint16|cint32)\s*.*)}\s*>"
     )
     minterval_regex = "set<minterval>"
     sinterval_regex = "set<interval>"
     string_regex = "set<string>"
+
     marray_match = re.match(marray_regex, input_str)
     scalar_match = re.match(scalar_regex, input_str)
     complex_scalar_match = re.match(complex_scalar_regex, input_str)
@@ -157,9 +158,6 @@ def convert_data_from_bin(dtype, data, big_endian=False):
         result = ord(struct.unpack(flag + "c", data)[0])
     elif dtype == "bool":
         result = struct.unpack(flag + "?", data)[0]
-    elif dtype == "minterval" or dtype == "sinterval":
-        # minterval is output from sdom and parsed each byte, interval is sdom()[0]
-        result = struct.unpack(flag + "s", data)[0]
     elif dtype == "octet":
         result = struct.unpack(flag + "B", data)[0]
     elif dtype == "ushort":
@@ -174,8 +172,11 @@ def convert_data_from_bin(dtype, data, big_endian=False):
         result = struct.unpack(flag + "f", data)[0]
     elif dtype == "double" or dtype == "complexd":
         result = struct.unpack(flag + "d", data)[0]
+    elif dtype == "minterval" or dtype == "sinterval":
+        # minterval is output from sdom and parsed each byte, interval is sdom()[0]
+        result = struct.unpack(flag + "s", data)[0]
     else:
-        raise Exception("Unknown Data type provided")
+        raise Exception("Unknown Data type provided: " + dtype)
     return result
 
 
@@ -233,10 +234,11 @@ def convert_binary_data_stream(dtype, data):
     type = dtype["type"]
 
     if base_type != "marray" and base_type != "scalar":
-        raise Exception("Unknown base_type {} and type {} ".format(dtype["base_type"], dtype["type"]))
+        raise Exception("Unknown set type {} and cell type {}".format(dtype["base_type"], dtype["type"]))
 
     if base_type == "scalar" and type == "struct":
         # e.g: select {1, 2, 3}
+        temp_types = []
         temp_array = []
         cell_counter = 0
         last_byte = 0
@@ -245,12 +247,11 @@ def convert_binary_data_stream(dtype, data):
             from_byte = last_byte
             to_byte = last_byte + dtsize
             last_byte = to_byte
-            scalar_value = convert_data_from_bin(dt, data[from_byte : to_byte])
-            scalar_value = get_scalar_result(scalar_value)
+            scalar_value = convert_bin_to_number(base_type, dt, data[from_byte : to_byte])
             temp_array.append(scalar_value)
+            temp_types.append(dt)
             cell_counter += 1
-        composite_type = CompositeType(temp_array)
-
+        composite_type = CompositeType(temp_array, temp_types)
         return composite_type
     elif base_type == "scalar" and type == "minterval":
         # e.g: select sdom(c) from test_mr as c ([0:250,0:210])
@@ -258,7 +259,6 @@ def convert_binary_data_stream(dtype, data):
         # strip the [] of the string to parse
         data = encoded_bytes_to_str(data)
         temp_array = data[1:-1].split(",")
-
         intervals = []
         for temp in temp_array:
             lo = temp.split(":")[0]
@@ -266,32 +266,32 @@ def convert_binary_data_stream(dtype, data):
             sinterval = SInterval(lo, hi)
             # e.g: 0:250
             intervals.append(sinterval)
-
         # e.g: [0:250,0:211]
         minterval = MInterval(intervals)
-
         return minterval
-
     elif base_type == "scalar" and type == "sinterval":
         # e.g: select sdom(c)[0] from test_mr as c
         temp = encoded_bytes_to_str(data)
         # e.g: 0:250
         tmp_array = temp.split(":")
         sinterval = SInterval(tmp_array[0], tmp_array[1])
-
         return sinterval
-    elif base_type == "scalar" and type == "complex":
+    elif base_type == "scalar" and type == "string":
+        return encoded_bytes_to_str(data)
+    else:
+        # e.g: query return 1 double value and data will have length = 8 bytes
+        return convert_bin_to_number(base_type, type, data)
+
+
+def convert_bin_to_number(base_type, type, data):
+    if base_type == "scalar" and type == "complex":
         # e.g: select complexd(0.5, 2.5) from test_mr
         # complexd is 16 bytes: 16 bytes
         data = bytearray(data)
         dtsize = int(get_size_from_data_type(type)/2)
         real_number = convert_data_from_bin(type, data[0: dtsize])
         imagine_number = convert_data_from_bin(type, data[dtsize: dtsize*2])
-
-        real_number = get_scalar_result(real_number)
-        imagine_number = get_scalar_result(imagine_number)
-        complex_number = Complex(real_number, imagine_number)
-
+        complex_number = Complex(real_number, imagine_number, 'float')
         return complex_number
     elif base_type == "scalar" and type == "cint16":
         # e.g: select complexd(0.5, 2.5) from test_mr
@@ -299,11 +299,7 @@ def convert_binary_data_stream(dtype, data):
         dtsize = int(get_size_from_data_type(type) / 2)
         real_number = convert_data_from_bin(type, data[0: dtsize])
         imagine_number = convert_data_from_bin(type, data[dtsize: dtsize * 2])
-
-        real_number = get_scalar_result(real_number)
-        imagine_number = get_scalar_result(imagine_number)
-        complex_number = Complex(real_number, imagine_number)
-
+        complex_number = Complex(real_number, imagine_number, 'short')
         return complex_number
     elif base_type == "scalar" and type == "complexd":
         # e.g: select complexd(0.5, 2.5) from test_mr
@@ -312,11 +308,7 @@ def convert_binary_data_stream(dtype, data):
         dtsize = int(get_size_from_data_type(type) / 2)
         real_number = convert_data_from_bin(type, data[0: dtsize])
         imagine_number = convert_data_from_bin(type, data[dtsize: dtsize*2])
-
-        real_number = get_scalar_result(real_number)
-        imagine_number = get_scalar_result(imagine_number)
-        complex_number = Complex(real_number, imagine_number)
-
+        complex_number = Complex(real_number, imagine_number, 'double')
         return complex_number
     elif base_type == "scalar" and type == "cint32":
         # e.g: select complexd(0.5, 2.5) from test_mr
@@ -324,41 +316,12 @@ def convert_binary_data_stream(dtype, data):
         dtsize = int(get_size_from_data_type(type) / 2)
         real_number = convert_data_from_bin(type, data[0: dtsize])
         imagine_number = convert_data_from_bin(type, data[dtsize: dtsize * 2])
-
-        real_number = get_scalar_result(real_number)
-        imagine_number = get_scalar_result(imagine_number)
-        complex_number = Complex(real_number, imagine_number)
-
+        complex_number = Complex(real_number, imagine_number, 'long')
         return complex_number
-    elif base_type == "scalar" and type == "string":
-        return encoded_bytes_to_str(data)
     else:
         # e.g: query return 1 double value and data will have length = 8 bytes
         scalar_value = convert_data_from_bin(type, data)
-        scalar_value = get_scalar_result(scalar_value)
-
         return scalar_value
-
-
-def get_scalar_result(scalar_value):
-    """
-    Rasql client returns number with round (e.g: 33.234544665464 is 33.2345, 33.0 is 33)
-    :param (int|float) number: input number which need to process to return as from rasql client
-    :return: (int|float) processed number
-    """
-    # rasql client also rounds e.g: 39.8362884521 to 39.8363
-    if isinstance(scalar_value, bool):
-        if scalar_value is True:
-            scalar_value = "t"
-        else:
-            scalar_value = "f"
-    elif "e" not in str(scalar_value):
-        # scalar_value is a float with scientific notation, e.g: 4e-05
-        if str(scalar_value).endswith(".0"):
-            # e.g: 333.0 should return 333 as in rasql client
-            scalar_value = int(scalar_value)
-
-    return scalar_value
 
 
 def convert_numpy_arr_to_bin(arr):

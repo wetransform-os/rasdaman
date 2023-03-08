@@ -77,7 +77,7 @@ for i in $(seq $REQUEST_NO); do
 
    prepare_gdal_file "$out"
    cmp "$out" "$ORACLE_FILE_OUT" > /dev/null 2>&1
-   [ $? -eq 0 ] && check_passed quiet
+   [ $? -eq 0 ] && check_passed
    NUM_TOTAL=$(($NUM_TOTAL-1)) # it was added again in check_passed
 done
 

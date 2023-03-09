@@ -69,9 +69,19 @@ final_merged_file = ""
 output_file = tmp_folder + "/" + "output.tif"
 ingredient_file_tmp = tmp_folder + "/" + "ingest.json"
 
+copied_files = []
+
+
+def exit_error(error_message):
+    print(prog + error_message)
+    print(prog + "with the list of copied files like below:")
+    for f in copied_files:
+        print(prog + f)
+    exit(1)
+
 ###### main process
 
-# Creat tmp folder if not exists
+# Create tmp folder if not exists
 if not os.path.exists(tmp_folder):
     os.makedirs(tmp_folder)
 
@@ -89,6 +99,8 @@ for x in range(len(list_files)):
     # Clean tmp folder
     for f in glob.glob(tmp_folder + "/*.*"):
         os.unlink(f)
+
+    copied_files.clear()
 
     # Then, import all files in this rotation
     for i in range(len(list_files)):
@@ -112,6 +124,9 @@ for x in range(len(list_files)):
         # Copy files to this tmp folder to be used for WCST_Import
         src_file = list_files[i]
         dst_file = tmp_folder + "/input_" + str(i + 1) + ".tif"
+
+        copied_files.append("Copied file from: {} to: {}".format(os.path.basename(src_file), os.path.basename(dst_file)))
+
         copyfile(src_file, dst_file)
 
     # When everything is done, now import files with WCST_Import and check the result from GetCoverage request with gdal_merge.py
@@ -135,26 +150,22 @@ for x in range(len(list_files)):
     subprocess.call("wget --auth-no-challenge --user '" + RASADMIN_USER + "' --password '" + RASADMIN_PASS + "' -q '" + delete_coverage_request + "' -O /dev/null", shell=True, stdout=open(os.devnull, 'wb'))
 
     if src_tmp[2] != dst_tmp[2]:
-        print(prog + "Size is different, gdal_merge: " + binary_to_string(src_tmp[2]) + ", petascope: " + binary_to_string(dst_tmp[2]) + ".")
-        exit(1)
+        exit_error(prog + "Size is different, gdal_merge: " + binary_to_string(src_tmp[2]) + ", petascope: " + binary_to_string(dst_tmp[2]) + ".")
     # output from petascope containing nodata_value in tiff metadata while gdal_merge doesn't, 
     # hence different indices in string array.
     elif src_tmp[19] != dst_tmp[19]:
-        print(prog + "Upper Left is different, gdal_merge: " + binary_to_string(src_tmp[19]) + ", petascope: " + binary_to_string(dst_tmp[20]) + ".")
-        exit(1)
+        exit_error(prog + "Upper Left is different, gdal_merge: " + binary_to_string(src_tmp[19]) + ", petascope: " + binary_to_string(dst_tmp[20]) + ".")
     elif src_tmp[20] != dst_tmp[20]:
-        print(prog + "Lower Left is different, gdal_merge: " + binary_to_string(src_tmp[20]) + ", petascope: " + binary_to_string(dst_tmp[21]) + ".")
-        exit(1)
+        exit_error(prog + "Lower Left is different, gdal_merge: " + binary_to_string(src_tmp[20]) + ", petascope: " + binary_to_string(dst_tmp[21]) + ".")
     elif src_tmp[21] != dst_tmp[21]:
-        print(prog + "Upper Right is different, gdal_merge: " + binary_to_string(src_tmp[21]) + ", petascope: " + binary_to_string(dst_tmp[22]) + ".")
-        exit(1)
+        exit_error(prog + "Upper Right is different, gdal_merge: " + binary_to_string(src_tmp[21]) + ", petascope: " + binary_to_string(dst_tmp[22]) + ".")
     elif src_tmp[22] != dst_tmp[22]:
-        print(prog + "Lower Right is different, gdal_merge: " + binary_to_string(src_tmp[22]) + ", petascope: " + binary_to_string(dst_tmp[23]) + ".")
-        exit(1)
+        exit_error(prog + "Lower Right is different, gdal_merge: " + binary_to_string(src_tmp[22]) + ", petascope: " + binary_to_string(dst_tmp[23]) + ".")
 
     # Finally, rotate the list_files and continue testing different file combinations
     list_files.rotate(1)
 
 # No difference from gdal_merge.py for all rotations, clean tmp folder and returns success
 shutil.rmtree(tmp_folder)
+
 exit(0)

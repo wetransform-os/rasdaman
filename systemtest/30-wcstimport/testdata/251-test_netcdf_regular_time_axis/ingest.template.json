@@ -6,7 +6,8 @@
     "automated": true,
     "track_files": true,
     "subset_correction": false,
-    "black_listed": true
+    "black_listed": true,
+    "track_files": false
   },
   "input": {
     "coverage_id": "test_netcdf_regular_time_axis",

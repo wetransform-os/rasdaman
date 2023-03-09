@@ -280,7 +280,7 @@ module rasdaman {
         // --------------- black list
 
         // Set a coverage id to the blacklist
-        public blackListOneCoverage(coverageId:string[]):angular.IPromise<any> {
+        public blackListOneCoverage(coverageId:string):angular.IPromise<any> {
             var result = this.$q.defer();
             
             var requestUrl = this.settings.adminEndpoint + "/wcs/blacklist?COVERAGELIST=" + coverageId;

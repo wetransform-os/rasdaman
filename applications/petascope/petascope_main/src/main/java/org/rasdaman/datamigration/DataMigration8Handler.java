@@ -43,7 +43,7 @@ public class DataMigration8Handler extends AbstractDataMigrationHandler {
     @Override
     public void migrate() throws PetascopeException, Exception {
         
-        this.wmsRepostioryService.readAllLocalLayers();
+        this.wmsRepostioryService.readAllLocalLayersFromCache();
         
         for (String coverageId : this.coverageRepositoryService.readAllLocalCoverageIds()) {
             if (this.wmsRepostioryService.isInLocalCache(coverageId)) {                

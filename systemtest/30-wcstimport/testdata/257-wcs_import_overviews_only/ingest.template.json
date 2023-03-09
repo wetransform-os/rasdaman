@@ -9,6 +9,7 @@
         "retry": true,
         "retries": 2,
         "skip": true,
+        "track_files": false,
         "default_null_values": [
             0
         ],

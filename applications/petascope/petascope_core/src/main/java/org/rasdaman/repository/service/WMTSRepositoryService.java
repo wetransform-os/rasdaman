@@ -95,7 +95,7 @@ public class WMTSRepositoryService {
     public void initializeLocalTileMatrixSetsMapCache() throws PetascopeException {
         this.localTileMatrixSetsMapCache.clear();
         
-        for (Layer localLayer : wmsRepostioryService.readAllLocalLayers()) {
+        for (Layer localLayer : wmsRepostioryService.readAllLocalLayersFromCache()) {
             String layerName = localLayer.getName();
             String epsgCode = CrsUtil.getAuthorityCode(localLayer.getGeoXYCRS());
             
@@ -295,6 +295,16 @@ public class WMTSRepositoryService {
         long numberOfGridPixelsX = gridUpperBoundX - gridLowerBoundX + 1;
         long numberOfGridPixelsY = gridUpperBoundY - gridLowerBoundY + 1;
         
+        if (numberOfGridPixelsX <= 0) {
+            log.warn("Coverage: " + pyramidMemberCoverageId + " has invalid number of grid pixels for axis X. "
+                    + "Given: " + numberOfGridPixelsX + " with grid upper bound = " + gridUpperBoundX + " and grid lower bound = " + gridLowerBoundX);
+        }
+        
+        if (numberOfGridPixelsY <= 0) {
+            log.warn("Coverage: " + pyramidMemberCoverageId + " has invalid number of grid pixels for axis Y. "
+                    + "Given: " + numberOfGridPixelsY + " with grid upper bound = " + gridUpperBoundY + " and grid lower bound = " + gridLowerBoundY);
+        }
+        
         GeoTransform geoTransform = null;
         
         // e.g. pyramid member coverage's native CRS is EPSG:32632
@@ -321,6 +331,18 @@ public class WMTSRepositoryService {
             
             numberOfGridPixelsX = geoTransform.getGridWidth();
             numberOfGridPixelsY = geoTransform.getGridHeight();
+            
+
+            if (numberOfGridPixelsX <= 0) {
+                log.warn("Coverage: " + pyramidMemberCoverageId + " has invalid number of grid pixels for axis X. "
+                        + "Given: " + numberOfGridPixelsX + " with geoTransform = " + geoTransform.toGdalString());
+            }
+
+            if (numberOfGridPixelsY <= 0) {
+                log.warn("Coverage: " + pyramidMemberCoverageId + " has invalid number of grid pixels for axis Y. "
+                        + "Given: " + numberOfGridPixelsY + " with geoTransform = " + geoTransform.toGdalString());
+            }            
+            
         }
         
         // scaleDenominator
@@ -360,7 +382,7 @@ public class WMTSRepositoryService {
         long tileWidth = TileMatrix.GRID_SIZE;
         long matrixWidth = new BigDecimal(numberOfGridPixelsX).divide(new BigDecimal(TileMatrix.GRID_SIZE), RoundingMode.CEILING).longValue();
         if (numberOfGridPixelsX < TileMatrix.GRID_SIZE) {
-            matrixWidth = new BigDecimal(numberOfGridPixelsX).divide(new BigDecimal(numberOfGridPixelsX), RoundingMode.CEILING).longValue();
+            matrixWidth = 1L;
             // e.g. 36 pixels
             tileWidth = numberOfGridPixelsX;
         }
@@ -370,7 +392,7 @@ public class WMTSRepositoryService {
         long tileHeight = TileMatrix.GRID_SIZE;
         long matrixHeight = new BigDecimal(numberOfGridPixelsY).divide(new BigDecimal(TileMatrix.GRID_SIZE), RoundingMode.CEILING).longValue();
         if (numberOfGridPixelsY < TileMatrix.GRID_SIZE) {
-            matrixHeight = new BigDecimal(numberOfGridPixelsY).divide(new BigDecimal(numberOfGridPixelsY), RoundingMode.CEILING).longValue();
+            matrixHeight = 1L;
             // e.g. 18 pixels
             tileHeight = numberOfGridPixelsY;
         }

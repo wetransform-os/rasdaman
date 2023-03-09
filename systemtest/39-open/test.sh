@@ -69,4 +69,5 @@ done
 
 popd > /dev/null
 
+print_summary
 exit $ret

@@ -3328,7 +3328,7 @@ but can be helpful in case of other installation methods as well.
         /usr/lib/postgresql/$NEWVER/bin/psql -p 5433 -d petascopedb > /dev/null
       #
       # alt 2: restore database with pg_restore
-      pg_restore --file=/backup/petascopedb.sql.gz
+      pg_restore -p 5433 --file=/backup/petascopedb.sql.gz
       #
 
       # swap ports in postgres config, so the new version is at 5432
@@ -3345,7 +3345,7 @@ but can be helpful in case of other installation methods as well.
 
       # enable rasdaman repo with correct distribution codename
       REPO_FILE=/etc/apt/sources.list.d/rasdaman.list
-      sudo sed 's/bionic/focal/g' $REPO_FILE.disabled > $REPO_FILE
+      sed 's/bionic/focal/g' $REPO_FILE.disabled | sudo tee $REPO_FILE
       sudo apt update
       # install rasdaman
       sudo apt install rasdaman
@@ -3427,7 +3427,7 @@ but can be helpful in case of other installation methods as well.
 
       # enable rasdaman repo with correct distribution codename
       REPO_FILE=/etc/apt/sources.list.d/rasdaman.list
-      sudo sed 's/focal/jammy/g' $REPO_FILE.disabled > $REPO_FILE
+      sed 's/focal/jammy/g' $REPO_FILE.disabled | sudo tee $REPO_FILE
       sudo apt update
       # install rasdaman
       sudo apt install rasdaman

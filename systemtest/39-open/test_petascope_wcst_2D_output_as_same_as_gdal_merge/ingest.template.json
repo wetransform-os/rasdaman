@@ -7,7 +7,7 @@
     "automated": true
   },
   "input": {
-    "coverage_id": "test_overlapping_map_mosaic",
+    "coverage_id": "test_overlapping_map_mosaic_compare_gdal_merge_and_petascope",
     "paths": [
       "*.tif"
     ]

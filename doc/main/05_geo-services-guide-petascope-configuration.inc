@@ -432,7 +432,7 @@ See the `log4j 1.2 document for more details
         #log4j.appender.rollingFile=org.apache.log4j.RollingFileAppender
 
         # 2. Rolling files by time interval (e.g. once a day, or once a month)
-        log4j.appender.rollingFile.rollingPolicy.ActiveFileName=@LOG_DIR@/petascope.log  
+        log4j.appender.rollingFile.rollingPolicy.ActiveFileName=@LOG_DIR@/petascope.log
         log4j.appender.rollingFile.rollingPolicy.FileNamePattern=@LOG_DIR@/petascope.%d{yyyyMMdd}.log.gz
         log4j.appender.rollingFile=org.apache.log4j.rolling.RollingFileAppender  
         log4j.appender.rollingFile.rollingPolicy=org.apache.log4j.rolling.TimeBasedRollingPolicy

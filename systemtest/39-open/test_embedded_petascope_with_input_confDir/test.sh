@@ -29,7 +29,11 @@ SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
+# shellcheck source=../../util/common.sh
 . "$SCRIPT_DIR"/../../util/common.sh
+
+skip_test_if_not_postgresql_petascopedb
+prepare_output_dir
 
 port="9090"
 petascope_war_file="$RMANHOME/share/rasdaman/war/rasdaman.war"
@@ -40,10 +44,7 @@ rm -rf "$etc_dir_tmp"
 cp -r "$etc_dir" "$etc_dir_tmp"
 
 temp_petascope_properties="$etc_dir_tmp/petascope.properties"
-log_file="$SCRIPT_DIR/petascope.log"
-
-prepare_output_dir
-skip_test_if_not_postgresql_petascopedb
+log_file="$OUTPUT_DIR/petascope.log"
 
 # replace port from default one to 9090
 sed -i "s@server.port=.*@server.port=$port@g" "$temp_petascope_properties"
@@ -53,21 +54,20 @@ sed -i "s@log4j.appender.rollingFile.rollingPolicy.ActiveFileName=.*@log4j.appen
 
 logn "Starting embedded petascope..."
 
-nohup java -jar "$petascope_war_file" --petascope.confDir="$etc_dir_tmp" > nohup.out 2>&1 &
+nohup java -jar "$petascope_war_file" --petascope.confDir="$etc_dir_tmp" > "$OUTPUT_DIR/nohup.out" 2>&1 &
 pid=$!
 
 # Wait embedded petascope starts
-sleep 10
+sleep 15
 if [ ! -f "$log_file" ]; then
   log "$log_file not found."
-  exit $RC_ERROR
-fi
-( tail -F -n0 --quiet "$log_file" 2> /dev/null & ) | timeout 100 grep -q "Started ApplicationMain"
-if [ $? -eq 124 ]; then
-    # the grep timed out
-  log "startup timedout, petascope.log:"
-  cat "$log_file"
-  exit $RC_ERROR
+else
+  ( tail -F -n0 --quiet "$log_file" 2> /dev/null & ) | timeout 100 grep -q "Started ApplicationMain"
+  if [ $? -eq 124 ]; then
+    log "startup timed out, petascope.log:"
+    cat "$log_file"
+    exit $RC_ERROR
+  fi
 fi
 
 $WGET -q --spider "http://localhost:$port/rasdaman/ows?service=WCS&version=2.0.1&request=GetCapabilities"

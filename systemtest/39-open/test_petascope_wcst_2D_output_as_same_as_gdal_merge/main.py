@@ -51,39 +51,33 @@ prog="main.py: "
 
 ###### configurations
 petascope_endpoint = sys.argv[1]
-coverage_id = "test_overlapping_map_mosaic"
+coverage_id = "test_overlapping_map_mosaic_compare_gdal_merge_and_petascope"
 
 RASADMIN_USER = sys.argv[2]
 RASADMIN_PASS = sys.argv[3]
 RASADMIN_CREDENTIALS_FILE = sys.argv[4]
 
-ingredient_file = dir_path + "/ingest.json"
-
 input_files_path = dir_path + "/" + "testdata"
-tmp_folder = dir_path + "/" + "tmp"
+output_dir = dir_path + "/" + "output"
+ingredient_file = output_dir + "/ingest.json"
 
 merged_file_prefix = "merged_"
 # all input files are merged by gdal_merge.py to this file
 final_merged_file = ""
 # output from rasdaman after all input files are imported
-output_file = tmp_folder + "/" + "output.tif"
-ingredient_file_tmp = tmp_folder + "/" + "ingest.json"
+output_file = output_dir + "/" + "output.tif"
 
 copied_files = []
 
 
 def exit_error(error_message):
     print(prog + error_message)
-    print(prog + "with the list of copied files like below:")
+    print(prog + "with the list of copied files as below:")
     for f in copied_files:
         print(prog + f)
     exit(1)
 
 ###### main process
-
-# Create tmp folder if not exists
-if not os.path.exists(tmp_folder):
-    os.makedirs(tmp_folder)
 
 list_files = []
 # Collect all the input files to a list
@@ -96,9 +90,6 @@ print(prog + "testing results from gdal_merge.py and petascope WCS-T ...")
 # Rotate the list of files to import and check with result from gdal_merge
 for x in range(len(list_files)):
     print(prog + "testing import files with rotation number: " + str(x + 1) + " ...")
-    # Clean tmp folder
-    for f in glob.glob(tmp_folder + "/*.*"):
-        os.unlink(f)
 
     copied_files.clear()
 
@@ -106,66 +97,46 @@ for x in range(len(list_files)):
     for i in range(len(list_files)):
 
         if i < len(list_files) - 1:
-            tmp_file = tmp_folder + "/" + merged_file_prefix + str(i) + ".tiff"
+            tmp_file = output_dir + "/" + merged_file_prefix + str(i) + ".tiff"
             final_merged_file = tmp_file
 
             if i == 0:
                 file_1 = list_files[i]
             else:
                 # input is a gdal_merged file
-                file_1 = tmp_folder + "/" + merged_file_prefix + str(i - 1) + ".tiff"
+                file_1 = output_dir + "/" + merged_file_prefix + str(i - 1) + ".tiff"
             file_2 = list_files[i + 1]
-
             subprocess.call("gdal_merge.py -o " + tmp_file + " " + file_1 + " " + file_2, shell=True, stdout=open(os.devnull, 'wb'))
 
-        # Copy ingredient files to this tmp folder
-        copyfile(ingredient_file, tmp_folder + "/" + "ingest.json") 
-        
         # Copy files to this tmp folder to be used for WCST_Import
         src_file = list_files[i]
-        dst_file = tmp_folder + "/input_" + str(i + 1) + ".tif"
+        dst_file = output_dir + "/input_" + str(i + 1) + ".tif"
 
         copied_files.append("Copied file from: {} to: {}".format(os.path.basename(src_file), os.path.basename(dst_file)))
-
         copyfile(src_file, dst_file)
 
     # When everything is done, now import files with WCST_Import and check the result from GetCoverage request with gdal_merge.py
-    subprocess.call("wcst_import.sh -i " + RASADMIN_CREDENTIALS_FILE + " -q " + ingredient_file_tmp, shell=True, stdout=open(os.devnull, 'wb'))
+    subprocess.call("wcst_import.sh -i " + RASADMIN_CREDENTIALS_FILE + " -q " + ingredient_file, shell=True, stdout=open(os.devnull, 'wb'))
 
     get_coverage_request = petascope_endpoint + "?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=" + coverage_id + "&FORMAT=image/tiff"
     subprocess.call("wget --auth-no-challenge --user '" + RASADMIN_USER + "' --password '" + RASADMIN_PASS + "' -q '" + get_coverage_request + "' -O " + output_file, shell=True, stdout=open(os.devnull, 'wb'))
-
-    # Now compare 2 files file
-    process = subprocess.Popen(['gdalinfo', final_merged_file], stdout=subprocess.PIPE)
-    src_stdout = process.communicate()[0]
-
-    process = subprocess.Popen(['gdalinfo', output_file], stdout=subprocess.PIPE)
-    dst_stdout = process.communicate()[0]
-
-    src_tmp = src_stdout.splitlines()
-    dst_tmp = dst_stdout.splitlines()
 
     # now delete the imported coverage and check the result
     delete_coverage_request = petascope_endpoint + "?SERVICE=WCS&VERSION=2.0.1&REQUEST=DeleteCoverage&COVERAGEID=" + coverage_id
     subprocess.call("wget --auth-no-challenge --user '" + RASADMIN_USER + "' --password '" + RASADMIN_PASS + "' -q '" + delete_coverage_request + "' -O /dev/null", shell=True, stdout=open(os.devnull, 'wb'))
 
-    if src_tmp[2] != dst_tmp[2]:
-        exit_error(prog + "Size is different, gdal_merge: " + binary_to_string(src_tmp[2]) + ", petascope: " + binary_to_string(dst_tmp[2]) + ".")
-    # output from petascope containing nodata_value in tiff metadata while gdal_merge doesn't, 
-    # hence different indices in string array.
-    elif src_tmp[19] != dst_tmp[19]:
-        exit_error(prog + "Upper Left is different, gdal_merge: " + binary_to_string(src_tmp[19]) + ", petascope: " + binary_to_string(dst_tmp[20]) + ".")
-    elif src_tmp[20] != dst_tmp[20]:
-        exit_error(prog + "Lower Left is different, gdal_merge: " + binary_to_string(src_tmp[20]) + ", petascope: " + binary_to_string(dst_tmp[21]) + ".")
-    elif src_tmp[21] != dst_tmp[21]:
-        exit_error(prog + "Upper Right is different, gdal_merge: " + binary_to_string(src_tmp[21]) + ", petascope: " + binary_to_string(dst_tmp[22]) + ".")
-    elif src_tmp[22] != dst_tmp[22]:
-        exit_error(prog + "Lower Right is different, gdal_merge: " + binary_to_string(src_tmp[22]) + ", petascope: " + binary_to_string(dst_tmp[23]) + ".")
+    from osgeo import gdal
+    src_gt = gdal.Open(final_merged_file).GetGeoTransform()
+    dst_gt = gdal.Open(output_file).GetGeoTransform()
+    
+    for i, value in enumerate(src_gt):
+        a = src_gt[i]
+        b = dst_gt[i]
+        if round(a, 15) - round(b, 15) != 0:
+            exit_error(prog + "failed, the geo transforms are different even with round(value, 15), gdal_merge: " + str(src_gt) + ", petascope: " + str(dst_gt))
+        
 
     # Finally, rotate the list_files and continue testing different file combinations
     list_files.rotate(1)
-
-# No difference from gdal_merge.py for all rotations, clean tmp folder and returns success
-shutil.rmtree(tmp_folder)
 
 exit(0)

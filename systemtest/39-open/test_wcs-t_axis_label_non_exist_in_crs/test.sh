@@ -46,7 +46,7 @@ WCST_REQUEST="$PETASCOPE_URL?coverageRef=file://$GML_FILE&request=InsertCoverage
 ORACLE_FILE="$SCRIPT_DIR/oracle.gml"
 OUTPUT_FILE="$OUTPUT_DIR/output.gml"
 
-$CURL "$WCST_REQUEST" 2>&1 > "$OUTPUT_FILE"
+$CURL "$WCST_REQUEST" -o "$OUTPUT_FILE"
 
 cmp "$ORACLE_FILE" "$OUTPUT_FILE" >> /dev/null
 

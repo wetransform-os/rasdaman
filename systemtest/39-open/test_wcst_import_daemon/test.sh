@@ -37,7 +37,7 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 . "$SCRIPT_DIR"/../../util/common.sh
 
 WCST_IMPORT="$RMANHOME/bin/wcst_import.sh"
-ingest_template="$SCRIPT_DIR/../../30-wcstimport/testdata/112-wcs_import_order_descending_test_import_order_descending_irregular_time_netcdf/ingest.template.json"
+ingest_template="$SCRIPT_DIR/../../30-wcstimport/testdata/113-wcs_irregular_time_series_slices_number/ingest.template.json"
 ingest_json="$SCRIPT_DIR/ingest.json"
 
 sed "s@PETASCOPE_URL@$PETASCOPE_URL@g" "$ingest_template" > "$ingest_json"

@@ -47,18 +47,6 @@ log()  { echo "$PROG: $*"; }
 logn() { printf "%s" "$PROG: $*"; }
 error(){ echo "$PROG: $*" >&2; exit $RC_ERROR; }
 
-# check if optional arguments are not empty then concatenate them
-add_args()
-{
-    arg_key="$1"
-    arg_val="$2"
-    # e.g: argv_val="stop", arg="-d"
-
-    if [ -n "$arg_val" ]; then
-        wcst_import_py_args="$wcst_import_py_args $arg_key $arg_val"
-    fi
-}
-
 # print optional error, and usage directions
 usage()
 {
@@ -111,7 +99,7 @@ while [ "$1" != "" ]; do
       -i|--identity-file)        shift; identity_file_path=$(readlink -f "$1");;
       -u|--user)                 shift; user="$1";;
       -c|--gdal-cache-size)      shift; gdal_cache_size="$1";;
-      *)                         ingredients_file=$(readlink -f "$1");;
+      *)                         ingredients_file="$(readlink -f "$1")";;
     esac
     shift
 done
@@ -178,16 +166,29 @@ elif [ -n "$identity_file_path" ]; then
     fi
 fi
 
-wcst_import_py_args="python3 $script -i $ingredients_file"
+#
+# construct wcst_import.py command
+#
+
+# if optional argument is not empty, add it to the argument string
+add_args() {
+    arg_key="$1"
+    arg_val="$2"
+    [ -n "$arg_val" ] && wcst_import_py_args="$wcst_import_py_args $arg_key $arg_val"
+}
+
+wcst_import_py_args=""
 add_args "-d" "$daemon_action"
-[ "$daemon_flag" = true ] && add_args "-w" "$watch_interval"
+if [ "$daemon_flag" = true ]; then
+  add_args "-w" "$watch_interval"
+fi
 add_args "--user" "$user"
 add_args "--passwd" "$passwd"
 add_args "--identity-file" "$identity_file_path"
 add_args "--gdal-cache-size" "$gdal_cache_size"
 
 if [ "$quiet" = true ]; then
-    eval "$wcst_import_py_args" > /dev/null 2>&1
+    python3 "$script" $wcst_import_py_args -i "$ingredients_file" > /dev/null 2>&1
 else
-    eval "$wcst_import_py_args"
+    python3 "$script" $wcst_import_py_args -i "$ingredients_file"
 fi

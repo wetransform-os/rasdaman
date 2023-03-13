@@ -243,7 +243,7 @@ public class ConfigManager {
     private static final String KEY_UPLOADED_FILE_DIR_TMP = "uploaded_files_dir_tmp";
 
     /* ***** SECORE configuration ***** */
-    private static final String KEY_SECORE_URLS = "secore_urls";
+    public static final String KEY_SECORE_URLS = "secore_urls";
     
     /* ***** WCS configuration ***** */
     // validate XML POST input request with XML Schema (not set to true when OGC CITE testing)

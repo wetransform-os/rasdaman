@@ -513,9 +513,10 @@ public class CoverageRepositoryService {
     }
     
     /**
-     * Return the list of basic coverage metadata object
+     * Return the list of local basic coverage metadata objects
+     * NOTE: used only when petascope starts
      */
-    public List<Coverage> readAllCoveragesBasicMetadata() throws PetascopeException {
+    public List<Coverage> readAllCoveragesBasicMetadataWhenPetascopeStarts() throws PetascopeException {
         
         if (this.localCoveragesCacheMap.isEmpty()) {
             this.readAllLocalCoveragesBasicMetatata();

@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import org.rasdaman.migration.domain.legacy.LegacyBigDecimalUtil;
 import petascope.util.CrsUtil;
 import org.rasdaman.migration.domain.legacy.LegacyAxisTypes;
+import petascope.exceptions.PetascopeException;
 
 /**
  * NOTE: the WGS84 bounding needs to take care to transform only the /spatial/ axes,
@@ -220,7 +221,7 @@ public class LegacyBbox implements Cloneable {
     /**
      * @return the CRS name where the spatial CRS is replaced by WGS84 URI.
      */
-    public String getWgs84CrsName() {
+    public String getWgs84CrsName() throws PetascopeException {
         List<String> crsUris; // avoid CRS duplication if some axes share the CRS; keep order.
         if (CrsUtil.CrsUri.isCompound(crsName)) {
             // Extract the involved atomic CRSs:

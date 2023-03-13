@@ -3253,10 +3253,17 @@ Using `ingredient sentences <data-import-ingredient-sentences>`__ we can define
 any coverage model directly in the options of the ingredients file. Each
 coverage model contains the following parts:
 
+.. _data-import-crs:
+
 * ``crs`` - Indicates the crs of the coverage to be constructed. Either a CRS 
   url can be used e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326 or the shorthand 
-  notation ``CRS1@CRS2@CRS3``, e.g. ``OGC/0/AnsiDate@EPSG/0/4326`` for 
-  indicating a time/date + spatial CRS.
+  notation: ``CRS1@CRS2@CRS3``, e.g. ``OGC/0/AnsiDate@EPSG/0/4326`` 
+  or ``CRS1+CRS2``, e.g. ``OGC:AnsiDate+EPSG:4326`` for 
+  indicating a time/date + spatial compound CRS. 
+
+.. NOTE::  
+  
+  Either ``@`` or ``+`` can be used, and either ``:`` or ``/`` notation as well in any CRS parts.
 
 * ``metadata`` - A group of options controlling metadata extraction and 
   consolidation; more detailed information follows :ref:`below 

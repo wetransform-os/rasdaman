@@ -252,11 +252,11 @@ public class CrsUtil {
         return resolver + "/" + KEY_RESOLVER_CRS + "/" + committee + "/" + version + "/" + code;
     }
 
-    public static String CrsUri(String committee, String version, String code) {
-        return getResolverUri() + "/" + KEY_RESOLVER_CRS + "/" + committee + "/" + version + "/" + code;
+    public static String CrsUri(String committee, String version, String code) throws PetascopeException {
+        return getDefaultResolverUri() + "/" + KEY_RESOLVER_CRS + "/" + committee + "/" + version + "/" + code;
     }
 
-    public static String CrsUri(String committee, String code) {
+    public static String CrsUri(String committee, String code) throws PetascopeException {
         return CrsUri(committee, CRS_DEFAULT_VERSION, code);
     }
 
@@ -269,13 +269,13 @@ public class CrsUtil {
         return CrsUriDir(prefix, committee, CRS_DEFAULT_VERSION);
     }
 
-    public static String CrsUriDir(String committee) {
-        return CrsUriDir(getResolverUri(), committee, CRS_DEFAULT_VERSION);
+    public static String CrsUriDir(String committee) throws PetascopeException {
+        return CrsUriDir(getDefaultResolverUri(), committee, CRS_DEFAULT_VERSION);
     }
     
-    public static final String getEPSGVersion0CRS() {
+    public static final String getEPSGVersion0CRS() throws PetascopeException {
         // used in WCS GetCapabilities to list all the possible CRSs
-        String result = CrsUtil.getResolverUri() + "/crs/EPSG/0";
+        String result = CrsUtil.getDefaultResolverUri() + "/crs/EPSG/0";
         return result;
     }
 
@@ -360,7 +360,7 @@ public class CrsUtil {
         } else {
             log.debug("# Checking external SECORE with url " + crsUri);
             // external secore, send requests normally
-            result = HttpUtil.getInputStream(crsUri);
+            result = HttpUtil.getSECOREInputStream(crsUri);
         }
         
         return result;
@@ -1058,12 +1058,41 @@ public class CrsUtil {
     /**
      * Method to return the default SECORE URI (first in the configuration list)
      */
-    public static String getResolverUri() {
-        return ConfigManager.SECORE_URLS.get(0);
+    public static String getDefaultResolverUri() throws PetascopeException {
+        String result = null;
+        final int MAX_TIMEOUT = 10000;
+        
+        int size = ConfigManager.SECORE_URLS.size();
+        int i = 0; 
+        
+        for (String secoreURI : ConfigManager.SECORE_URLS) {
+            String epsg4326URL = secoreURI + "/crs/EPSG/0/4326";
+            try {
+                i += 1;
+                HttpUtil.getInputStream(epsg4326URL, MAX_TIMEOUT, MAX_TIMEOUT);
+                result = secoreURI;
+            } catch (Exception ex) {
+                String errorMessage = "Failed to access CRS: " + epsg4326URL + " after " + MAX_TIMEOUT 
+                        + " ms. Reason: " + ex.getMessage() + ". There are: " + (size - 1) + " SECORE endpoints more to try.";
+                if (size - i > 0) {
+                    errorMessage += " Trying with another fallback resolver...";
+                }
+                
+                log.warn(errorMessage, ex);
+            }
+        }
+        
+        if (result == null) {
+            throw new PetascopeException(ExceptionCode.SecoreError, 
+                    "All configured CRSs from setting: " + ConfigManager.KEY_SECORE_URLS + " in petascope.properties are not accessible. "
+                    + "Hint: find a working SECORE URL to change in the specified setting and restart petascope.");
+        }
+        
+        return result;
     }
     
-    public static String getEPSG4326FullURL() {
-        return getResolverUri() + "/crs/EPSG/0/4326";
+    public static String getEPSG4326FullURL() throws PetascopeException {
+        return getDefaultResolverUri() + "/crs/EPSG/0/4326";
     }
 
     /**
@@ -1082,13 +1111,13 @@ public class CrsUtil {
         String code = tmps[1];
         
         // e.g. http://localhost:8080/def/crs/EPSG/0/4326
-        return getResolverUri() + "/crs/" + authortiy + "/0/" + code;
+        return getDefaultResolverUri() + "/crs/" + authortiy + "/0/" + code;
     }
     
     /**
      * e.g: 4326 -> localhost:8080/def/crs/EPSG/0/
      */
-    public static String getEPSGFullUriByCode(String code) {
+    public static String getEPSGFullUriByCode(String code) throws PetascopeException {
         return getEPSGVersion0CRS() + "/" + code;
     }
  
@@ -1365,6 +1394,7 @@ public class CrsUtil {
             String url = ConfigManager.SECORE_URLS.get(i);
             
             if (url.trim().equals(SECORE_INTERNAL)) {
+                // if internal is in secore_urls -> set it to http://localhost:8080/rasdaman/def
                 ConfigManager.SECORE_URLS.set(i, internalSECOREURL);
             } else {
                 Matcher m = localhostPattern.matcher(url);
@@ -1824,7 +1854,7 @@ public class CrsUtil {
          * @param crsUris
          * @return The compounding of the listed CRS URIs.
          */
-        public static String createCompound(List<String> crsUris) {
+        public static String createCompound(List<String> crsUris) throws PetascopeException {
             Set<String> crsSet = new LinkedHashSet<>(crsUris);
             String ccrsOut = "";
             switch (crsSet.size()) {
@@ -1834,7 +1864,7 @@ public class CrsUtil {
                     ccrsOut = crsSet.iterator().next();
                     break;
                 default: // By default, use SECORE host in the CCRS URL
-                    ccrsOut = getResolverUri() + "/" + KEY_RESOLVER_CCRS + "?";
+                    ccrsOut = getDefaultResolverUri() + "/" + KEY_RESOLVER_CCRS + "?";
                     Iterator it = crsSet.iterator();
                     for (int i = 0; i < crsSet.size(); i++) {
                         ccrsOut += (i + 1) + "=" + it.next();

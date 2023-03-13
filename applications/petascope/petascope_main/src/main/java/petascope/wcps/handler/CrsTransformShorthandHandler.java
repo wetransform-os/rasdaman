@@ -98,7 +98,6 @@ public class CrsTransformShorthandHandler extends Handler {
         } else {
             // e.g. EPSG:4326
             outputCRS = CrsUtil.getFullCRSURLByAuthorityCode(crsXY);
-
         }        
         
         String interpolationType = ((WcpsResult)this.getThirdChild().handle()).getRasql();

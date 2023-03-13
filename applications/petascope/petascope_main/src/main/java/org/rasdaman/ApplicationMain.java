@@ -115,7 +115,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
     
     // NOTE: this set is not updated when insert/delete local coverages, it only contains
     // the list of local collection from rasdaman when petascope starts
-    public static Set<String> localRasdamanCollectionNames = new HashSet<>();
+    private static Set<String> localRasdamanCollectionNames = new HashSet<>();
     
     /**
      * Check if petascope runs with embedded tomcat or external tomcat
@@ -330,7 +330,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
         log.info("Checked data migrations.");
         
         owsMetadataRepostioryService.read();
-
+        
         // load coverages / layers to caches in background thread
         this.loadCoveragesLayersCaches(this);
         
@@ -351,7 +351,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
                 
                 try {
                     log.info("Loading coverages to caches ...");
-                    coverageRepositoryService.readAllCoveragesBasicMetadata();
+                    coverageRepositoryService.readAllCoveragesBasicMetadataWhenPetascopeStarts();
                 } catch (Exception ex) {
                     log.warn("Cannot load coverages to cache. Reason: " + ex.getMessage(), ex);
                 }
@@ -372,7 +372,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
                 try {
                     wmsRepostioryService.readAllLayers();
                 } catch (PetascopeException ex) {
-                    log.warn("Cannto load layers to cache. Reason: " + ex.getMessage(), ex);                    
+                    log.warn("Cannot load layers to cache. Reason: " + ex.getMessage(), ex);                    
                 }
                 
                 log.info("Loaded layers to caches.");

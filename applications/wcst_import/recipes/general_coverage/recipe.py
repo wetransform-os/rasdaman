@@ -707,10 +707,18 @@ class Recipe(BaseRecipe):
         """
         crs_resolver = self.session.get_crs_resolver() + "crs/"
         if not crs.startswith("http"):
-            crs_parts = crs.split("@")
+            if "+" in crs:
+                crs_parts = crs.split("+")
+            else:
+                crs_parts = crs.split("@")
+
             for i in range(0, len(crs_parts)):
-                if not crs_parts[i].startswith("http"):
-                    crs_parts[i] = crs_resolver + crs_parts[i]
+                part = crs_parts[i]
+                if not part.startswith("http"):
+                    if ":" in part:
+                        crs_parts[i] = CRSUtil.convert_shorthand_crs_to_full_url(crs_parts[i])
+                    else:
+                        crs_parts[i] = crs_resolver + part
             crs = CRSUtil.get_compound_crs(crs_parts)
 
         return crs

@@ -21,6 +21,7 @@
  */
 package petascope.util;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -49,6 +50,18 @@ public class ThreadUtil {
             throw new PetascopeException(ExceptionCode.RuntimeError, 
                       "Error while running multiple threads. Reason: " + ex.getMessage(), ex);
         }
+    }
+    
+    /**
+     * Run a list of tasks in parallel in batch mode (max = number of CPU cores)
+     */    
+    public static void executeMultipleTasksInParallel(Runnable... tasks) throws PetascopeException {
+        List<Callable<Object>> list = new ArrayList<>();
+        for (Runnable task : tasks) {
+            list.add(Executors.callable(task));
+        }
+        
+        executeMultipleTasksInParallel(list);
     }
     
     /**

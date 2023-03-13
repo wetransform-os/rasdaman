@@ -131,4 +131,31 @@ public class VersionManager {
     public static boolean isWMSRequest(String[] versions) {
         return versions != null && versions[0].equals(VersionManager.WMS_VERSION_13);
     }
+    
+    /**
+     * e.g. compare 10.0.1 and 10.2 then 10.2 is larger than 10.0.1
+    */
+    public static boolean smallerThanVersion(String version1, String version2) {
+        String[] tmps1 = version1.split("\\.");
+        String[] tmps2 = version2.split("\\.");
+        
+        int length = Math.max(tmps1.length, tmps2.length);
+        for (int i = 0; i < length; i++) {
+            int v1 = i < tmps1.length ? Integer.parseInt(tmps1[i]) : 0;
+            int v2 = i < tmps2.length ? Integer.parseInt(tmps2[i]) : 0;
+            
+            if (v1 < v2) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * e.g. 10.0.1 is equal to 10.0.2 and 10.0.3 is larger than 10.0.2
+     */
+    public static boolean largerThanOrEqualVersion(String version1, String version2) {
+        return !smallerThanVersion(version1, version2);
+    }
 }

@@ -317,7 +317,7 @@ public class WcpsCoverageMetadata {
     /**
      * Update coverage's native CRS URIs based on current axes
      */
-    public void updateCrsUri() {
+    public void updateCrsUri() throws PetascopeException {
         
         List<String> axisCrsUris = new ArrayList<>();
         for (Axis axis : this.axes) {

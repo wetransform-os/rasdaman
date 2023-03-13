@@ -3256,14 +3256,10 @@ coverage model contains the following parts:
 .. _data-import-crs:
 
 * ``crs`` - Indicates the crs of the coverage to be constructed. Either a CRS 
-  url can be used e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326 or the shorthand 
-  notation: ``CRS1@CRS2@CRS3``, e.g. ``OGC/0/AnsiDate@EPSG/0/4326`` 
-  or ``CRS1+CRS2``, e.g. ``OGC:AnsiDate+EPSG:4326`` for 
-  indicating a time/date + spatial compound CRS. 
-
-.. NOTE::  
-  
-  Either ``@`` or ``+`` can be used, and either ``:`` or ``/`` notation as well in any CRS parts.
+  url can be used e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326 or a shorthand 
+  notation ``CRS1<op>CRS2<op>..``, where CRS1/CRS2/.. are of the form EPSG/0/4326 or
+  EPSG:4326, and ``<op>`` is either ``@`` or ``+``. For example, a time/date + spatial
+  compound CRS could be ``OGC/0/AnsiDate@EPSG/0/4326``, or ``OGC:AnsiDate+EPSG:4326``.
 
 * ``metadata`` - A group of options controlling metadata extraction and 
   consolidation; more detailed information follows :ref:`below 
@@ -3361,6 +3357,8 @@ bounds and resolution corresponding to each file.
     style (North -> South with ``jScansPositively = 1``), then it is necessary 
     to flip it before importing to rasdaman, e.g. with
     ``cdo invertlat input.grib output.grib``.
+
+.. _wcst_import-subtype:
 
 * ``subtype`` - Specify a slicer subtype. Currently only ``"sentinel2"`` is
   supported as a value, valid in combination with ``"type": "gdal"``. When

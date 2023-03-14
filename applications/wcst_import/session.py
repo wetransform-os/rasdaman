@@ -437,9 +437,31 @@ class Session:
         file_paths = []
         for path in paths:
             path = path.strip()
-            if not path.startswith("/vsi"):
+
+            is_netcdf_or_hdf_imported_by_gdal_recipe = path.startswith("NETCDF:") \
+                                                       or path.startswith("HDF4_SDS:") \
+                                                       or path.startswith("HDF5:")
+
+            if not path.startswith("/vsi") and not is_netcdf_or_hdf_imported_by_gdal_recipe:
                 file_paths = file_paths + FileUtil.get_file_paths_by_regex(self.ingredients_dir_path, path)
             else:
+                if is_netcdf_or_hdf_imported_by_gdal_recipe:
+                    # e.g. NETCDF:subset-20200101.nc:sensor
+                    file_name_index = 1
+                    if path.startswith("HDF4_SDS:"):
+                        # HDF4, e.g. HDF4_SDS:MODIS_L1B:GSUB1.A2001124.0855.003.200219309451.hdf:16
+                        file_name_index = 2
+
+                    tmps = path.split(":")
+
+                    # e.g. MODIS_L1B:GSUB1.A2001124.0855.003.200219309451.hdf
+                    tmp_file_path = tmps[file_name_index]
+                    if not tmp_file_path.startswith("/"):
+                        # e.g. "NETCDF:subset-20200101.nc:sensor" -> changes to "NETCDF:/ingredients_dir/subset-20200101.nc:sensor"
+                        tmps[file_name_index] = self.ingredients_dir_path + "/" + tmp_file_path
+
+                    path = ":".join(tmps)
+
                 file_paths.append(path)
 
         return file_paths

@@ -36,9 +36,9 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 prepare_output_dir
 
-N=20
+N=$(nproc)
 log "Test SECORE response time with $N concurrent queries..."
-for i in $(seq 20); do
+for i in $(seq $N); do
    log "  sending request $i..."
    wget -q "$SECORE_URL" -O "$OUTPUT_DIR/secore$i.txt" &
 done

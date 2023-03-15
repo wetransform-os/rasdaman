@@ -57,8 +57,8 @@ logn "Starting embedded petascope..."
 nohup java -jar "$petascope_war_file" --petascope.confDir="$etc_dir_tmp" > "$OUTPUT_DIR/nohup.out" 2>&1 &
 pid=$!
 
-# Wait embedded petascope starts
-sleep 15
+# Wait embedded petascope to start
+sleep 30
 if [ ! -f "$log_file" ]; then
   log "$log_file not found."
 else

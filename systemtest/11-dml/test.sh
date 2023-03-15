@@ -258,8 +258,8 @@ logn "testing SELECT INTO a new collection... "
 $RASQL --quiet -q "select c / 2 into $TMP_COLL from $TEST_COLL as c"
 check
 
-sdom1=$($RASQL -q "select sdom(c) from $TMP_COLL as c" --out string)
-sdom2=$($RASQL -q "select sdom(c) from $TEST_COLL as c" --out string)
+sdom1=$($RASQL -q "select sdom(c) from $TMP_COLL as c" --out string | grep 'Result element')
+sdom2=$($RASQL -q "select sdom(c) from $TEST_COLL as c" --out string | grep 'Result element')
 check_result "$sdom1" "$sdom2" "testing select into"
 
 # ------------------------------------------------------------------------------

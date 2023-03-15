@@ -82,9 +82,9 @@ instantiate_template() {
 }
 execute_query() {
   query=$(instantiate_template)
-  restype=$(rasql -q "$query" --out file --outfile "$OUTPUT_DIR/tmp" --type 2>/dev/null | strings \
-            | grep Element | sed 's/.*: //' | sed 's/marray< //' | sed 's/ *>//')
-  restype=$(echo "$restype" | sed -e 's/ [0-9]//g' | tr -d '[[:space:]]' | \
+  restype=$($RASQL -q "$query" --out file --outfile "$OUTPUT_DIR/tmp" --type 2>/dev/null | strings \
+            | grep 'Element Type Schema' | sed 's/.*: //' | sed 's/marray< //' | sed 's/ *>//')
+  restype=$(echo "$restype" | sed -e 's/ [0-9]//g' | tr -d '[:space:]' | \
     sed -e 's/struct//g' \
         -e 's/complex(short,short)/cint16/g' \
         -e 's/complex(long,long)/cint32/g' \
@@ -95,7 +95,7 @@ execute_testcase() {
   local outfile="$OUTPUT_DIR/$f"
   local orafile="$ORACLE_PATH/$f"
 
-  expr=$(cat "$f" | tr -d '\n')
+  expr=$(tr -d '\n' < "$f")
 
   local binary=false
   local offset="%10s"
@@ -139,28 +139,24 @@ check_rasdaman && check_rasdaman_available
 
 test_single_file="$1"
 
+pushd "$QUERIES_PATH" > /dev/null || error "$QUERIES_PATH not found."
 
 if [ -n "$test_single_file" ]; then
-  [ -f "$QUERIES_PATH/$test_single_file" ] || error "$test_single_file not found."
+  [ -f "$test_single_file" ] || error "$test_single_file not found."
+  testfiles="$test_single_file"
+  total_test_no=1
 else
   rm -rf "$OUTPUT_DIR"
   mkdir -p "$OUTPUT_DIR"
+  testfiles=*
+  total_test_no=$(ls | wc -l)
 fi
 
-pushd "$QUERIES_PATH" > /dev/null
-
-total_test_no=$(ls | wc -l)
 curr_test_no=0
 
-for f in *; do
+for f in $testfiles; do
 
-  [ -f "$f" ] || continue # skip non-files
-
-  curr_test_no=$(($curr_test_no + 1))
-
-  if [ -n "$test_single_file" ]; then
-    [[ "$f" == "$test_single_file" ]] || continue
-  fi
+  curr_test_no=$((curr_test_no + 1))
 
   start_timer
   execute_testcase
@@ -171,6 +167,6 @@ for f in *; do
 
 done
 
-popd > /dev/null
+popd > /dev/null || error "popd failed."
 
 cleanup

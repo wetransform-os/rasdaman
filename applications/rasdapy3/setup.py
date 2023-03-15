@@ -48,7 +48,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='1.0.5',
+    version='1.1.0',
 
     description='Python3 interface to rasdaman',
     long_description=long_description,
@@ -84,10 +84,12 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
 
     # What does your project relate to?
-    keywords='rasdaman interface python',
+    keywords='rasdaman client api interface python',
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().

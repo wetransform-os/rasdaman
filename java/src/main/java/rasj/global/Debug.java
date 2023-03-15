@@ -228,6 +228,10 @@ public class Debug {
     }
     
     private static void logPrefix(int level) {
+        if (indentLevel < 0) {
+            indentLevel = 0;
+        }
+            
         StringBuffer s = new StringBuffer(41 + indentLevel);
         s.append("rasj ");
         switch (level)

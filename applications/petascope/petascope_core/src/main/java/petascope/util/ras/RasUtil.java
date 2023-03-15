@@ -115,6 +115,75 @@ public class RasUtil {
         Object ret = executeRasqlQuery(query, username, password, rw, null);
         return ret;
     }
+    
+
+    /**
+     * Execute a rasql query without logging result
+     */
+    public static Object executeRasqlQueryNoLogging(String query, String username, String password) throws PetascopeException {
+        RasImplementation impl = null;
+        
+        try {
+            impl = new RasImplementation(ConfigManager.RASDAMAN_URL);
+        } catch (Exception ex) {
+            log.error("Failed initializing connection to " + ConfigManager.RASDAMAN_URL + ". Reason: "  + ex.getMessage(), ex);
+            throw new RasdamanException(ExceptionCode.RasdamanError, ex, query);
+        }
+        
+        impl.setUserIdentification(username, password);
+        Database db = impl.newDatabase();
+        try {
+            // open db
+            db.open(ConfigManager.RASDAMAN_DATABASE, Database.OPEN_READ_ONLY);
+        } catch (Exception ex) {
+            log.error("Failed opening ro database connection to rasdaman. Reason: " + ex.getMessage());
+            throw new RasdamanException(ExceptionCode.RasdamanUnavailable, ex, query);
+        }
+        
+        Transaction tr = null;
+        try {
+            // open transaction
+            tr = impl.newTransaction();
+            tr.begin();
+        } catch (Exception ex) {
+            log.error("Failed opening ro transaction to rasdaman. Reason: " + ex.getMessage());
+            closeDB(db);
+            throw new RasdamanException(ExceptionCode.RasdamanUnavailable, ex, query);
+        }
+        
+        OQLQuery q = null;
+        try {
+            q = impl.newOQLQuery();
+            q.create(query);
+        } catch (Exception ex) {
+            // not really supposed to ever throw an exception
+            log.error("Failed creating query object. Reason: " + ex.getMessage());
+            abortTR(tr);
+            closeDB(db);
+            throw new RasdamanException(ExceptionCode.InternalComponentError, ex, query);
+        }
+        
+        Object ret = null;
+        try {
+            ret = q.execute();
+            tr.commit();
+        } catch (ODMGException ex) {
+            log.error("Failed querying rasdaman. Reason: " + ex.getMessage());
+            abortTR(tr);
+            throw new RasdamanException(ExceptionCode.RasdamanRequestFailed, ex.getMessage(), ex, query);
+        } catch (Exception ex) {
+            if (ex.getMessage().contains("GRPC Exception"))
+                log.error("Lost connection to the rasdaman server, possibly the server crashed or there was a network problem.");
+            abortTR(tr);
+            log.error("Failed querying rasdaman. Reason: " + ex.getMessage());
+            throw new RasdamanException(ExceptionCode.RasdamanRequestFailed, 
+                    ex.getMessage(), ex, query);
+        } finally {
+            closeDB(db);
+        }
+        
+        return ret;
+    }    
        
     /**
      * Executes a rasql query and returns result.
@@ -132,7 +201,14 @@ public class RasUtil {
         
         log.info("Executing rasql query " + queryCounter + ": " + query);
         
-        RasImplementation impl = new RasImplementation(ConfigManager.RASDAMAN_URL);
+        RasImplementation impl = null;
+        
+        try {
+            impl = new RasImplementation(ConfigManager.RASDAMAN_URL);
+        } catch (Exception ex) {
+            log.error("Failed initializing connection to " + ConfigManager.RASDAMAN_URL + ". Reason: "  + ex.getMessage(), ex);
+            throw new RasdamanException(ExceptionCode.RasdamanError, ex, query);
+        }
         impl.setUserIdentification(username, password);
 
         Database db = impl.newDatabase();

@@ -28,7 +28,7 @@ package petascope.util;
 
 
 public class WaitingTimer {
-    
+
     public static enum WaitingIncreasePolicy {
         NONE,
         DOUBLE_WAIT_TIME
@@ -40,7 +40,11 @@ public class WaitingTimer {
     private float waitingIncreaseFactor = 1; // only considered if waitingIncreasePolicy is NONE
     private float currentWaitInSeconds = initialWaitInSeconds;
     private long timeAnchorMillis = System.currentTimeMillis();
-
+    
+    public WaitingTimer() {
+    
+    }
+    
     public WaitingTimer(float initialWaitInSeconds) {
         this.initialWaitInSeconds = initialWaitInSeconds;
     }

@@ -330,6 +330,8 @@ public class ApplicationMain extends SpringBootServletInitializer {
         log.info("Checked data migrations.");
         
         owsMetadataRepostioryService.read();
+
+
         
         // load coverages / layers to caches in background thread
         this.loadCoveragesLayersCaches(this);

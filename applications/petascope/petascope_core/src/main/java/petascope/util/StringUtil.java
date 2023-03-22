@@ -769,4 +769,19 @@ public class StringUtil {
         kvpMap.put(key.toLowerCase(), array);
     }
     
+    /**
+     * Check if input string is valid printable ASCII ttps://en.wikipedia.org/wiki/ASCII#Printable_characters
+     * and it doesn't contain `\` character
+     */
+    public static boolean isValidPasswordCharacter(String str) {
+        for (int i = 0; i < str.length(); i++) {
+            int c = str.charAt(i);
+            if (! (c >= 33 && c <= 126) || c == '\\' ) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
 }

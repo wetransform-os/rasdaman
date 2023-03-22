@@ -37,6 +37,7 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.core.Pair;
 import org.rasdaman.admin.pyramid.service.PyramidService;
+import petascope.core.AxisTypes;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.ListUtil;
@@ -206,34 +207,30 @@ public class WcpsCoverageMetadataTranslator {
                 trimmingSubsets.add(new Subset(numericTrimming, axis.getNativeCrsUri(), axis.getLabel()));
             }
             
-            // NOTE: only support scale() with pyramid on a single coverage expression
-            // @TODO: https://projects.rasdaman.com/ticket/308 to support scale on pyramid member of a virtual coverage // -- rasdaman enterprise
-                
-                String contributingCoverageId = wcpsCoverageMetadataBase.getCoverageName();
+            String contributingCoverageId = wcpsCoverageMetadataBase.getCoverageName();
 
-                GeneralGridCoverage baseCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(contributingCoverageId);
-                CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY,
-                                                                                                        subsettedAxisX, subsettedAxisY,
-                                                                                                        width, height, nonXYSubsetDimensions);
-                
+            GeneralGridCoverage baseCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(contributingCoverageId);
+            CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY,
+                                                                                                    subsettedAxisX, subsettedAxisY,
+                                                                                                    width, height, nonXYSubsetDimensions);
 
-                GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(coveragePyramid.getPyramidMemberCoverageId());
 
-                String fullRasql = coverageExpression.getRasql();
-                // e.g: grid subset for level 1
-                String originalContributingRasql = fullRasql;
-                
-                // remove c0 -> level 1 coverage
-                String coverageAlias = this.coverageAliasRegistry.getAliasByCoverageName(contributingCoverageId);
+            GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(coveragePyramid.getPyramidMemberCoverageId());
 
-                // e.g. test_pyramid_8
-                WcpsCoverageMetadata wcpsCoverageMetadataPyramid = this.translate(coveragePyramid.getPyramidMemberCoverageId());
-                result = wcpsCoverageMetadataPyramid;
-                
-                // Remove any stripped axes of input coverage in pyramid member coverage (e.g: slicing in time axis of a virtual coverage, 
-                // then the pyramid member of it also needs to remove this time axis)
-                this.applyGeoSubsetOnPyramidCoverage(wcpsCoverageMetadataBase, wcpsCoverageMetadataPyramid);
-            
+            String fullRasql = coverageExpression.getRasql();
+            // e.g: grid subset for level 1
+            String originalContributingRasql = fullRasql;
+
+            // remove c0 -> level 1 coverage
+            String coverageAlias = this.coverageAliasRegistry.getAliasByCoverageName(contributingCoverageId);
+
+            // e.g. test_pyramid_8
+            WcpsCoverageMetadata wcpsCoverageMetadataPyramid = this.translate(coveragePyramid.getPyramidMemberCoverageId());
+            result = wcpsCoverageMetadataPyramid;
+
+            // Remove any stripped axes of input coverage in pyramid member coverage (e.g: slicing in time axis of a virtual coverage, 
+            // then the pyramid member of it also needs to remove this time axis)
+            this.applyGeoSubsetOnPyramidCoverage(wcpsCoverageMetadataBase, wcpsCoverageMetadataPyramid);
         }
         
         return result;
@@ -414,10 +411,19 @@ public class WcpsCoverageMetadataTranslator {
             NumericSubset gridBounds = new NumericTrimming(new BigDecimal(indexAxis.getLowerBound()), new BigDecimal(indexAxis.getUpperBound()));
             
             String crsUri = geoAxis.getSrsName();
-
-            CrsDefinition crsDefinition = CrsUtil.getCrsDefinition(crsUri);
-            // x, y, t,...
-            String axisType = CrsUtil.getAxisTypeByIndex(coverageCRS, i);
+            
+            String axisType = geoAxis.getAxisType();
+            if (axisType == null) {
+                // x, y, t,...
+                axisType = CrsUtil.getAxisTypeByIndex(coverageCRS, i);
+            }
+            
+            CrsDefinition crsDefinition = null;
+            if (axisType.equals(AxisTypes.T_AXIS)) {
+                // NOTE: only time axis needs CrsDefinition as it needs to know the date time origin from the CRS
+                // to convert time coefficient in number to ISO datetime format
+                crsDefinition = CrsUtil.getCrsDefinition(crsUri);
+            }
 
             // Get the metadata of CRS (needed when using TimeCrs)
             String axisUoM = geoAxis.getUomLabel();

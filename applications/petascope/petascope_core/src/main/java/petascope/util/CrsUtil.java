@@ -40,8 +40,15 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -65,6 +72,7 @@ import org.rasdaman.secore.req.ResolveResponse;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.stereotype.Service;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
@@ -88,6 +96,7 @@ import static petascope.core.CrsDefinition.LONGITUDE_AXIS_LABEL_EPGS_VERSION_85;
  *
  * @author <a href="mailto:p.campalani@jacobs-university.de">Piero Campalani</a>
  */
+@Service
 public class CrsUtil {
 
     // NOTE: accept any URI format, but ask to SECORE: flattened definitions, less recursion.
@@ -184,6 +193,86 @@ public class CrsUtil {
                                                     "  REMARK[\"Used with grid spacing of 0.025 degree in rotated coordinates.\"]]";
     
     private static boolean isSECOREloaded = false;
+    
+    // SECORE URL -> timer
+    private static Map<String, WaitingTimer> checkResolverURLsTasksMap = new ConcurrentSkipListMap<>();
+    private ScheduledExecutorService checkResolverURLsSchedulerExecutorService = Executors.newScheduledThreadPool(1);
+    // Set of down SECORE URLs
+    public static Set<String> downResolverURLs = new ConcurrentSkipListSet<>();
+
+    // after this time interval **in seconds** to check which SECORE URL is working
+    private static final int TIME_TO_CHECK_WORKING_SECORE_URL = 60;
+    private static String currentWorkingResolverURL = null;
+    
+    @PostConstruct
+    private void afterConstruct() throws PetascopeException {
+        // NOTE: when petascope starts, "internal" SECORE doesn't work until petascope fully started
+        currentWorkingResolverURL = ConfigManager.SECORE_URLS.get(0);
+        
+        for (String resolverURL : ConfigManager.SECORE_URLS) {
+            checkResolverURLsTasksMap.put(resolverURL, new WaitingTimer());
+        }
+        
+        this.runTaskByInterval();
+    }
+    
+    /**
+     * Run every intervals to check which SECORE URL is running
+     */
+    @PreDestroy
+    private void runTaskByInterval() throws PetascopeException {
+        
+         // Run internal check to determine which SECORE endpoint is up
+        final Runnable checkResolverURLsTask = new Runnable() {
+            public void run() {
+                
+                boolean working = false;
+                log.trace("Checking which resolver is running ...");
+                
+                for (Map.Entry<String, WaitingTimer> entry : checkResolverURLsTasksMap.entrySet()) {
+                    
+                    String resolverURL = entry.getKey();
+                    WaitingTimer waitingTimer = entry.getValue();
+                    
+                    if (waitingTimer.shouldRun()) {
+                        // if endpoint is up -> make it as the cached 
+                        String epsg4326URL = resolverURL + "/crs/EPSG/0/4326";
+                
+                        if (HttpUtil.urlExists(epsg4326URL)) {
+                            waitingTimer.reportSuccessRequest();
+                            if (downResolverURLs.contains(resolverURL)) {
+                                downResolverURLs.remove(resolverURL);
+                                log.info("Resolver '" + resolverURL + "' "
+                                        + "is up again after " + waitingTimer.getCurrentWaitInSeconds() + " seconds.");
+                            }
+                            
+                            currentWorkingResolverURL = resolverURL;
+                            working = true;
+                            break;
+                        } else {
+                            // endpoint is down
+                            waitingTimer.reportFailedRequest();
+                            downResolverURLs.add(resolverURL);
+                            log.debug("Resolver '" + resolverURL + "' "
+                                    + "is down after " + waitingTimer.getCurrentWaitInSeconds() + " seconds.");
+                        }
+                    }
+                }
+                
+                if (!working) {
+                    // No SECORE is working
+                    currentWorkingResolverURL = null;
+                } else {
+                    log.debug("Current working resolver is: " + currentWorkingResolverURL);
+                }
+            }
+        };
+         
+        // Run interval by 60 seconds
+        this.checkResolverURLsSchedulerExecutorService.scheduleAtFixedRate(checkResolverURLsTask, 
+                                                                            TIME_TO_CHECK_WORKING_SECORE_URL, 
+                                                                            TIME_TO_CHECK_WORKING_SECORE_URL, SECONDS);
+    }    
     
     /**
      * Invoke embedded SECORE in petascope before petascope starts to migrate 
@@ -328,11 +417,9 @@ public class CrsUtil {
             
             // e.g. http://localhost:8082/rasdaman/def
             String tmpCRS = ConfigManager.DEFAULT_SECORE_INTERNAL_URL.replace(ConfigManager.DEFAULT_PETASCOPE_PORT, ConfigManager.EMBEDDED_PETASCOPE_PORT);
-            for (String secoreURL : ConfigManager.SECORE_URLS) {
-                if (secoreURL.trim().equals(ConfigManager.DEFAULT_SECORE_INTERNAL_URL)
-                    || secoreURL.trim().equals(tmpCRS)) {
-                    return true;
-                }
+            if (currentWorkingResolverURL.trim().equals(ConfigManager.DEFAULT_SECORE_INTERNAL_URL)
+                || currentWorkingResolverURL.trim().equals(tmpCRS)) {
+                return true;
             }
             
             // If SECORE url is localhost, then check it should be resolved internally by petascope or not
@@ -655,14 +742,10 @@ public class CrsUtil {
     public static Element crsDefUrlToXml(final String url) throws Exception {
         Element ret = crsDefUrlToDocument(url);
         if (ret == null) {
-            for (String configuredResolver : ConfigManager.SECORE_URLS) {
-                String newUrl = CrsUri.replaceResolverInUrl(url, configuredResolver);
-                ret = crsDefUrlToDocument(newUrl);
-                if (ret != null) {
-                    break;
-                }
-            }
+            String newUrl = CrsUri.replaceResolverInUrl(url, currentWorkingResolverURL);
+            ret = crsDefUrlToDocument(newUrl);
         }
+        
         return ret;
     }
 
@@ -1056,39 +1139,17 @@ public class CrsUtil {
     }
 
     /**
-     * Method to return the default SECORE URI (first in the configuration list)
+     * Method to return the default SECORE URI (first working URI in the configuration list)
      */
     public static String getDefaultResolverUri() throws PetascopeException {
-        String result = null;
-        final int MAX_TIMEOUT = 10000;
         
-        int size = ConfigManager.SECORE_URLS.size();
-        int i = 0; 
-        
-        for (String secoreURI : ConfigManager.SECORE_URLS) {
-            String epsg4326URL = secoreURI + "/crs/EPSG/0/4326";
-            try {
-                i += 1;
-                HttpUtil.getInputStream(epsg4326URL, MAX_TIMEOUT, MAX_TIMEOUT);
-                result = secoreURI;
-            } catch (Exception ex) {
-                String errorMessage = "Failed to access CRS: " + epsg4326URL + " after " + MAX_TIMEOUT 
-                        + " ms. Reason: " + ex.getMessage() + ". There are: " + (size - 1) + " SECORE endpoints more to try.";
-                if (size - i > 0) {
-                    errorMessage += " Trying with another fallback resolver...";
-                }
-                
-                log.warn(errorMessage, ex);
-            }
-        }
-        
-        if (result == null) {
+        if (currentWorkingResolverURL == null) {
             throw new PetascopeException(ExceptionCode.SecoreError, 
                     "All configured CRSs from setting: " + ConfigManager.KEY_SECORE_URLS + " in petascope.properties are not accessible. "
                     + "Hint: find a working SECORE URL to change in the specified setting and restart petascope.");
         }
         
-        return result;
+        return currentWorkingResolverURL;
     }
     
     public static String getEPSG4326FullURL() throws PetascopeException {
@@ -1623,16 +1684,13 @@ public class CrsUtil {
                         + getAuthority(uri2) + "(" + getVersion(uri2) + "):" + getCode(uri2) + " "
                         + "comparison is *not* cached: need to ask SECORE.");
                 Boolean equal = null;
-                for (String resolverUri : ConfigManager.SECORE_URLS) {
-                    try {
-                        equal = checkEquivalence(resolverUri, uri1, uri2);
-                        break; // No need to check against any resolver
-                    } catch (SecoreException ex) {
-                        // Skip to next loop cycle: try with an other configured resolver URI.
-                        log.warn(ex.getMessage());
-                    } catch (PetascopeException ex) {
-                        throw ex;
-                    }
+                try {
+                    equal = checkEquivalence(currentWorkingResolverURL, uri1, uri2);
+                } catch (SecoreException ex) {
+                    // Skip to next loop cycle: try with an other configured resolver URI.
+                    log.warn(ex.getMessage());
+                } catch (PetascopeException ex) {
+                    throw ex;
                 }
 
                 if (null == equal) {

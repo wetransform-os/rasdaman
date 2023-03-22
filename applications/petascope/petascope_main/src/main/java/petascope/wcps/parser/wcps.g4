@@ -275,7 +275,7 @@ numericalScalarExpression: numericalUnaryOperation LEFT_PARENTHESIS numericalSca
  */
 complexNumberConstant: LEFT_PARENTHESIS REAL_NUMBER_CONSTANT COMMA REAL_NUMBER_CONSTANT RIGHT_PARENTHESIS               #ComplexNumberConstantLabel;
 numericalOperator: PLUS | MINUS | MULTIPLICATION | DIVISION;
-numericalUnaryOperation: ABSOLUTE_VALUE | SQUARE_ROOT |  REAL_PART | IMAGINARY_PART | ROUND | MINUS | PLUS;
+numericalUnaryOperation: ABSOLUTE_VALUE | SQUARE_ROOT |  REAL_PART | IMAGINARY_PART | ROUND | MINUS | PLUS | CEIL | FLOOR;
 trigonometricOperator: SIN | COS | TAN | SINH | COSH | TANH | ARCSIN | ARCCOS | ARCTAN;
 
 

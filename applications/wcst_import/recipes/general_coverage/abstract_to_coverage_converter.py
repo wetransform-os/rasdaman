@@ -489,14 +489,15 @@ class AbstractToCoverageConverter:
         slices_dict = BaseRecipe.create_dict_of_slices(self.session.import_overviews)
 
         count = 1
+        ok_files = []
         for file in self.files:
             timer = Timer()
 
             if self.session.blocking is True:
                 FileUtil.print_feedback(count, len(self.files), file.filepath)
             else:
-                self.analyzed_files_count += 1
-                FileUtil.print_feedback(self.analyzed_files_count, self.session.total_files_to_import, file.filepath)
+                AbstractToCoverageConverter.analyzed_files_count += 1
+                FileUtil.print_feedback(AbstractToCoverageConverter.analyzed_files_count, self.session.total_files_to_import, file.filepath)
 
             # print which file is analyzing
             if not FileUtil.validate_file_path(file.filepath):
@@ -515,6 +516,7 @@ class AbstractToCoverageConverter:
                     self.data_type = self.evaluator_slice.get_data_type(self)
 
                 coverage_slice = self._create_coverage_slice(file, crs_axes, self.evaluator_slice, axis_resolutions)
+                ok_files.append(file)
             except Exception as ex:
                 # If skip: true then just ignore this file from importing, else raise exception
                 FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex)
@@ -568,6 +570,7 @@ class AbstractToCoverageConverter:
             for key, value in slices_dict.items():
                 slices_dict[key] = sort_slices_by_datetime(value, reverse)
 
+        self.files = ok_files
         return slices_dict
 
     def _create_coverage_slice(self, file, crs_axes, evaluator_slice, axis_resolutions=None):
@@ -621,24 +624,26 @@ class AbstractToCoverageConverter:
                 global_metadata = self._generate_global_metadata(first_coverage_slice)
 
         # Evaluate all the swe bands's metadata (each file should have same swe bands's metadata), so first file is ok
-        self._evaluate_swe_bands_metadata(self.files[0], self.bands)
-
         results = []
-        base_coverage_id = self.coverage_id
-        for key, value in coverage_slices_dict.items():
-            slices = coverage_slices_dict[key]
-            if key == "base":
-                coverage = Coverage(base_coverage_id, slices, self._range_fields(), self.crs,
-                                    self._data_type(),
-                                    self.tiling, global_metadata)
-            else:
-                # overview coverage (key = overview_index)
-                coverage_id = create_coverage_id_for_overview(self.coverage_id, key)
 
-                coverage = Coverage(coverage_id, slices, self._range_fields(), self.crs,
-                                    self._data_type(),
-                                    self.tiling, global_metadata, base_coverage_id, key)
+        if len(self.files) > 0:
+            self._evaluate_swe_bands_metadata(self.files[0], self.bands)
 
-            results.append(coverage)
+            base_coverage_id = self.coverage_id
+            for key, value in coverage_slices_dict.items():
+                slices = coverage_slices_dict[key]
+                if key == "base":
+                    coverage = Coverage(base_coverage_id, slices, self._range_fields(), self.crs,
+                                        self._data_type(),
+                                        self.tiling, global_metadata)
+                else:
+                    # overview coverage (key = overview_index)
+                    coverage_id = create_coverage_id_for_overview(self.coverage_id, key)
+
+                    coverage = Coverage(coverage_id, slices, self._range_fields(), self.crs,
+                                        self._data_type(),
+                                        self.tiling, global_metadata, base_coverage_id, key)
+
+                results.append(coverage)
 
         return results

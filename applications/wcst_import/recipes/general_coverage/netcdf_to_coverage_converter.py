@@ -128,7 +128,7 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
                 else:
                     raise e
 
-        if netcdf_dataset is None:
+        if netcdf_dataset is None and ConfigManager.blocking is True:
             raise RuntimeException("Cannot get null values from one of input netCDF files. "
                                    "Hint: make sure at least one file is readable.")
 

@@ -47,7 +47,7 @@ class FileUtil:
 
     @staticmethod
     def print_feedback(current_number, number_of_files, file_path):
-        log.info("Analyzing file ({}/{}): {} ...".format(current_number, number_of_files, file_path))
+        log.info("\nAnalyzing file ({}/{}): {} ...".format(current_number, number_of_files, file_path))
 
     @staticmethod
     def get_file_paths_by_regex(ingredients_dir_path, file_path_regex):
@@ -93,7 +93,7 @@ class FileUtil:
         If all input file paths are not available to analyze. Exit wcst_import process and log an warning.
         :param list[str] file_paths: list of input file paths
         """
-        if len(file_paths) == 0:
+        if len(file_paths) == 0 and ConfigManager.blocking is True:
             log.warn("No files provided. Check that the paths you provided are correct. Done.")
             exit(0)
 

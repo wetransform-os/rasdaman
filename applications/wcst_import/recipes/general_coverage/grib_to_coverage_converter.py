@@ -146,12 +146,17 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
         if self.default_null_values is not None:
             return self.default_null_values
 
+        nil_value = None
+
         # NOTE: all files should have same bands's metadata
         try:
             nil_value = self.dataset.message(1)["missingValue"]
         except KeyError:
             # missingValue is not defined in grib file
             nil_value = None
+        except Exception as ex:
+            if ConfigManager.blocking is True:
+                raise RuntimeException("Cannot get missingValue from GRIB file.")
 
         if nil_value is None:
             return None
@@ -266,7 +271,7 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             # instead of the one from shortName then, this collect every available messages from the input files
             if len(collected_evaluated_messages) > 0:
                 evaluated_messages = collected_evaluated_messages
-            else:
+            elif ConfigManager.blocking is True:
                 raise RuntimeException("Grib file '" + grib_file.filepath + "' does not contain any selected messages to import.")
 
         return evaluated_messages, first_grib_message

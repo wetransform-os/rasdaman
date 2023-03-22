@@ -348,6 +348,9 @@
                      "when": {
                          "type": "string"
                      },
+                     "execute_if": {
+                         "type": "string"
+                     },
                      "cmd": {
                          "type": "string"
                      },

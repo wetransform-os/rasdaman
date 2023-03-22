@@ -1,0 +1,33 @@
+{
+  "config": {
+    "service_url": "PETASCOPE_URL",
+    "automated": true,
+    "track_files": false,
+    "blocking": false,
+    "skip": true
+  },
+  "input": {
+    "coverage_id": "test_after_hook_executed_if_import_failed_regular_timeseries_recipe",
+    "paths": [
+      "SCALED*.TIFF"
+    ]
+  },
+  "recipe": {
+    "name": "time_series_regular",
+    "options": {
+      "time_start": "2012-12-02T20:12:02",
+      "time_format": "auto",
+      "time_crs": "SECORE_URL/crs/OGC/0/AnsiDate",
+      "time_step": "2 days 10 minutes 3 seconds",
+      "tiling": "ALIGNED [0:0, 0:999, 0:999]"
+    }
+  },
+  "hooks": [
+      {
+        "description": "if import failed, print content of the input file",
+        "when": "after_import",
+        "execute_if": "import_failed",
+        "cmd": "cat ${file:path}"
+      }
+  ]
+}

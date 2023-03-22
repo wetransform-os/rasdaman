@@ -809,7 +809,7 @@ class Recipe(BaseRecipe):
                 else:
                     raise e
 
-        if number_of_dimensions is None:
+        if number_of_dimensions is None and ConfigManager.blocking is True:
             raise RuntimeException("Cannot get the number of dimensions from one of input netCDF files. "
                                    "Hint: make sure at least one file is readable.")
 

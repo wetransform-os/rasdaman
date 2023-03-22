@@ -269,6 +269,9 @@ class Recipe(BaseRecipe):
         Returns the list of coverages to be used for the importer
         """
         gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.session.get_files())
+        if gdal_dataset is None:
+            return []
+
         crs = CRSUtil.get_compound_crs([self.options['time_crs'], gdal_dataset.get_crs()])
 
         general_recipe = GeneralRecipe(self.session)

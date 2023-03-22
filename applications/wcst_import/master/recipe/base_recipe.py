@@ -80,6 +80,7 @@ class BaseRecipe:
         log.info(make_bold("Subset Correction: ") + str(ConfigManager.subset_correction))
         log.info(make_bold("Mocked: ") + str(ConfigManager.mock))
         log.info(make_bold("WMS Import: ") + str(self.session.wms_import))
+        log.info(make_bold("Skip: ") + str(self.session.skip))
 
         # Blocking means analyzing all input files before importing all coverage slices
         # Non-blocking means analyzing 1 file then import 1 file then continue with next file.

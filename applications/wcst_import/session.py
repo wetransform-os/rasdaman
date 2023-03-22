@@ -55,6 +55,8 @@ class Session:
     # store the map of import files and their axis bboxes dict
     IMPORTED_FILE_AXIS_BBOX_DICT = OrderedDict()
 
+    total_files_to_import = 0
+
     def __init__(self, config, inp, recipe, hooks, ingredient_file_name, ingredients_dir_path):
         """
         This class is used to hold the configuration for this importing session
@@ -95,7 +97,6 @@ class Session:
 
         # input files to import
         self.files = self.parse_input(inp['paths'] if 'paths' in inp else [])
-        self.total_files_to_import = 0
 
         self.input = inp
         self.wcs_service = config['service_url'] if "service_url" in config else None
@@ -124,6 +125,7 @@ class Session:
         self.mock = False if "mock" not in config else bool(self.config["mock"])
         # By default, analyze all files then import (blocking import mode). With non_blocking_import mode, analyze and import each file separately.
         self.blocking = True if "blocking" not in config else bool(self.config["blocking"])
+        ConfigManager.blocking = self.blocking
 
         self.subset_correction = bool(self.config['subset_correction']) if "subset_correction" in self.config else False
         self.skip = bool(self.config['skip']) if "skip" in self.config else False
@@ -143,8 +145,14 @@ class Session:
         if hooks is not None:
             for hook in hooks:
                 if hook["when"] == "before_import" or hook["when"] == "before_ingestion":
+                    if "execute_if" in hook:
+                        raise RecipeValidationException(
+                            "\"execute_if\" setting can be used only for \"after_import\" hook.")
+
                     self.before_hooks.append(hook)
                 elif hook["when"] == "after_import" or hook["when"] == "after_ingestion":
+                    if "execute_if" not in hook:
+                        hook["execute_if"] = "import_succeeded"
                     self.after_hooks.append(hook)
                 else:
                     raise RecipeValidationException("Please specify \"before_import\" "
@@ -185,7 +193,7 @@ class Session:
         resumer = Resumer(self.coverage_id)
         not_imported_files = resumer.get_not_imported_files(self.files)
         self.files = not_imported_files
-        self.total_files_to_import = len(self.files)
+        Session.total_files_to_import = len(self.files)
 
     def setup_config_manager(self):
         """

@@ -21,7 +21,8 @@
  * SOFTWARE.
  */
 
-#include "common/pragmas/pragmas.hh"
+#include "common/macros/pragmas.hh"
+#include "common/macros/compilerdefs.hh"
 
 DIAGNOSTIC_PUSH
 IGNORE_WARNING("-Wsign-conversion")

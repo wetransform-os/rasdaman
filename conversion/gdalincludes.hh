@@ -39,7 +39,7 @@
 
 #ifdef HAVE_GDAL
 
-#include "common/pragmas/pragmas.hh"
+#include "common/macros/pragmas.hh"
 
 DIAGNOSTIC_PUSH
 IGNORE_WARNING("-Wredundant-decls")

@@ -35,6 +35,11 @@ struct ExecuteUpdateRes;
 struct RPCMarray;
 struct RPCOIdEntry;
 
+namespace grpc
+{
+class ServerContext;
+}
+
 /** 
  * This class is the entry point of the rasdaman server. Its functions are
  * called by the communication level.
@@ -49,6 +54,9 @@ private:
     RasServerEntry() = default;
 
     HttpServer server;
+    
+    /// Used to cancel an RPC on server Shutdown
+    grpc::ServerContext *context{nullptr};
 
     ClientTblElt *currentClientContext;
     std::uint32_t currentClientIdx;
@@ -159,5 +167,10 @@ public:
     void extendMDD(r_OId mddOId, const char *stripeDomain, const char *tileDomain);
 
     std::vector<r_Minterval> getTileDomains(r_OId mddOId, const char *stripeDomain);
+    
+    /// Set the gRPC client call context.
+    void setServerContext(grpc::ServerContext *serverContext);    
+    /// Get the current gRPC client call context.
+    grpc::ServerContext *getServerContext();
 };
 #endif

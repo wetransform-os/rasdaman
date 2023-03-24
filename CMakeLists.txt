@@ -79,8 +79,11 @@ add_custom_target(unit-check COMMAND ${CMAKE_CTEST_COMMAND})
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ExtraTargets.cmake)
 AddFormatTarget("${CMAKE_SOURCE_DIR}/third_party" "${CPP_FILE_EXTENSIONS}")
 
-#include(cmake/ClangTidy.cmake)
-#AddClangTidyTarget("${CMAKE_SOURCE_DIR}/third_party" "${CPP_FILE_EXTENSIONS}")
+include(cmake/ClangTidy.cmake)
+AddClangTidyTarget("${CMAKE_SOURCE_DIR}/third_party" "${CPP_FILE_EXTENSIONS}")
+
+include(cmake/CPPCheck.cmake)
+AddCPPCheckTarget("${CMAKE_SOURCE_DIR}/third_party" "${CPP_FILE_EXTENSIONS}")
 
 include(CheckLibraryExists)
 
@@ -99,6 +102,15 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
       "MinSizeRel" "RelWithDebInfo")
 else()
     message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+endif()
+
+# Disable asserts on Release build
+string(TOUPPER ${CMAKE_BUILD_TYPE} uppercase_CMAKE_BUILD_TYPE)
+if (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELEASE")
+    message(STATUS "Asserts in C++ code will be disabled with -DNDEBUG")
+    add_definitions(-DNDEBUG)
+    # Used by some performance implementation of math libraries.
+    set(__NO_MATH_INLINES 1)
 endif()
 
 #
@@ -125,15 +137,18 @@ endif()
 add_definitions(-DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}")
 
 #
-# Enable C++11
+# Enable C++ 17
 #
 include(CheckCXXCompilerFlag)
 
-CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-if (COMPILER_SUPPORTS_CXX11)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
+if (COMPILER_SUPPORTS_CXX17)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 else ()
-    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support.")
+    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++17 support.")
 endif ()
 
 #
@@ -164,6 +179,7 @@ set(COMPILER_WARNINGS "-pedantic -Wall -Wextra -Wshadow -Wcast-align -Wcast-qual
 set(COMPILER_WARNINGS "${COMPILER_WARNINGS} -Wctor-dtor-privacy -Wdisabled-optimization -Wsign-conversion -Wstrict-overflow=5")
 set(COMPILER_WARNINGS "${COMPILER_WARNINGS} -Wformat=2 -Winit-self -Wmissing-declarations -Wmissing-include-dirs -Woverloaded-virtual")
 set(COMPILER_WARNINGS "${COMPILER_WARNINGS} -Wno-unused -Wno-unused-parameter -Wno-unused-function -Wno-format-nonliteral -Wno-switch-default")
+set(COMPILER_WARNINGS "${COMPILER_WARNINGS} -Wno-error=maybe-uninitialized")
 set(RDYNAMIC_FLAG "")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     # using Clang
@@ -182,6 +198,10 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     # using Visual Studio C++
 endif()
+
+# used in clientcomm
+set(DISABLE_PROTOBUF_WARNINGS_FLAGS 
+    " -Wno-sign-conversion -Wno-shadow -Wno-pedantic -Wno-undef -Wno-missing-declarations ")
 
 #
 # Optimization flags for particular instruction sets
@@ -212,10 +232,11 @@ endif ()
 #
 # Set compiler flags
 #
-SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -ggdb3 -gdwarf-2 -fno-omit-frame-pointer -pthread ${USE_LLD} ${SANITIZER_FLAG} ${RDYNAMIC_FLAG} ${OPT_FLAGS}")
-SET(CMAKE_C_FLAGS_DEBUG "-O0 -g -ggdb3 -gdwarf-2 -fno-omit-frame-pointer -pthread ${USE_LLD} ${SANITIZER_FLAG} ${RDYNAMIC_FLAG} ${OPT_FLAGS}")
-SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -ftree-vectorize -fno-omit-frame-pointer -pthread ${USE_LLD} ${SANITIZER_FLAG} ${RDYNAMIC_FLAG} ${OPT_FLAGS}")
-SET(CMAKE_C_FLAGS_RELEASE "-O3 -ftree-vectorize -fno-omit-frame-pointer -pthread ${USE_LLD} ${SANITIZER_FLAG} ${RDYNAMIC_FLAG} ${OPT_FLAGS}")
+SET(CMAKE_CXX_FLAGS_COMMON "-fno-omit-frame-pointer -pthread ${USE_LLD} ${SANITIZER_FLAG} ${RDYNAMIC_FLAG} ${OPT_FLAGS}")
+SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -ggdb3 -gdwarf-2 ${CMAKE_CXX_FLAGS_COMMON}")
+SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -ftree-vectorize ${CMAKE_CXX_FLAGS_COMMON}")
+SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 set(PROJECT_RASDAMAN 1)
 add_definitions(-DPROJECT_RASDAMAN)
@@ -229,23 +250,44 @@ add_definitions(-DELPP_DISABLE_DEFAULT_CRASH_HANDLING)
 add_definitions(-DELPP_NO_CHECK_MACROS)
 add_definitions(-DELPP_THREAD_SAFE)
 
-# For development
-set(ENABLE_DEBUG OFF CACHE BOOL "Generate (slower) binaries that can be debugged / produce debug logs.")
+#
+# For development:
+# - sets cmake RMANDEBUG to ON
+# - sets definitions -DRASDEBUG and -DELPP_DEBUG_ERRORS
+# - enables DEBUG/TRACE logs when build type is Release
+#
+set(ENABLE_DEBUG OFF CACHE BOOL "Enable debug / trace logs in compiled binaries.")
 if (ENABLE_DEBUG)
     add_definitions(-DRASDEBUG)
+    add_definitions(-DELPP_DEBUG_ERRORS)
     set(RMANDEBUG ${ENABLE_DEBUG})
     # Do not enable below as it clashes with define from easylogging
     # set(DEBUG ${ENABLE_DEBUG})
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g ")
-
-    add_definitions(-DELPP_DEBUG_ERRORS)
-
-    message(STATUS "Compile in debug mode enabled " 
+    message(STATUS "DEBUG / TRACE logs in compiled binaries enabled "
         "(-DENABLE_DEBUG=${ENABLE_DEBUG}).")
 else ()
-    message(STATUS "Compile in debug mode disabled " 
-        "(-DENABLE_DEBUG=${ENABLE_DEBUG}).")
+    if(uppercase_CMAKE_BUILD_TYPE STREQUAL "RELEASE")
+        set(_DISABLE_TRACE_LOGS 1)
+        add_definitions(-DELPP_DISABLE_TRACE_LOGS)
+        add_definitions(-DELPP_DISABLE_VERBOSE_LOGS)
+        message(STATUS "DEBUG logs in compiled binaries disabled "
+            "(-DENABLE_DEBUG=${ENABLE_DEBUG}).")
+    endif()
 endif ()
+
+# For development: enable debug symbols with -g
+set(ENABLE_DEBUG_SYMBOLS OFF CACHE BOOL "Add debug symbols to the compiled binaries with -g")
+if (ENABLE_DEBUG_SYMBOLS)
+    add_definitions(-DWITH_DEBUG_SYMBOLS)
+    add_definitions(-DRASDEBUG)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g ")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g ")
+    message(STATUS "Binaries will be compiled with debug symbols / option -g " 
+        "(-DENABLE_DEBUG_SYMBOLS=${ENABLE_DEBUG_SYMBOLS}).")
+else()
+    message(STATUS "Binaries will be compiled without debug symbols " 
+        "(-DENABLE_DEBUG_SYMBOLS=${ENABLE_DEBUG_SYMBOLS}).")
+endif()
 
 # Find libdw
 find_path(LIBDW_INCLUDE_DIR NAMES "elfutils/libdw.h" "elfutils/libdwfl.h")
@@ -254,8 +296,7 @@ if (LIBDW_LIBRARY AND LIBDW_INCLUDE_DIR)
     set(LIBDW_INCLUDE_DIRS ${LIBDW_INCLUDE_DIR} )
     set(LIBDW_LIBRARIES ${LIBDW_LIBRARY} )
     include(FindPackageHandleStandardArgs)
-    find_package_handle_standard_args(libdw DEFAULT_MSG
-            LIBDW_LIBRARY LIBDW_INCLUDE_DIR)
+    find_package_handle_standard_args(libdw DEFAULT_MSG LIBDW_LIBRARY LIBDW_INCLUDE_DIR)
     mark_as_advanced(LIBDW_INCLUDE_DIR LIBDW_LIBRARY)
     add_definitions(-DBACKWARD_HAS_DW=1)
     set(HAVE_LIBDW ON)
@@ -263,28 +304,15 @@ else()
     set(HAVE_LIBDW OFF)
 endif ()
 
-# If release and not ENABLE_DEBUG, disable Debug and Trace logs
-string(TOUPPER ${CMAKE_BUILD_TYPE} uppercase_CMAKE_BUILD_TYPE)
-if (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELEASE")
-    if(NOT ENABLE_DEBUG)
-        set(_DISABLE_TRACE_LOGS 1)
-        add_definitions(-DELPP_DISABLE_TRACE_LOGS)
-        add_definitions(-DELPP_DISABLE_VERBOSE_LOGS)
-        add_definitions(-DNDEBUG)
-    endif()
-    # Used by some performance implementation of math libraries.
-    set(__NO_MATH_INLINES 1)
-endif()
-
-set(DISABLE_PROTOBUF_WARNINGS_FLAGS 
-    " -Wno-sign-conversion -Wno-shadow -Wno-pedantic -Wno-undef -Wno-missing-declarations ")
-
 #
 # clang-tidy
 #
 set(ENABLE_CLANG_TIDY OFF CACHE BOOL "Enable static analysis with clang-tidy.")
 if (ENABLE_CLANG_TIDY)
     set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-style=file;-header-filter=.*/(src|test)/.*")
+    message(STATUS "Static analysis with clang-tidy enabled.")
+else()
+    message(STATUS "Static analysis with clang-tidy disabled.")
 endif ()
 
 #
@@ -394,16 +422,13 @@ if (USE_GDAL)
     set(GDAL_INCLUDE_DIRECTORIES ${GDAL_INCLUDE_DIR})
     include_directories(SYSTEM ${GDAL_INCLUDE_DIR})
     set(HAVE_GDAL ON)
- 
     set(GDAL_JAVA_JAR_PATH "/usr/share/java/gdal.jar" CACHE STRING
                            "The path where gdal.jar from gdal-java lib installed")
-
     if (NOT (EXISTS "${GDAL_JAVA_JAR_PATH}"))
         message(FATAL_ERROR "gdal.jar not found in '${GDAL_JAVA_JAR_PATH}', "
                             "please install gdal-java or set the correct path "
                             "with -DGDAL_JAVA_JAR_PATH=<path>.")
     endif() 
-
     message(STATUS "  internal GDAL converter enabled (-DUSE_GDAL=${USE_GDAL}).")
 else()
     message(STATUS "  internal GDAL converter disabled (-DUSE_GDAL=${USE_GDAL}).")
@@ -448,7 +473,7 @@ endif ()
 # Java
 #
 set(ENABLE_JAVA ON CACHE BOOL
-    "Generate and install of Java-based components (rasj, petascope, secore).")
+    "Generate and install Java-based components (rasj, petascope, secore).")
 if (ENABLE_JAVA)
     # This variable is necessary to allow the Java components to be built.
     # Petascope depends on rasj being built to this directory.
@@ -485,7 +510,6 @@ endif ()
 #
 # SECORE
 #
-
 set(ENABLE_STANDALONE_SECORE OFF CACHE BOOL "") 
 
 #
@@ -496,8 +520,7 @@ set(GENERATE_PIC ON CACHE BOOL "Generate position independent code (PIC)")
 if (GENERATE_PIC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-
-    message(STATUS "Position independent code (PIC) enabled " 
+    message(STATUS "Position independent code (PIC) enabled with -fPIC option " 
         "(-DGENERATE_PIC=${GENERATE_PIC}).")
 else()
     message(STATUS "Position independent code (PIC) disabled " 
@@ -505,11 +528,10 @@ else()
 endif ()
 
 set(ENABLE_BENCHMARK OFF CACHE BOOL 
-    "Generate binaries that contain extra code for benchmark output. ")
+    "Generate binaries that contain extra code for benchmark output.")
 if (ENABLE_BENCHMARK)
     add_definitions(-DRMANBENCHMARK)
-
-    message(STATUS "Benchmarking of queries enabled " 
+    message(STATUS "Benchmarking of queries enabled with -DRMANBENCHMARK def " 
         "(-DENABLE_BENCHMARK=${ENABLE_BENCHMARK}).")
 else()
     message(STATUS "Benchmarking of queries disabled " 
@@ -524,9 +546,8 @@ if (ENABLE_PROFILING)
         add_definitions(-DGPERFTOOLS_ENABLED)
         add_definitions(-DENABLE_PROFILING)
     endif ()
-
-    message(STATUS "Profiling with google-perftools enabled " 
-        "(-DENABLE_PROFILING=${ENABLE_PROFILING}).")
+    message(STATUS "Profiling with google-perftools enabled with -DGPERFTOOLS_ENABLED " 
+        "and -DENABLE_PROFILING defs (-DENABLE_PROFILING=${ENABLE_PROFILING}).")
 else()
     message(STATUS "Profiling with google-perftools disabled " 
         "(-DENABLE_PROFILING=${ENABLE_PROFILING}).")
@@ -552,7 +573,6 @@ if (ENABLE_STRICT AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     if ("${CMAKE_CXX_COMPILER_VERSION}" LESS_EQUAL "4.8.5")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
     endif()
-
     message(STATUS "Strict mode (warnings terminate compilation) " 
         "enabled (-DENABLE_STRICT=${ENABLE_STRICT}).")
 else()
@@ -601,7 +621,7 @@ endif ()
 
 add_definitions(-DCOMPDATE="2017-08-24")
 
-# TODO: These do not seem safe but are kept because the old code requires them
+# TODO: -fno-strict-overflow could be changed to -fstrict-overflow for extra performance?
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-stack-protector -fno-strict-overflow")
 
 ########################################
@@ -633,7 +653,7 @@ set(LOG_DIR "${CMAKE_INSTALL_PREFIX}/log" CACHE STRING
 install(DIRECTORY DESTINATION ${LOG_DIR}
         DIRECTORY_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
                               GROUP_EXECUTE GROUP_READ)
-install(CODE "execute_process(COMMAND chmod -R 640 ${CONF_DIR}/*)" )
+install(CODE "execute_process(COMMAND chmod -R 750 ${CONF_DIR})" )
 
 
 #
@@ -663,6 +683,10 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/config.h"
     "${CMAKE_CURRENT_BINARY_DIR}/version.h"
     DESTINATION "${INCLUDE_DIR}/")
+
+if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+    set(USE_PRECOMPILED_HEADERS ON)
+endif()
 
 #
 # Execute the 3rd party CMakeLists.txt
@@ -728,9 +752,6 @@ add_subdirectory(storagemgr)
 add_subdirectory(systemtest)
 add_subdirectory(tilemgr)
 
-
-include(cmake/CPPCheck.cmake)
-AddCPPCheckTarget("${CMAKE_SOURCE_DIR}/third_party" "${CPP_FILE_EXTENSIONS}")
 
 set(ENABLE_UNITY_BUILD ON CACHE BOOL "Enable unity build.")
 if (ENABLE_UNITY_BUILD)

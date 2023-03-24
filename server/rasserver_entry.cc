@@ -30,6 +30,7 @@ rasdaman GmbH.
 
 #include <logging.hh>
 #include <limits>
+#include <grpc++/grpc++.h>
 
 using namespace std;
 
@@ -280,4 +281,14 @@ vector<r_Minterval> RasServerEntry::getTileDomains(r_OId mddOId, const char *str
 {
     FastMDDCreator fc;
     return fc.getTileDomains(mddOId, stripeDomain);
+}
+
+void RasServerEntry::setServerContext(grpc::ServerContext *serverContext)
+{
+    context = serverContext;
+}
+
+grpc::ServerContext *RasServerEntry::getServerContext()
+{
+    return context;
 }

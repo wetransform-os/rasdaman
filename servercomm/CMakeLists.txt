@@ -41,7 +41,7 @@ target_link_libraries(rasnetservercomm
     # qlparser
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rasnetservercomm REUSE_FROM common_logging)
 endif()
 
@@ -84,6 +84,6 @@ if (ENABLE_PROFILING)
     target_link_libraries(servercomm PRIVATE profiler tcmalloc)
 endif ()
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(servercomm REUSE_FROM common_logging)
 endif()

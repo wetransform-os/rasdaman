@@ -595,6 +595,7 @@ public:
 #define COLORPALETTEFORNONCHAR              457
 
 #define SORT_RANKSOPINVALID                 460
+#define NOTAPPLICABLEONNONFLOATINGBANDS     461
 
 #define FEATURENOTSUPPORTED                 499
 

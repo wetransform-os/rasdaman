@@ -33,7 +33,7 @@ add_library(common_network
         networkresolverfactory.cc
 	${NETWORK_HEADER_FILES})
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(common_network REUSE_FROM common_logging)
 endif()
 

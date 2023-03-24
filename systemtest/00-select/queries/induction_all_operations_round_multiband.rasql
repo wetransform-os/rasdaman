@@ -1,0 +1,1 @@
+select encode(round(test_rgb2[100:105,100:105] + 0.3), "json") from test_rgb2

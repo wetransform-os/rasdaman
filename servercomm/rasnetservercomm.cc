@@ -30,45 +30,60 @@ rasdaman GmbH.
 #include "common/uuid/uuid.hh"
 #include "common/exceptions/exception.hh"
 #include "mymalloc/mymalloc.h"
-#include "common/pragmas/pragmas.hh"
+#include "common/macros/compilerdefs.hh"
 #include <logging.hh>
 
 using namespace rasnet::service;
 using common::ErrorMessage;
 using grpc::ServerContext;
 
-// clang-format off
-
 // Executes the try_block in a try/catch that automatically handles several exception types.
 // The finally block is executed then after the try/catch block.
 // Note: this could be done more elegantly with a proper helper method where the try_block
 // and finally_block are passed as lambda functions, but this does the job just fine as well.
-#define HANDLE_REQUEST(request_name, try_block, finally_block) \
-  grpc::Status status = grpc::Status::OK; \
-  try { \
-      LTRACE << "executing request " << request_name; \
-      try_block \
-  } catch (r_Ebase_dbms &ex) { \
-      LERROR << "request " << request_name << " failed with base DBMS error: " << ex.what(); \
-      status = RasnetServerComm::getRErrorStatus(ex); \
-  } catch (r_Error &ex) { \
-      LDEBUG << "request " << request_name << " failed with rasdaman error: " << ex.what(); \
-      status = RasnetServerComm::getRErrorStatus(ex); \
-  } catch (common::Exception &ex) { \
-      LDEBUG << "request " << request_name << " failed with rasdaman exception: " << ex.what(); \
-      status = RasnetServerComm::getCommonExceptionStatus(ex); \
-  } catch (std::exception &ex) { \
-      LERROR << "request " << request_name << " failed with general exception: " << ex.what(); \
-      status = RasnetServerComm::getSTLExceptionStatus(ex); \
-  } catch (...) { \
-      LERROR << "request " << request_name << " failed with unknown exception."; \
-      status = RasnetServerComm::getUnknownExceptionStatus(); \
-  } \
-  { finally_block } \
-  return status;
+#define HANDLE_REQUEST(request_name, try_block, finally_block)                                    \
+    grpc::Status status = grpc::Status::OK;                                                       \
+    try                                                                                           \
+    {                                                                                             \
+        LTRACE << "executing request " << request_name;                                           \
+        RasServerEntry::getInstance().setServerContext(context);                                  \
+        try_block                                                                                 \
+        RasServerEntry::getInstance().setServerContext(nullptr);                                  \
+    }                                                                                             \
+    catch (r_Ebase_dbms & ex)                                                                     \
+    {                                                                                             \
+        LERROR << "request " << request_name << " failed with base DBMS error: " << ex.what();    \
+        status = RasnetServerComm::getRErrorStatus(ex);                                           \
+    }                                                                                             \
+    catch (r_Error & ex)                                                                          \
+    {                                                                                             \
+        LDEBUG << "request " << request_name << " failed with rasdaman error: " << ex.what();     \
+        status = RasnetServerComm::getRErrorStatus(ex);                                           \
+    }                                                                                             \
+    catch (common::Exception & ex)                                                                \
+    {                                                                                             \
+        LDEBUG << "request " << request_name << " failed with rasdaman exception: " << ex.what(); \
+        status = RasnetServerComm::getCommonExceptionStatus(ex);                                  \
+    }                                                                                             \
+    catch (std::exception & ex)                                                                   \
+    {                                                                                             \
+        LERROR << "request " << request_name << " failed with general exception: " << ex.what();  \
+        status = RasnetServerComm::getSTLExceptionStatus(ex);                                     \
+    }                                                                                             \
+    catch (...)                                                                                   \
+    {                                                                                             \
+        LERROR << "request " << request_name << " failed with unknown exception.";                \
+        status = RasnetServerComm::getUnknownExceptionStatus();                                   \
+    }                                                                                             \
+    {                                                                                             \
+        finally_block                                                                             \
+    }                                                                                             \
+    return status;
 
 // Helper for specifying well the try/finally blocks above.
 #define CODE(...) __VA_ARGS__
+
+// clang-format off
 
 RasnetServerComm::RasnetServerComm(std::shared_ptr<rasserver::ClientManager> cm)
     : clientManager{cm}

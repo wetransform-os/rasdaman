@@ -54,7 +54,7 @@ target_link_libraries(rasserver
         ${OPENSSL_LIBRARIES} ${BASEDB_LIBRARIES})
 
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rasserver_lib REUSE_FROM common_logging)
 target_precompile_headers(rasserver REUSE_FROM common_logging)
 endif()

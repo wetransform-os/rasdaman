@@ -384,3 +384,72 @@ void OpARCTANCDouble::operator()(char *res, const char *op)
     }
     resType->makeFromCDouble(res + resOff, &convRes);
 }
+
+OpCEILCDouble::OpCEILCDouble(
+    const BaseType *newResType,
+    const BaseType *newOpType,
+    size_t newResOff,
+    size_t newOpOff)
+    : UnaryOp(newResType, newOpType, newResOff, newOpOff) {}
+
+void OpCEILCDouble::operator()(char *res, const char *op)
+{
+    double convOp = *(opType->convertToCDouble(op + opOff, &convOp));
+    double convRes;
+
+    if (isNull(convOp))
+    {
+        convRes = convOp;
+    }
+    else
+    {
+        convRes = std::ceil(convOp);
+    }
+    resType->makeFromCDouble(res + resOff, &convRes);
+}
+
+OpFLOORCDouble::OpFLOORCDouble(
+    const BaseType *newResType,
+    const BaseType *newOpType,
+    size_t newResOff,
+    size_t newOpOff)
+    : UnaryOp(newResType, newOpType, newResOff, newOpOff) {}
+
+void OpFLOORCDouble::operator()(char *res, const char *op)
+{
+    double convOp = *(opType->convertToCDouble(op + opOff, &convOp));
+    double convRes;
+
+    if (isNull(convOp))
+    {
+        convRes = convOp;
+    }
+    else
+    {
+        convRes = std::floor(convOp);
+    }
+    resType->makeFromCDouble(res + resOff, &convRes);
+}
+
+OpROUNDCDouble::OpROUNDCDouble(
+    const BaseType *newResType,
+    const BaseType *newOpType,
+    size_t newResOff,
+    size_t newOpOff)
+    : UnaryOp(newResType, newOpType, newResOff, newOpOff) {}
+
+void OpROUNDCDouble::operator()(char *res, const char *op)
+{
+    double convOp = *(opType->convertToCDouble(op + opOff, &convOp));
+    double convRes;
+
+    if (isNull(convOp))
+    {
+        convRes = convOp;
+    }
+    else
+    {
+        convRes = std::round(convOp);
+    }
+    resType->makeFromCDouble(res + resOff, &convRes);
+}

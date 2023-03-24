@@ -420,7 +420,7 @@ r_GMarray::get_base_type_schema()
         }
         else
         {
-            LERROR << "the type retrieved (" << typePtr->name() << ") was not an marray type";
+            LERROR << "the type retrieved (" << typePtr->name() << ") was not an marray type: " << typePtr->type_id();
             throw r_Error(NOTANMARRAYTYPE);
         }
     }

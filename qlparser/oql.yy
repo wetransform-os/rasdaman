@@ -290,12 +290,13 @@ struct QtUpdateSpecElement
                          REPAR LRPAR RRPAR LCPAR RCPAR INSERT INTO VALUES DELETE DROP CREATE COLLECTION TYPE
                          MDDPARAM OID SHIFT CLIP CURTAIN CORRIDOR POLYGON LINESTRING MULTIPOLYGON MULTILINESTRING RANGE SCALE SQRT ABS EXP
                          LOGFN LN SIN COS TAN SINH COSH TANH ARCSIN ASIN SUBSPACE DISCRETE COORDINATES
-                         ARCCOS ACOS ARCTAN ATAN POW POWER OVERLAY BIT UNKNOWN FASTSCALE MEMBERS ADD ALTER LIST PROJECTION SORT ASC DESC FLIP
-			 INDEX RC_INDEX TC_INDEX A_INDEX D_INDEX RD_INDEX RPT_INDEX RRPT_INDEX IT_INDEX AUTO
-			 TILING ALIGNED REGULAR DIRECTIONAL NULLKEY
-			 WITH SUBTILING AREA OF INTEREST STATISTIC TILE SIZE BORDER THRESHOLD
-			 STRCT COMPLEX RE IM TIFF BMP HDF NETCDF CSV JPEG PNG VFF TOR DEM INV_TIFF INV_BMP INV_HDF INV_NETCDF
-			 INV_JPEG INV_PNG INV_VFF INV_CSV INV_TOR INV_DEM INV_GRIB ENCODE DECODE CONCAT ALONG DBINFO
+                         ARCCOS ACOS ARCTAN ATAN CEIL FLOOR ROUND POW POWER OVERLAY BIT 
+                         UNKNOWN FASTSCALE MEMBERS ADD ALTER LIST PROJECTION SORT ASC DESC FLIP
+                         INDEX RC_INDEX TC_INDEX A_INDEX D_INDEX RD_INDEX RPT_INDEX RRPT_INDEX IT_INDEX AUTO
+                         TILING ALIGNED REGULAR DIRECTIONAL NULLKEY
+                         WITH SUBTILING AREA OF INTEREST STATISTIC TILE SIZE BORDER THRESHOLD
+                         STRCT COMPLEX RE IM TIFF BMP HDF NETCDF CSV JPEG PNG VFF TOR DEM INV_TIFF INV_BMP INV_HDF INV_NETCDF
+                         INV_JPEG INV_PNG INV_VFF INV_CSV INV_TOR INV_DEM INV_GRIB ENCODE DECODE CONCAT ALONG DBINFO
                          CASE WHEN THEN ELSE END COMMIT RAS_VERSION P_REGROUP P_REGROUP_AND_SUBTILING P_NO_LIMIT
 /* resampling algorithms */
                          RA_NEAR RA_BILINEAR RA_CUBIC RA_CUBIC_SPLINE RA_LANCZOS RA_AVERAGE RA_MODE RA_MED RA_QFIRST RA_QTHIRD
@@ -3409,6 +3410,36 @@ inductionExp: SQRT LRPAR generalExp RRPAR
 	  FREESTACK($2)
 	  FREESTACK($4)
 	}
+    | CEIL LRPAR generalExp RRPAR
+      {
+        $$ = new QtCeil( $3 );
+        $$->setParseInfo( *($1.info) );
+        parseQueryTree->removeDynamicObject( $3 );
+        parseQueryTree->addDynamicObject( $$ );
+        FREESTACK($1)
+        FREESTACK($2)
+        FREESTACK($4)
+      }
+    | FLOOR LRPAR generalExp RRPAR
+      {
+        $$ = new QtFloor( $3 );
+        $$->setParseInfo( *($1.info) );
+        parseQueryTree->removeDynamicObject( $3 );
+        parseQueryTree->addDynamicObject( $$ );
+        FREESTACK($1)
+        FREESTACK($2)
+        FREESTACK($4)
+      }
+    | ROUND LRPAR generalExp RRPAR
+      {
+        $$ = new QtRound( $3 );
+        $$->setParseInfo( *($1.info) );
+        parseQueryTree->removeDynamicObject( $3 );
+        parseQueryTree->addDynamicObject( $$ );
+        FREESTACK($1)
+        FREESTACK($2)
+        FREESTACK($4)
+      }
 
         | generalExp DOT RE
         {

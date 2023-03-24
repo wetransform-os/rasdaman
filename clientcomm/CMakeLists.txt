@@ -52,7 +52,7 @@ target_link_libraries(clientcomm
     ${GRPC_LIBRARY}
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(clientcomm REUSE_FROM common_logging)
 endif()
 

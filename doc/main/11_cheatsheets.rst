@@ -165,7 +165,6 @@ enabled by the `Interpolation extension
 Rasdaman supports several interpolation methods as documented 
 :ref:`here <sec-geo-projection-interpolation>`.
 
-
 .. _cheatsheet-wcps:
 
 WCPS
@@ -216,32 +215,32 @@ Scalar operations
 
 - **Standard operations** applied on scalar operands return scalar results:
 
-  +------------------------------+-----------------------------------------+
-  | Operation category           | Operations                              |
-  +==============================+=========================================+
-  | Arithmetic                   | ``+  -  *  /  abs  round mod``          |
-  +------------------------------+-----------------------------------------+
-  | Exponential                  | ``exp  log  ln  pow  sqrt``             |
-  +------------------------------+-----------------------------------------+
-  | Trigonometric                | | ``sin  cos  tan  sinh  cosh  tanh``   |
-  |                              | | ``arcsin  arccos  arctan``            |
-  +------------------------------+-----------------------------------------+
-  | Comparison                   | ``>  <  >=  <=  =  !=``                 |
-  +------------------------------+-----------------------------------------+
-  | Logical                      | ``and  or  xor  not  bit  overlay``     |
-  +------------------------------+-----------------------------------------+
-  | Select field from multiband  | ``.``                                   |
-  | value                        |                                         |
-  +------------------------------+-----------------------------------------+
-  | Create multiband value       | ``{ bandName: value; ..., bandName:     |
-  |                              | value }``                               |
-  +------------------------------+-----------------------------------------+
-  | Type casting                 | ``(baseType) value``                    |
-  |                              |                                         |
-  |                              | | where baseType is one of: boolean,    |
-  |                              | | [unsigned] char / short / int / long, |
-  |                              | | float, double, complex, complex2      |
-  +------------------------------+-----------------------------------------+
+  +------------------------------+---------------------------------------------------+
+  | Operation category           | Operations                                        |
+  +==============================+===================================================+
+  | Arithmetic                   | ``+  -  *  /  abs  round  mod  floor  ceil``      |
+  +------------------------------+---------------------------------------------------+
+  | Exponential                  | ``exp  log  ln  pow  sqrt``                       |
+  +------------------------------+---------------------------------------------------+
+  | Trigonometric                | | ``sin  cos  tan  sinh  cosh  tanh``             |
+  |                              | | ``arcsin  arccos  arctan``                      |
+  +------------------------------+---------------------------------------------------+
+  | Comparison                   | ``>  <  >=  <=  =  !=``                           |
+  +------------------------------+---------------------------------------------------+
+  | Logical                      | ``and  or  xor  not  bit  overlay``               |
+  +------------------------------+---------------------------------------------------+
+  | Select field from multiband  | ``.``                                             |
+  | value                        |                                                   |
+  +------------------------------+---------------------------------------------------+
+  | Create multiband value       | ``{ bandName: value; ..., bandName:               |
+  |                              | value }``                                         |
+  +------------------------------+---------------------------------------------------+
+  | Type casting                 | ``(baseType) value``                              |
+  |                              |                                                   |
+  |                              | | where baseType is one of: boolean,              |
+  |                              | | [unsigned] char / short / int / long,           |
+  |                              | | float, double, complex, complex2                |
+  +------------------------------+---------------------------------------------------+
 
 - **Aggregation operations** summarize coverages into a scalar value. 
 

@@ -130,6 +130,9 @@ public:
         OP_ARCSIN,
         OP_ARCCOS,
         OP_ARCTAN,
+        OP_CEIL,
+        OP_FLOOR,
+        OP_ROUND,
         OP_UFUNC_END,
         OP_REALPART,  // complex part extraction
         OP_IMAGINARPART,

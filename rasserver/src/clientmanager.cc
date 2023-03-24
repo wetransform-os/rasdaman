@@ -25,8 +25,8 @@ rasdaman GmbH.
 
 #include "common/uuid/uuid.hh"
 #include "server/rasserver_entry.hh"
+#include "common/macros/compilerdefs.hh"
 #include "common/exceptions/missingresourceexception.hh"
-#include "common/pragmas/pragmas.hh"
 #include <logging.hh>
 #include <boost/thread.hpp>
 

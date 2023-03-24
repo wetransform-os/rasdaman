@@ -221,7 +221,7 @@ int r_Parse_Params::process(const char *str, char separator, bool withWhiteSpace
                             if (*vptr != NULL)
                                 delete[] * vptr;
 
-                            *vptr = new char[vlen + 1];
+                            *vptr = new char[size_t(vlen + 1)];
                             strncpy(*vptr, aux, static_cast<size_t>(vlen));
                             (*vptr)[vlen] = '\0';
                         }

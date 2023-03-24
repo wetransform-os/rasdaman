@@ -55,7 +55,7 @@ private:
     std::string serverId;
 
     std::unique_ptr<grpc::Server> server;
-    std::shared_ptr<rasnet::service::RasServerService::Service> rasserverService;
+    std::shared_ptr<RasServerServiceImpl> rasserverService;
     std::shared_ptr<rasnet::service::ClientRassrvrService::Service> clientServerService;
     std::shared_ptr<RasmgrComm> rasmgrComm;
     std::shared_ptr<common::HealthServiceImpl> healthServiceImpl;

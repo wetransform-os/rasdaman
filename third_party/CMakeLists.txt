@@ -270,6 +270,11 @@ set(GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 
 GetProcessorCount(PROCESSOR_COUNT)
 
+set(CONFIG_VAL "opt")
+if (ENABLE_TSAN)
+    set(CONFIG_VAL "tsan")
+endif()
+
 add_custom_command(OUTPUT ${GRPC_LIBRARY_PATH} ${GRPCPP_LIBRARY_PATH} ${GRPC_CPP_PLUGIN_EXECUTABLE_PATH}
                           ${PROTOBUF_LIBRARY_PATH} ${PROTOBUF_PROTOC_EXECUTABLE_PATH}
         COMMAND 
@@ -285,7 +290,7 @@ add_custom_command(OUTPUT ${GRPC_LIBRARY_PATH} ${GRPCPP_LIBRARY_PATH} ${GRPC_CPP
         && sed -i "s|CONFIG)) -g |CONFIG)) |g" Makefile
         && sed -i "s|-C third_party/protobuf\$|&\\n\\tmake -C third_party/protobuf install|" Makefile
         && export MAKEFLAGS= && export MAKEOVERRIDES=
-        && make -j${PROCESSOR_COUNT} CONFIG=opt PROTOBUF_CONFIG_OPTS="--prefix=${PROTOBUF_BINARY_DIR}" > ${GRPC_SOURCE_DIR}/make.log 2>&1
+        && make -j${PROCESSOR_COUNT} CONFIG=${CONFIG_VAL} PROTOBUF_CONFIG_OPTS="--prefix=${PROTOBUF_BINARY_DIR}" > ${GRPC_SOURCE_DIR}/make.log 2>&1
         && export MAKEFLAGS=$MAKEFLAGS_AUX && export MAKEOVERRIDES=$MAKEOVERRIDES_AUX
         COMMAND make ARGS install prefix=${GRPC_BINARY_DIR} PROTOC=${PROTOBUF_PROTOC_EXECUTABLE_PATH} -j${PROCESSOR_COUNT} > ${GRPC_SOURCE_DIR}/make_install.log 2>&1
         WORKING_DIRECTORY ${GRPC_SOURCE_DIR}
@@ -298,9 +303,6 @@ add_custom_target(google-grpc
 # Set the grpc/protobuf include directories as system includes
 include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
 include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
-
-install(DIRECTORY ${GRPC_INCLUDE_DIR}/
-        DESTINATION ${INCLUDE_DIR})
 
 find_package (Threads REQUIRED)
 

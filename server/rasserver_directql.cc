@@ -302,8 +302,7 @@ void printScalar(char *buffer, QtData *data, unsigned int resultIndex)
         INFO("scalar type not supported" << endl);
         break;
     }
-    INFO(endl
-         << flush);
+    INFO(endl);
 }
 
 void printResult(Tile *tile, int resultIndex)
@@ -615,6 +614,11 @@ void doStuff()
                 fileContents = new char[size];
                 fseek(fileD, 0, SEEK_SET);
                 size_t rsize = fread(fileContents, 1, static_cast<size_t>(size), fileD);
+                if (rsize != size_t(size))
+                {
+                    LWARNING << "Failed reading full data from " << fileName
+                             << ", read " << rsize << " / " << size << " bytes.";
+                }
 
                 baseTypeSize = mddType->base_type().size();
                 r_GMarray *fileMDD = new r_GMarray(mddDomain, baseTypeSize, 0, NULL, false);

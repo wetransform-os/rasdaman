@@ -821,12 +821,6 @@ bool QtScale::isCommutative() const
 #include <iomanip>
 #include <math.h>
 
-// this define was used during testing, we had a problem
-inline double FLOOR(double a)
-{
-    return floor(a);
-}
-
 QtData *
 QtScale::evaluate(QtDataList *inputList)
 {
@@ -923,10 +917,10 @@ QtScale::evaluate(QtDataList *inputList)
 
                 const auto slow = sourceDomain[i].low();
                 const auto shigh = sourceDomain[i].high();
-                auto low = FLOOR(f * slow);
+                auto low = std::floor(f * slow);
                 //correction by 1e-6 to avoid the strange bug when high was a
                 //integer value and floor return value-1(e.g. query 47.ql)
-                auto high = FLOOR(f * (shigh + 1) + 0.000001) - 1;
+                auto high = std::floor(f * (shigh + 1) + 0.000001) - 1;
                 // apparently the above correction doesn't work for certain big numbers,
                 // e.g. 148290:148290 is scaled to 74145:74144 (invalid) by factor 0.5 -- DM 2012-may-25
                 if (high < low)
@@ -949,10 +943,10 @@ QtScale::evaluate(QtDataList *inputList)
                     f = f + (targetRange - (high - low + 1)) / sourceRange;
                     scaleVector[i] = f;
 
-                    low = FLOOR(f * slow);
+                    low = std::floor(f * slow);
                     //correction by 1e-6 to avoid the strange bug when high was a
                     //integer value and floor return value-1(e.g. query 47.ql)
-                    high = FLOOR(f * (shigh + 1) + 0.000001) - 1;
+                    high = std::floor(f * (shigh + 1) + 0.000001) - 1;
                     if (high < low)
                     {
                         if (high > 0)

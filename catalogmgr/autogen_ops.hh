@@ -377,3 +377,45 @@ public:
         size_t newOpOff = 0);
     virtual void operator()(char *result, const char *op);
 };
+
+/**
+  * \ingroup Catalogmgrs
+  */
+class OpCEILCDouble : public UnaryOp
+{
+public:
+    OpCEILCDouble(
+        const BaseType *newResType,
+        const BaseType *newOpType,
+        size_t newResOff = 0,
+        size_t newOpOff = 0);
+    virtual void operator()(char *result, const char *op);
+};
+
+/**
+  * \ingroup Catalogmgrs
+  */
+class OpFLOORCDouble : public UnaryOp
+{
+public:
+    OpFLOORCDouble(
+            const BaseType *newResType,
+            const BaseType *newOpType,
+            size_t newResOff = 0,
+            size_t newOpOff = 0);
+    virtual void operator()(char *result, const char *op);
+};
+
+/**
+  * \ingroup Catalogmgrs
+  */
+class OpROUNDCDouble : public UnaryOp
+{
+public:
+    OpROUNDCDouble(
+            const BaseType *newResType,
+            const BaseType *newOpType,
+            size_t newResOff = 0,
+            size_t newOpOff = 0);
+    virtual void operator()(char *result, const char *op);
+};

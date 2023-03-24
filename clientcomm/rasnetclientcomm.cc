@@ -50,7 +50,7 @@ rasdaman GmbH.
 #include "common/string/stringutil.hh"
 #include "common/grpc/grpcutils.hh"
 #include "common/exceptions/invalidargumentexception.hh"
-#include "common/pragmas/pragmas.hh"
+#include "common/macros/compilerdefs.hh"
 #include "common/util/scopeguard.hh"
 #include "common/grpc/messages/error.pb.h"
 #include <logging.hh>

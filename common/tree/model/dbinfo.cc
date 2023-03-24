@@ -4,7 +4,7 @@
 //
 
 #include "dbinfo.hh"
-#include "common/pragmas/pragmas.hh"
+#include "common/macros/pragmas.hh"
 #include "common/exceptions/invalidargumentexception.hh"
 
 DIAGNOSTIC_PUSH

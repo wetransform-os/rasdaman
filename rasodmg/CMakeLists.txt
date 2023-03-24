@@ -62,7 +62,7 @@ target_link_libraries(rasodmg
     clientcomm
     common_logging)
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rasodmg REUSE_FROM common_logging)
 endif()
 

@@ -24,6 +24,7 @@ rasdaman GmbH.
 #include "rasnetserver.hh"
 #include "clientmanager.hh"
 #include "rasmgrcomm.hh"
+#include "rasserverserviceimpl.hh"
 #include "common/grpc/grpcutils.hh"
 #include "common/exceptions/connectionfailedexception.hh"
 #include "rasnet/messages/rasmgr_rassrvr_service.grpc.pb.h"
@@ -80,6 +81,9 @@ void RasnetServer::startRasnetServer()
 
     // Register the server
     rasmgrComm->registerServerWithRasmgr(this->serverId);
+    
+    // Provide object needed to properly shutdown the server
+    rasserverService->setServer(this->server.get());
 
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.

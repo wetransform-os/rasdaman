@@ -238,6 +238,9 @@ void QtMarrayOp2::traverse(QtOperation *&node)
             case QtNode::QT_ARCTAN:
             case QtNode::QT_ARCSIN:
             case QtNode::QT_ARCCOS:
+            case QtNode::QT_CEIL:
+            case QtNode::QT_FLOOR:
+            case QtNode::QT_ROUND:
             case QtNode::QT_ABS:
             case QtNode::QT_REALPART:
             case QtNode::QT_IMAGINARPART:

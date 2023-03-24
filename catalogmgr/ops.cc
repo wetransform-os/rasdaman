@@ -199,6 +199,12 @@ UnaryOp *Ops::getUnaryOp(Ops::OpType op, const BaseType *resType, const BaseType
             return new OpARCCOSCDouble(resType, opType, resOff, opOff);
         case Ops::OP_ARCTAN:
             return new OpARCTANCDouble(resType, opType, resOff, opOff);
+        case Ops::OP_CEIL:
+            return new OpCEILCDouble(resType, opType, resOff, opOff);
+        case Ops::OP_FLOOR:
+            return new OpFLOORCDouble(resType, opType, resOff, opOff);
+        case Ops::OP_ROUND:
+            return new OpROUNDCDouble(resType, opType, resOff, opOff);
         default:
             return 0;
         }

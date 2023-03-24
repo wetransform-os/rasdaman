@@ -2728,6 +2728,8 @@ bit(mdd, pos)
 
     In C/C++ style, ``bit(mdd, pos)`` is equivalent to ``mdd >> pos & 1``.
 
+.. _induction-all-ops-arithmetic:
+
 Arithmetic, trigonometric, and exponential functions
     The following advanced arithmetic functions are available with the
     obvious meaning, each of them accepting an MDD object: ::
@@ -2738,6 +2740,7 @@ Arithmetic, trigonometric, and exponential functions
         sin() cos() tan()
         sinh() cosh() tanh()
         arcsin() arccos() arctan()
+        ceil() floor() round()
 
     **Exceptions**
 
@@ -2745,6 +2748,11 @@ Arithmetic, trigonometric, and exponential functions
     not throw an error, but result in NaN or similar according to IEEE
     floating-point arithmetic. Internally the rasdaman implementation calls the
     corresponding C++ functions, so the C++ documentation applies.
+
+    The ``ceil``, ``floor``, and ``round`` functions are applicable only on
+    floating-point arguments and have no effect on other atomic types (e.g. char).
+    On multi-band arguments with bands of mixed floating-point and other base
+    types, these function are not applicable and throw an error.
 
 cast
     Sometimes the desired ultimate scalar type or MDD cell type is different
@@ -3717,6 +3725,22 @@ underlying type derived by applying the rules to the underlying types of the
 inputs. E.g. ``char + CInt16 = char + short = CInt32``, and ``CInt32 * CFloat32
 = long * float = CFloat64``.
 
+.. _type-coercion-multiply:
+
+**\***
+
+A special rule for multiplication applicable when one of the operands is
+boolean. In this case the result type does not change from the non-boolean
+operand.
+
+    +-----------+------------+------------------------+
+    | first     | second     | result                 |
+    +===========+============+========================+
+    | X         | bool       | X                      |
+    +-----------+------------+------------------------+
+    | bool      | X          | X                      |
+    +-----------+------------+------------------------+
+
 **+, \*, div, mod**
 
     +-----------+------------+------------------------+
@@ -3856,6 +3880,14 @@ Unary Induced
     | c,o,us,s,f| f          |
     +-----------+------------+
     | u,l,d     | d          |
+    +-----------+------------+
+
+**ceil, floor, round**
+
+    +-----------+------------+
+    | op        | result     |
+    +===========+============+
+    | X         | X          |
     +-----------+------------+
 
 
@@ -6525,6 +6557,7 @@ they are in double quotes to distinguish them from the grammar parentheses
     unaryInductionOp :  sqrt | abs | exp | log | ln
                      :| sin | cos | tan | sinh | cosh
                      :| tanh | arcsin | arccos | arctan
+                     :| ceil | floor | round
     binaryInductionOp :  overlay | is | = | and | or
                       :| xor | plus | minus | mult
                       :| div| equal | < | > | <=
@@ -6771,9 +6804,9 @@ This appendix presents the list of all tokens that CANNOT be used as variable na
       - flip
       - asc
     * - desc
-      -
-      -
-      -
+      - ceil
+      - floor
+      - round
       -
 
 

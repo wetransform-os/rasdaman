@@ -34,7 +34,7 @@ if (HAVE_LIBDW)
     target_link_libraries(common_logging PRIVATE ${LIBDW_LIBRARY})
 endif()
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(common_logging PRIVATE common.hh)
 endif()
 

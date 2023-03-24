@@ -145,7 +145,7 @@ if (USE_GDAL)
     target_include_directories(qlparser SYSTEM PRIVATE ${GDAL_INCLUDE_DIR})
 endif ()
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(qlparser REUSE_FROM common_logging)
 endif()
 

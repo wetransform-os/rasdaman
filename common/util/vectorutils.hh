@@ -61,11 +61,7 @@ public:
         }
         else
         {
-            dst.reserve(src.size() + dst.size());
-            for (const auto &el: src)
-            {
-                dst.push_back(el);
-            }
+            std::copy(src.begin(), src.end(), std::back_inserter(dst));
         }
     }
 
@@ -82,11 +78,7 @@ public:
         }
         else
         {
-            dst.reserve(src.size() + dst.size());
-            for (auto &el: src)
-            {
-                dst.push_back(std::move(el));
-            }
+            std::move(src.begin(), src.end(), std::back_inserter(dst));
         }
     }
 

@@ -67,15 +67,16 @@ r_Point::r_Point(char *stringRep)
                 throw r_Error(NOPOINT);
         }
     }
+    streamIndex = points.size();
+}
+
+r_Point::r_Point(r_Dimension dim)
+    : points(dim, value_type{}), streamIndex{0}
+{
 }
 
 r_Point::r_Point(r_Range p1)
     : points{p1}, streamIndex{1}
-{
-}
-
-r_Point::r_Point(r_Dimension dim)
-    : points(dim, value_type{})
 {
 }
 

@@ -74,6 +74,12 @@ public:
     static std::string getCurrentDateTimeUTC();
 
     static uintmax_t getSecondsSinceEpoch();
+
+    /// @return count of milliseconds until 01 of the next month.
+    static int getCurrentMonth();
+
+    /// @return count of milliseconds until 01 of the next month.
+    static size_t getMillisecondsUntilNextMonth();
 };
 
 }  // namespace common

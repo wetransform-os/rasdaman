@@ -21,8 +21,10 @@
 #
 ###################################################################
 
-add_library(common_pragmas INTERFACE)
+add_library(common_macros INTERFACE)
 
-target_sources(common_pragmas INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/pragmas.hh"
-        "${CMAKE_CURRENT_SOURCE_DIR}/gcc/gccpragmas.hh"
-        "${CMAKE_CURRENT_SOURCE_DIR}/clang/clangpragmas.hh")
+target_sources(common_macros INTERFACE
+    "${CMAKE_CURRENT_SOURCE_DIR}/pragmas.hh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/utildefs.hh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/compilerdefs.hh"
+    )

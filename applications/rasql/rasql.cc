@@ -1163,6 +1163,7 @@ void doStuff(__attribute__((unused)) int argc, __attribute__((unused)) char **ar
         else if (size != static_cast<long>(mddDomain.cell_count()) *
                              static_cast<long>(mddType->base_type().size()))
         {
+            fclose(fileD);
             throw RasqlError(FILESIZEMISMATCH);
         }
         else
@@ -1173,6 +1174,7 @@ void doStuff(__attribute__((unused)) int argc, __attribute__((unused)) char **ar
             }
             catch (const std::bad_alloc &e)
             {
+                fclose(fileD);
                 throw RasqlError(UNABLETOCLAIMRESOURCEFORFILE);
             }
             fseek(fileD, 0, SEEK_SET);
@@ -1180,6 +1182,7 @@ void doStuff(__attribute__((unused)) int argc, __attribute__((unused)) char **ar
             if (static_cast<long>(rsize) != size)
             {
                 BLERROR << "failed, read only " << rsize << " bytes of " << size << " bytes.\n";
+                fclose(fileD);
                 throw RasqlError(FILEREADERROR);
             }
         }

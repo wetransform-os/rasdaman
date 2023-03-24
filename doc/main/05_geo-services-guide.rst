@@ -2969,11 +2969,11 @@ JSON array, with parameters as follows:
 * ``description`` - Describe what this hook does and wcst_import prints this message when processing this hook.
 * ``when`` - mandatory parameter. Run a command before (set to ``before_import``) or after (set to ``after_import``)
   importing files to a coverage.
-* ``execute_if`` - optional parameter; applied only for ``after_import`` hooks. 
-  Default value is ``import_succeeded`` if omitted, then, after a file imported,
-  the hook will be executed.
-  If value is set to ``import_failed``, then, after a file failed to import,
-  the hook will be executed.
+* ``execute_if`` - Optional parameter applied only for ``after_import`` hooks. 
+  If omitted the default value is ``import_succeeded`` which indicates that the
+  hook should be executed only for successfully imported files.
+  If it is set to ``import_failed`` then the hook will be executed only when a
+  file fails to import for some reason.
 * With one of the following options either Bash or Python code must be specified,
   which will be run for each input file.
 

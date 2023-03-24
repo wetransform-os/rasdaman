@@ -25,17 +25,25 @@ rasdaman GmbH.
 #include "clientmanager.hh"
 #include "server/rasserver_entry.hh"
 #include "raslib/error.hh"
-#include "common/pragmas/pragmas.hh"
+#include "common/macros/compilerdefs.hh"
 #include <logging.hh>
+#include <grpc++/grpc++.h>
+#include <thread>
 
 using grpc::ServerContext;
 using namespace rasnet::service;
+using namespace std::chrono_literals;
 
 namespace rasserver
 {
 RasServerServiceImpl::RasServerServiceImpl(std::shared_ptr<rasserver::ClientManager> clientManagerArg)
     : clientManager{clientManagerArg}
 {
+}
+
+void RasServerServiceImpl::setServer(grpc::Server *grpcServer)
+{
+    server = grpcServer;
 }
 
 grpc::Status rasserver::RasServerServiceImpl::AllocateClient(
@@ -86,25 +94,27 @@ grpc::Status rasserver::RasServerServiceImpl::Close(
 
 void RasServerServiceImpl::shutdownRunner()
 {
-    // wait 10ms for the response to network request Close to be returned, for
-    // upto 10s in total
+    // wait at least 5ms for the response to network request Close to be returned
     LDEBUG << "starting shutdown process...";
     RasServerEntry &rasserver = RasServerEntry::getInstance();
-    size_t waited = 0;
-    static const size_t maxWait = 10 * 1000;  // 10 s
-
-    do
+    
+    // try to cancel any client connection
+    auto *context = rasserver.getServerContext();
+    if (context)
     {
-        usleep(10 * 1000);
-        waited += 10;
-    } while (rasserver.isOpenTA() && waited < maxWait);
+        LDEBUG << "cancel ongoing client connection";
+        context->TryCancel();
+    }
 
-    if (waited >= maxWait)
-        LINFO << "shutting down rasserver with a transaction still in progress after waiting for 10 seconds.";
-    else
-        LINFO << "shutting down rasserver.";
-
-    exit(EXIT_SUCCESS);
+    // TODO implement transaction canceling?
+    
+    // shutdown server
+    if (server)
+    {
+        LDEBUG << "shutdown grpc server";
+        auto deadline = std::chrono::system_clock::now() + 10ms;
+        server->Shutdown(deadline);
+    }
 }
 
 grpc::Status rasserver::RasServerServiceImpl::GetClientStatus(

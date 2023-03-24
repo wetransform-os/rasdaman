@@ -28,7 +28,7 @@ add_executable(concurrentquery_test EXCLUDE_FROM_ALL concurrentquery.cc)
 target_link_libraries(concurrentquery_test rasodmg clientcomm raslib
         commline common_logging rasnet -lpthread)
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(concurrentquery_test REUSE_FROM common_logging)
 endif()
 

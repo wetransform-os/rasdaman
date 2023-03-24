@@ -32,6 +32,10 @@ rasdaman GmbH.
 #include <memory>
 #include <thread>
 
+namespace grpc {
+class Server;
+}
+
 namespace rasserver
 {
 class ClientManager;
@@ -50,9 +54,14 @@ public:
     virtual grpc::Status GetClientStatus(grpc::ServerContext *context, const rasnet::service::ClientStatusReq *request, rasnet::service::ClientStatusRepl *response) override;
 
     virtual grpc::Status GetServerStatus(grpc::ServerContext *context, const rasnet::service::ServerStatusReq *request, rasnet::service::ServerStatusRepl *response) override;
+    
+    /// Set the gRPC server, so the Close method can invoke Shutdown on it.
+    /// Ownership is not transferred, this object will not delete grpcServer.
+    void setServer(grpc::Server *grpcServer);
 
 private:
     std::shared_ptr<rasserver::ClientManager> clientManager;
+    grpc::Server *server; // from RasnetServer
 
     /// Thread to shutdown the rasserver
     std::unique_ptr<std::thread> shutdownThread;

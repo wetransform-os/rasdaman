@@ -17,16 +17,14 @@ std::string StringUtil::concat(const std::vector<std::string> &v, std::string se
 {
     if (v.size() == 1)
         return v.front();
-    else
+
+    std::string ret{};
+    for (const std::string &item: v)
     {
-        std::string ret{};
-        for (const std::string &item: v)
-        {
-            if (!ret.empty()) ret += sep;
-            ret += item;
-        }
-        return ret;
+        if (!ret.empty()) ret += sep;
+        ret += item;
     }
+    return ret;
 }
 
 std::vector<std::string> StringUtil::split(const std::string &v, char sep)
@@ -77,21 +75,37 @@ std::string StringUtil::capitalize(std::string s)
 std::string StringUtil::trimLeft(const std::string &str)
 {
     std::string s = std::string(str);
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int c)
+                                    {
+                                        return !std::isspace(c);
+                                    }));
     return s;
 }
 
 std::string StringUtil::trimRight(const std::string &str)
 {
     std::string s = std::string(str);
-    s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch)
+                         {
+                             return !std::isspace(ch);
+                         })
+                .base(),
+            s.end());
     return s;
 }
 
 std::string StringUtil::trim(std::string s)
 {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
-    s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int c)
+                                    {
+                                        return !std::isspace(c);
+                                    }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch)
+                         {
+                             return !std::isspace(ch);
+                         })
+                .base(),
+            s.end());
     return s;
 }
 

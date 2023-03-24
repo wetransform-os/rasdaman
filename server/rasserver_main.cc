@@ -184,15 +184,16 @@ int main(int argc, char **argv)
                 static_cast<std::uint32_t>(configuration.getRasmgrPort()),
                 configuration.getNewServerId());
             rasnetServer.startRasnetServer();
-            LDEBUG << "daemon server started.";
+            // the above function is blocking, when it returns it means the
+            // server has shutdown
+            LDEBUG << "daemon server stopped.";
         }
         else  // client mode: directql or rasdl
         {
             LDEBUG << "run direct server...";
             common::LogConfiguration logConf(CONFDIR, CLIENT_LOG_CONF);
             logConf.configClientLogging(configuration.isQuietLogOn());
-            LINFO << "directql: rasdaman direct query tool " << RMANVERSION
-                  << " on base DBMS " << BASEDBSTRING << ".";
+            LINFO << "directql: rasdaman direct query tool " << RMANVERSION;
             if (configuration.hasQueryString())
             {
                 rasserver::directql::openDatabase();

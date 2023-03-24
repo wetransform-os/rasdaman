@@ -58,6 +58,7 @@ rasdaman GmbH.
 #include "relcatalogif/mdddomaintype.hh"
 #include "relcatalogif/settype.hh"
 #include "tilemgr/tile.hh"
+#include "common/macros/compilerdefs.hh"
 
 #include <logging.hh>
 
@@ -302,7 +303,7 @@ long HttpServer::processRequest(unsigned long callingClientId,
     char *BinData{};
     char *Capability{};
     int Command{};
-    int ClientType{};
+    UNUSED int ClientType{};
     int Endianess{};
     int NumberOfQueryParams{};
     int BinDataSize{};
@@ -311,7 +312,7 @@ long HttpServer::processRequest(unsigned long callingClientId,
 
     // copy request to local variable (as strtok below modifies the buffer)
     std::unique_ptr<char[]> inputPtr;
-    inputPtr.reset(new char[httpParamsLen + 1]);
+    inputPtr.reset(new char[size_t(httpParamsLen) + 1]);
     char *input = inputPtr.get();
     memcpy(input, httpParams, static_cast<size_t>(httpParamsLen));
     input[httpParamsLen] = '\0';
@@ -383,7 +384,7 @@ long HttpServer::processRequest(unsigned long callingClientId,
             // This parameter has to be the last one!
             LDEBUG << "Copying BinData of size " << BinDataSize << " from HTTP "
                    << "parameters to a separate buffer";
-            BinData = new char[BinDataSize];
+            BinData = new char[size_t(BinDataSize)];
             memcpy(BinData,
                    httpParams + (httpParamsLen - BinDataSize),
                    static_cast<unsigned int>(BinDataSize));
@@ -1001,7 +1002,7 @@ unsigned short HttpServer::startInsertMDD(unsigned long callingClientId, char *q
         std::unique_ptr<char[]> collection;
         if (endPtr - startPtr > 0)
         {
-            collection.reset(new char[endPtr - startPtr + 1]);
+            collection.reset(new char[endPtr - startPtr + 1u]);
             strncpy(collection.get(), startPtr, static_cast<size_t>(endPtr - startPtr));
             collection[static_cast<size_t>(endPtr - startPtr)] = '\0';
         }

@@ -50,7 +50,6 @@ public:
     r_Point() = default;
     /// constructor getting dimensionality for stream initializing
     explicit r_Point(r_Dimension);
-
     /// constructor taking string representation (e.g. [ 1, 2, 3])
     explicit r_Point(char *);
 
@@ -63,9 +62,6 @@ public:
     r_Point(r_Range, r_Range, r_Range, r_Range, r_Range);
     explicit r_Point(std::vector<r_Range> pointArg);
     //@}
-
-    /// copy constructor
-    r_Point(const r_Point &) = default;
 
     /// destructor: cleanup dynamic memory
     ~r_Point() = default;

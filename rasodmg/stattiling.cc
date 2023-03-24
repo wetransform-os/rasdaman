@@ -251,21 +251,30 @@ void r_Stat_Tiling::filter(std::vector<r_Access> &patterns) const
         patterns.pop_back();
 
         // For all elements in the cluster
-        for (auto cluster_it = cluster.begin(); cluster_it != cluster.end(); cluster_it++)
+        auto cluster_end = cluster.end();
+        std::vector<r_Access> add_to_cluster;
+        for (auto cluster_it = cluster.begin(); cluster_it != cluster_end; cluster_it++)
         {
             // For all remaining patterns
-            for (auto pattern_it = patterns.begin(); pattern_it != patterns.end(); pattern_it++)
+            for (auto pattern_it = patterns.begin(); pattern_it != patterns.end(); )
             {
                 // Pattern near an element from the cluster
                 if ((*cluster_it).is_near(*pattern_it, border_thr))
                 {
                     // Add pattern to the cluster
-                    cluster.push_back(*pattern_it);
+                    add_to_cluster.push_back(*pattern_it);
                     // Remove pattern from list
-                    patterns.erase(pattern_it);
+                    pattern_it = patterns.erase(pattern_it);
+                }
+                else
+                {
+                    ++pattern_it;
                 }
             }
         }
+        for (const auto &p: add_to_cluster)
+            cluster.push_back(p);
+        
         // Merge cluster and add to result
         result.push_back(merge(cluster));
     }

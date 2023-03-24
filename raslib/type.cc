@@ -291,7 +291,7 @@ r_Type::getNextToken(char *&pos, char *&identifier)
             pos++;
         }
 
-        identifier = new char[pos - beginPos + 1];
+        identifier = new char[size_t(pos - beginPos + 1)];
         strncpy(identifier, beginPos, static_cast<size_t>(pos - beginPos));
         identifier[pos - beginPos] = '\0';
     }
@@ -528,7 +528,7 @@ r_Type::getStructureType(char *&pos, int offset)
         // allocate another attribute (very inefficient)
         noAttributes++;
         r_Attribute *oldAttributes = attributes;
-        attributes = new r_Attribute[noAttributes];
+        attributes = new r_Attribute[size_t(noAttributes)];
         for (int i = 0; i < noAttributes - 1; i++)
         {
             attributes[i] = oldAttributes[i];

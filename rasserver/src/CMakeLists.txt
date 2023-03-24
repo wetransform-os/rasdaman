@@ -49,9 +49,8 @@ target_link_libraries(rasnetserver
     raslib
     rasnetservercomm
     ${GRPCPP_LIBRARY}
-    ${ZLIB_LIBRARIES}
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rasnetserver REUSE_FROM common_logging)
 endif()

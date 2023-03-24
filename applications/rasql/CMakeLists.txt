@@ -28,7 +28,7 @@ add_library(rasql_error_lib rasql_error.hh rasql_error.cc)
 target_link_libraries(rasql
     rasql_error_lib rasodmg raslib clientcomm commline common_logging common_util rasnet)
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rasql REUSE_FROM common_logging)
 endif()
 

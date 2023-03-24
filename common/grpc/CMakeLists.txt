@@ -68,7 +68,7 @@ target_link_libraries(common_grpc
     ${LIBDL_LIBRARIES}
 )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(common_grpc REUSE_FROM common_logging)
 endif()
 

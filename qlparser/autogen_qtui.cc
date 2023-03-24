@@ -1550,3 +1550,294 @@ const QtTypeElement &QtArctan::checkType(QtTypeTuple *typeTuple)
 
     return dataStreamType;
 }
+
+
+
+const QtNode::QtNodeType QtCeil::nodeType = QtNode::QT_CEIL;
+
+QtCeil::QtCeil(QtOperation *initInput)
+    : QtUnaryInduce(initInput) {}
+QtData *QtCeil::evaluate(QtDataList *inputList)
+{
+    QtData *returnValue = NULL;
+    QtData *operand = NULL;
+    if (getOperand(inputList, operand))
+    {
+        try
+        {
+            returnValue = computeOp(operand, Ops::OP_CEIL);
+        }
+        catch (...)
+        {
+            operand->deleteRef();
+            throw;
+        }
+    }
+    // delete old operand
+    if (operand)
+        operand->deleteRef();
+    return returnValue;
+}
+
+void QtCeil::printTree(int tab, ostream &s, QtChildType mode)
+{
+    s << SPACE_STR(static_cast<size_t>(tab)).c_str() << "QtCeilObject " << static_cast<int>(getNodeType()) << endl;
+    QtUnaryInduce::printTree(tab + 2, s, mode);
+}
+
+void QtCeil::printAlgebraicExpression(ostream &s)
+{
+    s << "ceil(";
+    if (input)
+        input->printAlgebraicExpression(s);
+    else
+        s << "<nn>";
+    s << ")";
+}
+
+const QtTypeElement &QtCeil::checkType(QtTypeTuple *typeTuple)
+{
+    dataStreamType.setDataType(QT_TYPE_UNKNOWN);
+    // check operand branches
+    if (input)
+    {
+        // get input types
+        const QtTypeElement &inputType = input->checkType(typeTuple);
+#ifdef DEBUG
+        LTRACE << "Operand: ";
+        inputType.printStatus(RMInit::dbgOut);
+#endif
+        if (inputType.getDataType() == QT_MDD)
+        {
+            const BaseType *baseType = static_cast<const MDDBaseType *>(inputType.getType())->getBaseType();
+            const BaseType *resultBaseType = Ops::getResultType(Ops::OP_CEIL, baseType);
+            if (!resultBaseType)
+            {
+                LERROR << "Error: QtCeil::checkType() - induce operand type is not supported";
+                parseInfo.setErrorNo(UNARY_INDUCE_BASETYPENOTSUPPORTED);
+                throw parseInfo;
+            }
+            MDDBaseType *resultMDDType = new MDDBaseType("tmp", resultBaseType);
+            TypeFactory::addTempType(resultMDDType);
+            dataStreamType.setType(resultMDDType);
+        }
+        else if (inputType.isBaseType())
+        {
+            const BaseType *baseType = static_cast<const BaseType *>(inputType.getType());
+            const BaseType *resultBaseType = Ops::getResultType(Ops::OP_CEIL, baseType);
+            if (!resultBaseType)
+            {
+                LERROR << "Error: QtCeil::checkType() - operand type is not supported.";
+                parseInfo.setErrorNo(UNARY_SCALARTYPENOTSUPPORTED);
+                throw parseInfo;
+            }
+            dataStreamType.setType(resultBaseType);
+        }
+        else
+        {
+            LERROR << "Error: QtCeil::checkType() - operation is not supported for strings.";
+            parseInfo.setErrorNo(STRINGSNOTSUPPORTED);
+            throw parseInfo;
+        }
+    }
+    else
+    {
+        LERROR << "Error: QtCeil::checkType() - operand branch invalid.";
+    }
+
+    return dataStreamType;
+}
+
+
+const QtNode::QtNodeType QtFloor::nodeType = QtNode::QT_FLOOR;
+
+QtFloor::QtFloor(QtOperation *initInput)
+    : QtUnaryInduce(initInput) {}
+QtData *QtFloor::evaluate(QtDataList *inputList)
+{
+    QtData *returnValue = NULL;
+    QtData *operand = NULL;
+
+    if (getOperand(inputList, operand))
+    {
+        try
+        {
+            returnValue = computeOp(operand, Ops::OP_FLOOR);
+        }
+        catch (...)
+        {
+            operand->deleteRef();
+            throw;
+        }
+    }
+    // delete old operand
+    if (operand)
+        operand->deleteRef();
+    return returnValue;
+}
+
+void QtFloor::printTree(int tab, ostream &s, QtChildType mode)
+{
+    s << SPACE_STR(static_cast<size_t>(tab)).c_str() << "QtFloorObject " << static_cast<int>(getNodeType()) << endl;
+    QtUnaryInduce::printTree(tab + 2, s, mode);
+}
+
+void QtFloor::printAlgebraicExpression(ostream &s)
+{
+    s << "ceil(";
+    if (input)
+        input->printAlgebraicExpression(s);
+    else
+        s << "<nn>";
+    s << ")";
+}
+
+const QtTypeElement &QtFloor::checkType(QtTypeTuple *typeTuple)
+{
+    dataStreamType.setDataType(QT_TYPE_UNKNOWN);
+    // check operand branches
+    if (input)
+    {
+        // get input types
+        const QtTypeElement &inputType = input->checkType(typeTuple);
+#ifdef DEBUG
+        LTRACE << "Operand: ";
+        inputType.printStatus(RMInit::dbgOut);
+#endif
+        if (inputType.getDataType() == QT_MDD)
+        {
+            const BaseType *baseType = static_cast<const MDDBaseType *>(inputType.getType())->getBaseType();
+            const BaseType *resultBaseType = Ops::getResultType(Ops::OP_FLOOR, baseType);
+            if (!resultBaseType)
+            {
+                LERROR << "Error: QtFloor::checkType() - induce operand type is not supported";
+                parseInfo.setErrorNo(UNARY_INDUCE_BASETYPENOTSUPPORTED);
+                throw parseInfo;
+            }
+            MDDBaseType *resultMDDType = new MDDBaseType("tmp", resultBaseType);
+            TypeFactory::addTempType(resultMDDType);
+            dataStreamType.setType(resultMDDType);
+        }
+        else if (inputType.isBaseType())
+        {
+            const BaseType *baseType = static_cast<const BaseType *>(inputType.getType());
+            const BaseType *resultBaseType = Ops::getResultType(Ops::OP_FLOOR, baseType);
+            if (!resultBaseType)
+            {
+                LERROR << "Error: QtFloor::checkType() - operand type is not supported.";
+                parseInfo.setErrorNo(UNARY_SCALARTYPENOTSUPPORTED);
+                throw parseInfo;
+            }
+            dataStreamType.setType(resultBaseType);
+        }
+        else
+        {
+            LERROR << "Error: QtFloor::checkType() - operation is not supported for strings.";
+            parseInfo.setErrorNo(STRINGSNOTSUPPORTED);
+            throw parseInfo;
+        }
+    }
+    else
+    {
+        LERROR << "Error: QtFloor::checkType() - operand branch invalid.";
+    }
+
+    return dataStreamType;
+}
+
+
+const QtNode::QtNodeType QtRound::nodeType = QtNode::QT_ROUND;
+
+QtRound::QtRound(QtOperation *initInput)
+    : QtUnaryInduce(initInput) {}
+QtData *QtRound::evaluate(QtDataList *inputList)
+{
+    QtData *returnValue = NULL;
+    QtData *operand = NULL;
+
+    if (getOperand(inputList, operand))
+    {
+        try
+        {
+            returnValue = computeOp(operand, Ops::OP_ROUND);
+        }
+        catch (...)
+        {
+            operand->deleteRef();
+            throw;
+        }
+    }
+    // delete old operand
+    if (operand)
+        operand->deleteRef();
+    return returnValue;
+}
+
+void QtRound::printTree(int tab, ostream &s, QtChildType mode)
+{
+    s << SPACE_STR(static_cast<size_t>(tab)).c_str() << "QtRoundObject " << static_cast<int>(getNodeType()) << endl;
+    QtUnaryInduce::printTree(tab + 2, s, mode);
+}
+
+void QtRound::printAlgebraicExpression(ostream &s)
+{
+    s << "ceil(";
+    if (input)
+        input->printAlgebraicExpression(s);
+    else
+        s << "<nn>";
+    s << ")";
+}
+
+const QtTypeElement &QtRound::checkType(QtTypeTuple *typeTuple)
+{
+    dataStreamType.setDataType(QT_TYPE_UNKNOWN);
+    // check operand branches
+    if (input)
+    {
+        // get input types
+        const QtTypeElement &inputType = input->checkType(typeTuple);
+#ifdef DEBUG
+        LTRACE << "Operand: ";
+        inputType.printStatus(RMInit::dbgOut);
+#endif
+        if (inputType.getDataType() == QT_MDD)
+        {
+            const BaseType *baseType = static_cast<const MDDBaseType *>(inputType.getType())->getBaseType();
+            const BaseType *resultBaseType = Ops::getResultType(Ops::OP_ROUND, baseType);
+            if (!resultBaseType)
+            {
+                LERROR << "Error: QtRound::checkType() - induce operand type is not supported";
+                parseInfo.setErrorNo(UNARY_INDUCE_BASETYPENOTSUPPORTED);
+                throw parseInfo;
+            }
+            MDDBaseType *resultMDDType = new MDDBaseType("tmp", resultBaseType);
+            TypeFactory::addTempType(resultMDDType);
+            dataStreamType.setType(resultMDDType);
+        }
+        else if (inputType.isBaseType())
+        {
+            const BaseType *baseType = static_cast<const BaseType *>(inputType.getType());
+            const BaseType *resultBaseType = Ops::getResultType(Ops::OP_ROUND, baseType);
+            if (!resultBaseType)
+            {
+                LERROR << "Error: QtRound::checkType() - operand type is not supported.";
+                parseInfo.setErrorNo(UNARY_SCALARTYPENOTSUPPORTED);
+                throw parseInfo;
+            }
+            dataStreamType.setType(resultBaseType);
+        }
+        else
+        {
+            LERROR << "Error: QtRound::checkType() - operation is not supported for strings.";
+            parseInfo.setErrorNo(STRINGSNOTSUPPORTED);
+            throw parseInfo;
+        }
+    }
+    else
+    {
+        LERROR << "Error: QtRound::checkType() - operand branch invalid.";
+    }
+
+    return dataStreamType;
+}

@@ -59,7 +59,7 @@ target_link_libraries(rasnet
     ${CMAKE_THREAD_LIBS_INIT}
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rasnet REUSE_FROM common_logging)
 endif()
 

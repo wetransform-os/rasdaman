@@ -305,6 +305,9 @@ int string_yyinput( char* buf, int max_size )
 "acos"                                   { SETTOKEN( ACOS, commandToken, ACOS ) }
 "arctan"                                 { SETTOKEN( ARCTAN, commandToken, ARCTAN ) }
 "atan"                                   { SETTOKEN( ATAN, commandToken, ATAN ) }
+"round"                                  { SETTOKEN( ROUND, commandToken, ROUND ) }
+"ceil"                                   { SETTOKEN( CEIL, commandToken, CEIL ) }
+"floor"                                  { SETTOKEN( FLOOR, commandToken, FLOOR ) }
 
 "index"                 { SETTOKEN( INDEX, commandToken, INDEX ) }
 "rc_index"              { SETTOKEN( RC_INDEX, commandToken, RC_INDEX ) }

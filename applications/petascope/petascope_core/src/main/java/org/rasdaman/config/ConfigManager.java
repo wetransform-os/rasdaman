@@ -81,6 +81,9 @@ public class ConfigManager {
 
     // For all exceptions, default language is english
     public static final String LANGUAGE = "en";
+    
+    public static final String KEY_PETASCOPE_CONF_DIR = "petascope.confDir";
+    public static final String KEY_SECORE_CONF_DIR = "secore.confDir";
 
     /* **** Default endpoint for controllers to handle services **** */
     // e.g: localhost:8080/rasdaman/ows

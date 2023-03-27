@@ -61,18 +61,19 @@ import petascope.util.ras.TypeRegistry;
 import petascope.wcs2.parsers.request.xml.XMLAbstractParser;
 import static org.rasdaman.config.ConfigManager.STATIC_HTML_DIR_PATH;
 import org.rasdaman.datamigration.DataMigrationService;
+import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.rasdaman.repository.service.WMSRepostioryService;
 import org.springframework.beans.factory.annotation.Autowired;
+import petascope.core.Pair;
 import petascope.util.CrsUtil;
 import petascope.util.ras.RasUtil;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
-import org.rasdaman.domain.cis.Coverage;
+import static org.rasdaman.config.ConfigManager.KEY_PETASCOPE_CONF_DIR;
 import org.rasdaman.repository.service.OWSMetadataRepostioryService;
-import petascope.core.Pair;
 
 /**
  * This class initializes the petascope properties and runs the application as jar file.
@@ -98,8 +99,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
     
     public static final String APPLICATION_PROPERTIES_FILE = "application.properties";
     // path to gdal native files (.so) which are needed for GDAL java to invoke.
-    private static final String PREFIX_INPUT_PARAMETER = "--";
-    private static final String KEY_PETASCOPE_CONF_DIR = "petascope.confDir";
+    private static final String PREFIX_INPUT_PARAMETER = "--";    
     private static final String KEY_MIGRATE = "migrate";
     
     // When invoked from command line (e.g: java -jar rasdaman.war), the migration

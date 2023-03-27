@@ -204,7 +204,7 @@ public class ConfigManager {
         try {
             // log4j is added in secore.properties
             File file = new File(confFile);
-            log.info("Logging configured from configuration file " + confFile);
+            log.info("Logging for CRS Resolver (SECORE) configured from configuration file " + confFile);
 
             try {
                 PropertyConfigurator.configure(file.toURI().toURL());

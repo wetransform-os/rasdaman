@@ -181,6 +181,7 @@ public class WMSRepostioryService {
                 try {
                     wmtsRepostioryService.initializeLocalTileMatrixSetsMapCache();
                 } catch (PetascopeException ex) {
+                    log.error("Failed to initialize local tile matrix sets. Reason: " + ex.getMessage(), ex);
                     throw new PetascopeRuntimeException(ex);
                 }
             }

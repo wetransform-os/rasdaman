@@ -47,6 +47,8 @@ temp_petascope_properties="$etc_dir_tmp/petascope.properties"
 log_file="$OUTPUT_DIR/petascope.log"
 
 # replace port from default one to 9090
+
+sed -i "s@secore_urls=internal@secore_urls=https://ows.rasdaman.org/rasdaman/def/@g" "$temp_petascope_properties"
 sed -i "s@server.port=.*@server.port=$port@g" "$temp_petascope_properties"
 sed -i "s@allow_write_requests_from=127.0.0.1@allow_write_requests_from=1.2.3.4@g" "$temp_petascope_properties"
 sed -i "s@log4j.appender.rollingFile.File=.*@log4j.appender.rollingFile.File=$log_file@g" "$temp_petascope_properties"

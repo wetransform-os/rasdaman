@@ -22,6 +22,7 @@
 package petascope.util;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -63,6 +64,8 @@ import org.gdal.osr.SpatialReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.rasdaman.config.ConfigManager;
+import static org.rasdaman.config.ConfigManager.KEY_PETASCOPE_CONF_DIR;
+import static org.rasdaman.config.ConfigManager.KEY_SECORE_CONF_DIR;
 import static org.rasdaman.config.ConfigManager.SECORE_INTERNAL;
 import org.rasdaman.secore.Resolver;
 import org.rasdaman.secore.db.DbManager;
@@ -169,7 +172,6 @@ public class CrsUtil {
     
     
     private static final String APPLICATION_PROPERTIES_FILE = "application.properties";
-    private static final String KEY_SECORE_CONF_DIR = "secore.confDir";
     
     // NOTE: this is the hard-coded WKT of rorated CRS from https://github.com/Geomatys/MetOceanDWG/blob/main/MetOceanDWG%20Projects/Authority%20Codes%20for%20CRS/RotatedPole.xml
     private static final String COSMO_CRS_101_WKT = "GEODCRS[\"COSMO-DWD rotated pole grid\",\n" +
@@ -274,11 +276,19 @@ public class CrsUtil {
                                                                             TIME_TO_CHECK_WORKING_SECORE_URL, SECONDS);
     }    
     
+    
+    /**
+     * If secore_urls contains internal in petascope.properties
+     */
+    private static boolean isResovlerInternalEnabled() {
+        return ConfigManager.SECORE_URLS.contains(ConfigManager.SECORE_INTERNAL);
+    }
+    
     /**
      * Invoke embedded SECORE in petascope before petascope starts to migrate 
      * 
      */
-    public static void loadInternalSecore(boolean embedded, String webappsDir) throws IOException, org.rasdaman.secore.util.SecoreException, SecoreException {
+    public static void loadInternalSecore(boolean embedded, String webappsDir) throws IOException, org.rasdaman.secore.util.SecoreException, SecoreException, Exception {
         
         if (isSECOREloaded == false) {
 
@@ -287,9 +297,24 @@ public class CrsUtil {
             properties.load(resourceStream);
 
             PropertySourcesPlaceholderConfigurer propertyResourcePlaceHolderConfigurer = new PropertySourcesPlaceholderConfigurer();
+            
+            Properties props = new Properties();
+            props.load(new FileInputStream(properties.getProperty(KEY_PETASCOPE_CONF_DIR) + "/petascope.properties"));
+            Object secoreURLs = props.get(ConfigManager.KEY_SECORE_URLS);
+            if (secoreURLs == null || secoreURLs.toString().isEmpty()) {
+                ConfigManager.SECORE_URLS = StringUtil.csv2list(ConfigManager.SECORE_INTERNAL);
+            } else {
+                ConfigManager.SECORE_URLS = StringUtil.csv2list(secoreURLs.toString());
+            }
+            
+            if (!isResovlerInternalEnabled()) {
+                // secore_urls doesn't contain internal -> no need to initialize embedded SECORE
+                return;
+            }
+            
             File initialFile = new File(properties.getProperty(KEY_SECORE_CONF_DIR) + "/" + org.rasdaman.secore.ConfigManager.SECORE_PROPERTIES_FILE);
             propertyResourcePlaceHolderConfigurer.setLocation(new FileSystemResource(initialFile));
-
+            
             String confDir = properties.getProperty(KEY_SECORE_CONF_DIR);
             try {
                 org.rasdaman.secore.ConfigManager.initInstance(confDir, embedded, webappsDir);
@@ -308,6 +333,7 @@ public class CrsUtil {
                 throw new SecoreException(ExceptionCode.InternalComponentError, "Cannot initialize internal SECORE database manager. Reason: " + ex.getMessage(), ex);
             }
             
+            log.info("Internal CRS resolver (SECORE) is loaded.");
         }
     }
     
@@ -405,6 +431,11 @@ public class CrsUtil {
      * Check if the crs should go to the internal SECORE or not
      */
     public static boolean isInternalSecoreURL(String url) {
+        
+        if (!isResovlerInternalEnabled()) {
+            // In case internal SECORE is not enabled 
+            return false;
+        }
         
         if (url.contains(LOCALHOST)
             || url.contains("www.opengis.net/def/uom/")) {
@@ -1446,7 +1477,6 @@ public class CrsUtil {
      * 
      */
     public static void checkSECOREURLsForInternalMigration() throws PetascopeException {
-        
         
         // e.g. http://localhost:8080/rasdaman/def
         final String internalSECOREURL = ConfigManager.getInstance(ConfigManager.CONF_DIR).getInternalSecoreURL();

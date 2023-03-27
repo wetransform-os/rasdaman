@@ -9,7 +9,7 @@
     "skip": true
   },
   "input": {
-    "coverage_id": "test_after_hook_executed_if_import_failed",
+    "coverage_id": "test_after_hook_execute_if_failed",
     "paths": [
       "*.tif"
     ]

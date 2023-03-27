@@ -7,7 +7,7 @@
 	 "track_files": false
     },
     "input": {
-        "coverage_id": "test_irr_cube_2", 
+        "coverage_id": "test_duplicate_cell_type", 
         "paths": [
             "*.tif"
         ]

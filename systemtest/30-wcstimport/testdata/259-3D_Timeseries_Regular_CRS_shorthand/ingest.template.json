@@ -6,7 +6,7 @@
     "track_files": false
   },
   "input": {
-    "coverage_id": "test_AverageTemperature",
+    "coverage_id": "test_3D_Timeseries_Regular_CRS_shorthand",
     "paths": [
       "SCALED*.TIFF"
     ]

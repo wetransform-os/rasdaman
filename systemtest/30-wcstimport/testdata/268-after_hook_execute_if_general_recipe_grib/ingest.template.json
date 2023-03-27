@@ -10,7 +10,7 @@
     "blocking": false    
   },
   "input": {
-    "coverage_id": "test_after_hook_executed_if_import_failed_general_recipe_grib",
+    "coverage_id": "test_after_hook_execute_if_general_recipe_grib",
     "paths": [
       "*.grib2"
     ]

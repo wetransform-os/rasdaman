@@ -31,10 +31,13 @@ out="$1"
 oracle="$2"
 
 nout="$out.output_tmp"
+noracle="$out.oracle_tmp"
 
 # use jq tool to filter any object which doesn't start with id = test_*
 jq ".collections | map(select(.id | startswith(\"test_\")))"  "$out"  > "$nout"
+jq ".collections | map(select(.id | startswith(\"test_\")))"  "$oracle"  > "$noracle"
 
 
-diff -b "$nout" "$oracle" > /dev/null 2>&1
+
+diff -b "$nout" "$noracle" > /dev/null 2>&1
 exit $?

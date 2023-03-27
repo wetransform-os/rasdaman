@@ -11,7 +11,7 @@
     "insitu": false
   },
   "input": {
-    "coverage_id": "t2m_era5_d05_01_jan_2010_v7x_subset",
+    "coverage_id": "test_error-test_ecmwf_grib_filter_messages_non_exist_key",
     "paths": [
       "*.grib"
     ]

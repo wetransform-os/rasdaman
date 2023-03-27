@@ -9,7 +9,7 @@
     "subset_correction": false
   },
   "input": {
-    "coverage_id": "test_wms_3857",
+    "coverage_id": "test_w_m_s_3857",
     "paths": [
       "../146-wms_3857_repeat/*.tif"
     ]

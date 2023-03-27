@@ -11,7 +11,7 @@
     "skip": true
   },
   "input": {
-    "coverage_id": "test_after_hook_executed_if_import_failed_general_recipe_netcdf",
+    "coverage_id": "test_after_hook_execute_if_general_recipe_netcdf",
     "paths": [
       "L3m_*-*__GLOB_4_GSM-MODVIR_CHL1_8D_00.nc"
     ]

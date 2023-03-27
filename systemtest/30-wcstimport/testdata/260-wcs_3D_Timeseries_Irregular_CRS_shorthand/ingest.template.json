@@ -7,7 +7,7 @@
     "automated": true
   },
   "input": {
-    "coverage_id": "test_AverageChloro",
+    "coverage_id": "test_wcs_3D_Timeseries_Irregular_CRS_shorthand",
     "paths": [
       "SCALE*.TIFF"
     ]

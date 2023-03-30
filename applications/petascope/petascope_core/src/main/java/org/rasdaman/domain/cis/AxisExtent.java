@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import javax.persistence.*;
+import petascope.core.AxisTypes;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.util.BigDecimalUtil;
@@ -80,6 +81,17 @@ public class AxisExtent implements Serializable {
     @Column(name = "axis_type")
     // e.g: X, Y, T,..
     private String axisType;
+    
+    @Column(name = "grid_lower_bound")
+    private Long gridLowerBound;
+
+    @Column(name = "grid_upper_bound")
+    private Long gridUpperBound;
+    
+    // to know the rasdaman order of a grid axis as they could be different from GeoAxis
+    // e.g: geo axis: EPSG: 4326 order is Lat (0), Long (1), but grid order is: Long (1), Lat (0)
+    @Column(name = "grid_axis_order")
+    private Integer gridAxisOrder;    
 
     public AxisExtent() {
 
@@ -94,6 +106,14 @@ public class AxisExtent implements Serializable {
         this.resolution = resolution;
         this.axisType = axisType;
     }
+    
+    public AxisExtent(String axisLabel, String srsName, String uomLabel, String lowerBound, String upperBound, BigDecimal resolution, String axisType,
+                      Long gridLowerBound, Long gridUpperBound, int gridAxisOrder) {
+        this(axisLabel, srsName, uomLabel, lowerBound, upperBound, resolution, axisType);
+        this.gridLowerBound = gridLowerBound;
+        this.gridUpperBound = gridUpperBound;
+        this.gridAxisOrder = gridAxisOrder;
+    }    
 
     public String getUpperBound() {
         return upperBound;
@@ -192,4 +212,39 @@ public class AxisExtent implements Serializable {
             return BigDecimalUtil.stripDecimalZeros(new BigDecimal(this.upperBound));
         }
     }
+
+    public Long getGridLowerBound() {
+        return gridLowerBound;
+    }
+
+    public void setGridLowerBound(Long gridLowerBound) {
+        this.gridLowerBound = gridLowerBound;
+    }
+
+    public Long getGridUpperBound() {
+        return gridUpperBound;
+    }
+
+    public void setGridUpperBound(Long gridUpperBound) {
+        this.gridUpperBound = gridUpperBound;
+    }
+
+    public Integer getGridAxisOrder() {
+        return gridAxisOrder;
+    }
+
+    public void setGridAxisOrder(Integer gridAxisOrder) {
+        this.gridAxisOrder = gridAxisOrder;
+    }
+    
+    @JsonIgnore
+    public boolean isTimeAxis() {
+        return this.getAxisType().equals(AxisTypes.T_AXIS);
+    }
+    
+    @JsonIgnore
+    public boolean isElevationAxis() {
+        return this.getAxisType().equals(AxisTypes.HEIGHT_AXIS);
+    }
+    
 }

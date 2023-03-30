@@ -2,10 +2,6 @@
 
 package org.rasdaman.datamigration;
 import com.rasdaman.admin.layer.service.AdminCreateOrUpdateLayerService;
-import java.util.ArrayList;
-import java.util.List;
-import org.rasdaman.domain.cis.Coverage;
-import org.rasdaman.domain.cis.Wgs84BoundingBox;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.rasdaman.repository.service.WMSRepostioryService;
 import org.slf4j.Logger;
@@ -13,8 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
-import petascope.util.CrsProjectionUtil;
 
 /**
  * Class to handle data migration version number 8.

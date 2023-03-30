@@ -651,6 +651,18 @@ public class CoverageRepositoryService {
             this.save(coverage);     
         }        
     }
+    
+    /**
+     * Update grid bounds for AxisExtents from the input IndexAxes
+     */
+    public void updateGridBoundsForAxisExtents(EnvelopeByAxis envelopeByAxis, List<IndexAxis> indexAxes) {
+        for (IndexAxis indexAxis : indexAxes) {
+            AxisExtent axisExtent = envelopeByAxis.getAxisExtentByLabel(indexAxis.getAxisLabel());
+            axisExtent.setGridLowerBound(indexAxis.getLowerBound());
+            axisExtent.setGridUpperBound(indexAxis.getUpperBound());
+            axisExtent.setGridAxisOrder(indexAxis.getAxisOrder());
+        }        
+    }
 
     /**
      * Persit a coverage to database if it is new or existing coverage
@@ -673,6 +685,10 @@ public class CoverageRepositoryService {
         coverage.setCoverageSizeInBytes(coverageSize);
         
         this.calculateCoverageSizeInBytesWithPyramid(coverage);
+        
+        // Add grid bounds from IndexAxes to AxisExtents so it can be queried faster from basic coverage metadata objects
+        List<IndexAxis> indexAxes = ((GeneralGridDomainSet) coverage.getDomainSet()).getGeneralGrid().getGridLimits().getIndexAxes();
+        this.updateGridBoundsForAxisExtents(coverage.getEnvelope().getEnvelopeByAxis(), indexAxes);
         
         long start = System.currentTimeMillis();
         // then it can save (insert/update) the coverage to database

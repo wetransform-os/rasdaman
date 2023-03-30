@@ -94,28 +94,25 @@ public class CrsProjectionUtil {
     /**
      * Build a GeoTransform object from GeoAxis and IndexAxis
      */
-    public static GeoTransform buildGeoTransform(Pair<GeoAxis, GeoAxis> geoXYAxesPair,
-                                                Pair<IndexAxis, IndexAxis> gridXYAxesPair) throws PetascopeException {
-        GeoAxis geoAxisX = geoXYAxesPair.fst;
-        GeoAxis geoAxisY = geoXYAxesPair.snd;
+    public static GeoTransform buildGeoTransform(Pair<AxisExtent, AxisExtent> geoXYAxisExtentsPair,
+                                                Pair<Long, Long> gridBoundsX, Pair<Long, Long> gridBoundsY) throws PetascopeException {
+        AxisExtent axisExtentX = geoXYAxisExtentsPair.fst;
+        AxisExtent axisExtentY = geoXYAxisExtentsPair.snd;
         
         GeoTransform geoTransform = new GeoTransform();
         
-        String sourceCRS = geoAxisX.getSrsName();
+        String sourceCRS = axisExtentX.getSrsName();
         String sourceCRSWKT = CrsUtil.getWKT(sourceCRS);
         
         geoTransform.setWKT(sourceCRSWKT);
         
-        geoTransform.setGeoXResolution(geoAxisX.getResolution().doubleValue());
-        geoTransform.setGeoYResolution(geoAxisY.getResolution().doubleValue());
-        geoTransform.setUpperLeftGeoX(geoAxisX.getLowerBoundNumber());
-        geoTransform.setUpperLeftGeoY(geoAxisY.getUpperBoundNumber());
+        geoTransform.setGeoXResolution(axisExtentX.getResolution().doubleValue());
+        geoTransform.setGeoYResolution(axisExtentY.getResolution().doubleValue());
+        geoTransform.setUpperLeftGeoX(axisExtentX.getLowerBoundNumber());
+        geoTransform.setUpperLeftGeoY(axisExtentY.getUpperBoundNumber());
         
-        IndexAxis gridAxisX = gridXYAxesPair.fst;
-        IndexAxis gridAxisY = gridXYAxesPair.snd;
-        
-        int width = (int) (gridAxisX.getUpperBound() - gridAxisX.getLowerBound() + 1);
-        int height = (int) (gridAxisY.getUpperBound() - gridAxisY.getLowerBound() + 1);
+        int width = (int) (gridBoundsX.snd - gridBoundsX.fst + 1);
+        int height = (int) (gridBoundsY.snd - gridBoundsY.fst + 1);
         geoTransform.setGridWidth(width);
         geoTransform.setGridHeight(height);
         

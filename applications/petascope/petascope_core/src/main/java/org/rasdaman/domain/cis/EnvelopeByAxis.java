@@ -363,27 +363,78 @@ public class EnvelopeByAxis implements Serializable {
         return new ArrayList<>(results);
     }
     
-    @JsonIgnore
-    public String getGeoXYCrs() throws PetascopeException {
-        List<AxisExtent> axisExtents = this.axisExtents;
-        String coverageCRS = this.srsName;
-        
-        int i = 0;
-        for (AxisExtent axisExtent : axisExtents) {
+    /**
+     * If axis extent type is null -> fetch if from the CRS
+     */
+    public void setAxisExtentTypeIfNull(AxisExtent axisExtent, int i) throws PetascopeException {
+        if (axisExtent.getAxisType() == null) {
             String axisExtentCRSURL = axisExtent.getSrsName();
             // NOTE: the basic coverage metadata can have the abstract SECORE URL, so must replace it first
             axisExtentCRSURL = CrsUtil.CrsUri.fromDbRepresentation(axisExtentCRSURL);
-            
+
             if (CrsProjectionUtil.isValidTransform(axisExtentCRSURL)) {
                 // x, y
-                String axisType = CrsUtil.getAxisTypeByIndex(coverageCRS, i);
-                if (axisType.equals(AxisTypes.X_AXIS)
-                    || axisType.equals(AxisTypes.Y_AXIS)) {
-                    return axisExtentCRSURL;
-                }
+                String axisType = CrsUtil.getAxisTypeByIndex(this.srsName, i);
+                axisExtent.setAxisType(axisType);
+            }
+        }
+    }
+    
+    /**
+     * Check if coverage has XY axis order, e.g. UTM CRS or YX axis order, e.g. EPSG:4326 CRS
+     */
+    @JsonIgnore     
+    public boolean isXYGeoAxisOrder() throws PetascopeException {
+        int i = 0;
+        int xIndex = -1;
+        int yIndex = -1;
+        for (AxisExtent axisExtent : axisExtents) {
+            this.setAxisExtentTypeIfNull(axisExtent, i);
+            if (axisExtent.getAxisType().equals(AxisTypes.X_AXIS)) {
+                xIndex = i;
+            } else if (axisExtent.getAxisType().equals(AxisTypes.Y_AXIS)) {
+                yIndex = i;
+            }
+            
+            if (xIndex > -1 && yIndex > -1 && xIndex < yIndex) {
+                return true;
+            }
+        }
+        
+        i++;
+        
+        return false;
+    }
+    
+    @JsonIgnore
+    public Pair<AxisExtent, AxisExtent> getGeoXYAxisExtentsPair() throws PetascopeException {
+        AxisExtent axisExtentX = null, axisExtentY = null;
+        
+        int i = 0;
+        for (AxisExtent axisExtent : axisExtents) {
+            this.setAxisExtentTypeIfNull(axisExtent, i);
+            
+            if (axisExtent.getAxisType().equals(AxisTypes.X_AXIS)) {
+                axisExtentX = axisExtent;
+            } else if (axisExtent.getAxisType().equals(AxisTypes.Y_AXIS)) {
+                axisExtentY = axisExtent;
+            }
+            
+            if (axisExtentX != null && axisExtentY != null) {
+                return new Pair<>(axisExtentX, axisExtentY);
             }
             
             i++;
+        }
+        
+        return null;
+    }    
+    
+    @JsonIgnore
+    public String getGeoXYCrs() throws PetascopeException {
+        Pair<AxisExtent, AxisExtent> pair = this.getGeoXYAxisExtentsPair();
+        if (pair != null) {
+            return pair.fst.getSrsName();
         }
         
         return null;
@@ -394,45 +445,39 @@ public class EnvelopeByAxis implements Serializable {
      */
     @JsonIgnore
     public BoundingBox getGeoXYBoundingBox() throws PetascopeException {
-        List<AxisExtent> axisExtents = this.axisExtents;
-        boolean foundX = false, foundY = false;
-        String xyAxesCRSURL = null;
-        String coverageCRS = this.srsName;
-        BigDecimal xMin = null, yMin = null, xMax = null, yMax = null;
-        
-        BoundingBox result = null;
-        
-        int i = 0;
-        for (AxisExtent axisExtent : axisExtents) {
-            String axisExtentCRSURL = axisExtent.getSrsName();
-            // NOTE: the basic coverage metadata can have the abstract SECORE URL, so must replace it first
-            axisExtentCRSURL = CrsUtil.CrsUri.fromDbRepresentation(axisExtentCRSURL);
-
-            if (CrsProjectionUtil.isValidTransform(axisExtentCRSURL)) {
-                // x, y
-                String axisType = CrsUtil.getAxisTypeByIndex(coverageCRS, i);
-                if (axisType.equals(AxisTypes.X_AXIS)) {
-                    foundX = true;
-                    xMin = new BigDecimal(axisExtent.getLowerBound());
-                    xMax = new BigDecimal(axisExtent.getUpperBound());
-                    xyAxesCRSURL = axisExtentCRSURL;
-                } else if (axisType.equals(AxisTypes.Y_AXIS)) {
-                    foundY = true;
-                    yMin = new BigDecimal(axisExtent.getLowerBound());
-                    yMax = new BigDecimal(axisExtent.getUpperBound());
-                }
-                if (foundX && foundY) {
-                    break;
-                }
-            }
+        Pair<AxisExtent, AxisExtent> pair = this.getGeoXYAxisExtentsPair();
+        if (pair != null) {
+            AxisExtent axisExtentX = pair.fst;
+            AxisExtent axisExtentY = pair.snd;
             
-            i++;
+            return new BoundingBox(axisExtentX.getLowerBoundNumber(), axisExtentY.getLowerBoundNumber(),
+                                    axisExtentX.getUpperBoundNumber(), axisExtentY.getUpperBoundNumber(), axisExtentX.getSrsName());
         }
         
-        if (foundX && foundY && CrsProjectionUtil.isValidTransform(xyAxesCRSURL)) {
-            result = new BoundingBox(xMin, yMin, xMax, yMax, xyAxesCRSURL);
-        }
-        
-        return result;
+        return null;
     }
+    
+    /**
+     * Return the list of non XY axisExtents
+     */
+    @JsonIgnore
+    public List<AxisExtent> getNonXYAxisExtents() throws PetascopeException {
+        int i = 0;
+        
+        List<AxisExtent> results = new ArrayList<>();
+        
+        for (AxisExtent axisExtent : this.axisExtents) {
+            this.setAxisExtentTypeIfNull(axisExtent, i);
+            
+            if ( !(axisExtent.getAxisType().equals(AxisTypes.X_AXIS)
+                || axisExtent.getAxisType().equals(AxisTypes.Y_AXIS)) ) {
+                results.add(axisExtent);
+            }
+        }
+        
+        i++;
+        
+        return results;
+    }
+    
 }

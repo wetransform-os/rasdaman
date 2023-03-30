@@ -29,8 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
+import org.rasdaman.domain.cis.AxisExtent;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.CoveragePyramid;
+import org.rasdaman.domain.cis.EnvelopeByAxis;
 import org.rasdaman.domain.cis.GeneralGridCoverage;
 import org.rasdaman.domain.cis.GeoAxis;
 import org.rasdaman.domain.cis.IndexAxis;
@@ -248,10 +250,33 @@ public class WMTSRepositoryService {
 
                     // e.g test_wms_2 (pyramid member)
                     String tileMatrixName = coveragePyramid.getPyramidMemberCoverageId();
+                    
 
-                    TileMatrix tileMatrix = this.buildTileMatrix(pyramidMemberCoverageId, epgsCode);
+                    GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage) this.coverageRepositoryService.readCoverageBasicMetadataByIdFromCache(pyramidMemberCoverageId);
+                    EnvelopeByAxis envelopeByAxis = pyramidMemberCoverage.getEnvelope().getEnvelopeByAxis();
+                    
+                    Long gridLowerBoundTmp = pyramidMemberCoverage.getEnvelope().getEnvelopeByAxis().getAxisExtentByIndex(0).getGridLowerBound();
+                    
+                    if (gridLowerBoundTmp == null) {
+                        // NOTE: Object from outdated petascope node -> it needs to read full metadata object which contains the grid bounds from IndexAxis only
+                        pyramidMemberCoverage = (GeneralGridCoverage) this.coverageRepositoryService.readCoverageFullMetadataByIdFromCache(pyramidMemberCoverageId);
+                        
+                        List<IndexAxis> indexAxes = pyramidMemberCoverage.getIndexAxes();
+                        this.coverageRepositoryService.updateGridBoundsForAxisExtents(envelopeByAxis, indexAxes);
+                    }
+                    
+                    Pair<AxisExtent, AxisExtent> axisExtentsXYPair = envelopeByAxis.getGeoXYAxisExtentsPair();
+                    Pair<Long, Long> gridBoundsXPair = new Pair<>(axisExtentsXYPair.fst.getGridLowerBound(), axisExtentsXYPair.fst.getGridUpperBound());
+                    Pair<Long, Long> gridBoundsYPair = new Pair<>(axisExtentsXYPair.snd.getGridLowerBound(), axisExtentsXYPair.snd.getGridUpperBound());
+                    boolean isXYGeoAxisOrder = envelopeByAxis.isXYGeoAxisOrder();
+                    
+                    TileMatrix tileMatrix = this.buildTileMatrix(pyramidMemberCoverageId, epgsCode, 
+                                                        envelopeByAxis.getGeoXYCrs(),
+                                                        isXYGeoAxisOrder,
+                                                        axisExtentsXYPair,                                                        
+                                                        gridBoundsXPair, gridBoundsYPair);
+                    
                     tileMatrixMap.put(tileMatrixName, tileMatrix);
-
                 }
 
                 String tileMatrixSetName = this.getTileMatrixSetName(baseLayerName, epgsCode);
@@ -263,37 +288,35 @@ public class WMTSRepositoryService {
         return results;
     }
     
-    
-    /**
-     * Build TileMatrix object (a TileMatrix contains details for a pyramid member of a base layer)
-     */
-    private TileMatrix buildTileMatrix(String pyramidMemberCoverageId, String tileMatrixSetEPSGCode) throws PetascopeException {
-        GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage) this.coverageRepositoryService.readCoverageFullMetadataByIdFromCache(pyramidMemberCoverageId);
+    private TileMatrix buildTileMatrix(String pyramidMemberCoverageId,
+                                    String tileMatrixSetEPSGCode,
+                                    String xyCRS, 
+                                    boolean isXYGeoAxisOrder,
+                                    Pair<AxisExtent, AxisExtent> axisExtentsXYPair, 
+                                    Pair<Long, Long> gridBoundsXPair,
+                                    Pair<Long, Long> gridBoundsYPair) throws PetascopeException {
         
-        Pair<GeoAxis, GeoAxis> xyAxesPair = pyramidMemberCoverage.getXYGeoAxes();
-        GeoAxis geoAxisX = xyAxesPair.fst;
-        GeoAxis geoAxisY = xyAxesPair.snd;
-        String xyCRS = geoAxisX.getSrsName();
+        GeoTransform geoTransform = null;
+        AxisExtent axisExtentX = axisExtentsXYPair.fst;
+        AxisExtent axisExtentY = axisExtentsXYPair.snd;
         
-        BigDecimal geoLowerBoundX = geoAxisX.getLowerBoundNumber();
-        BigDecimal geoUpperBoundX = geoAxisX.getUpperBoundNumber();
-        BigDecimal geoLowerBoundY = geoAxisY.getLowerBoundNumber();
-        BigDecimal geoUpperBoundY = geoAxisY.getUpperBoundNumber();
+        BigDecimal geoLowerBoundX = axisExtentX.getLowerBoundNumber();
+        BigDecimal geoUpperBoundX = axisExtentX.getUpperBoundNumber();
         
-        BigDecimal geoResolutionX = geoAxisX.getResolution();
-        BigDecimal geoResolutionY = geoAxisY.getResolution();
+        BigDecimal geoLowerBoundY = axisExtentY.getLowerBoundNumber();
+        BigDecimal geoUpperBoundY = axisExtentY.getUpperBoundNumber();
         
-        IndexAxis indexAxisX = pyramidMemberCoverage.getIndexAxisByName(geoAxisX.getAxisLabel());
-        IndexAxis indexAxisY = pyramidMemberCoverage.getIndexAxisByName(geoAxisY.getAxisLabel());
+        BigDecimal geoResolutionX = axisExtentX.getResolution();
+        BigDecimal geoResolutionY = axisExtentY.getResolution();
         
-        long gridLowerBoundX = indexAxisX.getLowerBound();
-        long gridUpperBoundX = indexAxisX.getUpperBound();
+        long gridLowerBoundX = axisExtentX.getGridLowerBound();
+        long gridUpperBoundX = axisExtentX.getGridUpperBound();
         
-        long gridLowerBoundY = indexAxisY.getLowerBound();
-        long gridUpperBoundY = indexAxisY.getUpperBound();
+        long gridLowerBoundY = axisExtentY.getGridLowerBound();
+        long gridUpperBoundY = axisExtentY.getGridUpperBound();
         
         long numberOfGridPixelsX = gridUpperBoundX - gridLowerBoundX + 1;
-        long numberOfGridPixelsY = gridUpperBoundY - gridLowerBoundY + 1;
+        long numberOfGridPixelsY = gridUpperBoundY - gridLowerBoundY + 1;        
         
         if (numberOfGridPixelsX <= 0) {
             log.warn("Coverage: " + pyramidMemberCoverageId + " has invalid number of grid pixels for axis X. "
@@ -303,15 +326,13 @@ public class WMTSRepositoryService {
         if (numberOfGridPixelsY <= 0) {
             log.warn("Coverage: " + pyramidMemberCoverageId + " has invalid number of grid pixels for axis Y. "
                     + "Given: " + numberOfGridPixelsY + " with grid upper bound = " + gridUpperBoundY + " and grid lower bound = " + gridLowerBoundY);
-        }
-        
-        GeoTransform geoTransform = null;
+        }        
         
         // e.g. pyramid member coverage's native CRS is EPSG:32632
         String nativeEPSGCode = CrsUtil.getAuthorityCode(xyCRS);
         if (!nativeEPSGCode.equals(tileMatrixSetEPSGCode)) {
             // e.g. tileMatrixSet is in EPSG:4326 -> it needs to reproject X,Y axes from EPSG:32632 -> EPSG:4326
-            geoTransform = CrsProjectionUtil.buildGeoTransform(xyAxesPair, new Pair<>(indexAxisX, indexAxisY));
+            geoTransform = CrsProjectionUtil.buildGeoTransform(axisExtentsXYPair, gridBoundsXPair, gridBoundsYPair);
             geoTransform = CrsProjectionUtil.getGeoTransformInTargetCRS(geoTransform, tileMatrixSetEPSGCode);
             
             geoLowerBoundX = geoTransform.getUpperLeftGeoX();
@@ -322,12 +343,6 @@ public class WMTSRepositoryService {
             
             geoResolutionX = geoTransform.getGeoXResolution();
             geoResolutionY = geoTransform.getGeoYResolution();
-            
-            gridLowerBoundX = 0;
-            gridUpperBoundX = geoTransform.getGridWidth() - 1;
-            
-            gridLowerBoundY = 0;
-            gridUpperBoundY = geoTransform.getGridHeight() - 1;
             
             numberOfGridPixelsX = geoTransform.getGridWidth();
             numberOfGridPixelsY = geoTransform.getGridHeight();
@@ -348,7 +363,7 @@ public class WMTSRepositoryService {
         // scaleDenominator
         
         if (geoTransform == null) {
-            geoTransform = CrsProjectionUtil.buildGeoTransform(xyAxesPair, new Pair<>(indexAxisX, indexAxisY));
+            geoTransform = CrsProjectionUtil.buildGeoTransform(axisExtentsXYPair, gridBoundsXPair, gridBoundsYPair);
             geoTransform = CrsProjectionUtil.getGeoTransformInTargetCRS(geoTransform, tileMatrixSetEPSGCode);
         }
         
@@ -369,7 +384,7 @@ public class WMTSRepositoryService {
         // topLeftCorner
         
         String topLeftCorner = "";
-        if (CrsUtil.isXYAxesOrder(tileMatrixSetEPSGCode)) {
+        if (isXYGeoAxisOrder) {
             // e.g. EPSG:3857
             topLeftCorner += geoLowerBoundX.toPlainString() + " " + geoUpperBoundY.toPlainString();
         } else {
@@ -408,6 +423,7 @@ public class WMTSRepositoryService {
                                 geoResolutionX, geoResolutionY,
                                 numberOfGridPixelsX, numberOfGridPixelsY
                                 );
+        
         return result;
     }
     

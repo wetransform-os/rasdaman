@@ -44,6 +44,24 @@ rm -rf "$etc_dir_tmp"
 cp -r "$etc_dir" "$etc_dir_tmp"
 
 temp_petascope_properties="$etc_dir_tmp/petascope.properties"
+secore_properties="$etc_dir/secore.properties"
+bak_secore_properties="$etc_dir/secore.properties.backup"
+
+cp "$secore_properties" "$bak_secore_properties"
+
+
+tmp_secore_dir="/tmp/secore"
+mkdir -p "$tmp_secore_dir"
+
+
+cleanup()
+{
+  mv "$bak_secore_properties" "$secore_properties"
+  rm -rf "$tmp_secore_dir"
+}
+trap cleanup SIGINT  # cleanup on control-c
+
+
 log_file="$OUTPUT_DIR/petascope.log"
 
 # replace port from default one to 9090
@@ -53,6 +71,8 @@ sed -i "s@server.port=.*@server.port=$port@g" "$temp_petascope_properties"
 sed -i "s@allow_write_requests_from=127.0.0.1@allow_write_requests_from=1.2.3.4@g" "$temp_petascope_properties"
 sed -i "s@log4j.appender.rollingFile.File=.*@log4j.appender.rollingFile.File=$log_file@g" "$temp_petascope_properties"
 sed -i "s@log4j.appender.rollingFile.rollingPolicy.ActiveFileName=.*@log4j.appender.rollingFile.rollingPolicy.ActiveFileName=$log_file@g" "$temp_petascope_properties"
+
+sed -i "s@secoredb.path=/opt/rasdaman/data/secore@secoredb.path=$tmp_secore_dir@g" "$secore_properties"
 
 logn "Starting embedded petascope..."
 
@@ -92,6 +112,8 @@ check_result 0 $? "test write request: DeleteCoverage is allowed for rasadmin us
 # Then kill embedded petascope
 kill -9 "$pid"
 #rm -rf "$etc_dir_tmp"
+
+cleanup
 
 # print summary from util/common.sh
 print_summary

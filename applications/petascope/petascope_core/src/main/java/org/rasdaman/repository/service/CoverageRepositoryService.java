@@ -653,6 +653,18 @@ public class CoverageRepositoryService {
     }
     
     /**
+     * Update geo bounds for AxisExtents from the input IndexAxes
+     */
+    public void updateGeoBoundsForAxisExtents(EnvelopeByAxis envelopeByAxis, List<GeoAxis> geoAxes) {
+        for (GeoAxis geoAxis : geoAxes) {
+            AxisExtent axisExtent = envelopeByAxis.getAxisExtentByLabel(geoAxis.getAxisLabel());
+            axisExtent.setLowerBound(geoAxis.getLowerBound());
+            axisExtent.setUpperBound(geoAxis.getUpperBound());
+            axisExtent.setResolution(geoAxis.getResolution());
+        }        
+    }    
+    
+    /**
      * Update grid bounds for AxisExtents from the input IndexAxes
      */
     public void updateGridBoundsForAxisExtents(EnvelopeByAxis envelopeByAxis, List<IndexAxis> indexAxes) {
@@ -686,7 +698,11 @@ public class CoverageRepositoryService {
         
         this.calculateCoverageSizeInBytesWithPyramid(coverage);
         
-        // Add grid bounds from IndexAxes to AxisExtents so it can be queried faster from basic coverage metadata objects
+        // Add geo bounds and grid bounds from IndexAxes to AxisExtents so it can be queried faster from basic coverage metadata objects
+        List<GeoAxis> geoAxes = ((GeneralGridDomainSet) coverage.getDomainSet()).getGeneralGrid().getGeoAxes();
+        this.updateGeoBoundsForAxisExtents(coverage.getEnvelope().getEnvelopeByAxis(), geoAxes);
+        
+        
         List<IndexAxis> indexAxes = ((GeneralGridDomainSet) coverage.getDomainSet()).getGeneralGrid().getGridLimits().getIndexAxes();
         this.updateGridBoundsForAxisExtents(coverage.getEnvelope().getEnvelopeByAxis(), indexAxes);
         

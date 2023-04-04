@@ -35,5 +35,17 @@ liquibase.change-log=classpath:/database_versions/db.changelog-master.xml
 spring.jpa.hibernate.naming.implicit-strategy=org.rasdaman.CustomImplicitNamingStrategyImpl
 spring.jpa.hibernate.naming.physical-strategy=org.rasdaman.CustomPhysicalNamingStrategyImpl
 
+# Required for Spring Boot 2.7.10
+spring.main.allow-circular-references=true
+spring.mvc.hiddenmethod.filter.enabled=true
+spring.datasource.type=org.apache.tomcat.jdbc.pool.DataSource
+spring.jpa.open-in-view=false
+logging.level.liquibase=WARN
+
+# Only for embedded petascope
+server.servlet.context-path=/rasdaman
+
 # default is /opt/rasdaman/etc
 secore.confDir=@CONF_DIR@
+
+

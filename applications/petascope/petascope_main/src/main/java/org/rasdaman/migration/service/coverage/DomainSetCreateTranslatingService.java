@@ -50,7 +50,6 @@ import org.rasdaman.migration.domain.legacy.LegacyAxisTypes;
 @Service
 public class DomainSetCreateTranslatingService {
 
-    @Autowired
     private LegacyDbMetadataSource meta;
 
     /**

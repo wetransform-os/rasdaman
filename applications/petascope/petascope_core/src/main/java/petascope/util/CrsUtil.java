@@ -770,7 +770,10 @@ public class CrsUtil {
      * @throws IOException
      * @throws ParsingException
      */
-    public static Element crsDefUrlToXml(final String url) throws Exception {
+    public static Element crsDefUrlToXml(String url) throws Exception {
+        
+        url = url.replace("http://www.opengis.net/def/uom", currentWorkingResolverURL + "/uom");
+        
         Element ret = crsDefUrlToDocument(url);
         if (ret == null) {
             String newUrl = CrsUri.replaceResolverInUrl(url, currentWorkingResolverURL);

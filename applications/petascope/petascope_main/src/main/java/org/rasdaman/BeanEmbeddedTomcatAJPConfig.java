@@ -25,8 +25,7 @@ package org.rasdaman;
 import org.apache.catalina.connector.Connector;
 import org.apache.catalina.valves.RemoteIpValve;
 import org.rasdaman.config.ConfigManager;
-import org.springframework.boot.context.embedded.EmbeddedServletContainerFactory;
-import org.springframework.boot.context.embedded.tomcat.TomcatEmbeddedServletContainerFactory;
+import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -41,8 +40,8 @@ public class BeanEmbeddedTomcatAJPConfig {
     
     @Bean
     @SuppressWarnings("static-method")
-    public EmbeddedServletContainerFactory servletContainer() {
-        TomcatEmbeddedServletContainerFactory tomcat = new TomcatEmbeddedServletContainerFactory();
+    public TomcatServletWebServerFactory servletContainer() {
+        TomcatServletWebServerFactory tomcat = new TomcatServletWebServerFactory();
         if (ConfigManager.EMBEDDED_AJP_PORT > 0) {
             tomcat.addAdditionalTomcatConnectors(createConnector());
             tomcat.addContextValves(createRemoteIpValves());

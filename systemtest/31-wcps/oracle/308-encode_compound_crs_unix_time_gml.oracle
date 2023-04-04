@@ -159,7 +159,6 @@
                 <bands>
                     <band_1>
                         <product_version>0.0.0</product_version>
-                        <test_empty_attribute/>
                     </band_1>
                     <band_2>
                         <valid_min>-32768</valid_min>
@@ -214,7 +213,6 @@
                 <title>Experimental Data files From the Australian Geoscience Data Cube - DO NOT USE</title>
                 <summary>These files are experimental, short lived, and the format will change.</summary>
                 <product_version>0.0.0</product_version>
-                <test_empty_attribute/>
                 <source>This data is a reprojection and retile of Landsat surface reflectance scene data.</source>
             </rasdaman:covMetadata>
         </gmlcov:Extension>

@@ -43,16 +43,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import static org.rasdaman.migration.domain.legacy.LegacyConfigManager.*;
 import static org.rasdaman.migration.domain.legacy.LegacyRasConstants.*;
+import org.springframework.stereotype.Service;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCSException;
 import petascope.util.CrsUtil;
-import static petascope.exceptions.ExceptionCode.WCSTDuplicatedCoverageId;
 
 /**
  * The DbMetadataSource is a IMetadataSource that uses a relational database. It
@@ -63,6 +61,7 @@ import static petascope.exceptions.ExceptionCode.WCSTDuplicatedCoverageId;
  * increase efficiency, wrap a CachedMetadataSource around this one.
  *
  */
+@Service
 public class LegacyDbMetadataSource implements LegacyIMetadataSource {
 
     //private static Logger log = LoggerFactory.getLogger(LegacyDbMetadataSource.class);
@@ -335,6 +334,10 @@ public class LegacyDbMetadataSource implements LegacyIMetadataSource {
     // this means that in order to support databases created pre 9.3.2, a small epsilon (10^-10)around the
     // computed coefficient must be considered
     BigDecimal EPSILON = new BigDecimal("0.0000000001");
+    
+    public LegacyDbMetadataSource() {
+        
+    }
 
     /*------------------------------------------------*/
     /**

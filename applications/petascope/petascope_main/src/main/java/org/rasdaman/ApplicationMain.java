@@ -41,7 +41,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.boot.web.support.SpringBootServletInitializer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -51,7 +50,6 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 import petascope.controller.AbstractController;
 import petascope.core.GeoTransform;
 import petascope.exceptions.ExceptionCode;
@@ -74,6 +72,8 @@ import java.util.HashSet;
 import java.util.Set;
 import static org.rasdaman.config.ConfigManager.KEY_PETASCOPE_CONF_DIR;
 import org.rasdaman.repository.service.OWSMetadataRepostioryService;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 
 /**
  * This class initializes the petascope properties and runs the application as jar file.
@@ -81,7 +81,7 @@ import org.rasdaman.repository.service.OWSMetadataRepostioryService;
  * @author <a href="mailto:b.phamhuu@jacobs-university.de">Bang Pham Huu</a>
  * @author Dimitar Misev
  */
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.rasdaman", "org.rasdaman", "petascope"})
 @EnableCaching
 
 // NOTE: When the repository/entity/compontent package 

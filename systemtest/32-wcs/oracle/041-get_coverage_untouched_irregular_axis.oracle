@@ -87,9 +87,7 @@
                         <units>10</units>
                     </band_1>
                 </bands>
-                <axes>
-                    <k/>
-                </axes>
+                <axes/>
                 <description>This is a test coverage</description>
             </rasdaman:covMetadata>
         </gmlcov:Extension>

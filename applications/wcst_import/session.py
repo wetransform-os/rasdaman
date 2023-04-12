@@ -45,7 +45,7 @@ glob = import_glob()
 INTERNAL_SECORE = "internal"
 DEFAULT_SECORE_URL = "http://localhost:8080/def"
 INTERNAL_SECORE_URL_CONTEXT_PATH = "/rasdaman/def"
-INTERNAL_SECORE_URL = "http://localhost:8080/" + INTERNAL_SECORE_URL_CONTEXT_PATH
+INTERNAL_SECORE_URL = "http://localhost:8080" + INTERNAL_SECORE_URL_CONTEXT_PATH
 
 
 class Session:
@@ -353,7 +353,8 @@ class Session:
                                                                                 "server.port")
 
         crs_resolver_urls = self.__get_setting_value_from_properties_file(petascope_properties_path, "secore_url").split(",")
-        crs_resolver = self.get_running_crs_resolver(crs_resolver_urls, embedded_petascope_port)
+        context_path = self.__get_setting_value_from_properties_file(petascope_properties_path, "server.contextPath").strip()
+        crs_resolver = self.get_running_crs_resolver(context_path, crs_resolver_urls, embedded_petascope_port)
 
         if crs_resolver is None:
             raise RuntimeException("Cannot find secore_urls configuration "
@@ -365,13 +366,19 @@ class Session:
 
         return (crs_resolver, embedded_petascope_port)
 
-    def get_running_crs_resolver(self, crs_resolvers, embedded_petascope_port):
+    def get_running_crs_resolver(self, context_path, crs_resolvers, embedded_petascope_port):
         """
         From a list of SECORE configured in petascope.properties, find the first running SECORE
         to be used for wcst_import
+        :param string context_path: petascope context path
         :param string[] crs_resolvers: list of SECORE URLs
         :return: string (the running SECORE)
         """
+        context_path = context_path.replace("/", "")
+
+        global INTERNAL_SECORE_URL, INTERNAL_SECORE_URL_CONTEXT_PATH
+        INTERNAL_SECORE_URL = INTERNAL_SECORE_URL.replace("rasdaman", context_path)
+        INTERNAL_SECORE_URL_CONTEXT_PATH = INTERNAL_SECORE_URL_CONTEXT_PATH.replace("rasdaman", context_path)
         i = 0
         crs_resolvers_tmp = []
         for url_prefix in crs_resolvers:
@@ -380,13 +387,13 @@ class Session:
             # NOTE: if secore_urls=internal in petascope.properties, it means
             # wcst_import will use the internal SECORE inside petascope with the sub endpoint at /rasdaman/def
             if url_prefix == INTERNAL_SECORE or url_prefix == DEFAULT_SECORE_URL:
-                url_prefix = INTERNAL_SECORE_URL
+                url_prefix = INTERNAL_SECORE_URL.replace("rasdaman", context_path)
 
                 crs_resolvers_tmp.append(url_prefix)
 
                 # Also, in case petascope runs at different port than 8080
                 if embedded_petascope_port != "8080":
-                    url_prefix = "http://localhost:" + embedded_petascope_port + INTERNAL_SECORE_URL_CONTEXT_PATH
+                    url_prefix = "http://localhost:" + embedded_petascope_port + INTERNAL_SECORE_URL_CONTEXT_PATH.replace("rasdaman", context_path)
                     crs_resolvers_tmp.append(url_prefix)
             else:
                 crs_resolvers_tmp.append(url_prefix)
@@ -409,7 +416,8 @@ class Session:
             i += 1
 
         # none of resolvers work, then assume there is SECORE embedded in petascope
-        internal_secore_url = self.wcs_service.replace("/rasdaman/ows", "/rasdaman/def").strip()
+        internal_secore_url = self.wcs_service.replace("/rasdaman/ows", "/rasdaman/def")\
+                                               .replace("/rasdaman", "/" + context_path).strip()
         try:
             test_url = internal_secore_url + "/crs/EPSG/0/4326"
             from util.crs_util import CRSUtil

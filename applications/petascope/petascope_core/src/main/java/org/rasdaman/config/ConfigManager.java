@@ -87,7 +87,7 @@ public class ConfigManager {
 
     /* **** Default endpoint for controllers to handle services **** */
     // e.g: localhost:8080/rasdaman/ows
-    public static final String CONTEXT_PATH = "rasdaman"; 
+    public static String CONTEXT_PATH = "rasdaman";
     public static final String MIGRATION = "migration";
     public static final String OWS = "ows";
     public static final String WCPS = "wcps";
@@ -181,6 +181,7 @@ public class ConfigManager {
     public static final String SECORE_INTERNAL = "internal";
     // this is used internally inside petascope as a valid URI, loaded from secore.properties, default it is "http://localhost:8080/rasdaman/def"
     public static final String DEFAULT_SECORE_INTERNAL_URL = "http://localhost:8080/rasdaman/def";
+    public static final String DEFAULT_SECORE_INTERNAL_URL_TEMPLATE = "http://localhost:8080/$CONTEXT_PATH/def";
     public static final String SECORE_INTERNAL_CONTEXT_PATH = "/rasdaman/def";
     
     /* ***** AJP connector configuration for embedded tomcat ***** */
@@ -566,8 +567,10 @@ public class ConfigManager {
      * Get the internal SECORE URLs (in case, embedded server.port is different than 8080,
      * then it is added as well to the result)
      */
-    public String getInternalSecoreURL() throws PetascopeException {
-        String tmp = DEFAULT_SECORE_INTERNAL_URL;
+    public static String getInternalSecoreURL() throws PetascopeException {
+        String tmp = DEFAULT_SECORE_INTERNAL_URL_TEMPLATE;
+        // e.g: http://localhost:8080/test/def and test from test.war
+        tmp = tmp.replace("$CONTEXT_PATH", ConfigManager.CONTEXT_PATH.replace("/", ""));
 
         if (!EMBEDDED_PETASCOPE_PORT.equals(DEFAULT_PETASCOPE_PORT)) {
             tmp = tmp.replace(DEFAULT_PETASCOPE_PORT, EMBEDDED_PETASCOPE_PORT);

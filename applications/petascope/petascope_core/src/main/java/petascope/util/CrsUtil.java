@@ -48,8 +48,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -198,31 +196,19 @@ public class CrsUtil {
     
     // SECORE URL -> timer
     private static Map<String, WaitingTimer> checkResolverURLsTasksMap = new ConcurrentSkipListMap<>();
-    private ScheduledExecutorService checkResolverURLsSchedulerExecutorService = Executors.newScheduledThreadPool(1);
+    private static ScheduledExecutorService checkResolverURLsSchedulerExecutorService = Executors.newScheduledThreadPool(1);
     // Set of down SECORE URLs
     public static Set<String> downResolverURLs = new ConcurrentSkipListSet<>();
 
     // after this time interval **in seconds** to check which SECORE URL is working
     private static final int TIME_TO_CHECK_WORKING_SECORE_URL = 60;
     private static String currentWorkingResolverURL = null;
-    
-    @PostConstruct
-    private void afterConstruct() throws PetascopeException {
-        // NOTE: when petascope starts, "internal" SECORE doesn't work until petascope fully started
-        currentWorkingResolverURL = ConfigManager.SECORE_URLS.get(0);
-        
-        for (String resolverURL : ConfigManager.SECORE_URLS) {
-            checkResolverURLsTasksMap.put(resolverURL, new WaitingTimer());
-        }
-        
-        this.runTaskByInterval();
-    }
-    
+    private static boolean initWhenPetascopeStarts = false;
+
     /**
      * Run every intervals to check which SECORE URL is running
      */
-    @PreDestroy
-    private void runTaskByInterval() throws PetascopeException {
+    public static void runTaskByInterval() throws PetascopeException {
         
          // Run internal check to determine which SECORE endpoint is up
         final Runnable checkResolverURLsTask = new Runnable() {
@@ -264,16 +250,29 @@ public class CrsUtil {
                 if (!working) {
                     // No SECORE is working
                     currentWorkingResolverURL = null;
+                    log.error("No working CRS resolver is available.");
                 } else {
-                    log.debug("Current working resolver is: " + currentWorkingResolverURL);
+                    log.debug("Current working CRS resolver is: " + currentWorkingResolverURL);
                 }
             }
         };
          
         // Run interval by 60 seconds
-        this.checkResolverURLsSchedulerExecutorService.scheduleAtFixedRate(checkResolverURLsTask, 
+        checkResolverURLsSchedulerExecutorService.scheduleAtFixedRate(checkResolverURLsTask,
                                                                             TIME_TO_CHECK_WORKING_SECORE_URL, 
                                                                             TIME_TO_CHECK_WORKING_SECORE_URL, SECONDS);
+
+        if (initWhenPetascopeStarts == false) {
+            // NOTE: when petascope starts, "internal" SECORE doesn't work until petascope fully started
+            currentWorkingResolverURL = ConfigManager.SECORE_URLS.get(0);
+
+            for (String resolverURL : ConfigManager.SECORE_URLS) {
+                checkResolverURLsTasksMap.put(resolverURL, new WaitingTimer());
+            }
+
+            checkResolverURLsTask.run();
+            initWhenPetascopeStarts = true;
+        }
     }    
     
     
@@ -326,7 +325,7 @@ public class CrsUtil {
                 // if current version of Secoredb is empty then add SecoreVersion element to BaseX database and run all the db_updates files.
                 DbSecoreVersion dbSecoreVersion = new DbSecoreVersion(dbManager.getDb());
                 dbSecoreVersion.handle();
-                log.debug("Initialzed BaseX dbs successfully.");
+                log.debug("Initialized BaseX dbs successfully.");
                 
                 isSECOREloaded = true;
             } catch (Exception ex) {
@@ -430,7 +429,7 @@ public class CrsUtil {
     /**
      * Check if the crs should go to the internal SECORE or not
      */
-    public static boolean isInternalSecoreURL(String url) {
+    public static boolean isInternalSecoreURL(String url) throws PetascopeException {
         
         if (!isResovlerInternalEnabled()) {
             // In case internal SECORE is not enabled 
@@ -447,7 +446,7 @@ public class CrsUtil {
             }
             
             // e.g. http://localhost:8082/rasdaman/def
-            String tmpCRS = ConfigManager.DEFAULT_SECORE_INTERNAL_URL.replace(ConfigManager.DEFAULT_PETASCOPE_PORT, ConfigManager.EMBEDDED_PETASCOPE_PORT);
+            String tmpCRS = ConfigManager.getInternalSecoreURL();
             if (currentWorkingResolverURL.trim().equals(ConfigManager.DEFAULT_SECORE_INTERNAL_URL)
                 || currentWorkingResolverURL.trim().equals(tmpCRS)) {
                 return true;
@@ -1479,7 +1478,7 @@ public class CrsUtil {
      * to migrate to secore_urls=internal
      * 
      */
-    public static void checkSECOREURLsForInternalMigration() throws PetascopeException {
+    public static void setInternalResolverCRSToQualifiedCRS() throws PetascopeException {
         
         // e.g. http://localhost:8080/rasdaman/def
         final String internalSECOREURL = ConfigManager.getInstance(ConfigManager.CONF_DIR).getInternalSecoreURL();

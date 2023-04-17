@@ -649,6 +649,8 @@ public class CrsUtil {
                             } else {
                                 // Need to parse a new XML definition
                                 try {
+                                    String[] parts = uomCrsUrlTmp.split("/uom");
+                                    uomCrsUrlTmp = currentWorkingResolverURL + "/uom" + parts[1];
                                     Element uomRoot = crsDefUrlToXml(uomCrsUrlTmp);
                                     if (uomRoot != null) {
 
@@ -985,8 +987,9 @@ public class CrsUtil {
         CrsDefinition crsDef = CrsUtil.getCrsDefinition(singleCrsURI);
         
         Map<String, String> map = new HashMap<>();
-        for (CrsDefinition.Axis crsAxis : crsDef.getAxes()) { 
-            map.put(crsAxis.getAbbreviation(), crsAxis.getType());
+        for (CrsDefinition.Axis crsAxis : crsDef.getAxes()) {
+            // e.g. Lat -> lat
+            map.put(crsAxis.getAbbreviation().toLowerCase(), crsAxis.getType());
         }
         
         return map;
@@ -1338,11 +1341,11 @@ public class CrsUtil {
      * return the axis type of an aixs label (e.g: "Long")
      */
     public static String getAxisTypeFromMap(Map<String, String> axisLabelsTypesMap, String axisLabel) throws PetascopeException {
-        String axisType = axisLabelsTypesMap.get(axisLabel);
+        String axisType = axisLabelsTypesMap.get(axisLabel.toLowerCase());
         
         if (axisType == null) {
-            if (axisLabel.equals(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85)) {
-                axisType = axisLabelsTypesMap.get(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0);
+            if (axisLabel.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85)) {
+                axisType = axisLabelsTypesMap.get(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0.toLowerCase());
             }
             
             if (axisType == null) {

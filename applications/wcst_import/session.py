@@ -144,6 +144,12 @@ class Session:
 
         if hooks is not None:
             for hook in hooks:
+                if "execute_if" in hook and hook["execute_if"] == "import_failed" and self.skip is False:
+                    raise RecipeValidationException(
+                            "\"execute_if\":\"import_failed\" setting can be used"
+                            " only when \"skip\" is set to true under \"config\" section. \n"
+                            "Hint: set \"skip\": true, or remove the \"execute_if\" filter.")
+
                 if hook["when"] == "before_import" or hook["when"] == "before_ingestion":
                     if "execute_if" in hook:
                         raise RecipeValidationException(

@@ -2657,6 +2657,8 @@ config section
 * ``url_root`` - In case the files are exposed via a web-server and not locally,
   you can specify the root file url here; the default value is ``"file://"``.
 
+.. _data-import-skip:
+
 * ``skip`` - Set to ``true`` to ignore files that failed to import; by default it
   is ``false``, i.e. the import process is terminated when a file fails to import.
 
@@ -2972,8 +2974,8 @@ JSON array, with parameters as follows:
 * ``execute_if`` - Optional parameter applied only for ``after_import`` hooks. 
   If omitted the default value is ``import_succeeded`` which indicates that the
   hook should be executed only for successfully imported files.
-  If it is set to ``import_failed`` then the hook will be executed only when a
-  file fails to import for some reason.
+  If it is set to ``import_failed`` (note: only works when ``skip:true`` is set, see :ref:`doc <data-import-skip>`)
+  then the hook will be executed only when a file fails to import for some reason. 
 * With one of the following options either Bash or Python code must be specified,
   which will be run for each input file.
 

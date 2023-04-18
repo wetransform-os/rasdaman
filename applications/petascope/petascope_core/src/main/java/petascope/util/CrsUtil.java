@@ -202,7 +202,7 @@ public class CrsUtil {
 
     // after this time interval **in seconds** to check which SECORE URL is working
     private static final int TIME_TO_CHECK_WORKING_SECORE_URL = 60;
-    private static String currentWorkingResolverURL = null;
+    public static String currentWorkingResolverURL = null;
     private static boolean initWhenPetascopeStarts = false;
 
     /**
@@ -650,7 +650,7 @@ public class CrsUtil {
                                 // Need to parse a new XML definition
                                 try {
                                     String[] parts = uomCrsUrlTmp.split("/uom");
-                                    uomCrsUrlTmp = currentWorkingResolverURL + "/uom" + parts[1];
+                                    uomCrsUrlTmp = getDefaultResolverUri() + "/uom" + parts[1];
                                     Element uomRoot = crsDefUrlToXml(uomCrsUrlTmp);
                                     if (uomRoot != null) {
 
@@ -837,7 +837,7 @@ public class CrsUtil {
             InputStream inStream = getInputStreamByInternalOrExternalSECORE(url);               
             Document doc = XMLUtil.buildDocument(null, inStream);
             ret = doc.getRootElement();
-        } catch (IOException | ParsingException | PetascopeException ex) {
+        } catch (Exception ex) {
             log.warn("Error while building the document from URL '" + url + "'", ex);
             ret = null;
         }

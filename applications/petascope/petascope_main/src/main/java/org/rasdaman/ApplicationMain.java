@@ -338,15 +338,16 @@ public class ApplicationMain extends SpringBootServletInitializer {
             AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError, errorMessage);
             return;
         }
-        
+
+        CrsUtil.setInternalResolverCRSToQualifiedCRS();
+        CrsUtil.currentWorkingResolverURL = ConfigManager.SECORE_URLS.get(0);
+
     }
 
     @EventListener(ApplicationReadyEvent.class)
     private void initAfterWebApplicationStarted(ApplicationReadyEvent event) throws Exception {
         // In case someone changed rasdaman.war to name.war and deployed it to external tomcat
         ConfigManager.CONTEXT_PATH = this.servletContext.getContextPath();
-
-        CrsUtil.setInternalResolverCRSToQualifiedCRS();
 
         final ApplicationMain currentClass = this;
         final Runnable runnable = new Runnable() {
@@ -387,8 +388,8 @@ public class ApplicationMain extends SpringBootServletInitializer {
 
         // NOTE: This schedule runs only one time and it checks when petascope actually started (especially when it is deployed in external tomcat)
         schedulerExecutorService.scheduleAtFixedRate(runnable,
-                                                3,
-                                                3, SECONDS);
+                                                1,
+                                                1, SECONDS);
 
 
     }

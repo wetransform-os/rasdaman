@@ -32,46 +32,51 @@ rasdaman GmbH.
 #include "raslib/minterval.hh"
 #include <ostream>
 
-const int r_FixedPointNumber::FIXPREC = 30;
-const r_Range r_FixedPointNumber::carryPos = 1 << FIXPREC;
+const int r_FixedPointNumber::FIXPREC = 60;
+const r_Range r_FixedPointNumber::carryPos = 1l << FIXPREC;
 const r_Range r_FixedPointNumber::fracMask = carryPos - 1;
 const double r_FixedPointNumber::fixOne = pow(2, static_cast<double>(FIXPREC));
 
 r_MiterFloat::r_MiterFloat(r_Bytes srcCellSize, const char *srcTile,
                            const r_Minterval &tileDomain,
-                           const r_Minterval &srcDomain, const r_Minterval &destDomain)
+                           const r_Minterval &srcDomain,
+                           const r_Minterval &destDomain)
+    : firstCell{srcTile}, iterDesc{new iter_desc[srcDomain.dimension()]},
+      dim{srcDomain.dimension()}
 {
-    dim = srcDomain.dimension();
-    iterDesc = new iter_desc[dim];
-    firstCell = srcTile;
+    auto step = r_Range(srcCellSize);
+    iterDescEnd = iterDesc + dim - 1;
+    auto *id = iterDescEnd;
 
-    auto step = static_cast<r_Range>(srcCellSize);
-    auto *id = iterDesc + dim - 1;
-
-    for (int j = static_cast<int>(dim) - 1; j >= 0; j--, id--)
+    for (int j = int(dim) - 1; j >= 0; j--, id--)
     {
-        const auto i = static_cast<r_Dimension>(j);
-        const auto srcLow = static_cast<double>(srcDomain[i].low());
-        const auto destExtent = destDomain[i].high() - destDomain[i].low() + 1;
+        const auto i = r_Dimension(j);
+        const auto srcLow = double(srcDomain[i].low());
+        const auto destExtent = r_Range(destDomain[i].get_extent());
+
         id->min = srcLow;
-        id->step = (srcDomain[i].high() - srcLow + 1) / destExtent;
+        id->step = double(srcDomain[i].get_extent()) / destExtent;
         id->maxSteps = destExtent;
         id->dimStep = step;
         id->scaleStep = step * id->step.getIntPart();
+        
         firstCell += step * (srcDomain[i].low() - tileDomain[i].low());
-        step *= tileDomain[i].high() - tileDomain[i].low() + 1;
+        
+        step *= r_Range(tileDomain[i].get_extent());
     }
+    
     reset();
 }
 
 r_MiterFloat::~r_MiterFloat()
 {
     delete[] iterDesc;
-    iterDesc = NULL;
+    iterDesc = nullptr;
 }
 
 void r_MiterFloat::reset()
 {
+    currentCell = nullptr;
     for (r_Dimension i = 0; i < dim; i++)
     {
         iterDesc[i].pos = iterDesc[i].min;
@@ -80,6 +85,8 @@ void r_MiterFloat::reset()
     }
     done = false;
 }
+
+// -------------------------------------------------------------------------- //
 
 r_FixedPointNumber::r_FixedPointNumber(const double &d)
 {
@@ -92,12 +99,17 @@ r_FixedPointNumber &r_FixedPointNumber::operator=(const double &d)
 }
 void r_FixedPointNumber::init(const double &d)
 {
-    intPart = static_cast<r_Range>(d);
-    fracPart = static_cast<r_Range>(fmod(fixOne * d, fixOne));
+    intPart = r_Range(d);
+    fracPart = r_Range(fmod(fixOne * d, fixOne));
 }
 
 std::ostream &operator<<(std::ostream &os, r_FixedPointNumber &f)
 {
     os << '(' << f.intPart << ':' << f.fracPart << ')';
     return os;
+}
+
+std::string r_FixedPointNumber::toString() const
+{
+    return std::to_string(intPart) + "." + std::to_string(fracPart);
 }

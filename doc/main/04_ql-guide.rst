@@ -2869,6 +2869,9 @@ In the final example, mr images are scaled to obtain 100x100 thumbnails
 
 .. note::
     Currently only nearest neighbour interpolation is supported for scaling.
+    It uses floor for rounding to integer coordinates when finding the nearest
+    neighbour. So it has same behavior as OpenCV, for example, as explained in
+    this `blog post <https://kwojcicki.github.io/blog/NEAREST-NEIGHBOUR>`__.
 
 
 Concatenation

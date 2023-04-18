@@ -61,7 +61,6 @@ set(SRC_HEADERS
         stringdata.hh
         type.hh
         miterd.icc
-        miterf.icc
         miter.icc
         )
     

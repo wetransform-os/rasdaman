@@ -44,6 +44,8 @@ public class WMSLayer {
    private BoundingBox requestBBox;
    // extended min and max XY geo bounds from the requesting BBOX from client
    private BoundingBox extendedRequestBBox;
+   // it comes from extendedRequestBBox but this bbox is aligned to the top left corner like with gdal_translate -projwin when doing subsets
+   private BoundingBox extendedAlignedRequestBBox;
    private final Integer width;
    private final Integer height;
 
@@ -103,7 +105,7 @@ public class WMSLayer {
         this.extendedRequestBBox = extendedRequestBBox;
     }
 
-    public BoundingBox getOriginalBoundsBBox() {
+    public BoundingBox getOriginalXYBoundsBBox() {
         return originalXYBoundsBBox;
     }
 
@@ -122,6 +124,14 @@ public class WMSLayer {
 
     public void setWcpsCoverageMetadata(WcpsCoverageMetadata wcpsCoverageMetadata) {
         this.wcpsCoverageMetadata = wcpsCoverageMetadata;
+    }
+
+    public BoundingBox getExtendedAlignedRequestBBox() {
+        return extendedAlignedRequestBBox;
+    }
+
+    public void setExtendedAlignedRequestBBox(BoundingBox extendedAlignedRequestBBox) {
+        this.extendedAlignedRequestBBox = extendedAlignedRequestBBox;
     }
 
     @Override

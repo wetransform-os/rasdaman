@@ -42,6 +42,9 @@ spring.datasource.type=org.apache.tomcat.jdbc.pool.DataSource
 spring.jpa.open-in-view=false
 logging.level.liquibase=WARN
 
+# This is used to allow multiple slashes before context path, e.g. http://localhost:8080//////rasdaman/ows is valid
+spring.mvc.pathmatch.matching-strategy=ant-path-matcher
+
 # Only for embedded petascope
 server.servlet.context-path=/rasdaman
 

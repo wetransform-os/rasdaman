@@ -353,6 +353,25 @@ public class BigDecimalUtil {
     }
     
     /**
+     * Given a big decimal -> shift it to the rounded integer number
+     * It works like in R trunc(float number)
+     */
+    public static long shiftToInteger(BigDecimal input) {
+        BigDecimal roundedNumber = input.setScale(0, RoundingMode.CEILING);
+        if (input.compareTo(BigDecimal.ZERO) < 0) {
+            roundedNumber = input.setScale(0, RoundingMode.FLOOR);
+        }
+        
+        BigDecimal tmp = input.abs().add(new BigDecimal("0.000000000000000222"));
+        
+        if (tmp.compareTo(roundedNumber.abs()) >= 0) {
+            return roundedNumber.longValue();
+        }
+        
+        return input.longValue();
+    }
+    
+    /**
      * The input bound must be in the inveral [lowerBound:upperBound]
      */
     public static BigDecimal getValidValue(BigDecimal minLowerBound, BigDecimal maxLowerBound, BigDecimal bound) {

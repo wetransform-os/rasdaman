@@ -209,13 +209,16 @@ public class WMSGetMapStyleService {
         Axis axisY = xyAxes.get(1);
 
         // Then, it needs to update the request geo XY BBOX in native CRS with the translated results by WCPS 
-        this.updateFittedBBoxByXYAxes(extendedFittedRequestGeoBBox, axisX, axisY);
+        this.updateFittedBBoxByXYAxes(wmsLayer, axisX, axisY);
         
         List<String> coverageAliasList = new ArrayList<>();
         
         Set<String> layerNameIteratorsFromStyle = this.parseLayerNameIteratorsFromStyleExpression(styleQuery);
         int numberOfCollectionVariables = this.collectionAliasRegistry.getAliasMap().size();
         int i = numberOfCollectionVariables - 1;
+        if (i < 0) {
+            i = 0;
+        }
         for (String layerNameIteratorFromStyle : layerNameIteratorsFromStyle) {
             
             String coverageId = StringUtil.stripDollarSign(layerNameIteratorFromStyle);
@@ -297,7 +300,7 @@ public class WMSGetMapStyleService {
         Axis axisX = xyAxes.get(0);
         Axis axisY = xyAxes.get(1);
         
-        this.updateFittedBBoxByXYAxes(extendedFittedRequestGeoBBox, axisX, axisY);
+        this.updateFittedBBoxByXYAxes(wmsLayer, axisX, axisY);
         
         String collectionExpression = wcpsResult.getRasql();
 
@@ -353,9 +356,9 @@ public class WMSGetMapStyleService {
      *  From the Set of coverage (layer) names, return 
      * e.g: Sentinel2_B4 AS c0, Sentienl2_B8 as c1
      */
-    public String builRasqlFromExpression(int width, int height) 
+    public String builRasqlFromExpression(String selectRasqlQuery)
                  throws PetascopeException {
-        String result = this.collectionAliasRegistry.getFromClause();
+        String result = this.collectionAliasRegistry.getFromClauseIfAliasExistsInSelectQuery(selectRasqlQuery);
         return result;
     }
     
@@ -493,11 +496,11 @@ public class WMSGetMapStyleService {
     /**
      * Update fitted bbox by input X and Y axes
      */
-    private void updateFittedBBoxByXYAxes(BoundingBox fittedBBox, Axis axisX, Axis axisY) {
-        fittedBBox.setXMin(axisX.getGeoBounds().getLowerLimit());
-        fittedBBox.setYMin(axisY.getGeoBounds().getLowerLimit());
-        fittedBBox.setXMax(axisX.getGeoBounds().getUpperLimit());
-        fittedBBox.setYMax(axisY.getGeoBounds().getUpperLimit());
+    private void updateFittedBBoxByXYAxes(WMSLayer wmsLayer, Axis axisX, Axis axisY) {
+        BoundingBox extendedAlignedRequestBBox = new BoundingBox(axisX.getGeoBounds().getLowerLimit(), axisY.getGeoBounds().getLowerLimit(),
+                                                                 axisX.getGeoBounds().getUpperLimit(), axisY.getGeoBounds().getUpperLimit());
+        wmsLayer.setExtendedAlignedRequestBBox(extendedAlignedRequestBBox);
+
     }
     
 }

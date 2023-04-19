@@ -148,7 +148,7 @@ public class BoundingBox {
      *       xmin,ymin,xmax,ymax          xmin,ymin,xmax,ymax
      * e.g: [-20, 20,  40,  50] intersects [-10, 30,  30,  40]
      */
-    public boolean intersectsXorYAxis(BoundingBox inputBBox) {
+    public boolean intersectXorYAxis(BoundingBox inputBBox) {
         BigDecimal inputXMin = inputBBox.getXMin();
         BigDecimal inputXMax = inputBBox.getXMax();
         BigDecimal inputYMin = inputBBox.getYMin();
@@ -163,20 +163,59 @@ public class BoundingBox {
         return matchX || matchY;
         
     }
+
+    /**
+     * Layer's XY bounds should contain X or Y geo extents of the request BBOX
+     */
+    public boolean containsXorYAxis(BoundingBox inputBBox) {
+        BigDecimal inputXMin = inputBBox.getXMin();
+        BigDecimal inputXMax = inputBBox.getXMax();
+        BigDecimal inputYMin = inputBBox.getYMin();
+        BigDecimal inputYMax = inputBBox.getYMax();
+
+        boolean matchX = this.xmin.compareTo(inputXMin) <= 0 && this.xmax.compareTo(inputXMax) >= 0;
+        boolean matchY = this.ymin.compareTo(inputYMin) <= 0 && this.ymax.compareTo(inputYMax) >= 0;
+
+        return matchX || matchY;
+
+    }
     
     /**
-     * Check if this bbox contains an input bbox
+     * Check if this bbox contains an input bbox or vice versa
      */
     public boolean contains(BoundingBox inputBBox) {
         BigDecimal inputXMin = inputBBox.getXMin();
         BigDecimal inputXMax = inputBBox.getXMax();
         BigDecimal inputYMin = inputBBox.getYMin();
         BigDecimal inputYMax = inputBBox.getYMax();
-        
-        return (this.xmin.compareTo(inputXMin) <= 0 && this.xmax.compareTo(inputXMax) >= 0)
+
+        boolean a = (this.xmin.compareTo(inputXMin) <= 0 && this.xmax.compareTo(inputXMax) >= 0)
                 && (this.ymin.compareTo(inputYMin) <= 0 && this.ymax.compareTo(inputYMax) >= 0);
+        boolean b = (inputXMin.compareTo(this.xmin) <= 0 && inputXMax.compareTo(this.xmax) >= 0)
+                && (inputYMin.compareTo(this.ymin) <= 0 && inputYMax.compareTo(this.ymax) >= 0);
+        
+        return a || b;
     }
-    
+
+    public boolean containsOrIntersects(BoundingBox inputBBox) {
+        if (this.contains(inputBBox)) {
+            return true;
+        } else {
+            // Check if current bbox intersects with inputBBox in both X and Y axes
+            BigDecimal inputXMin = inputBBox.getXMin();
+            BigDecimal inputXMax = inputBBox.getXMax();
+            BigDecimal inputYMin = inputBBox.getYMin();
+            BigDecimal inputYMax = inputBBox.getYMax();
+
+            boolean checkX = (this.xmin.compareTo(inputXMin) <= 0 && this.xmax.compareTo(inputXMin) >= 0)
+                       || (inputXMin.compareTo(this.xmin) <= 0 && inputXMax.compareTo(this.xmin) >= 0);
+            boolean checkY = (this.ymin.compareTo(inputYMin) <= 0 && this.ymax.compareTo(inputYMin) >= 0)
+                    || (inputYMin.compareTo(this.ymin) <= 0 && inputYMax.compareTo(this.ymin) >= 0);
+
+            return checkX && checkY;
+        }
+    }
+
     private BigDecimal xmin;
     private BigDecimal ymin;
     private BigDecimal xmax;

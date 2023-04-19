@@ -406,7 +406,7 @@ public class WMSGetMapService {
             }
 
             String formatType = MIMEUtil.getFormatType(this.format);
-            String collections = this.wmsGetMapStyleService.builRasqlFromExpression(this.width, this.height);
+            String collections = this.wmsGetMapStyleService.builRasqlFromExpression(finalCollectionExpressionLayers);
             
             WcpsCoverageMetadata wcpsCoverageMetadata = wcpsCoverageMetadatas.get(0);
             
@@ -431,7 +431,7 @@ public class WMSGetMapService {
             bytes = RasUtil.getRasqlResultAsBytes(finalRasqlQuery, userPair.fst, userPair.snd);
         } catch (PetascopeException ex) {
             if (ex instanceof RasdamanException) {
-                throw new PetascopeException(ex.getExceptionCode(), "Failed to run query: " + finalRasqlQuery + ". Reason: " + ex.getMessage(), ex);
+                throw new PetascopeException(ex.getExceptionCode(), "Failed to run query: " + finalRasqlQuery + ". Reason: " + ex.getExceptionText(), ex);
             } else {
                 throw new WMSInternalException(ex.getMessage(), ex);
             }
@@ -518,9 +518,10 @@ public class WMSGetMapService {
         
         // If request BBox contains the layer (layer is inside the request BBox)
         // then no point to create extended request geo BBox as there are no more pixels to fill gaps
-        
-        boolean result = (isProjection
-                        && wmsLayer.getOriginalBoundsBBox().intersectsXorYAxis(bbox));
+        BoundingBox originalXYAxesBBox = wmsLayer.getOriginalXYBoundsBBox();
+        BoundingBox requestBBOX = wmsLayer.getRequestBBox();
+
+        boolean result = (isProjection || originalXYAxesBBox.containsXorYAxis(requestBBOX));
         
         return result;
     }
@@ -557,8 +558,7 @@ public class WMSGetMapService {
             throw new WMSStyleNotFoundException(styleName, layerName);
         } 
 
-        if (this.needExtendedGeoXYBBox(wmsLayer) 
-            ) {
+        if (this.needExtendedGeoXYBBox(wmsLayer)) {
             BoundingBox bbox = this.wmsGetMapBBoxService.createExtendedGeoBBox(wmsLayer);
             this.extendedFittedRequestGeoBBoxesMap.put(layerName, bbox);
             wmsLayer.setExtendedRequestBBox(bbox);
@@ -642,10 +642,10 @@ public class WMSGetMapService {
      * Check if request BBox in native CRS intersects with first layer's BBox.
      */
     private boolean intersectLayerXYBBox() throws PetascopeException {
-        // Check if the request BBox (e.g: in EPSG:4326) intersects with layer's BBox (e.g: in UTM 32)
+        // Check if the request BBox (e.g: in EPSG:4326) intersects with layer's BBox (e.g: in UTM 32 but projected to EPSG:4326)
         for (String layerName : this.layerNames) {
             BoundingBox bbox = this.layerRequestCRSBBoxesMap.get(layerName);
-            if (bbox.intersectsXorYAxis(this.originalRequestBBox)) {
+            if (bbox.containsOrIntersects(this.originalRequestBBox)) {
                 return true;
             }
         }

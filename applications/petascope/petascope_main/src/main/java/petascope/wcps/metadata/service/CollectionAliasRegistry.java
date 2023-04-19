@@ -105,4 +105,22 @@ public class CollectionAliasRegistry {
         String result = ListUtil.join(results, ", ");
         return result;
     }
+
+    /**
+     * This is used to filter some collection as c0 from FROM clause but they don't exist in the SELECT query
+     */
+    public String getFromClauseIfAliasExistsInSelectQuery(String rasqlQuery) {
+        List<String> results = new ArrayList<>();
+        for (Map.Entry<String, Pair<String, String>> entry : this.getAliasMap().entrySet()) {
+            // e.g. c0
+            String alias = entry.getKey();
+            if (rasqlQuery.contains(alias + "[")) {
+                String collectionName = entry.getValue().fst;
+                results.add(collectionName + " AS " + alias);
+            }
+        }
+
+        String result = ListUtil.join(results, ", ");
+        return result;
+    }
 }

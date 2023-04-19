@@ -9,5 +9,5 @@ return
       value list < 1; 2; 3;
                     4; 5; 6;
                     7; 8; 9 > )
-         [Lon(111.975:112.975), Lat(-30:-30)]
+         [Lon(111.975:112.975), Lat(-29.97:-29.97)] -- NOTE: the geo extents of targetCoverage are aligned accordingly to test_mean_summer_airtemp coverage, hence, minLat is not -30 but -29.974999999999987
       , "gml")

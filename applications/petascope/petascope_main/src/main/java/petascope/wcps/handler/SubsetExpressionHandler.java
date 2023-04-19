@@ -155,14 +155,11 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
             metadata = selectDownscaledCollectionForWMS(metadata, subsetDimensions, wmsExpectedXYGridDomains);
             
             String afterCoverageId = metadata.getCoverageName();
-            
-            // e.g before it is covearge id: downscaled level 1, after it is coverage id: downscaled level 8 due to scale() is used
-            rasql = rasql.replace(beforeCoverageId, afterCoverageId); 
-            
+                       
             String aliasTmp = this.coverageAliasRegistry.getAliasByCoverageName(beforeCoverageId);
-	    if (aliasTmp != null) {
-	        aliasTmp = StringUtil.stripDollarSign(aliasTmp);
-   	    }
+	        if (aliasTmp != null) {
+	            aliasTmp = StringUtil.stripDollarSign(aliasTmp);
+       	    }
 
             // e.g. c0 Important (!)
             rasql = aliasTmp;
@@ -177,19 +174,9 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
                     
                     BigDecimal adjustedLowerBound = null, adjustedUpperBound = null;
   
-                    if (expectedOutputBBox != null) {
-                        if (axis.isXAxis()) {
-                            adjustedLowerBound = expectedOutputBBox.getXMin();
-                            adjustedUpperBound = expectedOutputBBox.getXMax();
-                        } else {
-                            adjustedLowerBound = expectedOutputBBox.getYMin();
-                            adjustedUpperBound = expectedOutputBBox.getYMax();
-                        }
-                    } else {
-                        adjustedLowerBound = new BigDecimal(trimDimension.getLowerBound());
-                        adjustedUpperBound = new BigDecimal(trimDimension.getUpperBound());
-                    }
-                    
+                    adjustedLowerBound = new BigDecimal(trimDimension.getLowerBound());
+                    adjustedUpperBound = new BigDecimal(trimDimension.getUpperBound());
+
                     if (new BigDecimal(trimDimension.getLowerBound()).compareTo(axis.getGeoBounds().getLowerLimit()) < 0) {
                         adjustedLowerBound = axis.getGeoBounds().getLowerLimit();
                     }
@@ -235,7 +222,7 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
                                                                              expressionSubsetDimensions);
         String temp = TEMPLATE.replace("$covExp", rasql);
         rasqlResult = temp.replace("$dimensionIntervalList", dimensionIntervals);
-        
+
         // NOTE: DimensionIntervalList with Trim expression can contain slicing as well (e.g: c[t(0), Lat(0:20), Long(30)])
         // then the slicing axis also need to be removed from coverage metadata.
         wcpsCoverageMetadataService.stripSlicingAxes(metadata, subsetDimensions);

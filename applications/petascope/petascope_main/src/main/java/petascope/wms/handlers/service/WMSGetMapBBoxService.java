@@ -33,6 +33,7 @@ import petascope.core.CrsDefinition;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCSException;
+import petascope.util.BigDecimalUtil;
 import petascope.util.CrsProjectionUtil;
 import petascope.util.CrsUtil;
 import petascope.wcps.metadata.model.Axis;
@@ -256,26 +257,39 @@ public class WMSGetMapBBoxService {
     public BoundingBox createExtendedGeoBBox(Axis axisX, Axis axisY, BoundingBox requestBBox) {
         BigDecimal offsetGeoX = requestBBox.getXMax().subtract(requestBBox.getXMin());
         BigDecimal offsetGeoY = requestBBox.getYMax().subtract(requestBBox.getYMin());
-        
-        // This is used only when zooming to maximum level to not show gaps 
+
+        // This is used only when zooming to maximum level to not show gaps
         // or at the corners of layer
         BigDecimal minOffsetGeoX = axisX.getResolution().multiply(new BigDecimal(2)).abs();
         BigDecimal minOffsetGeoY = axisY.getResolution().multiply(new BigDecimal(2)).abs();
-        
+
         if (offsetGeoX.compareTo(minOffsetGeoX) < 0) {
             offsetGeoX = minOffsetGeoX;
         }
-        
         if (offsetGeoY.compareTo(minOffsetGeoY) < 0) {
             offsetGeoY = minOffsetGeoY;
         }
 
         BigDecimal newGeoLowerBoundX = requestBBox.getXMin().subtract(offsetGeoX);
         BigDecimal newGeoUpperBoundX = requestBBox.getXMax().add(offsetGeoX);
-        
+
         BigDecimal newGeoLowerBoundY = requestBBox.getYMin().subtract(offsetGeoY);
         BigDecimal newGeoUpperBoundY = requestBBox.getYMax().add(offsetGeoY);
-        
+
+        if ( newGeoLowerBoundX.compareTo(axisX.getOriginalGeoBounds().getLowerLimit()) < 0 ) {
+            newGeoLowerBoundX = axisX.getOriginalGeoBounds().getLowerLimit();
+        }
+        if ( newGeoLowerBoundY.compareTo(axisY.getOriginalGeoBounds().getLowerLimit()) < 0 ) {
+            newGeoLowerBoundY = axisY.getOriginalGeoBounds().getLowerLimit();
+        }
+
+        if ( newGeoUpperBoundX.compareTo(axisX.getOriginalGeoBounds().getUpperLimit()) > 0 ) {
+            newGeoUpperBoundX = axisX.getOriginalGeoBounds().getUpperLimit();
+        }
+        if ( newGeoUpperBoundY.compareTo(axisY.getOriginalGeoBounds().getUpperLimit()) > 0 ) {
+            newGeoUpperBoundY = axisY.getOriginalGeoBounds().getUpperLimit();
+        }
+
         BoundingBox extendedFittedGeoBBbox = new BoundingBox(newGeoLowerBoundX, newGeoLowerBoundY, newGeoUpperBoundX, newGeoUpperBoundY);
         return extendedFittedGeoBBbox;
     }

@@ -89,6 +89,24 @@ public abstract class Axis<T> {
         this.origin = BigDecimalUtil.stripDecimalZeros(origin);
         this.resolution = resolution;
     }
+    
+    public Axis(Axis inputAxis, NumericSubset geoBounds, NumericSubset originalGridBounds, NumericSubset gridBounds) {
+        this(inputAxis.getLabel(), geoBounds, originalGridBounds, gridBounds, 
+            inputAxis.getNativeCrsUri(), inputAxis.getCrsDefinition(), 
+            inputAxis.getAxisType(), inputAxis.getAxisUoM(), 
+            inputAxis.getRasdamanOrder(), geoBounds.getLowerLimit(), null);
+
+        if (inputAxis.isYAxis()) {
+            // negative resolution
+            this.resolution = BigDecimalUtil.divide(geoBounds.getUpperLimit().subtract(geoBounds.getLowerLimit()),
+                    new BigDecimal(gridBounds.getUpperLimit().subtract(gridBounds.getLowerLimit()).longValue() + 1)).multiply(new BigDecimal("-1"));
+        } else {
+            // positive resolution
+            this.resolution = BigDecimalUtil.divide(geoBounds.getUpperLimit().subtract(geoBounds.getLowerLimit()),
+                    new BigDecimal(gridBounds.getUpperLimit().subtract(gridBounds.getLowerLimit()).longValue() + 1));
+        }
+
+    }
 
     public BigDecimal getResolution() {
         return BigDecimalUtil.stripDecimalZeros(resolution);

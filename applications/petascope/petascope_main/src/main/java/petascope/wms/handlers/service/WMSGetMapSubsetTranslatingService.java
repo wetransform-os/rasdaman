@@ -24,21 +24,24 @@ package petascope.wms.handlers.service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.core.BoundingBox;
 import petascope.core.GeoTransform;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsProjectionUtil;
-import petascope.util.CrsUtil;
+
 import petascope.wcps.handler.CrsTransformHandler;
 import petascope.wcps.handler.SubsetExpressionHandler;
 import petascope.wcps.metadata.model.Axis;
+import petascope.wcps.metadata.model.NumericSubset;
+import petascope.wcps.metadata.model.NumericTrimming;
+import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.CollectionAliasRegistry;
+import petascope.wcps.metadata.service.CoordinateTranslationService;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.DimensionIntervalList;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
@@ -61,6 +64,8 @@ public class WMSGetMapSubsetTranslatingService {
     private WMSGetMapWCPSMetadataTranslatorService wmsGetMapWCPSMetadataTranslatorService;
     @Autowired
     private SubsetExpressionHandler subsetExpressionHandler;
+    @Autowired
+    private CoordinateTranslationService coordinateTranslationService;
     
     @Autowired
     private CollectionAliasRegistry collectionAliasRegistry;
@@ -127,10 +132,10 @@ public class WMSGetMapSubsetTranslatingService {
         String rasql = null;
 
         String collectionName = wcpsCoverageMetadata.getRasdamanCollectionName();
-        if (this.collectionAliasRegistry.getAliasMap().values().contains(collectionName)) {
+        if (this.collectionAliasRegistry.getAliasName(collectionName) != null) {
             // e.g: c0 -> collectionA
             for (String alias : this.collectionAliasRegistry.getAliasMap().keySet()) {
-                if (this.collectionAliasRegistry.getAliasMap().get(alias).equals(collectionName)) {
+                if (this.collectionAliasRegistry.getAliasMap().get(alias).fst.equals(collectionName)) {
                     rasql = alias;
                     break;
                 }
@@ -164,6 +169,56 @@ public class WMSGetMapSubsetTranslatingService {
         
         int width = wmsLayer.getWidth();
         int height = wmsLayer.getHeight();
+
+        BigDecimal widthDecimal = new BigDecimal(width);
+        BigDecimal heightDecimal = new BigDecimal(height);
+
+        // Comes from the original WMS GetMap request BBOX
+        BigDecimal orgBBoxXMin = wmsLayer.getRequestBBox().getXMin();
+        BigDecimal orgBBoxYMin = wmsLayer.getRequestBBox().getYMin();
+        BigDecimal orgBBoxXMax = wmsLayer.getRequestBBox().getXMax();
+        BigDecimal orgBBoxYMax = wmsLayer.getRequestBBox().getYMax();
+
+        // Extended request BBOX and they are not the aligned BBOX when doing subsets based on the upper left corner
+        BigDecimal extendedBBoxXMin = wmsLayer.getExtendedRequestBBox().getXMin();
+        BigDecimal extendedBBoxYMin = wmsLayer.getExtendedRequestBBox().getYMin();
+        BigDecimal extendedBBoxXMax = wmsLayer.getExtendedRequestBBox().getXMax();
+        BigDecimal extendedBBoxYMax = wmsLayer.getExtendedRequestBBox().getYMax();
+
+        // Extended and aligned BBOX when doing subsets based on the upper left corner
+        BigDecimal extendedAlignedBBoxXMin = wmsLayer.getExtendedAlignedRequestBBox().getXMin();
+        BigDecimal extendedAlignedBBoxYMin = wmsLayer.getExtendedAlignedRequestBBox().getYMin();
+        BigDecimal extendedAlignedBBoxXMax = wmsLayer.getExtendedAlignedRequestBBox().getXMax();
+        BigDecimal extendedAlignedBBoxYMax = wmsLayer.getExtendedAlignedRequestBBox().getYMax();
+
+        BigDecimal ratioX = BigDecimal.ONE;
+        BigDecimal distanceX = orgBBoxXMax.subtract(orgBBoxXMin);
+        if (distanceX.compareTo(BigDecimal.ZERO) != 0) {
+            ratioX = BigDecimalUtil.divide(extendedBBoxXMax.subtract(extendedBBoxXMin), orgBBoxXMax.subtract(orgBBoxXMin));
+        }
+
+        BigDecimal fractionalPartX = ratioX.remainder(BigDecimal.ONE);
+        if (fractionalPartX.compareTo(BigDecimal.ZERO) == 0) {
+            fractionalPartX = BigDecimal.ONE;
+        }
+        ratioX = BigDecimal.ONE.add(fractionalPartX);
+
+        BigDecimal ratioY = BigDecimal.ONE;
+        BigDecimal distanceY = orgBBoxYMax.subtract(orgBBoxYMin);
+        if (distanceY.compareTo(BigDecimal.ZERO) != 0) {
+            ratioY = BigDecimalUtil.divide(extendedBBoxYMax.subtract(extendedBBoxYMin), orgBBoxYMax.subtract(orgBBoxYMin));
+        }
+
+        BigDecimal fractionalPartY = ratioY.remainder(BigDecimal.ONE);
+        if (fractionalPartY.compareTo(BigDecimal.ZERO) == 0) {
+            fractionalPartY = BigDecimal.ONE;
+        }
+        ratioY = BigDecimal.ONE.add(fractionalPartY);
+
+        // NOTE: with the original request BBOX -> the result is width x height (e.g. 256 x 256)
+        // but with the extended BBOX -> the result will be larged than that by width * ratioX x height * ratioY (e.g. 433 x 450)
+        long extendedWidth = BigDecimalUtil.shiftToInteger(widthDecimal.multiply(ratioX));
+        long extendedHeight = BigDecimalUtil.shiftToInteger(heightDecimal.multiply(ratioY));
 
         List<Axis> originalXYAxes = wcpsCoverageMetadata.getXYAxes();
 
@@ -214,12 +269,12 @@ public class WMSGetMapSubsetTranslatingService {
 
                 // Calculate the portion of intersection's length and bbox's length on X axis for the domains of scale and extend
                 BigDecimal portionIntersectionX = BigDecimalUtil.divide(lengthGeoIntersectionX, lengthBBoxX);
-                Long scaleUpperBoundX = portionIntersectionX.multiply(new BigDecimal(width)).longValue();
+                Long scaleUpperBoundX = BigDecimalUtil.shiftToInteger(portionIntersectionX.multiply(new BigDecimal(width)));
                 scaleX = "0:" + scaleUpperBoundX;
 
                 // Calculate the portion of originX in the geo bboxX
                 BigDecimal portionGeoOriginX = BigDecimalUtil.divide((geoOriginX.subtract(originalRequestBBox.getXMin())), lengthBBoxX);
-                Long gridOriginX = portionGeoOriginX.multiply(new BigDecimal(width)).longValue();
+                Long gridOriginX = BigDecimalUtil.shiftToInteger(portionGeoOriginX.multiply(new BigDecimal(width)));
                 Long extendLowerBoundX = 0L - Math.abs(gridOriginX);
                 Long extendUpperBoundX = width + extendLowerBoundX - 1;
                 extendX = extendLowerBoundX + ":" + extendUpperBoundX;
@@ -252,12 +307,12 @@ public class WMSGetMapSubsetTranslatingService {
 
                 // Calculate the portion of intersection's length and bbox's length on Y axis for the domains of scale and extend
                 BigDecimal portionIntersectionY = BigDecimalUtil.divide(lengthGeoIntersectionY, lengthBBoxY);
-                Long scaleUpperBoundY = portionIntersectionY.multiply(new BigDecimal(height)).longValue();
+                Long scaleUpperBoundY = BigDecimalUtil.shiftToInteger(portionIntersectionY.multiply(new BigDecimal(height)));
                 scaleY = "0:" + scaleUpperBoundY;
 
                 // Calculate the portion of originX in the geo bboxY
                 BigDecimal portionGeoOriginY = BigDecimalUtil.divide(originalRequestBBox.getYMax().subtract(geoOriginY), lengthBBoxY);
-                Long gridOriginY = portionGeoOriginY.multiply(new BigDecimal(height)).longValue();
+                Long gridOriginY = BigDecimalUtil.shiftToInteger(portionGeoOriginY.multiply(new BigDecimal(height)));
                 Long extendLowerBoundY = 0L - Math.abs(gridOriginY);
                 Long extendUpperBoundY = height + extendLowerBoundY - 1;
                 extendY = extendLowerBoundY + ":" + extendUpperBoundY;
@@ -283,16 +338,68 @@ public class WMSGetMapSubsetTranslatingService {
         boolean needExtend = !(extendX.equals(scaleX) && extendY.equals(scaleY));
         
         String finalCollectionExpressionLayer = subsetCollectionExpression;
-        if (needExtend || !(wmsLayer.getOriginalBoundsBBox().contains(wmsLayer.getRequestBBox()) 
-            && subsetCollectionExpression.toLowerCase().contains("project"))) {
-            // In case of requesting bbox only intersects with layer's bbox at the border
-            // then it needs to extend(scale()) rasdaman result to align the it over 256x256 pixels WMS tile
-            subsetCollectionExpression = SCALE + "( " + subsetCollectionExpression + ", [" + scaleX + ", " + scaleY + "] )";
+        if (!subsetCollectionExpression.toLowerCase().contains("project")) { // -- rasdaman enterprise for virtual coverage )
+            // In case no needs to have extend (i.e. zoom inside the layer)
+            long defaultLowerGridBound = 0;
+            long defaultUpperGridBound = 0;
+
+            String scaledExpression = "[" + defaultLowerGridBound + ":" + (extendedWidth - 1) + ", " + defaultUpperGridBound + ":" + (extendedHeight - 1) + "]";
+            subsetCollectionExpression = "scale( " + subsetCollectionExpression +  ", " + scaledExpression + " ) ";
+
+            // Then, apply the original request BBOX on the scaled grid domains based on the extended aligned request BBOX
+            NumericSubset geoBoundsXTmp = new NumericTrimming(extendedAlignedBBoxXMin, extendedAlignedBBoxXMax);
+            NumericSubset gridBoundsXTmp = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(extendedWidth - 1));
+            Axis axisXTmp = new RegularAxis(axisX, geoBoundsXTmp, gridBoundsXTmp, gridBoundsXTmp);
+
+            NumericSubset geoBoundsYTmp = new NumericTrimming(extendedAlignedBBoxYMin, extendedAlignedBBoxYMax);
+            NumericSubset gridBoundsYTmp = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(extendedHeight - 1));
+            Axis axisYTmp = new RegularAxis(axisY, geoBoundsYTmp, gridBoundsYTmp, gridBoundsYTmp);
+
+            if (originalRequestBBox.getXMin().compareTo(axisX.getOriginalGeoBounds().getLowerLimit()) < 0) {
+                originalRequestBBox.setXMin(axisX.getOriginalGeoBounds().getLowerLimit());
+            }
+            if (originalRequestBBox.getXMax().compareTo(axisX.getOriginalGeoBounds().getUpperLimit()) > 0) {
+                originalRequestBBox.setXMax(axisX.getOriginalGeoBounds().getUpperLimit());
+            }
+
+            if (originalRequestBBox.getYMin().compareTo(axisY.getOriginalGeoBounds().getLowerLimit()) < 0) {
+                originalRequestBBox.setYMin(axisY.getOriginalGeoBounds().getLowerLimit());
+            }
+            if (originalRequestBBox.getYMax().compareTo(axisY.getOriginalGeoBounds().getUpperLimit()) > 0) {
+                originalRequestBBox.setYMax(axisY.getOriginalGeoBounds().getUpperLimit());
+            }
+
+            BoundingBox originalGridBBoxInScaledExpression = this.coordinateTranslationService.calculageGridXYBoundingBox(false, false, axisXTmp, axisYTmp, originalRequestBBox);
+
+            long gridXMin = BigDecimalUtil.shiftToInteger(originalGridBBoxInScaledExpression.getXMin());
+            long gridYMin = BigDecimalUtil.shiftToInteger(originalGridBBoxInScaledExpression.getYMin());
+            long gridXMax = BigDecimalUtil.shiftToInteger(originalGridBBoxInScaledExpression.getXMax());
+            long gridYMax = BigDecimalUtil.shiftToInteger(originalGridBBoxInScaledExpression.getYMax());
+
+            if (gridXMin < defaultLowerGridBound) {
+                gridXMin = defaultLowerGridBound;
+            }
+            if (gridXMax > (extendedWidth - 1)) {
+                gridXMax = extendedWidth - 1;
+            }
+
+            if (gridYMin < defaultLowerGridBound) {
+                gridYMin = defaultLowerGridBound;
+            }
+            if (gridYMax > (extendedHeight - 1)) {
+                gridYMax = extendedHeight - 1;
+            }
+
+            String finalSizeExpression = ", [0:" + (width - 1) + ", 0:" + (height - 1) + "]";
+            subsetCollectionExpression += " [" + gridXMin + ":" + gridXMax
+                        + ", " + gridYMin + ":" + gridYMax + "]";
+
+            subsetCollectionExpression = "scale( " + subsetCollectionExpression + finalSizeExpression + " )";
             finalCollectionExpressionLayer = subsetCollectionExpression;
         }
 
-        // No need to add extend if XY grid domains are as same as Scale() in the final generated rasql query
         if (needExtend) {
+            subsetCollectionExpression = "scale( " + subsetCollectionExpression + ", [" + scaleX + ", " + scaleY + "] )";
             finalCollectionExpressionLayer = EXTEND + "( " + subsetCollectionExpression + ", [" + extendX + ", " + extendY + "] )";
         }
         
@@ -319,13 +426,13 @@ public class WMSGetMapSubsetTranslatingService {
         String targetCRS = CrsTransformHandler.getEscapedAuthorityEPSGCodeOrWKT(outputCRS);
         
         // NOTE: this one is in coverage's native CRS (e.g: EPSG:32632), while originalRequestBBox is in request CRS (e.g: EPSG:4326)
-        BoundingBox extendedFittedGeoBBbox = wmsLayer.getExtendedRequestBBox();
+        BoundingBox extendedAlignedFittedGeoBBbox = wmsLayer.getExtendedAlignedRequestBBox();
 
         String finalCollectionExpressionLayer = PROJECT_TEMPLATE.replace(COLLECTION_EXPRESSION_TEMPLATE, subsetCollectionExpression)
-                .replace(XMIN_NATIVCE_CRS, extendedFittedGeoBBbox.getXMin().toPlainString())
-                .replace(YMIN_NATIVCE_CRS, extendedFittedGeoBBbox.getYMin().toPlainString())
-                .replace(XMAX_NATIVCE_CRS, extendedFittedGeoBBbox.getXMax().toPlainString())
-                .replace(YMAX_NATIVCE_CRS, extendedFittedGeoBBbox.getYMax().toPlainString())
+                .replace(XMIN_NATIVCE_CRS, extendedAlignedFittedGeoBBbox.getXMin().toPlainString())
+                .replace(YMIN_NATIVCE_CRS, extendedAlignedFittedGeoBBbox.getYMin().toPlainString())
+                .replace(XMAX_NATIVCE_CRS, extendedAlignedFittedGeoBBbox.getXMax().toPlainString())
+                .replace(YMAX_NATIVCE_CRS, extendedAlignedFittedGeoBBbox.getYMax().toPlainString())
                 .replace(NATIVE_CRS, sourceCRS)
                 .replace(XMIN_OUTPUT_CRS, originalRequestBBox.getXMin().toPlainString())
                 .replace(YMIN_OUTPUT_CRS, originalRequestBBox.getYMin().toPlainString())

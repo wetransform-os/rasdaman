@@ -191,7 +191,8 @@ public class GeoTransform {
     public String toString() {
         String output = "xMin: " + upperLeftGeoX  + ", yMin: " + this.getLowerRightGeoY()
                     + ", xMax: " + this.getLowerRightGeoX() + ", yMax: " + upperLeftGeoY + ", width: " + gridWidth
-                    + ", height: " + gridHeight + ", geoXResolution: " + geoXResolution + ", geoYResolution: " + geoYResolution;
+                    + ", height: " + gridHeight + ", geoXResolution: " + geoXResolution + ", geoYResolution: " + geoYResolution
+                    +", CRS WKT: " + wkt;
         return output;
     }
     

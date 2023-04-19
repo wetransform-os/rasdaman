@@ -387,6 +387,11 @@ public class CoverageRepositoryService {
         if (firstField.getQuantity().getDataType() == null) {
             // Need to update rasdaman type for range
             TypeRegistryEntry typeEntry = TypeRegistry.getInstance().getTypeRegistry().get(setType);
+            if (typeEntry == null) {
+                throw new PetascopeException(ExceptionCode.InternalComponentError,
+                                            "Set type: " + setType + " does not exist in TypeRegistry for coverage: " + coverage.getCoverageId());
+            }
+                        
             List<String> bandsTypes = typeEntry.getBandsTypes();
             
             for (int i = 0; i < fields.size(); i++) {

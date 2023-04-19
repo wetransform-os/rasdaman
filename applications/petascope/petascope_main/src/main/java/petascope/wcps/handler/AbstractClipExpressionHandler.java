@@ -601,7 +601,7 @@ public abstract class AbstractClipExpressionHandler extends Handler {
                     } else {
                         // e.g: clip(c, POLYGON((...)) ) or clip(c, POLYGON((...)), "http://opengis.net/def/crs/EPSG/0/3857")
                         // then need to translate geo coordinates in WKT to grid coordinates accordingly
-                        // This is the tranlsated grid coordinates in grid-axes order to query in rasql
+                        // This is the translated grid coordinates in grid-axes order to query in rasql
                         translatedGridPointCoordinates = this.translateGeoToGridCoorinates(clippedCoverageAxesGeoBounds, metadata,
                                                                                            axisNames, geoPointCoordinates, wktCRS,
                                                                                            convexHullXYBBox);

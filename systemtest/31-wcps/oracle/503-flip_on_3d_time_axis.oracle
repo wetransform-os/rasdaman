@@ -2,8 +2,8 @@
 <gmlcov:ReferenceableGridCoverage gml:id="test_wms_3d_time_series_irregular" xsi:schemaLocation="" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:gmlrgrid="http://www.opengis.net/gml/3.3/rgrid">
     <gml:boundedBy>
         <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate?axis-label=&quot;unix&quot;&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" axisLabels="unix Lat Lon" uomLabels="d degree degree" srsDimension="3">
-            <gml:lowerCorner>"2015-07-01T00:00:00.000Z" 90 -180</gml:lowerCorner>
-            <gml:upperCorner>"2015-01-01T00:00:00.000Z" 90 -180</gml:upperCorner>
+            <gml:lowerCorner>"2015-07-01T00:00:00.000Z" 65 -180</gml:lowerCorner>
+            <gml:upperCorner>"2015-01-01T00:00:00.000Z" 90 -155</gml:upperCorner>
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>

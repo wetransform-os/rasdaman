@@ -363,7 +363,7 @@ public class OapiController extends AbstractController {
             if (!PETASCOPE_ENDPOINT_URL.isEmpty()) {
                 BASE_URL = PETASCOPE_ENDPOINT_URL.replace(CONTEXT_PATH + "/" + OWS, CONTEXT_PATH + "/" + OAPI);
             } else {
-                BASE_URL = httpServletRequest.getRequestURL().toString().split("/" + OAPI)[0];
+                BASE_URL = httpServletRequest.getRequestURL().toString().split("/" + OAPI)[0] + "/" + OAPI;
             }
         }
     }

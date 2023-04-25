@@ -2299,8 +2299,17 @@ var rasdaman;
             if (!this.wcsEndpoint.endsWith("ows")) {
                 this.wcsEndpoint = this.wcsEndpoint + "ows";
             }
-            this.contextPath = this.wcsEndpoint.replace("/rasdaman/ows", "/rasdaman");
+            this.contextPath = this.stripLastOWSFromURL(this.wcsEndpoint);
             this.adminEndpoint = this.contextPath + "/admin";
+        };
+        WCSSettingsService.prototype.stripLastOWSFromURL = function (url) {
+            var result = url;
+            if (url.endsWith("/ows")) {
+                var paths = url.split("/");
+                paths = paths.slice(0, -1);
+                result = paths.join("/");
+            }
+            return result;
         };
         WCSSettingsService.$inject = ["$window"];
         return WCSSettingsService;
@@ -2679,8 +2688,17 @@ var rasdaman;
             if (!this.wmsEndpoint.endsWith("ows")) {
                 this.wmsEndpoint = this.wmsEndpoint + "ows";
             }
-            this.contextPath = this.wmsEndpoint.replace("/rasdaman/ows", "/rasdaman");
+            this.contextPath = this.stripLastOWSFromURL(this.wmsEndpoint);
             this.adminEndpoint = this.contextPath + "/admin";
+        };
+        WMSSettingsService.prototype.stripLastOWSFromURL = function (url) {
+            var result = url;
+            if (url.endsWith("/ows")) {
+                var paths = url.split("/");
+                paths = paths.slice(0, -1);
+                result = paths.join("/");
+            }
+            return result;
         };
         WMSSettingsService.$inject = ["$window"];
         WMSSettingsService.version = "1.3.0";

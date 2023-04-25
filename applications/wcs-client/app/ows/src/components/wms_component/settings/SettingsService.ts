@@ -64,8 +64,22 @@ module rasdaman {
                 this.wmsEndpoint = this.wmsEndpoint + "ows";
             }
 
-            this.contextPath = this.wmsEndpoint.replace("/rasdaman/ows", "/rasdaman");
+            this.contextPath = this.stripLastOWSFromURL(this.wmsEndpoint);
             this.adminEndpoint = this.contextPath + "/admin";
         }
+
+        public stripLastOWSFromURL(url:string) {
+            // e.g. http://localhost:8080/rasdaman/ows -> http://localhost:8080/rasdaman
+            let result:string = url;
+            if (url.endsWith("/ows")) {
+                let paths:string[] = url.split("/");
+                // remove the last element ows from url
+                paths = paths.slice(0, -1);
+                result = paths.join("/");
+            }
+
+            return result;
+        }
+
     }
 }

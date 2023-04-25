@@ -25,8 +25,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonRawValue;
 import org.rasdaman.domain.cis.NilValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import petascope.wms.handlers.service.WMSGetMapService;
 
 /**
  *
@@ -34,43 +40,57 @@ import org.rasdaman.domain.cis.NilValue;
  */
 public class NoData {
     private static final String NO_DATA_NAN = "NaN";
+
+    private static Logger log = LoggerFactory.getLogger(NoData.class);
     
     public NoData() {
 
     }
     
-    // NOTE: rasql support only encoding nodata values in json such as "nodata": [ 12, 23, 45 ] then must subtract the values only from NilValues
     public NoData(List<NilValue> nilValues) {
         // store the nil values of metadata
         this.nilValues = nilValues;
-        for (NilValue nilValue:nilValues) {
-            if (nilValue.getValue() != null) {
-                // NOTE: rasql does not support parsing NaN as float number or null values as interval (e.g: 9.96921e+35:*) yet.
-                if (!(nilValue.getValue().toLowerCase().contains(NO_DATA_NAN.toLowerCase()) 
-                    || nilValue.getValue().contains(":"))) {
-                    this.nodataValues.add(new BigDecimal(nilValue.getValue()));
-                }
-            }
-        }        
-    }   
-    
-    @JsonProperty("nodata")
-    public void setNoDataValues(List<BigDecimal> nodataValues) {
-        this.nodataValues = nodataValues;
     }
 
     @JsonProperty("nodata")
-    public List<BigDecimal> getNoDataValues() {
-        return this.nodataValues;
+    @JsonRawValue // This is used to serialize NaN as it-is instead of "NaN" which is invalid in rasql
+    public List<Double> getNoDataValues() {
+        List<Double> results = new ArrayList<>();
+        for (NilValue nilValue : this.nilValues) {
+            String valueTmp = nilValue.getValue();
+            Double value = null;
+            if (valueTmp.equalsIgnoreCase(NO_DATA_NAN)) {
+                value = Double.NaN;
+            } else {
+                try {
+                    value = Double.valueOf(valueTmp);
+                } catch (Exception ex) {
+                    log.warn("Null value is not a numeric number. Given: " + value);
+                }
+            }
+
+            if (value != null) {
+                results.add(value);
+            }
+        }
+
+        return results;
     }
-    
+
+    @JsonIgnore
     public List<NilValue> getNilValues() {
         return this.nilValues;
     }
 
-    // this list is used to build rasql query
-    private List<BigDecimal> nodataValues = new ArrayList<>();
+    @JsonProperty("nodata")
+    // NOTE: this is used only when deserializing nodata in extra params from WCPS request
+    // e.g. return encode(c, "netcdf", "{ \"nodata\": [0] }")
+    public void setNoDataValues(List<Double> nodataValues) {
+        for (Double value : nodataValues) {
+            this.nilValues.add(new NilValue(value.toString()));
+        }
+    }
+
     // this list is used to store the nilValues of metadata
-    @JsonIgnore
     private List<NilValue> nilValues = new ArrayList<>();
 }

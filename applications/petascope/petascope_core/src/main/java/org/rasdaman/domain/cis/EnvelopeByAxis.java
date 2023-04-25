@@ -383,7 +383,7 @@ public class EnvelopeByAxis implements Serializable {
     /**
      * Check if coverage has XY axis order, e.g. UTM CRS or YX axis order, e.g. EPSG:4326 CRS
      */
-    @JsonIgnore     
+    @JsonIgnore
     public boolean isXYGeoAxisOrder() throws PetascopeException {
         int i = 0;
         int xIndex = -1;

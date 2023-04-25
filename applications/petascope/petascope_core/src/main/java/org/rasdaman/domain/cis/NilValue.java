@@ -76,6 +76,10 @@ public class NilValue implements Serializable {
 
     }
 
+    public NilValue(String value) {
+        this(value, null);
+    }
+
     public NilValue(String value, String reason) {
         this.value = value;
         this.reason = reason;

@@ -1,0 +1,2 @@
+service=WMS&version=1.3.0&request=GetMap&layers=test_wms_nil_value_nan
+&bbox=29.99745691770179,-5.0001091757791345,30.000156920401793,-4.997409173079132&width=20&height=60&crs=EPSG:4326&format=image/tiff&transparent=true&styles=

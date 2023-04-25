@@ -37,7 +37,8 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import org.rasdaman.domain.cis.NilValue;
 import org.rasdaman.domain.cis.Wgs84BoundingBox;
 import org.rasdaman.domain.wms.Layer;
 import org.rasdaman.domain.wms.Style;
@@ -347,7 +348,7 @@ public class WMSGetMapService {
 
             List<String> finalCollectionExpressions = new ArrayList<>();            
             // If GetMap requests with transparent=true then extract the nodata values from layer to be added to final rasql query
-            List<BigDecimal> nodataValues = new ArrayList<>();
+            List<NilValue> nilValues = new ArrayList<>();
             
             int styleIndex = 0;
                        
@@ -362,10 +363,11 @@ public class WMSGetMapService {
 
                 WcpsCoverageMetadata wcpsCoverageMetadata = wmsLayer.getWcpsCoverageMetadata();
                 
-                if (nodataValues.isEmpty()) {
+                if (nilValues.isEmpty()) {
                     if (wcpsCoverageMetadata.getNilValues().size() > 0) {
                         if (wcpsCoverageMetadata.getNilValues().get(0).size() > 0) {
-                            nodataValues.add(new BigDecimal(wcpsCoverageMetadata.getNilValues().get(0).get(0).getValue()));
+                            String value = wcpsCoverageMetadata.getNilValues().get(0).get(0).getValue();
+                            nilValues.add(new NilValue(value));
                         }
                     }
                 }
@@ -412,7 +414,7 @@ public class WMSGetMapService {
                 // NOTE: if the layer returns a transparent image, then it needs to set the null value to 0
                 this.transparent = true;
             }
-            String encodeFormatParameters = this.createEncodeFormatParameters(nodataValues, wcpsCoverageMetadata);
+            String encodeFormatParameters = this.createEncodeFormatParameters(nilValues, wcpsCoverageMetadata);
             
             // Create the final Rasql query for all layers's styles of this GetMap request.
             finalRasqlQuery = FINAL_TRANSLATED_RASQL_TEMPLATE
@@ -655,7 +657,7 @@ public class WMSGetMapService {
      * NOTE: if layer was imported with lat, long grid axes order (e.g: via netCDF) then it must need tranpose to make the output correctly.
      * 
      */
-    private String createEncodeFormatParameters(List<BigDecimal> nodataValues, WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException {
+    private String createEncodeFormatParameters(List<NilValue> nilValues, WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException {
         
         List<Axis> xyAxes = wcpsCoverageMetadata.getXYAxes();
         
@@ -666,14 +668,13 @@ public class WMSGetMapService {
         JsonExtraParams jsonExtraParams = new JsonExtraParams();
 
         if (this.transparent) {
-            if (nodataValues.isEmpty()) {
+            if (nilValues.isEmpty()) {
                 // 0 is default null value if layer doesn't have other values
-                nodataValues.add(BigDecimal.ZERO);
+                nilValues.add(new NilValue(BigDecimal.ZERO.toPlainString()));
             }
             // e.g: {"nodata": [10, 20, 40]}
-            NoData nodata = new NoData();
-            nodata.setNoDataValues(nodataValues);
-            
+            NoData nodata = new NoData(nilValues);
+
             jsonExtraParams.setNoData(nodata);
         }
         

@@ -37,7 +37,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.servlet.http.HttpServletRequest;
 import org.rasdaman.config.ConfigManager;
+import static org.rasdaman.config.ConfigManager.CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH;
+
 import org.rasdaman.rasnet.util.DigestUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import petascope.core.Pair;
@@ -59,6 +62,13 @@ public class AuthenticationController extends AbstractController {
     public static final String LOGIN = "login";
     
     public static final String READ_WRITE_RIGHTS = "RW";
+
+    @RequestMapping(value = CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH)
+    private void handleCheckEnableAuthentication() throws PetascopeException, IOException {
+        String result = Boolean.FALSE.toString();
+        Response response = new Response(Arrays.asList(result.getBytes()), MIMEUtil.MIME_TEXT);
+        this.writeResponseResult(response);
+    }
     
     /**
      * Check the credentials provided by the user. If the credentials are valid, return the list of roles for the requesting user.

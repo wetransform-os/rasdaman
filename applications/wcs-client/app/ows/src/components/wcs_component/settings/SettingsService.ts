@@ -46,9 +46,6 @@ module rasdaman {
             this.wcsEndpoint = this.wcsEndpoint.replace("wcs-client/app/", "rasdaman/ows");
             this.wcsServiceNameVersion = "SERVICE=WCS&VERSION=2.0.1";
 
-            // TESTING !!!
-            // this.wcsEndpoint = "https://maps.awi.de/services/raster/ows";
-
             // # TESTING (!)
             // this.wcsEndpoint = "http://localhost:8080/rasdaman/ows";
 

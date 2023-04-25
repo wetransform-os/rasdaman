@@ -106,6 +106,10 @@ public class ConfigManager {
     // context path for OAPI endpoint (e.g: localhost:8080/rasdaman/oapi)
     public static final String OAPI = "oapi";
 
+    // For community this endpoint always return fasle, it is used to check that if petascope is running from wsclient
+    public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION = "authisactive";
+    public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH = ADMIN + "/authisactive";
+
     
     /* **** Default DMBS for petascope is Postgresql **** */
     public static final String DEFAULT_DMBS = "postgresql";

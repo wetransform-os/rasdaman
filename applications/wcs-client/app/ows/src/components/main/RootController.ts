@@ -33,7 +33,7 @@ module rasdaman {
     export class RootController {
         public static $inject = ["$http", "$q", "$scope", "$rootScope",
             "$state", "rasdaman.WCSSettingsService", "rasdaman.ErrorHandlingService",
-            "rasdaman.CredentialService"
+            "rasdaman.CredentialService", "$window"
         ];
 
         public constructor(private $http: angular.IHttpService,
@@ -43,7 +43,8 @@ module rasdaman {
             private $state: any,
             private settings: rasdaman.WCSSettingsService,
             private errorHandlingService: rasdaman.ErrorHandlingService,
-            private credentialService: rasdaman.CredentialService) {
+            private credentialService: rasdaman.CredentialService,
+            private $window: ng.IWindowService) {
 
             this.initializeViews($scope);
 
@@ -74,12 +75,8 @@ module rasdaman {
                         var data = JSON.parse(dataObj.data);
                         result.resolve(data);
                     }, function(errorObj) {
-                        // Petascope Community
-                        if (errorObj.status == 404) {
-                            result.resolve(false);
-                        } else {
-                            errorHandlingService.handleError(errorObj);
-                        }
+                        $window.alert("Failed to connect to petascope at URL: " + requestUrl 
+                                + ", hence, WSClient cannot load.         Hint: make sure petascope is running at the URL first then reload the web page.");
                     });
 
                 return result.promise;

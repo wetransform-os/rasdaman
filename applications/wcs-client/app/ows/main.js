@@ -2581,8 +2581,15 @@ var rasdaman;
                     return;
                 }
                 if (errorInformation.data == null) {
+                    var url = null;
+                    if (errorInformation.hasOwnProperty("config") && errorInformation.config.hasOwnProperty("url")) {
+                        url = errorInformation.config.url;
+                    }
                     if (errorInformation.status == 404 || errorInformation.status == -1) {
-                        this.notificationService.error("Cannot connect to petascope, please check if petascope is running.");
+                        var errorMesssage = "Cannot connect to petascope, please check if petascope is running.";
+                        if (url != null) {
+                            errorMesssage += " Given URL: " + url;
+                        }
                     }
                     else {
                         this.notificationService.error("The request failed with HTTP code:" + errorInformation.status + "(" + errorInformation.statusText + ")");
@@ -5103,7 +5110,7 @@ var rasdaman;
 var rasdaman;
 (function (rasdaman) {
     var RootController = (function () {
-        function RootController($http, $q, $scope, $rootScope, $state, settings, errorHandlingService, credentialService) {
+        function RootController($http, $q, $scope, $rootScope, $state, settings, errorHandlingService, credentialService, $window) {
             this.$http = $http;
             this.$q = $q;
             this.$scope = $scope;
@@ -5112,6 +5119,7 @@ var rasdaman;
             this.settings = settings;
             this.errorHandlingService = errorHandlingService;
             this.credentialService = credentialService;
+            this.$window = $window;
             this.initializeViews($scope);
             $rootScope.homeLoggedIn = false;
             $rootScope.usernameLoggedIn = "";
@@ -5128,12 +5136,8 @@ var rasdaman;
                     var data = JSON.parse(dataObj.data);
                     result.resolve(data);
                 }, function (errorObj) {
-                    if (errorObj.status == 404) {
-                        result.resolve(false);
-                    }
-                    else {
-                        errorHandlingService.handleError(errorObj);
-                    }
+                    $window.alert("Failed to connect to petascope at URL: " + requestUrl
+                        + ", hence, WSClient cannot load.         Hint: make sure petascope is running at the URL first then reload the web page.");
                 });
                 return result.promise;
             };
@@ -5188,7 +5192,7 @@ var rasdaman;
         };
         RootController.$inject = ["$http", "$q", "$scope", "$rootScope",
             "$state", "rasdaman.WCSSettingsService", "rasdaman.ErrorHandlingService",
-            "rasdaman.CredentialService"
+            "rasdaman.CredentialService", "$window"
         ];
         return RootController;
     }());

@@ -71,7 +71,7 @@ DROP_DATA=0
 # --no-ingest turns this option off
 INGEST_DATA=1
 # indicates whether to run test cases in parallel or not
-ENABLE_PARALLEL=1
+ENABLE_PARALLEL=0
 
 #
 # Data mgmt
@@ -126,7 +126,7 @@ Supported options:
 
   --drop              drop the testing data after the test finishes
   --no-ingest         do not ingest testing data before running the test
-  --disable-parallel  do not run test queries in parallel
+  -p, --parallel      run test queries in parallel
 
   -h, --help    show this message
 EOF
@@ -146,7 +146,7 @@ for i in $*; do
     --help|-h)          usage;;
     --drop)             DROP_DATA=1;;
     --no-ingest)        INGEST_DATA=0;;
-    --disable-parallel) ENABLE_PARALLEL=0;;
+    --parallel|-p)      ENABLE_PARALLEL=1;;
     *)                  test_single_file=$i;;
   esac
 done

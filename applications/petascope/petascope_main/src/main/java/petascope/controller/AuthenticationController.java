@@ -21,6 +21,7 @@
  */
 package petascope.controller;
 
+import com.rasdaman.admin.model.AuthIsActiveResult;
 import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -47,6 +48,7 @@ import petascope.core.Pair;
 import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.util.JSONUtil;
 import petascope.util.ListUtil;
 import petascope.util.MIMEUtil;
 import petascope.util.ras.RasUtil;
@@ -64,9 +66,19 @@ public class AuthenticationController extends AbstractController {
     public static final String READ_WRITE_RIGHTS = "RW";
 
     @RequestMapping(value = CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH)
-    private void handleCheckEnableAuthentication() throws PetascopeException, IOException {
-        String result = Boolean.FALSE.toString();
-        Response response = new Response(Arrays.asList(result.getBytes()), MIMEUtil.MIME_TEXT);
+    private void handleCheckEnableAuthentication() throws Exception {
+        if (startException != null) {
+            throw startException;
+        }
+
+        String rasdamanUser = "";
+        if (!ConfigManager.RASDAMAN_USER.trim().isEmpty()
+                && !ConfigManager.RASDAMAN_PASS.trim().isEmpty()) {
+            rasdamanUser = ConfigManager.RASDAMAN_USER;
+        }
+
+        AuthIsActiveResult result = new AuthIsActiveResult(false, rasdamanUser);
+        Response response = new Response(Arrays.asList(JSONUtil.serializeObjectToJSONString(result).getBytes()), MIMEUtil.MIME_JSON);
         this.writeResponseResult(response);
     }
     

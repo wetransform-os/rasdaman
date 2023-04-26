@@ -48,8 +48,9 @@ module rasdaman {
 
             this.initializeViews($scope);
 
-            $rootScope.homeLoggedIn = false;
+            $rootScope.homeLoggedIn = null;
             $rootScope.usernameLoggedIn = "";
+            $rootScope.authenticationEnabled = false;
 
             // When logged in in the first page, then shows the main WSClient
             $rootScope.$watch("homeLoggedIn", (newValue: boolean, oldValue: boolean) => {
@@ -72,8 +73,8 @@ module rasdaman {
 
                 $http.get(requestUrl)
                     .then(function(dataObj: any) {
-                        var data = JSON.parse(dataObj.data);
-                        result.resolve(data);
+                        let dataJSON = dataObj.data;
+                        result.resolve(dataJSON);
                     }, function(errorObj) {
                         $window.alert("Failed to connect to petascope at URL: " + requestUrl 
                                 + ", hence, WSClient cannot load.         Hint: make sure petascope is running at the URL first then reload the web page.");
@@ -123,25 +124,36 @@ module rasdaman {
             // Logout and go to login page, clear storage
             $scope.homeLogOutEvent = function() {
                 credentialService.clearStorage();
-                $rootScope.homeLoggedIn = false;
+                $rootScope.homeLoggedIn = null;
                 // $scope.showView($scope.login, "login");
                 location.reload();
             }
+
+            // Show login page when user didn't have to login before
+            $scope.homeLogInEvent = function() {
+                // set to false, then it doesn't show the Login button at the top right corner
+                $rootScope.homeLoggedIn = false; 
+                $scope.showView($scope.login, "login");
+            }            
 
             // -------------------- invoke functions -------------------
             
             // Check which form should be shown
             $scope.checkPetascopeEnableAuthentication()
-            .then(function(data) {
-                if (data) {
-                    // Petascope with enabled authentication
-                    $scope.checkRadamanCredentials();
-                } else {
-                    // no need to authenticate if authentication not enabled                    
-                    $rootScope.homeLoggedIn = false;
-                    $scope.showView($scope.wsclient, "services");
-                }
-            });
+                .then(function(data) {
+                    $rootScope.authenticationEnabled = data["basic_authentication_header_enabled"];
+
+                    if (data["basic_authentication_header_enabled"] == true && data["rasdaman_user"] == "") {
+                        // NOTE: Petascope with enabled authentication and no default user is set -> show login form
+                        $rootScope.homeLoggedIn = null;                        
+                        $scope.checkRadamanCredentials();
+                    } else {
+                        // no need to authenticate if authentication not enabled  or basic header is enabled but there is an implicit user enabled for that                        
+                        $rootScope.homeLoggedIn = false;
+                        
+                        $scope.showView($scope.wsclient, "services");
+                    }
+                });
         }
 
         private initializeViews($scope: RootControllerScope) {

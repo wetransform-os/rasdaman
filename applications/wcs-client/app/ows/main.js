@@ -5121,8 +5121,9 @@ var rasdaman;
             this.credentialService = credentialService;
             this.$window = $window;
             this.initializeViews($scope);
-            $rootScope.homeLoggedIn = false;
+            $rootScope.homeLoggedIn = null;
             $rootScope.usernameLoggedIn = "";
+            $rootScope.authenticationEnabled = false;
             $rootScope.$watch("homeLoggedIn", function (newValue, oldValue) {
                 if (newValue === true) {
                     $scope.showView($scope.wsclient, "services");
@@ -5133,8 +5134,8 @@ var rasdaman;
                 var requestUrl = settings.contextPath + "/admin/authisactive";
                 $http.get(requestUrl)
                     .then(function (dataObj) {
-                    var data = JSON.parse(dataObj.data);
-                    result.resolve(data);
+                    var dataJSON = dataObj.data;
+                    result.resolve(dataJSON);
                 }, function (errorObj) {
                     $window.alert("Failed to connect to petascope at URL: " + requestUrl
                         + ", hence, WSClient cannot load.         Hint: make sure petascope is running at the URL first then reload the web page.");
@@ -5168,12 +5169,18 @@ var rasdaman;
             };
             $scope.homeLogOutEvent = function () {
                 credentialService.clearStorage();
-                $rootScope.homeLoggedIn = false;
+                $rootScope.homeLoggedIn = null;
                 location.reload();
+            };
+            $scope.homeLogInEvent = function () {
+                $rootScope.homeLoggedIn = false;
+                $scope.showView($scope.login, "login");
             };
             $scope.checkPetascopeEnableAuthentication()
                 .then(function (data) {
-                if (data) {
+                $rootScope.authenticationEnabled = data["basic_authentication_header_enabled"];
+                if (data["basic_authentication_header_enabled"] == true && data["rasdaman_user"] == "") {
+                    $rootScope.homeLoggedIn = null;
                     $scope.checkRadamanCredentials();
                 }
                 else {

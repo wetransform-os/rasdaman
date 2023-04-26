@@ -342,6 +342,13 @@ public class ApplicationMain extends SpringBootServletInitializer {
         CrsUtil.setInternalResolverCRSToQualifiedCRS();
         CrsUtil.currentWorkingResolverURL = ConfigManager.SECORE_URLS.get(0);
 
+        if (ConfigManager.RASDAMAN_USER.trim().isEmpty() && ConfigManager.RASDAMAN_PASS.trim().isEmpty()
+        ) {
+            AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError,
+                    "petascope does not know which user to query to rasdaman.\n" +
+                            "Hint: in petascope.properties set rasdaman_user and rasdaman_pass with valid credentials of a rasdaman user, then restart petascope.");
+        }
+
     }
 
     @EventListener(ApplicationReadyEvent.class)

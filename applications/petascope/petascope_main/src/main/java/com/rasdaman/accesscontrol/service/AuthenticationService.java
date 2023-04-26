@@ -23,9 +23,11 @@ package com.rasdaman.accesscontrol.service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
@@ -34,29 +36,36 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.codec.binary.Base64;
 import org.rasdaman.config.ConfigManager;
 import petascope.controller.AuthenticationController;
+import org.springframework.stereotype.Service;
 import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.util.ras.RasUtil;
 
 /**
  * Utility for authentication handlers
  * 
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
+
+@Service
 public class AuthenticationService {
+
+    public static final String BASIC_AUTHENTICATION_HEADER = "Authorization";
+    public static final String BASIC_HEADER = "Basic";
     
     /**
      * Parse header to get username and password encoded in Base64 for basic authentication header
      */
     public static Pair<String, String> getBasicAuthUsernamePassword(HttpServletRequest httpServletRequest) throws PetascopeException {
         
-        final String authorization = httpServletRequest.getHeader("Authorization");
+        final String authorization = httpServletRequest.getHeader(BASIC_AUTHENTICATION_HEADER);
         Pair<String, String> result = null;
         
-        if (authorization != null && authorization.toLowerCase().startsWith("basic")) {
+        if (authorization != null && authorization.startsWith(BASIC_HEADER)) {
             // Example from curl (encoded username:password in Base64)
             // Authorization:Basic dXNlcm5hbWU6cGFzc3dvcmQ=
-            String base64Credentials = authorization.substring("Basic".length()).trim();
+            String base64Credentials = authorization.substring(BASIC_HEADER.length()).trim();
             byte[] credDecoded = Base64.decodeBase64(base64Credentials);
             String credentials = new String(credDecoded, StandardCharsets.UTF_8);
             if (!credentials.contains(":")) {
@@ -68,6 +77,14 @@ public class AuthenticationService {
         }
         
         return result;
+    }
+    
+    public static String createBasicHeaderCredentialsInBase64String(String username, String password) throws RuntimeException {
+        Base64 base64 = new Base64();
+        
+        // e.g Basic dXNlcm5hbWU6cGFzc3dvcmQ=
+        String tmp = username + ":" + password;
+        return BASIC_HEADER + " " + new String(base64.encode(tmp.getBytes()));
     }
     
     /**

@@ -1,4 +1,4 @@
-<div class="row" style="width: 100%;" ng-show="homeLoggedIn == false">
+<div class="row" style="width: 100%;" ng-show="homeLoggedIn == false || homeLoggedIn == null">
     <div class="col-sm-4" style="margin-left: 35%; margin-top: 10%;">                          
     
         <div style="margin-top: 15px; background-color: white; padding: 30px;">
@@ -23,7 +23,7 @@
 
             <div class="form-group">
                 <form>
-                    <input type="button" class="btn btn-primary" ng-enter="login()" ng-click="login()" value="Login"/>
+                    <input type="button" class="btn btn-primary" ng-enter="login()" ng-click="login()" value="Login" title="Login with valid crendentials of a rasdaman user"/>
                 </form>
             </div>
 

@@ -46,21 +46,37 @@ module rasdaman {
                            private wcsService:rasdaman.WCSService,
                            private errorHandlingService:ErrorHandlingService) {
 
-            function isCoverageIdValid(coverageId:string):boolean {
+            function getCoverageIndexToDelete(coverageId:string):number {
                 if ($scope.wcsStateInformation.serverCapabilities) {
                     var coverageSummaries = $scope.wcsStateInformation.serverCapabilities.contents.coverageSummaries;
                     for (var i = 0; i < coverageSummaries.length; ++i) {
                         if (coverageSummaries[i].coverageId == coverageId) {
-                            return true;
+                            return i;
                         }
                     }
                 }
 
-                return false;
+                return -1;
             }
 
-            $scope.$watch("idOfCoverageToDelete", (newValue:string, oldValue:string)=> {
-                $scope.isCoverageIdValid = isCoverageIdValid(newValue);
+            // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
+            $rootScope.$watch("renameCoverageId", (tupleObj:any) => {
+                if (tupleObj != null) {
+                    let oldCoverageId:string = tupleObj.oldCoverageId;
+                    let newCoverageId:string = tupleObj.newCoverageId;
+
+                    for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                        if ($scope.availableCoverageIds[i] == oldCoverageId) {
+                            $scope.availableCoverageIds[i] = newCoverageId;
+                            break;
+                        }
+                    }
+                }
+            });            
+
+            $scope.$watch("coverageIdToDelete", (newValue:string, oldValue:string)=> {
+                let foundIndex = getCoverageIndexToDelete(newValue);
+                $scope.isCoverageIdValid = foundIndex == -1 ? false : true;                
             });
 
             $scope.$watch("wcsStateInformation.serverCapabilities", (capabilities:wcs.Capabilities)=> {
@@ -72,40 +88,52 @@ module rasdaman {
                 }
             });
 
-            $scope.deleteCoverage = ()=> {
+            $scope.deleteCoverage = () => {
                 if ($scope.requestInProgress) {
                     this.alertService.error("Cannot delete a coverage while another delete request is in progress.");
-                } else if (!isCoverageIdValid($scope.idOfCoverageToDelete)) {
-                    this.alertService.error("The coverage <b>" + $scope.idOfCoverageToDelete + "</b> is not valid.");
+                } else if (getCoverageIndexToDelete($scope.coverageIdToDelete) == -1) {
+                    this.alertService.error("The coverage <b>" + $scope.coverageIdToDelete + "</b> does not exist to delete.");
                 } else {
                     $scope.requestInProgress = true;
 
-                    this.wcsService.deleteCoverage($scope.idOfCoverageToDelete).then(
+                    this.wcsService.deleteCoverage($scope.coverageIdToDelete).then(
                         (...args:any[])=> {
-                            this.alertService.success("Deleted coverage <b>" + $scope.idOfCoverageToDelete + "</b>");
+                            this.alertService.success("Deleted coverage <b>" + $scope.coverageIdToDelete + "</b>");
 
                             // Reload GetCapabilities in children controllers
-                            // reload WCS
-                            $rootScope.$broadcast("reloadWCSServerCapabilities", true);
-                            // reload WMS
-                            $rootScope.$broadcast("reloadWMSServerCapabilities", true);
+                            // (NOTE: this takes long time to send a new WCS and WMS GetCapabilities and rebuild everything) -> not used (!)
+                            // // reload WCS
+                            // $rootScope.$broadcast("reloadWCSServerCapabilities", true);
+                            // // reload WMS
+                            // $rootScope.$broadcast("reloadWMSServerCapabilities", true);
+
+                            // NOTE: In WCS and WMS GetCapabilitiesController will act accordingly after this coverage is deleted
+                            $rootScope.removeDeletedCoverageId = $scope.coverageIdToDelete;
+                            $rootScope.removeDeletedWMSLayerName = $scope.coverageIdToDelete;
+
+                            $scope.availableCoverageIds = $scope.availableCoverageIds.filter(coverageId => coverageId !== $scope.coverageIdToDelete);
+
                         }, (...args:any[])=> {
                             this.errorHandlingService.handleError(args);
                             this.$log.error(args);
                         }).finally(function () {
-                        $scope.requestInProgress = false;
+                
+                            $scope.requestInProgress = false;
                     });
                 }
             };
 
-            $scope.idOfCoverageToDelete = null;
+            // string
+            $scope.coverageIdToDelete = null;
+
             $scope.requestInProgress = false;
             $scope.isCoverageIdValid = false;
         }
     }
 
-    interface WCSDeleteCoverageControllerScope extends WCSMainControllerScope {
-        idOfCoverageToDelete:string;
+    interface WCSDeleteCoverageControllerScope extends WCSMainControllerScope {               
+        coverageIdToDelete:string;
+
         availableCoverageIds:string[];
         requestInProgress:boolean;
         isCoverageIdValid:boolean;

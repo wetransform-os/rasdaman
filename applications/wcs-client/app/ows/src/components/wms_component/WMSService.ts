@@ -308,5 +308,28 @@ module rasdaman {
             return result.promise;
         }
 
+        public deleteLayer(layerName:string):angular.IPromise<any> {
+            var result = this.$q.defer();
+
+            if (!layerName) {
+                result.reject("You must specify at least one layer name.");
+            }
+            
+            var currentHeaders = {};
+            var requestUrl = this.wcsSettings.adminEndpoint + "/layer/deactivate?coverageId=" + layerName;
+
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
+
+            this.$http.get(requestUrl, {
+                    headers: requestHeaders
+                }).then(function (data:any) {
+                    result.resolve(data);
+                }, function (error) {
+                    result.reject(error);
+                });
+
+            return result.promise;
+        }        
+
     }
 }

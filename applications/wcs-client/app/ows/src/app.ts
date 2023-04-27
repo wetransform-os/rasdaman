@@ -107,6 +107,11 @@ module rasdaman {
                             templateUrl: 'ows/src/components/wms_component/describe_layer/DescribeLayerView.html',
                             controller: rasdaman.WMSDescribeLayerController
                         },
+                        'wms_delete_layer@services': {
+                            url: "wms_delete_layer",
+                            templateUrl: 'ows/src/components/wms_component/delete_layer/DeleteLayerView.html',
+                            controller: rasdaman.WMSDeleteLayerController
+                        },
 
                         // Admin
                         'admin_login@services': {

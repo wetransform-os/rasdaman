@@ -36,8 +36,36 @@ module rasdaman {
 
         public constructor(private $scope:WMSMainControllerScope, $rootScope:angular.IRootScopeService, $state:any) {
             this.initializeTabs($scope);
+
+            // NOTE: When petascope admin user logged in, then show Delete Layer tab in WMS tab
+            $scope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean) => {                
+                if (oldValue == true || newValue == true) {
+
+                    let roles = $rootScope.adminStateInformation.roles;
+                    
+                    // petascope admin logged in
+                    if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WMS_DELETE_LAYER)) {
+                        $scope.wmsDeleteLayerTab.disabled = false;
+                    }
+                    
+                } else {
+                    // petascope admin logged out
+                    $scope.wmsDeleteLayerTab.disabled = true;                    
+                }
+            });
+
+            $scope.$watch("wmsStateInformation.serverCapabilities", (newValue:wcs.Capabilities, oldValue:wcs.Capabilities)=> {                
+                if (newValue) {
+                    // Disable this by default if petascope admin did not log in
+                    if ($rootScope.adminStateInformation.loggedIn === false) {
+                        $scope.wmsDeleteLayerTab.disabled = true;
+                    }
+                } else {
+                    this.resetState();
+                }
+            });            
            
-            $scope.tabs = [$scope.wmsGetCapabilitiesTab, $scope.wmsDescribeLayerTab];
+            $scope.tabs = [$scope.wmsGetCapabilitiesTab, $scope.wmsDescribeLayerTab, $scope.wmsDeleteLayerTab];
                         
             // When click on the layerName in the table of GetCapabilities tab,
             // it will change to DescribeLayer tab and get metadata for this layer.
@@ -68,6 +96,17 @@ module rasdaman {
                 active: false,
                 disabled: false
             };
+
+            $scope.wmsDeleteLayerTab = {
+                heading: "DeleteLayer",
+                view: "wms_delete_layer",
+                active: false,
+                disabled: true
+            };
+        }
+
+        private resetState() {            
+            this.$scope.wmsDeleteLayerTab.disabled = true;
         }
     }
 
@@ -80,7 +119,7 @@ module rasdaman {
         tabs:TabState[];
         wmsGetCapabilitiesTab:TabState;
         wmsDescribeLayerTab:TabState;
-        wmsGetLayerTab:TabState;  
+        wmsDeleteLayerTab:TabState;  
 	    describeLayer(layerName:string):void;      
     }
 

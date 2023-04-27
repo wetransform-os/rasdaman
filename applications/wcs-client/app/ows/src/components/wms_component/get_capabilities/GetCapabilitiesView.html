@@ -42,7 +42,7 @@
                                 </tr>
                                 <tr>
                                     <td colspan=100%><input st-search="name" class="form-control"
-                                                        placeholder="Search layer by name ..." type="text"/></td>
+                                                        placeholder="Search layer by name ..." type="text" name="wmsGetCapabilitiesLayerNameTextBox" autocomplete="off"/></td>
                                 </tr>
 
                             </thead>
@@ -59,8 +59,8 @@
                                     </td>
 
                                     <td><input type="checkbox" ng-model="layer.displayFootprint"
-                                        ng-change="displayFootprintOnGlobe(layer.name)"
-                                        onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left" title="Show/Hide this layer's footprint on globe."/>                                    
+                                        ng-change="showHideFootprintOnGlobe(layer.name)"
+                                        title="Show/Hide this layer's footprint on globe."/>                                    
                                     </td>   
                                     
                                     <td ng-show="capabilities.showBlackListedColumn == true">

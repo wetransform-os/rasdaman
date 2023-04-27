@@ -61,6 +61,9 @@ module rasdaman {
             // default hide the div containing the Globe
             $scope.hideWebWorldWindGlobe = true;
 
+            // Show coverage's extent on the globe
+            let canvasId = "wcsCanvasDescribeCoverage";
+
             $scope.isCoverageIdValid = function():boolean {
                 if ($scope.wcsStateInformation.serverCapabilities) {
                     var coverageSummaries = $scope.wcsStateInformation.serverCapabilities.contents.coverageSummaries;
@@ -76,7 +79,7 @@ module rasdaman {
 
             $rootScope.$watch("wcsSelectedGetCoverageId", (coverageId:string)=> {
                 if (coverageId != null) {
-                    $scope.selectedCoverageId = coverageId;
+                    $scope.selectedCoverageId = coverageId;                    
                     $scope.describeCoverage();
                 }
             });
@@ -151,6 +154,7 @@ module rasdaman {
 
             /**
              * Rename coverage's id
+             * NOTE: update coverage's id -> update several places in both WCS and WMS controllers
              */
             $scope.renameCoverageId = () => {    
                 if ($scope.newCoverageId == null || $scope.newCoverageId.trim() == "") {
@@ -161,14 +165,30 @@ module rasdaman {
                 var formData = new FormData();
                 formData.append("coverageId", $scope.selectedCoverageId);
                 formData.append("newCoverageId", $scope.newCoverageId);
+                let tupleObj:any = {
+                    "oldCoverageId": $scope.selectedCoverageId,
+                    "newCoverageId": $scope.newCoverageId
+                }
 
                 wcsService.updateCoverageMetadata(formData).then(
                     response => {
                         alertService.success("Successfully rename coverage's id.");
+
+                        // NOTE: Update name in WCS / WMS GetCapabilies and coverage extents on it and WebWorldWind coverage extents caches
+                        $rootScope.renameCoverageId = tupleObj;
+
                         // Reload DescribeCoverage to see new changes
                         $scope.selectedCoverageId = $scope.newCoverageId;
                         $scope.newCoverageId = null;
+
                         $scope.describeCoverage();
+
+                        for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                            if ($scope.availableCoverageIds[i] == tupleObj.oldCoverageId) {
+                                $scope.availableCoverageIds[i] = tupleObj.newCoverageId;
+                                break;
+                            }
+                        }
                     }, (...args:any[])=> {                            
                         errorHandlingService.handleError(args);
                         $log.error(args);
@@ -242,24 +262,16 @@ module rasdaman {
                             $scope.rawCoverageDescription = response.document.value;
 
                             $scope.parseCoverageMetadata();
-                    
-                            // Fetch the coverageExtent by coverageId to display on globe if possible
-                            var coverageExtentArray = webWorldWindService.getCoveragesExtentsByCoverageId($scope.selectedCoverageId);
-                            if (coverageExtentArray == null) {
+
+                            let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoveageExtents, $scope.selectedCoverageId);
+                            if (coverageExtent == null) {
+                                // coverage is not geo-referenced
                                 $scope.hideWebWorldWindGlobe = true;
                             } else {
-                                let bbox = "minLon=" + coverageExtentArray[0].bbox.xmin.toFixed(2) + ", minLat=" + coverageExtentArray[0].bbox.ymin.toFixed(2)
-                                        +  ", maxLon=" + coverageExtentArray[0].bbox.xmax.toFixed(2) + ", maxLat=" + coverageExtentArray[0].bbox.ymax.toFixed(2);
-                                $scope.coverageBBox = bbox;
-                                console.log(coverageExtentArray[0]);
-                                // Show coverage's extent on the globe
-                                var canvasId = "wcsCanvasDescribeCoverage";
+                                // coverage is referenced -> draw on globe
                                 $scope.hideWebWorldWindGlobe = false;
-                                // Also prepare for DescribeCoverage's globe with only 1 coverageExtent                                
-                                webWorldWindService.prepareCoveragesExtentsForGlobe(canvasId, coverageExtentArray);
-                                // Then, load the footprint of this coverage on the globe
-                                webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId);
-                            }
+                                webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent);
+                            }                  
                         },
                         (...args:any[])=> {                            
                             $scope.coverageDescription = null;

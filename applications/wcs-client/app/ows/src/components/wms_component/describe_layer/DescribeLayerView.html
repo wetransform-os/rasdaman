@@ -164,31 +164,33 @@
                                 <td colspan=15%>Raw data</td>
                                 <td colspan=45%></td>                                
                                 <td colspan=20%>
-                                    <input type="radio" ng-model="selectedStyleName" ng-click='showWMSLayerOnGlobe("")' name="styles" title="Display the layer with selected style on WebWorldWind globe as WMS layer." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left"> &nbsp; View style on globe
+                                    <input type="radio" ng-model="selectedStyleName" ng-click='showWMSLayerOnGlobe("")' 
+                                        name="styles" title="Display the layer with selected style on WebWorldWind globe as WMS layer."> &nbsp; View style on globe
                                 </td>
                                 <td colspan=10%><a href="{{getMapRequestURL}}" id="secGetMap" target="_blank" title="Open a new tab in web browser to show the GetMap request result." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left">GetMap request</a></td>
+                                    >GetMap request</a></td>
                                 <td colspan=10%></td>
                             </tr>
                             <tr ng-repeat="style in styles">                                
                                 <td colspan=15%><a ng-click='describeStyleToUpdate(style.name);'>{{style.name}}</a></td>                                
                                 <td colspan=25%>{{style.abstract | limitTo:50}}</td>
                                 <td colspan=20%>                                    
-                                    <!-- note: to be able to make radio button checked, it needs to use ng-checked-->
-                                    <input type="radio" ng-model="style.defaultStyle" ng-checked="{{style.defaultStyle}}" ng-click="setDefaultStyle(style.name)" name="default" title="Set this style as the default style of the selected layer." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left"> &nbsp; Set as default
+                                    <!-- NOTE: to be able to make radio button checked, it needs to use ng-checked-->
+                                    <input type="radio" ng-checked="{{style.defaultStyle}}" 
+                                        id="defaultStyleRadioButton_{{style.name}}" 
+                                        name="defaultStyleRadioButtonGroup"
+                                        ng-click="setDefaultStyle(style.name)" title="Set this style as the default style of the selected layer."> &nbsp; Set as default
                                 </td>
                                 <td colspan=20%>
-                                    <input type="radio" ng-model="selectedStyleName" value="{{style.name}}" ng-click="showWMSLayerOnGlobe(style.name)" name="styles" title="Display the layer with selected style on WebWorldWind globe as WMS layer." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left"> &nbsp; View on globe
+                                    <input type="radio" ng-model="selectedStyleName" value="{{style.name}}" 
+                                        ng-click="showWMSLayerOnGlobe(style.name)" name="viewLayerOnWebWorldWind" title="Display the layer with selected style on WebWorldWind globe as WMS layer."> &nbsp; View on globe
                                 </td>
-                                <td colspan=10%><a href='{{getMapRequestURL}}{{style.name}}' target="_blank" title="Open a new tab in web browser to show the GetMap request result." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left">GetMap request</a></td>
+                                <td colspan=10%><a href='{{getMapRequestURL}}{{style.name}}' target="_blank"
+                                     title="Open a new tab in web browser to show the GetMap request result.">GetMap request</a></td>
                                 </td>
                                 <td colspan=10% ng-show="adminStateInformation.loggedIn">                                    
                                      <button ng-show="adminStateInformation.loggedIn && hasDeleteStyleRole" class="btn btn-danger" ng-click="deleteStyle(style.name)">Delete</button>
-                                </td>                           
+                                </td>
                             </tr>
                         </tbody>
                         <tfoot>
@@ -326,7 +328,9 @@
                                 <td colspan=40%>{{member.coverageId}}</td>
                                 <td colspan=40%>{{member.scaleFactors}}</td>
                                 <td colspan=20%>                                    
-                                     <button ng-show="adminStateInformation.loggedIn && hasDeleteCoverageRole" class="btn btn-danger" ng-click="removePyramidMember(member.coverageId)">Delete</button>
+                                     <button ng-show="adminStateInformation.loggedIn && hasDeleteCoverageRole" class="btn btn-danger" 
+                                            ng-click="removePyramidMember(member.coverageId)" 
+                                            title="Remove pyramid member: {{member.coverageId}} from the pyramid of the layer: {{layer.name}}.&#010;Coverage: {{member.coverageId}} still exists afterwards.">Remove</button>
                                 </td>                           
                             </tr>
                         </tbody>
@@ -343,18 +347,19 @@
                    <div class="container" ng-show="adminStateInformation.loggedIn && hasInsertCoverageRole">
                         <form class="form-horizontal" action="">
                             <div class="form-group">
+                                <label class="control-label col-sm-2">Member:</label>
+                                <div class="col-sm-8">
+                                    <input type="text" class="form-control" placeholder="a non-existing coverage name to be created as a pyramid member coverage" id="pyramidMemberCoverageIdValue">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
                                 <label class="control-label col-sm-2">Scale factors:</label>
                                 <div class="col-sm-8">
                                     <input type="text" class="form-control" placeholder="comma-separated list of positive float values for the selected coverage's axes (irregular axis = 1, regular axis > 1)" id="scaleFactorsValue">
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <label class="control-label col-sm-2">Member:</label>
-                                <div class="col-sm-8">
-                                    <input type="text" class="form-control" placeholder="a non-existing coverage name to be created as a pyramid member coverage" id="pyramidMemberCoverageIdValue">
-                                </div>
-                            </div>
 
                             <div class="form-group">        
                                 <div class="col-sm-offset-2 col-sm-1">

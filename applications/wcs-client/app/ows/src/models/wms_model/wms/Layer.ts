@@ -319,7 +319,7 @@ module wms {
                     legendGraphicURL = legendURL.find("OnlineResource").attr("xlink:href");
                 }
 
-                let style = new Style(name, userAbstract, queryType, query, colorTableType, colorTableDefinition, defaultStyle, legendGraphicURL);
+                let style = new Style(name, userAbstract, queryType, query, colorTableType, colorTableDefinition, defaultStyle, legendGraphicURL, null);
                 this.styles.push(style);
             }
         }

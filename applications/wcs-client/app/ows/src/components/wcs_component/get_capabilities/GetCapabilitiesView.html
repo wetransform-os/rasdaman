@@ -43,7 +43,7 @@
                                 </tr>
                                 <tr>
                                     <td colspan=100%><input st-search="coverageId" class="form-control"
-                                                        placeholder="Search coverage by ID ..." type="text"/></td>
+                                                        placeholder="Search coverage by ID ..." type="text" name="wcsGetCapabilitiesCoverageIdTextBox" autocomplete="off"/></td>
                                 </tr>
 
                             </thead>
@@ -64,8 +64,8 @@
 
                                     <td>
                                         <input type="checkbox" ng-model="coverageSummary.displayFootprint" ng-hide="coverageSummary.displayFootprint === null"
-                                            ng-change="displayFootprintOnGlobe(coverageSummary.coverageId)"
-                                            onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left" title="Show/Hide this coverage's footprint on globe."/>
+                                            ng-change="showHideFootprintOnGlobe(coverageSummary.coverageId)"
+                                            title="Show/Hide this coverage's footprint on globe."/>
                                     </td>
 
                                     <td ng-show="capabilities.contents.showBlackListedColumn == true">

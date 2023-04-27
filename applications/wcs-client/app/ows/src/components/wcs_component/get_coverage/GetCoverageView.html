@@ -7,9 +7,9 @@
                 </span>
                 <input type="text" autocomplete ng-model="selectedCoverageId" class="form-control" source="availableCoverageIds" placeholder="Input coverage ID or part of it" />
                 <span class="input-group-btn">
-                <button type="button" class="btn btn-info"
+                <button type="button" class="btn btn-success"
                         ng-disabled="!isCoverageIdValid()"
-                        ng-click="selectCoverageClickEvent()">
+                        ng-click="selectCoverageClickEvent()" title="Select a coverage and pick area of interests via subsets, then click on 'Get Coverage' button to download as a file.">
                     Select Coverage
                 </button>
             </span>
@@ -34,7 +34,7 @@
             <select style="height: 30px;" ng-options="httpRequest for httpRequest in avaiableHTTPRequests" 
                                 ng-model="selectedHTTPRequest" id="selectHTTPRequest">                             
             </select>
-            <button type="button" class="btn btn-primary" style="margin-left: 15px;"               
+            <button type="button" class="btn btn-warning" style="margin-left: 15px;"               
                 ng-click="getCoverageClickEvent()">
                 <b> Get Coverage </b>
             </button>
@@ -45,13 +45,13 @@
         <div class="row" ng-show="coverageDescriptionsDocument.value">
 
             <!-- WebWorldWind -->
-            <div ng-hide="isGetCoverageHideGlobe" style="margin-bottom: -25px;">
+            <div ng-hide="hideWebWorldWindGlobe" style="margin-bottom: -25px;">
                 <uib-accordion close-others="false">
-                    <uib-accordion-group is-open="isGlobeOpen">
+                    <uib-accordion-group is-open="getCoverageTabStates.isCoreOpen">
                         <uib-accordion-heading>
                             Footprints of geo-referenced coverage
-                            <i class="pull-right glyphicon" ng-class="{'glyphicon-chevron-down': isGlobeOpen, 
-                                        'glyphicon-chevron-right': !isGlobeOpen}"></i>
+                            <i class="pull-right glyphicon" ng-class="{'glyphicon-chevron-down': getCoverageTabStates.isCoreOpen, 
+                                        'glyphicon-chevron-right': !getCoverageTabStates.isCoreOpen}"></i>
                         </uib-accordion-heading>
                         <div>
                             <!-- Create a canvas for Web WorldWind. -->
@@ -304,7 +304,7 @@
             <select style="height: 30px;" ng-options="httpRequest for httpRequest in avaiableHTTPRequests" 
                                 ng-model="selectedHTTPRequest" id="selectHTTPRequest">                             
             </select>
-            <button type="button" class="btn btn-primary" style="margin-left: 15px;"               
+            <button type="button" class="btn btn-warning" style="margin-left: 15px;"               
                 ng-click="getCoverageClickEvent()">
                 <b> Get Coverage </b>
             </button>

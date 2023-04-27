@@ -41,6 +41,10 @@ module wms {
         // If a layer is blacklisted, only petascope admin user can see it from GetCapabilities
         public showBlackListedColumn:boolean;
 
+        public totalLocalLayerSizesInBytes:number = 0;
+        public totalRemoteLayerSizesInBytes:number = 0;       
+        public totalLayerSizesInBytes:number = 0; 
+
         public totalLocalLayerSizes:String;
         public totalRemoteLayerSizes:String;
         public totalLayerSizes:String;
@@ -95,10 +99,6 @@ module wms {
                 var layerObjs = capabilityObj.getChildAsSerializedObject("Layer").getChildrenAsSerializedObjects("Layer");
                 this.layers = [];
 
-                let totalLocalLayerSizesInBytes = 0;
-                let totalRemoteLayerSizesInBytes = 0;
-                let totalLayerSizesInBytes = 0;
-
                 layerObjs.forEach(obj => {
                     var name = obj.getChildAsSerializedObject("Name").getValueAsString();
                     var title = obj.getChildAsSerializedObject("Title").getValueAsString();
@@ -116,9 +116,9 @@ module wms {
                         }
 
                         if (customizedMetadata.localCoverageSizeInBytes > 0) {
-                            totalLocalLayerSizesInBytes += customizedMetadata.localCoverageSizeInBytes;
+                            this.totalLocalLayerSizesInBytes += customizedMetadata.localCoverageSizeInBytes;
                         } else {
-                            totalRemoteLayerSizesInBytes += customizedMetadata.remoteCoverageSizeInBytes;
+                            this.totalRemoteLayerSizesInBytes += customizedMetadata.remoteCoverageSizeInBytes;
                         }     
 
                         if (customizedMetadata.isBlackedList != null) {
@@ -152,12 +152,12 @@ module wms {
                                                    crs, minx, miny, maxx, maxy));
                 });
 
-                totalLayerSizesInBytes += totalLocalLayerSizesInBytes + totalRemoteLayerSizesInBytes;
+                this.totalLayerSizesInBytes += this.totalLocalLayerSizesInBytes + this.totalRemoteLayerSizesInBytes;
 
                 // Convert Bytes to GBs for total sizes of layers
-                this.totalLocalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalLocalLayerSizesInBytes);
-                this.totalRemoteLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalRemoteLayerSizesInBytes);
-                this.totalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalLayerSizesInBytes);
+                this.totalLocalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLocalLayerSizesInBytes);
+                this.totalRemoteLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalRemoteLayerSizesInBytes);
+                this.totalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLayerSizesInBytes);
                 this.numberOfLayers = layerObjs.length.toString();
             }
         }
@@ -190,6 +190,22 @@ module wms {
             }    
             
             return null;
+        }
+
+        /**
+         * Invoked when a layer is deleted         
+         */
+        public recalculateTotalAndSizes(deletedLayer:wms.Layer) {
+            this.totalLocalLayerSizesInBytes -= deletedLayer.customizedMetadata.localCoverageSizeInBytes;
+            this.totalRemoteLayerSizesInBytes -= deletedLayer.customizedMetadata.remoteCoverageSizeInBytes;
+            this.totalLayerSizesInBytes = this.totalLocalLayerSizesInBytes + this.totalRemoteLayerSizesInBytes;
+
+            // Convert Bytes to GBs for total sizes of available layers
+            this.totalLocalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLocalLayerSizesInBytes);
+            this.totalRemoteLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalRemoteLayerSizesInBytes);
+            this.totalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLayerSizesInBytes);
+            this.numberOfLayers = this.layers.length.toString();               
+         
         }
     }
 }

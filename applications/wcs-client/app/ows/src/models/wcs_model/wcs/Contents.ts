@@ -45,16 +45,18 @@ module wcs {
         public totalCoverageSizes:String;
         public numberOfCoverages:String;
 
+            
+        public totalLocalCoverageSizesInBytes:number = 0;
+        public totalRemoteCoverageSizesInBytes:number = 0;
+        public totalCoverageSizesInBytes: number = 0;        
+
         public constructor(source:rasdaman.common.ISerializedObject) {
             super(source);
 
             rasdaman.common.ArgumentValidator.isNotNull(source, "source");
 
             this.coverageSummaries = [];
-            
-            let totalLocalCoverageSizesInBytes = 0;
-            let totalRemoteCoverageSizesInBytes = 0;
-            let totalCoverageSizesInBytes = 0;
+
 
             source.getChildrenAsSerializedObjects("wcs:CoverageSummary").forEach(o => {
                 let coverageSummary = new CoverageSummary(o);
@@ -73,9 +75,9 @@ module wcs {
 
 
                         if (coverageSummary.customizedMetadata.localCoverageSizeInBytes > 0) {
-                            totalLocalCoverageSizesInBytes += coverageSummary.customizedMetadata.localCoverageSizeInBytes;
+                            this.totalLocalCoverageSizesInBytes += coverageSummary.customizedMetadata.localCoverageSizeInBytes;
                         } else {
-                            totalRemoteCoverageSizesInBytes += coverageSummary.customizedMetadata.remoteCoverageSizeInBytes;
+                            this.totalRemoteCoverageSizesInBytes += coverageSummary.customizedMetadata.remoteCoverageSizeInBytes;
                         }
                         
                     }
@@ -87,17 +89,32 @@ module wcs {
                 }
             });
 
-            totalCoverageSizesInBytes += totalLocalCoverageSizesInBytes + totalRemoteCoverageSizesInBytes;
+            this.totalCoverageSizesInBytes += this.totalLocalCoverageSizesInBytes + this.totalRemoteCoverageSizesInBytes;
 
             // Convert Bytes to GBs for total sizes of coverages
-            this.totalLocalCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalLocalCoverageSizesInBytes);
-            this.totalRemoteCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalRemoteCoverageSizesInBytes);
-            this.totalCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalCoverageSizesInBytes);
+            this.totalLocalCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLocalCoverageSizesInBytes);
+            this.totalRemoteCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalRemoteCoverageSizesInBytes);
+            this.totalCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalCoverageSizesInBytes);
             this.numberOfCoverages = source.getChildrenAsSerializedObjects("wcs:CoverageSummary").length.toString();
 
             if (source.doesElementExist("wcs:Extension")) {
                 this.extension = new Extension(source.getChildAsSerializedObject("wcs:Extension"));
             }
+        }
+
+        /**
+         * Invoked when a coverage is deleted         
+         */
+        public recalculateTotalAndSizes(coverageToDelete:wcs.CoverageSummary) {
+            this.totalLocalCoverageSizesInBytes -= coverageToDelete.customizedMetadata.localCoverageSizeInBytes;
+            this.totalRemoteCoverageSizesInBytes -= coverageToDelete.customizedMetadata.remoteCoverageSizeInBytes;
+            this.totalCoverageSizesInBytes = this.totalLocalCoverageSizesInBytes + this.totalRemoteCoverageSizesInBytes;
+
+            // Convert Bytes to GBs for total sizes of available coverages
+            this.totalLocalCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLocalCoverageSizesInBytes);
+            this.totalRemoteCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalRemoteCoverageSizesInBytes);
+            this.totalCoverageSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalCoverageSizesInBytes);
+            this.numberOfCoverages = this.coverageSummaries.length.toString();   
         }
     }
 }

@@ -64,6 +64,7 @@
 /// <reference path="wms_component/settings/SettingsService.ts"/>
 /// <reference path="wms_component/get_capabilities/GetCapabilitiesController.ts"/>
 /// <reference path="wms_component/describe_layer/DescribeLayerController.ts"/>
+/// <reference path="wms_component/delete_layer/DeleteLayerController.ts"/>
 
 //// Admin
 /// <reference path="../components/admin_component/AdminService.ts"/>

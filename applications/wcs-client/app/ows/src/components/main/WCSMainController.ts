@@ -179,7 +179,7 @@ module rasdaman {
     }
 
     export interface WCSMainControllerScope extends angular.IScope {
-        wcsStateInformation:{
+        wcsStateInformation: {
             serverCapabilities:wcs.Capabilities,            
             selectedCoverageDescription:wcs.CoverageDescription,
             selectedGetCoverageId:string,

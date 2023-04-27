@@ -37,9 +37,13 @@ module wms {
         // e.g. https://ahocevar.com/geoserver/ows?service=WMS&request=GetLegendGraphic&format=image%2Fpng&width=20&height=20&layer=ne%3Ane
         public legendGraphicURL:string;
 
+        // stored temporarily in the client only (!)
+        public legendGraphicBase64String:string;
+
         public constructor(name:string, abstract:string, queryType:string, query:string, colorTableType:string, 
                             colorTableDefinition:string, defaultStyle:boolean,
-                            legendGraphicURL:string) {
+                            legendGraphicURL:string,
+                            legendGraphicBase64String:string) {
             this.name = name;
             this.abstract = abstract;
             this.queryType = queryType;
@@ -48,6 +52,7 @@ module wms {
             this.colorTableDefinition = colorTableDefinition;            
             this.defaultStyle = defaultStyle;
             this.legendGraphicURL = legendGraphicURL;
+            this.legendGraphicBase64String = legendGraphicBase64String;
         }
     }
 }

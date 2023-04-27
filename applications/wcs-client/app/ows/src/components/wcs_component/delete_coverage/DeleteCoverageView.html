@@ -5,12 +5,14 @@
                             <span class="glyphicon glyphicon-globe">
                             </span>
             </span>
-            <input type="text" class="form-control" autocomplete source="availableCoverageIds" ng-model="idOfCoverageToDelete" placeholder="Input coverage ID or part of it" />
+            <input type="text" class="form-control" autocomplete source="availableCoverageIds" 
+                    ng-model="coverageIdToDelete" 
+                    placeholder="Input coverage Id or part of it" />
 
             <span class="input-group-btn">
                 <button ng-disabled="!isCoverageIdValid"
                         ng-click="deleteCoverage()"                                    
-                        type="button" class="btn btn-danger">
+                        type="button" class="btn btn-danger" title="Delete the selected coverage and its associated WMS layer if exists">
                     Delete Coverage
                 </button>
             </span>

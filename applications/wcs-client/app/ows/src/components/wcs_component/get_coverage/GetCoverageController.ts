@@ -49,10 +49,13 @@ module rasdaman {
                            wcsService:rasdaman.WCSService,
                            alertService:any,
                            webWorldWindService:rasdaman.WebWorldWindService) {
+
+            let canvasId = "wcsCanvasGetCoverage";
             $scope.selectedCoverageId = null;
 
-            $scope.isGlobeOpen = false;
-            $scope.isGetCoverageHideGlobe = true;
+            $scope.hideWebWorldWindGlobe = false;
+            // default hide the div containing the Globe
+            $scope.hideWebWorldWindGlobe = true;
 
             $scope.isCoverageIdValid = function():boolean {
                 if ($scope.wcsStateInformation.serverCapabilities) {
@@ -72,6 +75,21 @@ module rasdaman {
                 $scope.SelectedCoverageId = coverageId;
                 $scope.describeCoverage();
             }); */
+
+            // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
+            $rootScope.$watch("renameCoverageId", (tupleObj:any) => {
+                if (tupleObj != null) {
+                    let oldCoverageId:string = tupleObj.oldCoverageId;
+                    let newCoverageId:string = tupleObj.newCoverageId;
+
+                    for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                        if ($scope.availableCoverageIds[i] == tupleObj.oldCoverageId) {
+                            $scope.availableCoverageIds[i] = tupleObj.newCoverageId;
+                            break;
+                        }
+                    }
+                }
+            });            
 
             $scope.$watch("wcsStateInformation.serverCapabilities", (capabilities:wcs.Capabilities)=> {
                 if (capabilities) {
@@ -94,20 +112,16 @@ module rasdaman {
                 }
             });
 
-            $scope.loadCoverageExtentOnGlobe = function () {
-                // Fetch the coverageExtent by coverageId to display on globe if possible
-                var coverageExtentArray = webWorldWindService.getCoveragesExtentsByCoverageId($scope.selectedCoverageId);                            
-                if (coverageExtentArray == null) {
-                    $scope.isGetCoverageHideGlobe = true;
+            $scope.loadCoverageExtentOnGlobe = function () {                
+                let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoveageExtents, $scope.selectedCoverageId);
+                if (coverageExtent == null) {
+                    // coverage is not geo-referenced
+                    $scope.hideWebWorldWindGlobe = true;
                 } else {
-                    // Show covearge's extent on the globe
-                    var canvasId = "wcsCanvasGetCoverage";
-                    $scope.isGetCoverageHideGlobe = false;
-                    // Also prepare for GetCoverage's globe with only 1 coverageExtent                    
-                    webWorldWindService.prepareCoveragesExtentsForGlobe(canvasId, coverageExtentArray);
-                    // Then, load the footprint of this coverage on the globe
-                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId);
-                }                                
+                    // coverage is referenced -> draw on globe
+                    $scope.hideWebWorldWindGlobe = false;
+                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent);
+                }                            
             }
 
             // Select a coverage to show WCS core and extensions form
@@ -625,10 +639,8 @@ module rasdaman {
 
 
     interface WCSGetCoverageControllerScope extends WCSMainControllerScope {
-        // Is the dropdown for Globe open
-        isGlobeOpen:boolean;
         // Is the div containing Globe show/hide
-        isGetCoverageHideGlobe:boolean;
+        hideWebWorldWindGlobe:boolean;
 
         inputValidator(i:number):void;
         trimValidator(i:number, min:any, max:any):void;

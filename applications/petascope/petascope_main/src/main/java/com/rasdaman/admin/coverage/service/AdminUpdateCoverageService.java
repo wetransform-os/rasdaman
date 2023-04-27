@@ -114,7 +114,13 @@ public class AdminUpdateCoverageService extends AbstractAdminService {
             if (this.wmsRepostioryService.isInLocalCache(currentCoverageId)) {
                 this.wmsRepostioryService.updateLayerName(currentCoverageId, newCoverageId);
             }
+        }
+
+        // update new coverageId and metadata for the coverage if needed
+        this.coverageRepositoryService.updateCoverage(currentCoverageId, newCoverageId, metadata);
             
+        if (newCoverageId != null) {
+
             // - list all coverages containing this current coverage id and update their's pyramids with the new name
             List<GeneralGridCoverage> localBaseCoverages = this.coveragePyramidRepositoryService.getCoveragesContainingPyramidMemberCoverageId(currentCoverageId);
             for (Coverage baseCoverage : localBaseCoverages) {
@@ -127,14 +133,10 @@ public class AdminUpdateCoverageService extends AbstractAdminService {
                         break;
                     }
                 }
-                
+
                 this.coverageRepositoryService.save(baseCoverage);
             }
-
         }
-        
-        // update new coverageId and metadata for the coverage if needed
-        this.coverageRepositoryService.updateCoverage(currentCoverageId, newCoverageId, metadata);
         
         Response result = new Response(Arrays.asList("".getBytes()), MIMEUtil.MIME_TEXT);
         return result;

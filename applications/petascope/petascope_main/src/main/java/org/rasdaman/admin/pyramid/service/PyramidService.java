@@ -161,26 +161,26 @@ public class PyramidService {
 
         // Use this coverage as the source coverage for updating data to downscaled level collections
         CoveragePyramid sourceCoveragePyramid = this.getCoveragePyramidAsSourceDownscaledCollection(baseCoverage, targetScaleFactors);
-        
-        Coverage sourceCoverage = this.coverageRepostioryService.readCoverageFullMetadataByIdFromCache(sourceCoveragePyramid.getPyramidMemberCoverageId());
-        String sourceCollectionName = sourceCoverage.getRasdamanRangeSet().getCollectionName();
-        
+
+        GeneralGridCoverage sourceCoverage = (GeneralGridCoverage) this.coverageRepostioryService.readCoverageFullMetadataByIdFromCache(sourceCoveragePyramid.getPyramidMemberCoverageId());
+
         // Sort the scale factor by geo orders to grid order to calculate the grid domains to be select and insert into the target downscaled collection
         // e.g: source CoveragePyramid has scale factors: 1,4,4 (downscaled level 4 on XY axes)
         List<BigDecimal> sourceScaleFactorsByGridOrder = this.sortScaleFactorsByGridOrder(baseCoverage, sourceCoveragePyramid.getScaleFactorsList());
         // e.g: target CoveragePyramid has scale factos: 1,8,8 (downscaled level 8 on XY axes)
         List<BigDecimal> targetScaleFactorsByGridOrder = this.sortScaleFactorsByGridOrder(baseCoverage, targetScaleFactors);
         
-        GeoAxis geoAxisX = ((GeneralGridCoverage)sourceCoverage).getXYGeoAxes().fst;
-        GeoAxis geoAxisY = ((GeneralGridCoverage)sourceCoverage).getXYGeoAxes().snd;
+        GeoAxis geoAxisX = sourceCoverage.getXYGeoAxes().fst;
+        GeoAxis geoAxisY = sourceCoverage.getXYGeoAxes().snd;
         
-        int gridOrderAxisX = ((GeneralGridCoverage)sourceCoverage).getIndexAxisByName(geoAxisX.getAxisLabel()).getAxisOrder();
-        int gridOrderAxisY = ((GeneralGridCoverage)sourceCoverage).getIndexAxisByName(geoAxisY.getAxisLabel()).getAxisOrder();
+        int gridOrderAxisX = sourceCoverage.getIndexAxisByName(geoAxisX.getAxisLabel()).getAxisOrder();
+        int gridOrderAxisY = sourceCoverage.getIndexAxisByName(geoAxisY.getAxisLabel()).getAxisOrder();
         
         // Now, separate the (big) grid domains on source collection properly and select these suitable spatial domains to update on target downscaled collections
         this.updateScaleLevelByGridDomains(baseCoverage,
                                            pyramidMemberCoverage,
-                                           sourceCollectionName, targetDownscaledCollectionName, baseAffectedGridDomains, 
+                                           sourceCoverage,
+                                           targetDownscaledCollectionName, baseAffectedGridDomains,
                                            sourceScaleFactorsByGridOrder,
                                            targetScaleFactorsByGridOrder, username, password, gridOrderAxisX, gridOrderAxisY);
     }
@@ -272,7 +272,8 @@ public class PyramidService {
      */
     private void updateScaleLevelByGridDomains(GeneralGridCoverage baseCoverage,
                                                GeneralGridCoverage pyramidMemberCoverage,
-                                               String sourceDownscaledCollectionName, String targetDownscaledCollectionName, 
+                                               GeneralGridCoverage sourceCoverage,
+                                               String targetDownscaledCollectionName,
                                                List<String> baseAffectedGridDomains, 
                                                List<BigDecimal> sourceScaleFactors,
                                                List<BigDecimal> targetScaleFactors,
@@ -281,6 +282,8 @@ public class PyramidService {
         
         List<List<String>> calculatedSourceAffectedDomainsList = new ArrayList<>();
         List<List<String>> calculatedTargetAffectedDomainsList = new ArrayList<>();
+
+        String sourceDownscaledCollectionName = sourceCoverage.getRasdamanRangeSet().getCollectionName();
         
         String sdomSourceRasdamanDownscaledCollection = null;
         if (sourceDownscaledCollectionName != null) {

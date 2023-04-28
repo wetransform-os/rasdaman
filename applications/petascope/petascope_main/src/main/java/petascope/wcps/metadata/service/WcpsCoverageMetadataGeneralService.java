@@ -668,7 +668,7 @@ public class WcpsCoverageMetadataGeneralService {
         if (hasIrregularAxis) {
             coverageType = XMLSymbols.LABEL_REFERENCEABLE_GRID_COVERAGE;
         }
-
+       
         List<RangeField> rangeFields;
         List<List<NilValue>> nilValues; 
         
@@ -823,7 +823,8 @@ public class WcpsCoverageMetadataGeneralService {
             translatedSubset = translateGeoToGridCoordinates(subsetDimension, parsedSubset, axis,
                     geoDomainMin, geoDomainMax, gridDomainMin, gridDomainMax);
             
-            if (lessThanHalfPixel) {
+            if (lessThanHalfPixel && (axis instanceof RegularAxis)) {
+                // NOTE: only does this shifting grid domains if axis is regular, not irregular with grid coefficients
                 // e.g: Axis Long with geo resolution: 10, geo min bound = 0
                 // Long(9,11) returns grid intervals[0,1], but the distance 11-9 = 2 < half grid resolution: 10 / 2
                 // Then, grid lower bound = grid upper bound                

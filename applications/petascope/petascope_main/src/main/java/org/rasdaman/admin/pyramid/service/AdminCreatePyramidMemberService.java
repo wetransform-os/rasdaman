@@ -110,9 +110,9 @@ public class AdminCreatePyramidMemberService extends AbstractAdminService {
     }
     
     private String parseMemberCoverageId(Map<String, String[]> kvpParameters, GeneralGridCoverage baseCoverage) throws PetascopeException {
-        // NOTE: this coverage id must not exist in local and remote caches
+        // NOTE: this coverage id must not exist in local cache
         String memberCoverageId = getValueByKey(kvpParameters, KEY_MEMBER);
-        if (this.coverageRepositoryService.isInCache(memberCoverageId)) {
+        if (this.coverageRepositoryService.isInLocalCache(memberCoverageId)) {
             throw new PetascopeException(ExceptionCode.InvalidRequest, "Coverage '" + memberCoverageId + "' already exists.");
         } else if (baseCoverage.hasPyramidMember(memberCoverageId)) {
             throw new PetascopeException(ExceptionCode.InvalidRequest, 
@@ -237,6 +237,11 @@ public class AdminCreatePyramidMemberService extends AbstractAdminService {
         
         // then, add this pyramid member coverage to the base coverage's pyramid set
         baseCoverage.getPyramid().add(coveragePyramid);
+
+        // NOTE: then, sort the pyramid members by scalefactors first
+        List<CoveragePyramid> sortedPyramid = this.pyramidService.sortByScaleFactors(baseCoverage.getPyramid());
+        baseCoverage.setPyramid(sortedPyramid);
+
         this.coverageRepositoryService.save(baseCoverage);  
         
         // Recreate WMTS TileMatrixSet for this base layer

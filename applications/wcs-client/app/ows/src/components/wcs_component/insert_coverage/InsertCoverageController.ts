@@ -30,6 +30,7 @@ module rasdaman {
     export class WCSInsertCoverageController {
         public static $inject = [
             "$scope",
+            "$rootScope",
             "$log",
             "Notification",
             "rasdaman.WCSService",
@@ -37,6 +38,7 @@ module rasdaman {
         ];
 
         public constructor(private $scope:WCSInsertCoverageControllerScope,
+                           private $rootScope:angular.IRootScopeService,
                            private $log:angular.ILogService,
                            private alertService:any,
                            private wcsService:rasdaman.WCSService,
@@ -55,8 +57,8 @@ module rasdaman {
                         (...args:any[])=> {
                             this.alertService.success("Successfully inserted coverage.");
                             this.$log.info(args);
-                            // after insert coverage Id, it should reload GetCapabilities to add the id to the list
-                            $scope.wcsStateInformation.reloadServerCapabilities = true;
+                            // after insert coverage Id, it should reload GetCapabilities to add the newly created coverage to the list
+                            $rootScope.wcsReloadServerCapabilities = true;
                         },
                         (...args:any[])=> {
                             this.errorHandlingService.handleError(args);

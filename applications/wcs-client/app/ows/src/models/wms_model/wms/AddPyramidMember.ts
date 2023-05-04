@@ -14,31 +14,26 @@
  * You should have received a copy of the GNU General Public License
  * along with rasdaman community.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2003 - 2017 Peter Baumann /
+ * Copyright 2003 - 2020 Peter Baumann /
  rasdaman GmbH.
  *
  * For more information please see <http://www.rasdaman.org>
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-/**
- * WMS already has the Ex_GeographicBoundingBox element to have XY bounding box in EPSG:4326.
- * However, the outcome of them should be the same object (CoverageExtent) and WMS needs to translate
- * EX_GeographicBoundingBox to CoverageExtent before WebWorldWind can process and load this bbox on globe.
- */
-///<reference path="BBox.ts"/>
-
 module wms {
-    export class CoverageExtent {
-        // NOTE: in WMS, a layer name is equivalent to a coverageId.
-        public coverageId:string;
-        public bbox:BBox;
-        public sizeInBytes:number;
- 
-        public constructor(coverageId, xmin, ymin, xmax, ymax, sizeInBytes) {            
-            this.coverageId = coverageId;
-            this.bbox = new BBox(xmin, ymin, xmax, ymax);
-            this.sizeInBytes = sizeInBytes;
-        }        
+    export class AddPyramidMember implements rasdaman.common.ISerializable {
+        public baseCoverageId:string;
+        public pyramidMemberCoverageId:string;
+
+        public constructor(baseCoverageId:string, pyramidMemberCoverageId:string,) {
+            this.baseCoverageId = baseCoverageId;
+            this.pyramidMemberCoverageId = pyramidMemberCoverageId;     
+        }
+
+        public toKVP():string {
+            return "&COVERAGEID=" + this.baseCoverageId +
+                "&MEMBERS=" + this.pyramidMemberCoverageId;
+        }
     }
 }

@@ -67,7 +67,7 @@ module rasdaman {
             }
 
             // Login with Petascope admin credentials by clicking on button on admin's tab: login form
-            $scope.login = (...args: any[])=> {
+            $scope.login = (...args: any[]) => {
                 adminService.login($scope.credential).then(
                     (data:any) => {
                         alertService.success("Successfully logged in.");

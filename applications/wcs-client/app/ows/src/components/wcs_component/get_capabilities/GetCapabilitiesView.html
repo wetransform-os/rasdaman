@@ -20,10 +20,10 @@
             <uib-accordion close-others="false">
                 <uib-accordion-group is-open="isAvailableCoveragesOpen">
                     <uib-accordion-heading>
-                        {{capabilities.contents.numberOfCoverages}} coverages available, total volume {{capabilities.contents.totalCoverageSizes}} 
+                        {{totalCoverages}} coverages available, total volume: {{totalCoverageSizeInBytes}} 
                         <span ng-show="capabilities.contents.showCoverageLocationsColumn"> 
-                            - Local volume {{capabilities.contents.totalLocalCoverageSizes}} 
-                            - Remote volume {{capabilities.contents.totalRemoteCoverageSizes}} 
+                            - Local volume: {{totalLocalCoverageSizeInBytes}} 
+                            - Remote volume: {{totalRemoteCoverageSizeInBytes}} 
                         </span>                        
                         <i class="pull-right glyphicon"
                             ng-class="{'glyphicon-chevron-down': isAvailableCoveragesOpen, 'glyphicon-chevron-right': !isAvailableCoveragesOpen}"></i>
@@ -49,7 +49,7 @@
                             </thead>
                             <tbody>
                                 <tr ng-repeat="coverageSummary in coverageSummaries">
-                                    <td colspan="2"><a ng-click='describeCoverage(coverageSummary.coverageId);'>{{coverageSummary.coverageId}}</a>
+                                    <td colspan="2"><a ng-click='describeCoverage(coverageSummary.coverageId);' title="{{coverageSummary.coverageId}}">{{coverageSummary.coverageId | decomposeQualifiedCoverageIdFilter}}</a>
                                     </td>
 
                                     <td>{{coverageSummary.coverageSubtype}}</td>

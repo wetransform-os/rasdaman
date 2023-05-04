@@ -20,18 +20,18 @@
             <uib-accordion close-others="false">
                 <uib-accordion-group is-open="isAvailableLayersOpen">
                     <uib-accordion-heading>
-                        {{capabilities.numberOfLayers}} layers available, total volume {{capabilities.totalLayerSizes}}.
+                        {{totalCoverages}} layers available, total volume: {{totalCoverageSizeInBytes}}.
                         <span ng-show="capabilities.showLayerLocationsColumn">
-                            - Local volume {{capabilities.totalLocalLayerSizes}}
-                            - Remote volume {{capabilities.totalRemoteLayerSizes}}
+                            - Local volume: {{totalLocalCoverageSizeInBytes}}
+                            - Remote volume: {{totalRemoteCoverageSizeInBytes}}
                         </span>                        
                         <i class="pull-right glyphicon"
                                 ng-class="{'glyphicon-chevron-down': isAvailableLayersOpen, 'glyphicon-chevron-right': !isAvailableLayersOpen}"></i>
                     </uib-accordion-heading>
 
-                    <section st-table="layers" st-safe-src="capabilities.layers">
+                    <section st-table="layers" get-filtered-rows st-safe-src="capabilities.layers">
                         <!-- smart table for pagination http://lorenzofox3.github.io/smart-table-website/ -->
-                        <table class="table table-striped" get-filtered-rows>
+                        <table class="table table-striped" >
                             <thead>
                                 <tr>
                                     <th st-sort="name">Layer name</th>
@@ -48,7 +48,7 @@
                             </thead>
                             <tbody>                            
                                 <tr ng-repeat="layer in layers">                                
-                                    <td><a ng-click='describeLayer(layer.name);'>{{layer.name}}</a></td>
+                                    <td><a ng-click='describeLayer(layer.name);' title="{{layer.name}}">{{layer.name | decomposeQualifiedCoverageIdFilter}}</a></td>
 
                                     <td ng-show="capabilities.showLayerLocationsColumn == true">
                                             <a href="{{layer.customizedMetadata.petascopeEndPoint}}">{{layer.customizedMetadata.hostname}}</a>

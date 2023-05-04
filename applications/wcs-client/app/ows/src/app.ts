@@ -111,6 +111,11 @@ module rasdaman {
                             url: "wms_delete_layer",
                             templateUrl: 'ows/src/components/wms_component/delete_layer/DeleteLayerView.html',
                             controller: rasdaman.WMSDeleteLayerController
+                        },                        
+                        'wms_create_layer@services': {
+                            url: "wms_create_layer",
+                            templateUrl: 'ows/src/components/wms_component/create_layer/CreateLayerView.html',
+                            controller: rasdaman.WMSCreateLayerController
                         },
 
                         // Admin
@@ -202,5 +207,9 @@ module rasdaman {
         .directive("stringToNumberConverter", rasdaman.common.StringToNumberConverter)
         .directive("autocomplete", rasdaman.common.Autocomplete)
         .directive("scrollToBottom", rasdaman.common.scrollToBottom)
-        .directive("getFilteredRows", rasdaman.common.getFilteredRows);
+        .directive("getFilteredRows", rasdaman.common.getFilteredRows)
+
+        // filter to be used in HTML expression
+        .filter("decomposeQualifiedCoverageIdFilter", rasdaman.common.DecomposeQualifiedCoverageIdFilter)
+        ;
 }

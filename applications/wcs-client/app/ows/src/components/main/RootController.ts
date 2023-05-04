@@ -53,8 +53,8 @@ module rasdaman {
             $rootScope.authenticationEnabled = false;
 
             // When logged in in the first page, then shows the main WSClient
-            $rootScope.$watch("homeLoggedIn", (newValue: boolean, oldValue: boolean) => {
-                if (newValue === true) {                    
+            $rootScope.$on("homeLoggedIn", (event, obj:any) => {
+                if (obj === true) {                    
                     $scope.showView($scope.wsclient, "services");
                 }
             }); 

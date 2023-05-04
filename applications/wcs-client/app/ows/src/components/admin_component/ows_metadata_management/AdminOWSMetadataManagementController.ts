@@ -55,69 +55,61 @@ module rasdaman {
                            private errorHandlingService:ErrorHandlingService) {
 
             // When WCS GetCapabilities button is clicked, then OWS Metadata also needs to reload its GetCapabilities
-            $rootScope.$on("reloadServerCapabilities", (event:angular.IAngularEvent, value:boolean)=> {         
-                $scope.getServerCapabilities();
+            $rootScope.$on("wcsReloadServerCapabilities", (event, obj:any) => {
+                if (obj == true) {
+                    $scope.getServerCapabilities();
+                }
             });
 
             // When logged in, load Capabilities for OWS metadata
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
-                $scope.getServerCapabilities();
+            $rootScope.$watch("wcsServerCapabilities", (obj:any) => {
+                if (obj != null) {
+                    $scope.getServerCapabilities();
 
-                $scope.hasRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_UPDATE_SRV);
+                    $scope.hasRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_UPDATE_SRV);
+                }
             });
 
-            $scope.getServerCapabilities = (...args: any[])=> {                 
+            $scope.getServerCapabilities = ()=> {                 
 
                 //Create capabilities request
                 var capabilitiesRequest = new wcs.GetCapabilities();
-                
-                wcsService.getServerCapabilities(capabilitiesRequest)
-                    .then((response:rasdaman.common.Response<wcs.Capabilities>)=> {
-                            //Success handler
-                            // This is output from GetCapabilities request in XML
-                            $scope.capabilitiesDocument = response.document;                            
-                            // This is the parsed object from XML output by wmsService
-                            var capabilities = response.value;       
-                            
-                            // Service Identification
-                            var serviceTitle = capabilities.serviceIdentification.title[0].value;
-                            var abstract = capabilities.serviceIdentification.abstract[0].value;
+                                   
+                // This is the parsed object from XML output by wmsService
+                var capabilities = $rootScope.wcsServerCapabilities.value;  
 
-                            $scope.serviceIdentification = new admin.ServiceIdentification(serviceTitle, abstract);
+                // Service Identification
+                var serviceTitle = capabilities.serviceIdentification.title[0].value;
+                var abstract = capabilities.serviceIdentification.abstract[0].value;
 
-                            // Service Provider
-                            var providerName = capabilities.serviceProvider.providerName;
-                            var providerSite = capabilities.serviceProvider.providerSite.href;
-                            var individualName = capabilities.serviceProvider.serviceContact.individualName;
-                            var positionName = capabilities.serviceProvider.serviceContact.positionName;
-                            var role = capabilities.serviceProvider.serviceContact.role.code;
-                            var email = capabilities.serviceProvider.serviceContact.contactInfo.address.electronicMailAddress[0];
-                            var voicePhone = capabilities.serviceProvider.serviceContact.contactInfo.phone.voice[0];
-                            var facsimilePhone = capabilities.serviceProvider.serviceContact.contactInfo.phone.facsimile[0];
-                            var hoursOfService = capabilities.serviceProvider.serviceContact.contactInfo.hoursOfService;
-                            var contactInstructions = capabilities.serviceProvider.serviceContact.contactInfo.contactInstructions;
-                            var city = capabilities.serviceProvider.serviceContact.contactInfo.address.city;
-                            var administrativeArea = capabilities.serviceProvider.serviceContact.contactInfo.address.administrativeArea;
-                            var postalCode = capabilities.serviceProvider.serviceContact.contactInfo.address.postalCode;
-                            var country = capabilities.serviceProvider.serviceContact.contactInfo.address.country;
+                $scope.serviceIdentification = new admin.ServiceIdentification(serviceTitle, abstract);
 
-                            $scope.serviceProvider = new admin.ServiceProvider(providerName, providerSite, individualName, positionName, role,
-                                                                            email, voicePhone, facsimilePhone, hoursOfService, contactInstructions,
-                                                                            city, administrativeArea, postalCode, country);
-                        },
-                        (...args:any[])=> {
-                            errorHandlingService.handleError(args);
-                            $log.error(args);
-                        })
-                    .finally(()=> {
-                    });
-            };
+                // Service Provider
+                var providerName = capabilities.serviceProvider.providerName;
+                var providerSite = capabilities.serviceProvider.providerSite.href;
+                var individualName = capabilities.serviceProvider.serviceContact.individualName;
+                var positionName = capabilities.serviceProvider.serviceContact.positionName;
+                var role = capabilities.serviceProvider.serviceContact.role.code;
+                var email = capabilities.serviceProvider.serviceContact.contactInfo.address.electronicMailAddress[0];
+                var voicePhone = capabilities.serviceProvider.serviceContact.contactInfo.phone.voice[0];
+                var facsimilePhone = capabilities.serviceProvider.serviceContact.contactInfo.phone.facsimile[0];
+                var hoursOfService = capabilities.serviceProvider.serviceContact.contactInfo.hoursOfService;
+                var contactInstructions = capabilities.serviceProvider.serviceContact.contactInfo.contactInstructions;
+                var city = capabilities.serviceProvider.serviceContact.contactInfo.address.city;
+                var administrativeArea = capabilities.serviceProvider.serviceContact.contactInfo.address.administrativeArea;
+                var postalCode = capabilities.serviceProvider.serviceContact.contactInfo.address.postalCode;
+                var country = capabilities.serviceProvider.serviceContact.contactInfo.address.country;
+
+                $scope.serviceProvider = new admin.ServiceProvider(providerName, providerSite, individualName, positionName, role,
+                                                                email, voicePhone, facsimilePhone, hoursOfService, contactInstructions,
+                                                                city, administrativeArea, postalCode, country);
+                            };
 
             // Update service identification to database
             $scope.updateServiceIdentification = (...args: any[])=> {                
                 adminService.updateServiceIdentification($scope.serviceIdentification).then(
                     (...args:any[])=> {
-                        alertService.success("Successfully update Service Identifcation to Petascope database.");                       
+                        alertService.success("Successfully updated Service Identifcation to Petascope database.");                       
                     }, (...args:any[])=> {
                         errorHandlingService.handleError(args);                            
                     }).finally(function () {                        
@@ -128,7 +120,7 @@ module rasdaman {
             $scope.updateServiceProvider = (...args: any[])=> {                
                 adminService.updateServiceProvider($scope.serviceProvider).then(
                     (...args:any[])=> {
-                        alertService.success("Successfully update Service Provider to Petascope database.");                       
+                        alertService.success("Successfully updated Service Provider to Petascope database.");                       
                     }, (...args:any[])=> {
                         errorHandlingService.handleError(args);                            
                     }).finally(function () {                        
@@ -154,6 +146,5 @@ module rasdaman {
         updateServiceIdentification():void;
         updateServiceProvider():void;
         logOut():void;
-	    capabilitiesDocument:any;
     }
 }

@@ -42,7 +42,6 @@ module rasdaman {
                            private adminService:rasdaman.AdminService) {
         }
 
-
         public getServerCapabilities(request:wcs.GetCapabilities):angular.IPromise<any> {
             var result = this.$q.defer();
             var self = this;

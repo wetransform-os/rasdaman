@@ -73,12 +73,14 @@ module rasdaman {
             let canvasId = "wmsCanvasDescribeLayer";
 
             let WCPS_QUERY_FRAGMENT = 0;
-            let RASQL_QUERY_FRAGMENT = 1;            
+            let RASQL_QUERY_FRAGMENT = 1;     
+            
+            // --------------------------- Event listeners from $broadcast from top controllers ---------------------------
           
-            // When clicking on the layername from the table of GetCapabilities tab, it will change to DescribeLayer tab and load metadata for this selected layer.
-            $rootScope.$watch("wmsSelectedLayerName", (layerName:string)=> {
-                if (layerName != null) {
-                    $scope.selectedLayerName = layerName;                
+            // When clicking on the layername from the table of GetCapabilities tab, it will change to DescribeLayer tab and load metadata for this selected layer.            
+            $rootScope.$watch("wmsSelectedLayerName", (newValue:string, oldValue:string) => {
+                if (newValue != null) {
+                    $scope.selectedLayerName = newValue;
                     $scope.describeLayer();
                 }
             });
@@ -94,8 +96,35 @@ module rasdaman {
                 return false;
             };
 
+            // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
+                if (coverageIdToDelete != null) {
+                    for (let i = 0; i < $scope.layerNames.length; i++) {
+                        if ($scope.layerNames[i] == coverageIdToDelete) {
+                            $scope.layerNames.splice(i, 1);
+                            $scope.layers.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });
+
+            // NOTE: When DeleteLayerController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedWMSLayerName", (event, layerNameToDelete:string) => {
+                if (layerNameToDelete != null) {
+                    for (let i = 0; i < $scope.layerNames.length; i++) {
+                        if ($scope.layerNames[i] == layerNameToDelete) {
+                            $scope.layerNames.splice(i, 1);
+                            $scope.layers.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });             
+
+
             // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
-            $rootScope.$watch("renameCoverageId", (tupleObj:any) => {
+            $rootScope.$on("renamedCoverageId", (event, tupleObj:any) => {
                 if (tupleObj != null) {
                     let oldCoverageId:string = tupleObj.oldCoverageId;
                     let newCoverageId:string = tupleObj.newCoverageId;
@@ -107,10 +136,10 @@ module rasdaman {
                         }
                     }
                 }
-            });               
+            }); 
             
             // When GetCapabilities is requested, also update the available layers to be used in DescribeLayer controller.
-            $scope.$watch("wmsStateInformation.serverCapabilities", (capabilities:wms.Capabilities)=> {                
+            $scope.$watch("wmsStateInformation.serverCapabilities", (capabilities:wms.Capabilities) => {                
                 if (capabilities) {                                  
                     // NOTE: Clear the layers array first to get new valus from GetCapabilities
                     $scope.layers = [];  
@@ -129,7 +158,7 @@ module rasdaman {
             });
 
             // When petascope admin user logged in, show insert/update/delete styles and insert/delete pyramid members features
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
+            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean) => {
                 if (newValue) {
                     // Admin logged in
                     $scope.adminUserLoggedIn = true;
@@ -145,6 +174,9 @@ module rasdaman {
                     $scope.adminUserLoggedIn = false;
                 }
             });
+
+
+            // --------------------------- Local events handler ---------------------------
            
             // Describe the content (children elements of this selected layer) of a selected WMS layer
             $scope.describeLayer = function() {
@@ -200,39 +232,68 @@ module rasdaman {
                                     selectOptionsChange();
                                    
                                     // Then, load the footprint of layer on the globe
-                                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.layer.name, $scope.layer.coverageExtent);
+                                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.layer.name, $scope.layer.coverageExtent, true);
                                 },
                                 (...args:any[])=> {                                    
                                     errorHandlingService.handleError(args);
                                     $log.error(args);
                                 })
 
-                        let listPyramidMembersRequest = new wms.ListPyramidMembers($scope.selectedLayerName);
-                        
-                        // get the pyramid members of this selected layer
-                        wmsService.listPyramidMembersRequest(listPyramidMembersRequest).then(                            
-                            (arrayData:[])=> {
-                                let pyramidCoverageMembers = [];
-                                arrayData.forEach((element:any) => {
-                                    let coverageId = element["coverage"];
-                                    let scaleFactors = element["scale"].join(",");
-                                    let pyramidCoverageMember = new wms.PyramidCoverageMember(coverageId, scaleFactors);
-                                    
-                                    pyramidCoverageMembers.push(pyramidCoverageMember);
-                                });
-
-                                $scope.layers[i].pyramidCoverageMembers = pyramidCoverageMembers;
-                            }, (...args:any[])=> {                                    
-                                errorHandlingService.handleError(args);
-                                $log.error(args);
-                            });
-                        
+                        // fetch coverage pyramid members list of the selected layer
+                        $scope.getPyramidMembers($scope.selectedLayerName);                       
 
                         return;
                     }
                 }                
                 
             };
+
+            // Fetch the pyramid members list of a selected layer
+            $scope.getPyramidMembers = (layerName:string) => {                
+                let listPyramidMembersRequest:any = new wms.ListPyramidMembers(layerName);
+                        
+                // get the pyramid members of this selected layer
+                wmsService.listPyramidMembersRequest(listPyramidMembersRequest).then(                            
+                    (arrayData:[]) => {
+                        let pyramidCoverageMembers:wms.PyramidCoverageMember[] = [];
+                        arrayData.forEach((element:any) => {
+                            let coverageId = element["coverage"];
+                            let scaleFactors = element["scale"].join(",");
+                            let pyramidCoverageMember = new wms.PyramidCoverageMember(coverageId, scaleFactors);
+                            
+                            pyramidCoverageMembers.push(pyramidCoverageMember);
+                        });
+
+                        $scope.layer.pyramidCoverageMembers = pyramidCoverageMembers;
+
+
+                        // List the available geo-ferenced coverages which can be added as pyramid member of the current selected layer
+                        $scope.availableGeoReferencedCoverageIds = []
+                        let coverageExtents:wms.CoverageExtent[] = webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents;
+                        for (let i = 0; i < coverageExtents.length; i++) {
+                            let exists:boolean = false;
+                            let coverageId = coverageExtents[i].coverageId;
+                            if (coverageId != $scope.selectedLayerName) {
+
+                                // If a geo-referenced coverage already is a pyramid member then it should not show here
+                                for (let j = 0; j < pyramidCoverageMembers.length; j++) {
+                                    if (pyramidCoverageMembers[j].coverageId == coverageId) {
+                                        exists = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!exists) {
+                                    $scope.availableGeoReferencedCoverageIds.push(coverageId);
+                                }
+                            }
+                        }
+
+                    }, (...args:any[]) => {                                    
+                        errorHandlingService.handleError(args);
+                        $log.error(args);
+                    });
+            }
 
             /**
              * When sliders change, renew values to be displayed for WMS GetMap URL
@@ -544,7 +605,7 @@ module rasdaman {
 
             // Create a pyramid member coverage as downscaled level coverage of this selected layer
             $scope.createPyramidMember = () => {                
-                let pyramidMemberCoverageId = $("#pyramidMemberCoverageIdValue").val().trim();
+                let pyramidMemberCoverageId = $("#pyramidMemberCoverageIdValueToCreate").val().trim();
                 let scaleFactors = $("#scaleFactorsValue").val().trim();                
 
                 // validation first
@@ -564,18 +625,46 @@ module rasdaman {
                     (...args:any[])=> {
                         alertService.success("Successfully created pyramid member coverage: <b>" + pyramidMemberCoverageId 
                                            + "</b> with scalefactors: <b>" + scaleFactors + "</b> of layer:  <b>" + $scope.layer.name + "</b>.");
-                        // reload WMS GetCapabilities
                         // NOTE: This is required, because WCS GetCapabilties Controller needs to get the WGS84 BBox and the coverageSizeInBytes of the newly created pyramid member coverage
                         // but it doesn't have these information here here, so it needs to do full request WCS GetCapabilities (!)
-                        $rootScope.wmsCreatedPyramidMemberCoverage = true;
+                        $rootScope.wcsReloadServerCapabilities = true;
                         
-                        $scope.layer.pyramidCoverageMembers.push(new wms.PyramidCoverageMember(pyramidMemberCoverageId, scaleFactors));                       
-                    }, (...args:any[])=> {
+                        // Refetch the order of pyramid members of selected layer from server
+                        $scope.getPyramidMembers($scope.layer.name);
+                    }, (...args:any[]) => {
                         errorHandlingService.handleError(args);                            
                     }).finally(function () {                        
                 });
 
             }
+
+
+            // Add a pyramid member coverage as downscaled level coverage of this selected layer
+            $scope.addPyramidMember = () => {                
+                let pyramidMemberCoverageId = $("#pyramidMemberCoverageIdValueToAdd").val().trim();   
+
+                // validation first
+                for (let i = 0; i < $scope.layer.pyramidCoverageMembers.length; i++) {
+                    let pyramidMemberCoverage = $scope.layer.pyramidCoverageMembers[i];
+                    if (pyramidMemberCoverage.coverageId == pyramidMemberCoverageId) {
+                        alertService.error("Coverage pyramid member: <b>" + pyramidMemberCoverageId + "</b> already exists in the pyramid of layer: <b>" + $scope.selectedLayerName + "</b>");
+                        return;
+                    }
+                }
+
+                let addPyramidMember = new wms.AddPyramidMember($scope.layer.name, pyramidMemberCoverageId);
+                wmsService.addPyramidMemberRequest(addPyramidMember).then(
+                    (...args:any[])=> {
+                        alertService.success("Successfully added pyramid member coverage: <b>" + pyramidMemberCoverageId 
+                                           + "</b> of layer:  <b>" + $scope.layer.name + "</b>.");                       
+                        // Refetch the order of pyramid members of selected layer from server
+                        $scope.getPyramidMembers($scope.layer.name);
+                    }, (...args:any[]) => {
+                        errorHandlingService.handleError(args);                            
+                    }).finally(function () {                        
+                });
+
+            }            
 
             // Remove a pyramid member coverage from the base coverage (selected layer)
             $scope.removePyramidMember = (pyramidMemberCoverageId:string) => {
@@ -586,8 +675,6 @@ module rasdaman {
                         alertService.success("Successfully removed pyramid member: <b>" + pyramidMemberCoverageId 
                                 + "</b> from layer: <b>" + $scope.layer.name + "</b>");
 
-                        // reload WMS GetCapabilities (no need it, as pyramid member coverage is not deleted (!))
-                        // $scope.wmsStateInformation.reloadServerCapabilities = true;
 
                         for (let i = 0; i < $scope.layer.pyramidCoverageMembers.length; i++) {
                             let pyramidMemberCoverage = $scope.layer.pyramidCoverageMembers[i];
@@ -598,7 +685,10 @@ module rasdaman {
                             }
                         }
 
-                    }, (...args:any[])=> {
+                        // Add this coverage as available of geo-ferenced coverage pyramid member of the selected layer
+                        $scope.availableGeoReferencedCoverageIds.push(pyramidMemberCoverageId);
+
+                    }, (...args:any[]) => {
                         errorHandlingService.handleError(args);                            
                     }).finally(function () {                        
                 });                                
@@ -812,7 +902,7 @@ module rasdaman {
                                                                     styleQuery, styleColorTableType, styleColorTableDefintion, defaultStyle, legendGraphicBase64);
                     wmsService.updateLayerStyleRequest(updateLayerStyle).then(
                         (...args:any[])=> {
-                            alertService.success("Successfully update style with name: <b>" + styleName + "</b> of layer: <b>" + $scope.layer.name + "</b>");                          
+                            alertService.success("Successfully updated style with name: <b>" + styleName + "</b> of layer: <b>" + $scope.layer.name + "</b>");                          
                             
                             // reload WMS GetCapabilites (not needed)
                             // $scope.wmsStateInformation.reloadServerCapabilities = true;
@@ -934,12 +1024,16 @@ module rasdaman {
                     }).finally(function () {                        
                 });                                
             }
+
         }
+        
     }
+
+
 
     interface WMSDescribeLayerControllerScope extends WMSMainControllerScope {           
         isLayerDocumentOpen:boolean;
-        // Only with 2D coverage (bands <=4) can show GetMap
+        // Only with 2D coverage (bands <= 4) can show GetMap
         getMapRequestURL:string;        
         bboxLayer:any;
         displayWMSLayer:boolean;
@@ -966,7 +1060,12 @@ module rasdaman {
         coverageBBox:string;
         selectedLayerName:string;       
         selectedStyleName:string; 
+
+        // contains the list of available geo-referenced coverage ids which can be the pyramid member of the selected coverage
+        availableGeoReferencedCoverageIds:string[];
+
         describeLayer():void;
+        getPyramidMembers(layerName:string):void;
 	    deleteStyle(styleName:string):void;
 	    isStyleNameValid(styleName:string):boolean;
 	    isCoverageDescriptionsHideGlobe:boolean;

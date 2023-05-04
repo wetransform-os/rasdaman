@@ -92,7 +92,7 @@ module ows {
 
                 if (this.hostname === null) {
                     // local node
-                    this.localCoverageSizeInBytes = number;
+                    this.localCoverageSizeInBytes = number;                    
                 } else {
                     // remote node
                     this.remoteCoverageSizeInBytes = number;
@@ -113,6 +113,11 @@ module ows {
             let i = Math.floor(Math.log(numberOfBytes) / Math.log(k));
             let result = parseFloat((numberOfBytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];           
 
+            return result;
+        }
+
+        public getSizeInBytes():number {
+            let result:number = this.localCoverageSizeInBytes > 0 ? this.localCoverageSizeInBytes : this.remoteCoverageSizeInBytes;
             return result;
         }
 

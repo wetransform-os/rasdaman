@@ -45,7 +45,7 @@ module rasdaman {
         ];
 
         // Store the extents of all geo-referenced coverages in WGS84 BBOX
-        public coveragesExtents:any[] = [];
+        public coveragesExtents:wms.CoverageExtent[] = [];
 
         public constructor(private $window,
                            private $scope:WCSCapabilitiesControllerScope,
@@ -57,12 +57,20 @@ module rasdaman {
                            private errorHandlingService:ErrorHandlingService,
                            private webWorldWindService:rasdaman.WebWorldWindService
                            ) {
+
+            $scope.totalCoverages = 0;        
+            // NOTE: human-readable numbers, e.g. 20 GB                    
+            $scope.totalCoverageSizeInBytes = "";
+            $scope.totalLocalCoverageSizeInBytes = "";
+            $scope.totalRemoteCoverageSizeInBytes = "";
                                            
             $scope.isAvailableCoveragesOpen = false;
             $scope.isCoveragesExtentsOpen = false;
             $scope.isServiceIdentificationOpen = false;
             $scope.isServiceProviderOpen = false;
             $scope.isCapabilitiesDocumentOpen = false;
+
+            $scope.recalculateCoverageSizesFromFilteredRows = 0;
 
             $scope.displayCoveragesDropdownItems = [{"name": "Display all coverages", "value": ""},
                                                     {"name": "Display local coverages", "value": "local"},
@@ -81,7 +89,7 @@ module rasdaman {
             let canvasId = "wcsCanvasGetCapabilities";
 
             // When petascope admin user logged in, show the blacklist / whitelist buttons
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
+            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean) => {
                 if (newValue) {
                     // Admin logged in
                     $scope.adminUserLoggedIn = true;
@@ -117,18 +125,45 @@ module rasdaman {
                 }
             }
 
-            // If a coverage can be displayed on globe, user can show/hide it's footprint by changing checkbox of current page
-            $scope.showHideFootprintOnGlobe = (coverageId:string )=> {     
-                let coverageExtent:any = this.webWorldWindService.getCoveragesExtentByCoverageId(this.webWorldWindService.wcsGetCapabilitiesWGS84CoveageExtents, coverageId)
-                webWorldWindService.showHideCoverageExtentOnGlobe(canvasId, coverageId, coverageExtent);
-            }
+            // NOTE: When filtering rows on smart table (broadcasted by SmartTableGetFilteredRows.ts) -> recalculate the total coverages and their size from the filtered rows
+            $scope.$on("filteredRowsEventWCS", (event, obj:any) => {
 
-            // Load/Unload all coverages's extents on globe
-            $scope.displayAllFootprintsOnGlobe = (status:boolean)=> {                              
+                if ($window.wcsGetCapabilitiesFilteredRows != null) {                            
+                    let filteredRows = $window.wcsGetCapabilitiesFilteredRows;
+
+                    $scope.totalCoverages = filteredRows.length;
+                    let totalCoverageSizeInBytesTmp:number = 0;
+                    let totalLocalCoverageSizeInBytesTmp:number = 0;
+                    let totalRemoteCoverageSizeInBytesTmp:number = 0;
+
+                    for (let i = 0; i < filteredRows.length; i++) {
+                        let obj = filteredRows[i];
+
+                        let metadata:ows.CustomizedMetadata = obj["customizedMetadata"];
+                        if (metadata != null) {
+                            totalLocalCoverageSizeInBytesTmp += metadata.localCoverageSizeInBytes;
+                            totalRemoteCoverageSizeInBytesTmp += metadata.remoteCoverageSizeInBytes;
+
+                            let sizeInBytesTmp:number = metadata.localCoverageSizeInBytes > 0 
+                                                                ? metadata.localCoverageSizeInBytes 
+                                                                : metadata.remoteCoverageSizeInBytes;
+                            totalCoverageSizeInBytesTmp += sizeInBytesTmp;
+                        }
+                    }
+
+                    // Finally, make these numbers human-readable
+                    $scope.totalCoverageSizeInBytes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalCoverageSizeInBytesTmp);
+                    $scope.totalLocalCoverageSizeInBytes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalLocalCoverageSizeInBytesTmp);
+                    $scope.totalRemoteCoverageSizeInBytes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalRemoteCoverageSizeInBytesTmp);
+                }
+            });
+
+            // Load all coverages' extents on globe
+            $scope.displayAllFootprintsOnGlobe = (status:boolean) => {                              
 
                 if (status == true) {
                     // Get filtered rows from smart table
-                    let filteredRows = JSON.parse($window.wcsGetCapabilitiesFilteredRows);
+                    let filteredRows = $window.wcsGetCapabilitiesFilteredRows;
                     $scope.hideAllFootprintsOnGlobe();
 
                     for (let i = 0; i < filteredRows.length; i++) {
@@ -140,7 +175,9 @@ module rasdaman {
                             if (covId === coverageId) {
                                 // checkbox is checked
                                 $scope.getCoverageSummaryByCoverageId(coverageId).displayFootprint = true;
-                                $scope.showHideFootprintOnGlobe(coverageId);
+
+                                let coverageExtent:any = this.webWorldWindService.getCoveragesExtentByCoverageId(this.webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents, coverageId)
+                                webWorldWindService.showCoverageExtentOnGlobe(canvasId, coverageId, coverageExtent, false);                                
                                 break;
                             }                     
                         }                    
@@ -151,17 +188,50 @@ module rasdaman {
                 }                
             }
 
+            // Unload all coverages' extents on globe
             $scope.hideAllFootprintsOnGlobe = () => {
                 // unload all loaded footprints from all pages on globe
                 for (let i = 0; i < this.coveragesExtents.length; i++) {
-                    let coverageId = this.coveragesExtents[i].coverageId;                    
-                    if ($scope.getCoverageSummaryByCoverageId(coverageId).displayFootprint == true) {
+                    let coverageId = this.coveragesExtents[i].coverageId;     
+                    let obj:any = $scope.getCoverageSummaryByCoverageId(coverageId);
+
+                    if (obj != null && obj.displayFootprint == true) {
                         // checkbox is unchecked
                         $scope.getCoverageSummaryByCoverageId(coverageId).displayFootprint = false;
-                        $scope.showHideFootprintOnGlobe(coverageId);
+                        webWorldWindService.hideCoverageExtentOnGlobe(canvasId, coverageId);
                     }                        
                 }
             }
+
+            // Handle click on checkbox in smart table
+            $scope.showHideFootprintOnGlobe = (coverageId) => {
+
+                // all coverages
+                let coverageSummaryArray = $scope.capabilities.contents.coverageSummaries;
+                for (let i = 0; i < coverageSummaryArray.length; i++) {
+                    let coverageSummary:wcs.CoverageSummary = coverageSummaryArray[i];
+
+                    // NOTE: coverageExtents contain a list of geo-referenced coverages, while coverageSummaries contain non-georeferenced coverages as well
+                    if (coverageSummary.coverageId == coverageId) {                        
+                        let coverageExtent:wms.CoverageExtent = null;
+                        for (let j = 0; j < this.coveragesExtents.length; j++) {
+                            coverageExtent = this.coveragesExtents[j];
+                            if (coverageExtent.coverageId == coverageId) {
+                                break;
+                            }
+                        }
+
+                        if (coverageSummary.displayFootprint == true) {
+                            webWorldWindService.showCoverageExtentOnGlobe(canvasId, coverageId, coverageExtent, false);
+                        } else {
+                            webWorldWindService.hideCoverageExtentOnGlobe(canvasId, coverageId);
+                        }
+
+                        break;
+                    }
+                }
+    
+            }            
 
             // If a coverage is checked as blacklist, no one, except petascope admin user can see it from GetCapabilities
             $scope.handleBlackListOneCoverage = (coverageId:string) => {
@@ -236,7 +306,7 @@ module rasdaman {
             }
 
             // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
-            $rootScope.$watch("renameCoverageId", (tupleObj:any) => {
+            $rootScope.$on("renamedCoverageId", (event, tupleObj:any) => {
                 if (tupleObj != null) {
                     let oldCoverageId:string = tupleObj.oldCoverageId;
                     let newCoverageId:string = tupleObj.newCoverageId;
@@ -249,22 +319,22 @@ module rasdaman {
                         }
                     }
 
-                    webWorldWindService.wcsGetCapabilitiesWGS84CoveageExtents = this.coveragesExtents;
+                    webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents = this.coveragesExtents;
                     webWorldWindService.updateSurfacePolygonCoverageId(canvasId, oldCoverageId, newCoverageId);
                 }
             });
 
             // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
-            $rootScope.$watch("removeDeletedCoverageId", (coverageIdToDelete:string) => {
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
                 if (coverageIdToDelete != null) {
                     try {
                         let coverageIdToDeleteIndex = -1;
-                        let coverageToDelete:wcs.CoverageSummary = null;
+                        let coverageToDeleteObj:wcs.CoverageSummary = null;
                         let coverages:wcs.CoverageSummary[] = $scope.capabilities.contents.coverageSummaries;
                         for (let i = 0; i < coverages.length; i++) {
                             if (coverages[i].coverageId == coverageIdToDelete) {
                                 coverageIdToDeleteIndex = i;
-                                coverageToDelete = coverages[i];
+                                coverageToDeleteObj = coverages[i];
                                 break;                            
                             }
                         }
@@ -282,51 +352,39 @@ module rasdaman {
                             $scope.capabilities.contents.coverageSummaries.splice(coverageIdToDeleteIndex, 1);
                             // and delete it from cached coverageExtents array
                             this.coveragesExtents.splice(coverageExtentToDeleteIndex, 1);
-                            webWorldWindService.wcsGetCapabilitiesWGS84CoveageExtents = this.coveragesExtents;
+                            webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents = this.coveragesExtents;
 
                             // Then recalculate the total coverages and their sizes after the deleted coverage is removed
-                            $scope.capabilities.contents.recalculateTotalAndSizes(coverageToDelete);
+                            $scope.capabilities.contents.recalculateTotalAndSizes(coverageToDeleteObj);
                             // And hide its extent on webworldwind if it is shown before
-                            $scope.showHideFootprintOnGlobe(coverageIdToDelete);
+                            webWorldWindService.hideCoverageExtentOnGlobe(canvasId, coverageIdToDelete);
                         }
                     } catch (error) {
                         errorHandlingService.handleError(error);
                         console.log("Error in WCS GetCapabilitiesController");
                         console.log(error);
                     } finally {
-                        $rootScope.removeDeletedCoverageId = null;
                     }
                 }
             });       
-
-            // NOTE: When WMS DescribeLayerController created a new pyramid member coverage -> do a new fully GetCapabilities request
-            $rootScope.$watch("wmsCreatedPyramidMemberCoverage", (isUpdated:any) => {
-                if (isUpdated == true) {   
+     
+            // When insertCoverage is called sucessfully, it should reload the new capabilities
+            // NOTE: using $broadcast in WCSMainController and $on here will not make this method invoked when loading web page
+            $rootScope.$watch("wcsReloadServerCapabilities", (obj:any) => {
+                if (obj == true) {
                     $scope.getServerCapabilities();
 
-                     // It already reloaded, then set to false so later it can watch the value changed again
-                    $rootScope.wmsCreatedPyramidMemberCoverage = false;
+                    // NOTE: Mark as false to trigger the event when admin user logged out and log in again
+                    $rootScope.wcsReloadServerCapabilities = null;
                 }
-            });         
-
-            // rootScope broadcasts an event to all children controllers
-            $scope.$on("reloadWCSServerCapabilities", function(event, b) {                
-                $scope.getServerCapabilities();
-            });
-
-            // When deleteCoverage, insertCoverage is called sucessfully, it should reload the new capabilities
-            $scope.$watch("wcsStateInformation.reloadServerCapabilities", (capabilities:wcs.Capabilities)=> {
-                if ($scope.wcsStateInformation.reloadServerCapabilities == true) {
-                    $scope.getServerCapabilities();
-                }
-                // It already reloaded, then set to false.
-                $scope.wcsStateInformation.reloadServerCapabilities = false;
             });
 
             /**
              * From WGS84BoundingBox elements, parse them to get xmin, ymin, xmax, ymax.
              */
             $scope.parseCoveragesExtents = () => {
+                this.coveragesExtents = [];
+
                 let coverageSummaries = $scope.capabilities.contents.coverageSummaries;
                 coverageSummaries.forEach((coverageSummary) => {
                     let coverageId = coverageSummary.coverageId;
@@ -335,25 +393,17 @@ module rasdaman {
                     // Only parse possible coverage extents to WGS84 CRS
                     if (wgs84BoundingBox != null) {
                         let lowerArrayTmp = wgs84BoundingBox.lowerCorner.split(" ");
-                        let xMin = parseFloat(lowerArrayTmp[0]);
-                        let yMin = parseFloat(lowerArrayTmp[1]);
+                        let xmin = parseFloat(lowerArrayTmp[0]);
+                        let ymin = parseFloat(lowerArrayTmp[1]);
 
                         let upperArrayTmp = wgs84BoundingBox.upperCorner.split(" ");
-                        let xMax = parseFloat(upperArrayTmp[0]);
-                        let yMax = parseFloat(upperArrayTmp[1]);
+                        let xmax = parseFloat(upperArrayTmp[0]);
+                        let ymax = parseFloat(upperArrayTmp[1]);
 
-                        let bboxObj = {
-                            "coverageId": coverageId,
-                            "bbox": {
-                                "xmin": xMin,
-                                "ymin": yMin,
-                                "xmax": xMax,
-                                "ymax": yMax
-                            },
-                            "displayFootprint": false
-                        };
+                        let sizeInBytes:number = coverageSummary.customizedMetadata.getSizeInBytes();
 
-                        this.coveragesExtents.push(bboxObj);
+                        let coverageExtentObj:wms.CoverageExtent = new wms.CoverageExtent(coverageId, xmin, ymin, xmax, ymax, sizeInBytes);
+                        this.coveragesExtents.push(coverageExtentObj);
                     }
                 });
 
@@ -392,7 +442,7 @@ module rasdaman {
                 let capabilitiesRequest = new wcs.GetCapabilities();           
 
                 wcsService.getServerCapabilities(capabilitiesRequest)
-                    .then((response:rasdaman.common.Response<wcs.Capabilities>)=> {
+                    .then((response:rasdaman.common.Response<wcs.Capabilities>) => {
                             //Success handler
                             $scope.capabilitiesDocument = response.document;
                             $scope.capabilities = response.value;
@@ -404,11 +454,15 @@ module rasdaman {
                             // for displaying coverages' footprints on WebWorldWind
                             $scope.parseCoveragesExtents();
 
-                             webWorldWindService.initWebWorldWind(canvasId);
+                            webWorldWindService.initWebWorldWind(canvasId);
                 
                             // share data to other WCS controllers
-                            webWorldWindService.wcsGetCapabilitiesWGS84CoveageExtents = this.coveragesExtents;                            
+                            webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents = this.coveragesExtents;      
+                            
+                            // NOTE: loaded and $broadcast to be used with $on in other controllers, such as: WMS CreateLayer controller
+                            $rootScope.$broadcast("wcsReloadServerCapabilitiesDone", true);
 
+                            $rootScope.wcsServerCapabilities = response;
                         },
                         (...args:any[])=> {
                             //Error handler
@@ -422,7 +476,7 @@ module rasdaman {
                             errorHandlingService.handleError(args);
                             $log.error(args);
                         })
-                    .finally(()=> {
+                    .finally(() => {
                         $scope.wcsStateInformation.serverCapabilities = $scope.capabilities;
                     });
             };            

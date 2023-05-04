@@ -56,11 +56,11 @@ module rasdaman {
             $scope.query = $scope.availableQueries[0].query;
             $scope.selectedQuery = $scope.availableQueries[0].query;
 
-            $scope.$watch("selectedQuery", (newValue:string, oldValue:string)=> {
+            $scope.$watch("selectedQuery", (newValue:string) => {
                 $scope.query = newValue;
             });
 
-            $scope.$watch("selectedHistoryQuery", (newValue:string, oldValue:string)=> {
+            $scope.$watch("selectedHistoryQuery", (newValue:string) => {
                 $scope.query = newValue;
             });
 

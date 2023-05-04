@@ -61,8 +61,20 @@ module rasdaman {
                 return -1;
             }
 
+            // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
+                if (coverageIdToDelete != null) {
+                    for (let i = 0; i < $scope.availableLayerNames.length; i++) {
+                        if ($scope.availableLayerNames[i] == coverageIdToDelete) {
+                            $scope.availableLayerNames.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });            
+
             // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
-            $rootScope.$watch("renameCoverageId", (tupleObj:any) => {
+            $rootScope.$on("renamedCoverageId", (event, tupleObj:any) => {
                 if (tupleObj != null) {
                     let oldCoverageId:string = tupleObj.oldCoverageId;
                     let newCoverageId:string = tupleObj.newCoverageId;
@@ -77,12 +89,12 @@ module rasdaman {
                 
             });             
 
-            $scope.$watch("layerNameToDelete", (newValue:string, oldValue:string)=> {
+            $scope.$watch("layerNameToDelete", (newValue:string) => {
                 let foundIndex = getLayerIndexToDelete(newValue);
                 $scope.isLayerNameValid = foundIndex == -1 ? false : true;  
             });
 
-            $scope.$watch("wmsStateInformation.serverCapabilities", (capabilities:wms.Capabilities)=> {
+            $scope.$watch("wmsStateInformation.serverCapabilities", (capabilities:wms.Capabilities) => {
                 if (capabilities) {
                     $scope.availableLayerNames = [];
                     capabilities.layers.forEach((layer:wms.Layer)=> {
@@ -91,7 +103,7 @@ module rasdaman {
                 }
             });
 
-            $scope.deleteLayer = ()=> {
+            $scope.deleteLayer = () => {
                 if ($scope.requestInProgress) {
                     this.alertService.error("Cannot delete a layer while another delete request is in progress.");
                 } else if (getLayerIndexToDelete($scope.layerNameToDelete) == -1) {
@@ -103,13 +115,12 @@ module rasdaman {
                         (...args:any[])=> {
                             this.alertService.success("Deleted layer <b>" + $scope.layerNameToDelete + "</b>");
 
-                            // // Reload GetCapabilities in children controllers
-                            // // reload WMS (NOTE: this takes long time to send a new WMS GetCapabilities and rebuild everything) -> not used (!)
-                            // $rootScope.$broadcast("reloadWMSServerCapabilities", true);      
-
                             // Ask WMS GetCapabilitiesController to remove the deleted layer's extent on the globe if it showed before
                             // and recalculate the sizes of available layers
-                            $rootScope.removeDeletedWMSLayerName = $scope.layerNameToDelete;
+                            // - $broadcast is used when this event is listen in MULTIPLE children controllers
+                            // - $watch is used in a child controller, when $rootScope.value changed, and it does something, before setting the $rootScope.value = null (!Important)
+                            //   so next time when $rootScope.value changed again to e.g. true then the $watch will be invoked.                            
+                            $rootScope.$broadcast("deletedWMSLayerName", $scope.layerNameToDelete);
 
                             $scope.availableLayerNames = $scope.availableLayerNames.filter(layerName => layerName != $scope.layerNameToDelete);
 

@@ -27,22 +27,35 @@ module rasdaman.common {
     /**
      * Directive used to get the list of filtered rows from the smart table
      */
-    export function getFilteredRows($window):angular.IDirective {
+    export function getFilteredRows($window, $rootScope):angular.IDirective {
         return {
             require: '^stTable',            
             link: function(scope, element, attr, ctrl:any) {
 
                 let rootScope = scope.$root;
                 scope.$watch(function (rootScope) {
-                    var obj = ctrl.getFilteredCollection();
-                    if (obj.length > 0) {
-                        var objName = obj[0].constructor.name;
-                        if (objName == "CoverageSummary") {                            
-                            $window.wcsGetCapabilitiesFilteredRows = JSON.stringify(obj);                            
-                        } else if(objName == "Layer") {
-                            $window.wmsGetCapabilitiesFilteredRows = JSON.stringify(obj);                            
+                    let obj:any[] = ctrl.getFilteredCollection();
+                    let service = "";
+                    
+                    if (attr["stTable"] == "layers") {
+                        service = "WMS";
+                        $window.wmsGetCapabilitiesFilteredRows = obj;
+                    } else {
+                        service = "WCS";
+                        $window.wcsGetCapabilitiesFilteredRows = obj;
+                    }
+
+                    if (obj.length == 0) {
+                        if (service == "WCS") {
+                            $window.wcsGetCapabilitiesFilteredRows = [];
+                        } else if (service == "WMS") {
+                            $window.wmsGetCapabilitiesFilteredRows = [];
                         }
                     }
+
+
+                    // NOTE: Notify WCS and WMS GetCapabilities handler to recalculate the number of rows and sizes of filtered rows
+                    $rootScope.$broadcast("filteredRowsEvent" + service, true);
                 });
             }
         };

@@ -44,7 +44,7 @@ module rasdaman {
             // default show only login tab
             $scope.tabs = [$scope.adminLogin];
             
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
+            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean) => {
                 // logged in, show other tabs
                 if (newValue) {
                     $scope.tabs = [$scope.adminOWSMetadataManagement];

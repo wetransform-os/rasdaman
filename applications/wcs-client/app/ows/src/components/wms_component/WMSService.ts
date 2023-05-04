@@ -210,6 +210,28 @@ module rasdaman {
             return result.promise;
         }
 
+        // Add a pyramid member coverage for a layer
+        public addPyramidMemberRequest(request:wms.AddPyramidMember):angular.IPromise<any> {
+            var result = this.$q.defer();
+            // Build the request URL
+            var requestUrl = this.wcsSettings.adminEndpoint + "/coverage/pyramid/add" + "?" + request.toKVP();
+            var requestHeaders = this.adminService.getAuthenticationHeaders();
+
+            this.$http.get(requestUrl, {
+                headers: requestHeaders,
+            }).then(function (data:any) {
+                try {                                                
+                    result.resolve("");
+                } catch (err) {
+                    result.reject(err);
+                }
+            }, function (error) {
+                result.reject(error);
+            });
+
+            return result.promise;
+        }        
+
         // Remove the pyramid member coverage from a base coverage's pyramid
         public removePyramidMemberRequest(request:wms.RemovePyramidMember):angular.IPromise<any> {
             var result = this.$q.defer();
@@ -319,6 +341,29 @@ module rasdaman {
             var requestUrl = this.wcsSettings.adminEndpoint + "/layer/deactivate?coverageId=" + layerName;
 
             var requestHeaders = this.adminService.getAuthenticationHeaders();
+
+            this.$http.get(requestUrl, {
+                    headers: requestHeaders
+                }).then(function (data:any) {
+                    result.resolve(data);
+                }, function (error) {
+                    result.reject(error);
+                });
+
+            return result.promise;
+        }   
+        
+        public createLayer(layerName:string):angular.IPromise<any> {
+            let result = this.$q.defer();
+
+            if (!layerName) {
+                result.reject("You must specify at least one layer name.");
+            }
+            
+            let currentHeaders = {};
+            let requestUrl = this.wcsSettings.adminEndpoint + "/layer/activate?coverageId=" + layerName;
+
+            let requestHeaders = this.adminService.getAuthenticationHeaders();
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders

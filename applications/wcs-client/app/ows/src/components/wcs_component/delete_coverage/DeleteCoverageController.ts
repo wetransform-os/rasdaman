@@ -60,7 +60,7 @@ module rasdaman {
             }
 
             // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
-            $rootScope.$watch("renameCoverageId", (tupleObj:any) => {
+            $rootScope.$on("renamedCoverageId", (event, tupleObj:any) => {
                 if (tupleObj != null) {
                     let oldCoverageId:string = tupleObj.oldCoverageId;
                     let newCoverageId:string = tupleObj.newCoverageId;
@@ -74,15 +74,15 @@ module rasdaman {
                 }
             });            
 
-            $scope.$watch("coverageIdToDelete", (newValue:string, oldValue:string)=> {
-                let foundIndex = getCoverageIndexToDelete(newValue);
+            $scope.$watch("coverageIdToDelete", (coverageIdToDelete:string) => {
+                let foundIndex = getCoverageIndexToDelete(coverageIdToDelete);
                 $scope.isCoverageIdValid = foundIndex == -1 ? false : true;                
             });
 
-            $scope.$watch("wcsStateInformation.serverCapabilities", (capabilities:wcs.Capabilities)=> {
+            $scope.$watch("wcsStateInformation.serverCapabilities", (capabilities:wcs.Capabilities) => {
                 if (capabilities) {
                     $scope.availableCoverageIds = [];
-                    capabilities.contents.coverageSummaries.forEach((coverageSummary:wcs.CoverageSummary)=> {
+                    capabilities.contents.coverageSummaries.forEach((coverageSummary:wcs.CoverageSummary) => {
                         $scope.availableCoverageIds.push(coverageSummary.coverageId);
                     });
                 }
@@ -99,18 +99,11 @@ module rasdaman {
                     this.wcsService.deleteCoverage($scope.coverageIdToDelete).then(
                         (...args:any[])=> {
                             this.alertService.success("Deleted coverage <b>" + $scope.coverageIdToDelete + "</b>");
-
-                            // Reload GetCapabilities in children controllers
-                            // (NOTE: this takes long time to send a new WCS and WMS GetCapabilities and rebuild everything) -> not used (!)
-                            // // reload WCS
-                            // $rootScope.$broadcast("reloadWCSServerCapabilities", true);
-                            // // reload WMS
-                            // $rootScope.$broadcast("reloadWMSServerCapabilities", true);
-
                             // NOTE: In WCS and WMS GetCapabilitiesController will act accordingly after this coverage is deleted
-                            $rootScope.removeDeletedCoverageId = $scope.coverageIdToDelete;
-                            $rootScope.removeDeletedWMSLayerName = $scope.coverageIdToDelete;
-
+                            // - $broadcast is used when this event is listen in MULTIPLE children controllers
+                            // - $watch is used in a child controller, when $rootScope.value changed, and it does something, before setting the $rootScope.value = null (!Important)
+                            //   so next time when $rootScope.value changed again to e.g. true then the $watch will be invoked.
+                            $rootScope.$broadcast("deletedCoverageId", $scope.coverageIdToDelete);
                             $scope.availableCoverageIds = $scope.availableCoverageIds.filter(coverageId => coverageId !== $scope.coverageIdToDelete);
 
                         }, (...args:any[])=> {

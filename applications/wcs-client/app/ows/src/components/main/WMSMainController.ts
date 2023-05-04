@@ -35,37 +35,35 @@ module rasdaman {
         public static $inject = ["$scope", "$rootScope", "$state"];
 
         public constructor(private $scope:WMSMainControllerScope, $rootScope:angular.IRootScopeService, $state:any) {
+
             this.initializeTabs($scope);
 
+            $rootScope.wmsReloadServerCapabilities = null;
+
             // NOTE: When petascope admin user logged in, then show Delete Layer tab in WMS tab
-            $scope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean) => {                
-                if (oldValue == true || newValue == true) {
+            $rootScope.$watch("adminStateInformation.loggedIn", (obj:any) => {
+                if (obj == true) {
 
                     let roles = $rootScope.adminStateInformation.roles;
                     
                     // petascope admin logged in
                     if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WMS_DELETE_LAYER)) {
-                        $scope.wmsDeleteLayerTab.disabled = false;
+                        $scope.wmsDeleteLayerTab.disabled = false;                        
                     }
-                    
+                    if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WMS_INSERT_LAYER)) {
+                        $scope.wmsCreateLayerTab.disabled = false;
+                    }                    
                 } else {
                     // petascope admin logged out
-                    $scope.wmsDeleteLayerTab.disabled = true;                    
+                    $scope.wmsDeleteLayerTab.disabled = true;
+                    $scope.wmsCreateLayerTab.disabled = true;
                 }
-            });
 
-            $scope.$watch("wmsStateInformation.serverCapabilities", (newValue:wcs.Capabilities, oldValue:wcs.Capabilities)=> {                
-                if (newValue) {
-                    // Disable this by default if petascope admin did not log in
-                    if ($rootScope.adminStateInformation.loggedIn === false) {
-                        $scope.wmsDeleteLayerTab.disabled = true;
-                    }
-                } else {
-                    this.resetState();
-                }
-            });            
+                $rootScope.wmsReloadServerCapabilities = true;
+            });
+     
            
-            $scope.tabs = [$scope.wmsGetCapabilitiesTab, $scope.wmsDescribeLayerTab, $scope.wmsDeleteLayerTab];
+            $scope.tabs = [$scope.wmsGetCapabilitiesTab, $scope.wmsDescribeLayerTab, $scope.wmsDeleteLayerTab, $scope.wmsCreateLayerTab];
                         
             // When click on the layerName in the table of GetCapabilities tab,
             // it will change to DescribeLayer tab and get metadata for this layer.
@@ -77,9 +75,10 @@ module rasdaman {
             // NOTE: must initialize wmsStateInformation first or watcher for serverCapabilities in GetCapabilities
             // from DescribeLayer controller will not work and return null.
             $scope.wmsStateInformation = {
-                serverCapabilities: null,
-                reloadServerCapabilities: true
+                serverCapabilities: null
             };
+
+
         }
 
         private initializeTabs($scope:WMSMainControllerScope) {            
@@ -103,23 +102,28 @@ module rasdaman {
                 active: false,
                 disabled: true
             };
+
+            $scope.wmsCreateLayerTab = {
+                heading: "CreateLayer",
+                view: "wms_create_layer",
+                active: false,
+                disabled: true
+            };
+
         }
 
-        private resetState() {            
-            this.$scope.wmsDeleteLayerTab.disabled = true;
-        }
     }
 
     export interface WMSMainControllerScope extends angular.IScope {
         wmsStateInformation:{
-            serverCapabilities: wms.Capabilities,
-            reloadServerCapabilities: boolean
+            serverCapabilities: wms.Capabilities
         };
 
         tabs:TabState[];
         wmsGetCapabilitiesTab:TabState;
         wmsDescribeLayerTab:TabState;
         wmsDeleteLayerTab:TabState;  
+        wmsCreateLayerTab:TabState;
 	    describeLayer(layerName:string):void;      
     }
 

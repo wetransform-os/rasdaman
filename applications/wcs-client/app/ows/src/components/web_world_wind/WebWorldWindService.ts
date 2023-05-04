@@ -50,9 +50,9 @@ module rasdaman {
         private SURFACE_POLYGONS_LAYER = "SURFACE_POLYGONS_LAYER";
 
         // Collects all WGS84 bboxes from geo-referenced coverages to be used in other WCS controllers
-        public wcsGetCapabilitiesWGS84CoveageExtents:any[] = [];
+        public wcsGetCapabilitiesWGS84CoverageExtents:wms.CoverageExtent[] = [];
         // Collects all WGS84 bboxes from geo-referenced coverages to be used in other WMS controllers
-        public wmsGetCapabilitiesWGS84CoveageExtents:any[] = [];
+        public wmsGetCapabilitiesWGS84CoverageExtents:wms.CoverageExtent[] = [];
 
         public constructor($rootScope:angular.IRootScopeService,                           
                            wmsSetting:rasdaman.WMSSettingsService,
@@ -183,9 +183,10 @@ module rasdaman {
                                 if (lon >= bbox.xmin && lon <= bbox.xmax
                                     && lat >= bbox.ymin && lat <= bbox.ymax) {
                                     if (count < 8) {
-                                        let text = coverageExtent.coverageId 
-                                            + " - with bbox: minLon=" + bbox.xmin.toFixed(2) + ", minLat=" + bbox.ymin.toFixed(2) 
-                                            + ", maxLon=" + bbox.xmax.toFixed(2) + ", maxLat=" + bbox.ymax.toFixed(2);
+                                        let text = "Object: " + coverageExtent.coverageId 
+                                            + " - EPSG:4326 bbox: " 
+                                            + "minLat=" + bbox.ymin.toFixed(2) + ", minLon=" + bbox.xmin.toFixed(2)
+                                            + ", maxLat=" + bbox.ymax.toFixed(2) + ", maxLon=" + bbox.xmax.toFixed(2);
                                         intersectedCoverageIds += text + " \n";
                                     }
 
@@ -290,17 +291,22 @@ module rasdaman {
         }
 
         /**
-         * Used for WCS DescribeCoverage / GetCoverage and WCS DescribeLayer which only draws one polygon on a separate WebWorldWind
+         * Used for WCS / WMS GetCapabilities and 
+         * WCS DescribeCoverage / GetCoverage and WCS DescribeLayer which only draws one polygon on a separate WebWorldWind
          */
-        public showCoverageExtentOnGlobe(canvasId: string, coverageId:string, coverageExtent:any) {
+        public showCoverageExtentOnGlobe(canvasId: string, coverageId:string, coverageExtent:any, clearPreviousPolygons:boolean) {
             let webWorldWindModel:WebWorldWindModel = this.getWebWorldWindModelByCanvasId(canvasId);
             if (webWorldWindModel == null) {
                 this.initWebWorldWind(canvasId);
             }
 
             let polygonsLayer = this.getSurfacePolygonsLayer(canvasId);
-            // Then, remove all drawn polygons layers when described previous layers
-            polygonsLayer.removeAllRenderables();
+
+            if (clearPreviousPolygons == true) {
+                // NOTE: used only for WCS DescribeCoverage / GetCoverage and WMS DescribeLayer as only 1 coverage extent should display
+                // Then, remove all drawn polygons layers when described previous layers
+                polygonsLayer.removeAllRenderables();
+            }
 
             // create a new polygon object for the polygon layer
             // Add the polygon to surface layer
@@ -311,13 +317,10 @@ module rasdaman {
         }
 
         /**
-         * Show / hide a coverage extent of a coverage Id / layer name on the WebWorldWind globe.
-         * NOTE: used only for WCS / WMS GetCapabilities via checkboxes
-         * @param canvasId 
-         * @param coverageId 
-         * @param coverageExtent
+         * Hide a coverage extent on the WebWorldWind globe.
+         * Used for WCS / WMS GetCapabilities when a coverage / layer is deleted
          */
-        public showHideCoverageExtentOnGlobe(canvasId: string, coverageId:string, coverageExtent:any) {     
+        public hideCoverageExtentOnGlobe(canvasId: string, coverageId:string) {
             let webWorldWindModel:WebWorldWindModel = this.getWebWorldWindModelByCanvasId(canvasId);
             if (webWorldWindModel == null) {
                 this.initWebWorldWind(canvasId);
@@ -329,32 +332,19 @@ module rasdaman {
             for (let i = 0; i < polygonsLayer.renderables.length; i++) {
                 let polygonObj = polygonsLayer.renderables[i];
                 if (polygonObj.coverageId == coverageId) {
-                    // polygon already exists -> remove it
+                    // polygon already exists -> remove it (hide)
                     foundIndex = i;
                     break;
                 }
             }
-            
+
             if (foundIndex != -1) {
-                // Remove the drawn polygon on surface layer
+                // Remove the drawn polygon on surface layer (hide)
                 polygonsLayer.renderables.splice(foundIndex, 1);                
                 // In this case, consider it is used to remove the polygon from surface layers and just redraw WebWorldWind
                 this.getWebWorldWindModelByCanvasId(canvasId).wwd.redraw();
-            } else {           
-                if (coverageExtent != null) {
-                    // create a new polygon object for the new polygon layer
-                    // Add the polygon to surface layer
-                    let polygonObj = this.createPolygonObj(coverageId, coverageExtent);
-                    polygonsLayer.addRenderable(polygonObj);                        
-
-                    // then zoom to this coverage's extent                
-                    // look at the showed/hided coverage extent's center and redraw webworldwind
-                    this.gotoCoverageExtentCenter(canvasId, coverageExtent);            
-                }
-            }
-
-        }
-
+            }             
+        }       
 
         // Go to the center of the first coverage extent of the input array on Globe
         public gotoCoverageExtentCenter(canvasId: string, coverageExtent: any) {

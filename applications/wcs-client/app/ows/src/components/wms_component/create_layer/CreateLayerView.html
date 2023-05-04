@@ -1,0 +1,20 @@
+<div class="row top15 row-centered">
+    <div class="col-sm-11 col-centered">
+        <div class="row input-group input-group-lg">
+            <span class="input-group-addon">
+                            <span class="glyphicon glyphicon-globe">
+                            </span>
+            </span>
+            <input type="text" class="form-control" autocomplete source="inactivatedGeoReferencedCoverageIds" ng-model="layerNameToCreate" 
+            placeholder="Input layer name or part of it" />
+
+            <span class="input-group-btn">
+                <button ng-disabled="!isLayerNameValid"
+                        ng-click="createLayer()"                                    
+                        type="button" class="btn btn-success" title="Create a WMS layer from an existing geo-referenced coverage.">
+                    Create Layer
+                </button>
+            </span>
+        </div>
+    </div>
+</div>

@@ -77,9 +77,10 @@ module rasdaman {
                 return false;
             };
 
-            $rootScope.$watch("wcsSelectedGetCoverageId", (coverageId:string)=> {
-                if (coverageId != null) {
-                    $scope.selectedCoverageId = coverageId;                    
+            // NOTE: it listens data changed from WCSMainController, when selecting a coverageId from smart table in WCS GetCapabilities tab
+            $rootScope.$watch("wcsSelectedGetCoverageId", (newValue:string, oldValue:string) => {                
+                if (newValue != null) {                    
+                    $scope.selectedCoverageId = newValue;                    
                     $scope.describeCoverage();
                 }
             });
@@ -101,9 +102,21 @@ module rasdaman {
                 }                
             });
 
+            // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
+                if (coverageIdToDelete != null) {
+                    for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                        if ($scope.availableCoverageIds[i] == coverageIdToDelete) {
+                            $scope.availableCoverageIds.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });            
+
 
             // when GetCoverage triggers get coverage id, this function will be called to fill data for both DescribeCoverage and GetCoverage tabs
-            $scope.$watch("wcsStateInformation.selectedGetCoverageId", (getCoverageId:string)=> {
+            $scope.$watch("wcsStateInformation.selectedGetCoverageId", (getCoverageId:string) => {
                 if (getCoverageId) {
                     $scope.selectedCoverageId = getCoverageId;
                     $scope.describeCoverage();
@@ -111,7 +124,7 @@ module rasdaman {
             });
 
             // When petascope admin user logged in, show the update coverage's metadata feature
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
+            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean)=> {
                 if (newValue) {
                     // Admin logged in
                     $scope.adminUserLoggedIn = true;
@@ -142,7 +155,7 @@ module rasdaman {
 
                 wcsService.updateCoverageMetadata(formData).then(
                     response => {
-                        alertService.success("Successfully update coverage's metadata from file.");
+                        alertService.success("Successfully updated coverage's metadata from file.");
                         // Reload DescribeCoverage to see new changes
                         $scope.describeCoverage();
                     }, (...args:any[])=> {                            
@@ -175,7 +188,7 @@ module rasdaman {
                         alertService.success("Successfully rename coverage's id.");
 
                         // NOTE: Update name in WCS / WMS GetCapabilies and coverage extents on it and WebWorldWind coverage extents caches
-                        $rootScope.renameCoverageId = tupleObj;
+                        $rootScope.$broadcast("renamedCoverageId", tupleObj);
 
                         // Reload DescribeCoverage to see new changes
                         $scope.selectedCoverageId = $scope.newCoverageId;
@@ -263,14 +276,14 @@ module rasdaman {
 
                             $scope.parseCoverageMetadata();
 
-                            let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoveageExtents, $scope.selectedCoverageId);
+                            let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents, $scope.selectedCoverageId);
                             if (coverageExtent == null) {
                                 // coverage is not geo-referenced
                                 $scope.hideWebWorldWindGlobe = true;
                             } else {
                                 // coverage is referenced -> draw on globe
                                 $scope.hideWebWorldWindGlobe = false;
-                                webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent);
+                                webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent, true);
                             }                  
                         },
                         (...args:any[])=> {                            
@@ -279,7 +292,7 @@ module rasdaman {
                             errorHandlingService.handleError(args);
                             $log.error(args);
                         })
-                    .finally(()=> {
+                    .finally(() => {
                         $scope.wcsStateInformation.selectedCoverageDescription = $scope.coverageDescription;
                     });
             };           

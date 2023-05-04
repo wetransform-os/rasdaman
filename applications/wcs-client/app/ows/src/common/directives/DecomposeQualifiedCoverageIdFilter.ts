@@ -14,31 +14,25 @@
  * You should have received a copy of the GNU General Public License
  * along with rasdaman community.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2003 - 2017 Peter Baumann /
+ * Copyright 2003 - 2023 Peter Baumann /
  rasdaman GmbH.
  *
  * For more information please see <http://www.rasdaman.org>
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-/**
- * WMS already has the Ex_GeographicBoundingBox element to have XY bounding box in EPSG:4326.
- * However, the outcome of them should be the same object (CoverageExtent) and WMS needs to translate
- * EX_GeographicBoundingBox to CoverageExtent before WebWorldWind can process and load this bbox on globe.
- */
-///<reference path="BBox.ts"/>
+///<reference path="../../../assets/typings/tsd.d.ts"/>
 
-module wms {
-    export class CoverageExtent {
-        // NOTE: in WMS, a layer name is equivalent to a coverageId.
-        public coverageId:string;
-        public bbox:BBox;
-        public sizeInBytes:number;
- 
-        public constructor(coverageId, xmin, ymin, xmax, ymax, sizeInBytes) {            
-            this.coverageId = coverageId;
-            this.bbox = new BBox(xmin, ymin, xmax, ymax);
-            this.sizeInBytes = sizeInBytes;
-        }        
+module rasdaman.common {
+    /**
+     * Filter to decompose qualified coverage id to unqualified coverage id
+     * e.g. earthserver.xyz:7000:covA -> covA
+     */
+    export function DecomposeQualifiedCoverageIdFilter() {
+        return function(coverageId:string) {
+            let tmps:string[] = coverageId.split(":");
+            return tmps[tmps.length - 1];
+        };
+            
     }
 }

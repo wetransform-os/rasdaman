@@ -70,14 +70,20 @@ module rasdaman {
                 return false;
             };
 
-            /*
-            $rootScope.$on("SelectedCoverageId", (event:angular.IAngularEvent, coverageId:string)=> {
-                $scope.SelectedCoverageId = coverageId;
-                $scope.describeCoverage();
-            }); */
+            // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
+                if (coverageIdToDelete != null) {
+                    for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                        if ($scope.availableCoverageIds[i] == coverageIdToDelete) {
+                            $scope.availableCoverageIds.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });            
 
             // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
-            $rootScope.$watch("renameCoverageId", (tupleObj:any) => {
+            $rootScope.$on("renamedCoverageId", (event, tupleObj:any) => {
                 if (tupleObj != null) {
                     let oldCoverageId:string = tupleObj.oldCoverageId;
                     let newCoverageId:string = tupleObj.newCoverageId;
@@ -93,6 +99,8 @@ module rasdaman {
 
             $scope.$watch("wcsStateInformation.serverCapabilities", (capabilities:wcs.Capabilities)=> {
                 if (capabilities) {
+                    $scope.wcsStateInformation.serverCapabilities = capabilities;
+
                     // Supported HTTP request type for GetCoverage KVP request
                     $scope.avaiableHTTPRequests = ["GET", "POST"];
                     $scope.selectedHTTPRequest = $scope.avaiableHTTPRequests[0];
@@ -113,14 +121,14 @@ module rasdaman {
             });
 
             $scope.loadCoverageExtentOnGlobe = function () {                
-                let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoveageExtents, $scope.selectedCoverageId);
+                let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents, $scope.selectedCoverageId);
                 if (coverageExtent == null) {
                     // coverage is not geo-referenced
                     $scope.hideWebWorldWindGlobe = true;
                 } else {
                     // coverage is referenced -> draw on globe
                     $scope.hideWebWorldWindGlobe = false;
-                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent);
+                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent, true);
                 }                            
             }
 
@@ -200,8 +208,7 @@ module rasdaman {
                 return result;
             }
 
-            $scope.$watch("wcsStateInformation.selectedCoverageDescription",
-                (coverageDescription:wcs.CoverageDescription)=> {
+            $scope.$watch("wcsStateInformation.selectedCoverageDescription", (coverageDescription:wcs.CoverageDescription) => {
                     if (coverageDescription) {
                         $scope.coverageDescription = $scope.wcsStateInformation.selectedCoverageDescription;
                         $scope.selectedCoverageId = $scope.coverageDescription.coverageId;

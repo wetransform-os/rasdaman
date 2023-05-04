@@ -64,7 +64,7 @@ public class NilValue implements Serializable {
     @Column(name = COLUMN_ID)
     private long id;
 
-    @Column(name = "value")
+    @Column(name = "null_value")
     private String value;
 
     @Column(name = "reason")

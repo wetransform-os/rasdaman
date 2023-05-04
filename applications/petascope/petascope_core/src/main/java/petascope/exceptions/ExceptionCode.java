@@ -218,6 +218,7 @@ public class ExceptionCode {
             + "not declare a default value for that parameter. Locator: Name of missing parameter", SC_BAD_REQUEST);
     public static final ExceptionCode MultiBandImagesNotSupported = new ExceptionCode("MultiBandImagesNotSupported");
     public static final ExceptionCode LayerNotDefined = new ExceptionCode("LayerNotDefined");
+    public static final ExceptionCode RasdamanSetTypeNotFound = new ExceptionCode("RasdamanSetTypeNotFound");
     public static final ExceptionCode NoApplicableCode = new ExceptionCode("NoApplicableCode",
             "No other exceptionCode specified by this service and server applies to this exception", SC_NOT_IMPLEMENTED);
     public static final ExceptionCode NodeParsingNotImplemented = new ExceptionCode("NodeParsingNotImplemented");

@@ -22,6 +22,7 @@
 package org.rasdaman.repository.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,7 +46,6 @@ import org.rasdaman.domain.cis.BaseLocalCoverage;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.cis.DomainSet;
-import org.rasdaman.domain.cis.Envelope;
 import org.rasdaman.domain.cis.EnvelopeByAxis;
 import org.rasdaman.domain.cis.Field;
 import org.rasdaman.domain.cis.GeneralGrid;
@@ -62,21 +62,19 @@ import org.springframework.stereotype.Service;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
-import petascope.util.CrsUtil;
+import petascope.util.*;
 import org.rasdaman.repository.interfaces.CoverageRepository;
 import org.rasdaman.repository.interfaces.EnvelopeByAxisRepository;
 import org.rasdaman.repository.interfaces.RasdamanRangeSetRepository;
 import org.rasdaman.repository.interfaces.Wgs84BoundingBoxRepository;
 import org.springframework.transaction.annotation.Transactional;
-import petascope.core.AxisTypes;
 import petascope.core.BoundingBox;
 import petascope.core.GeoTransform;
 import petascope.core.Pair;
-import petascope.util.CrsProjectionUtil;
+
 import static petascope.util.CrsUtil.EPSG_4326_AUTHORITY_CODE;
-import petascope.util.ListUtil;
 import static petascope.util.StringUtil.TEMP_COVERAGE_PREFIX;
-import petascope.util.ThreadUtil;
+
 import petascope.util.ras.RasUtil;
 import petascope.util.ras.TypeRegistry;
 import petascope.util.ras.TypeRegistry.TypeRegistryEntry;
@@ -258,6 +256,8 @@ public class CoverageRepositoryService {
         
         long start = System.currentTimeMillis();
 
+        boolean isValidCoverage = false;
+
         Coverage coverage = this.coverageRepository.findOneByCoverageId(coverageId);
         
         long end = System.currentTimeMillis();
@@ -268,7 +268,19 @@ public class CoverageRepositoryService {
         } else {
             log.debug("Coverage '" + coverageId + "' is read from database.");
 
-            this.addRasdamanDataTypesForRangeQuantities(coverage);
+            try {
+                this.addRasdamanDataTypesForRangeQuantities(coverage);
+                isValidCoverage = true;
+            } catch (PetascopeException ex) {
+                // Coverage is invalid, don't show it to GetCapabilities result
+                if (!ex.getExceptionCode().equals(ExceptionCode.RasdamanSetTypeNotFound)) {
+                    log.error("Failed to persist rasdaman data types in range set of coverage: " + coverageId + ". Reason: " + ex.getMessage(), ex);
+                    throw ex;
+                } else {
+                    // if coverage's set type does not exist in rasdaman -> log an warning for admin
+                    log.warn(ex.getMessage());
+                }
+            }
 
             if (coverage.getRasdamanRangeSet().getTiling() == null) {
                 this.addRasdamanTilingConfiguration(coverage);
@@ -276,7 +288,11 @@ public class CoverageRepositoryService {
         }
         
         // e.g: vm1:7000:covA
-        this.putToLocalCacheMap(coverageId, new Pair<>(coverage, true));
+        if (isValidCoverage) {
+            this.putToLocalCacheMap(coverageId, new Pair<>(coverage, true));
+        } else {
+            this.localCoveragesCacheMap.remove(coverageId);
+        }
         
         // NOTE: without it, after coverage's crs is replaced from $SECORE_URL$ to localhost:8080 (from petascope.properties)
         // with a DescribeCoverage request, after the replacement, 
@@ -383,15 +399,16 @@ public class CoverageRepositoryService {
         String setType = coverage.getRasdamanRangeSet().getCollectionType();
         
         Field firstField = fields.get(0);
-        
+
         if (firstField.getQuantity().getDataType() == null) {
             // Need to update rasdaman type for range
             TypeRegistryEntry typeEntry = TypeRegistry.getInstance().getTypeRegistry().get(setType);
             if (typeEntry == null) {
-                throw new PetascopeException(ExceptionCode.InternalComponentError,
-                                            "Set type: " + setType + " does not exist in TypeRegistry for coverage: " + coverage.getCoverageId());
+                throw new PetascopeException(ExceptionCode.RasdamanSetTypeNotFound,
+                                            "Set type '"  + setType + "' does not exist in rasdaman, " +
+                                            "but is required for coverage '" + coverage.getCoverageId()
+                                            + "'. Hint: create the missing set type, or delete the coverage in petascopedb with a DeleteCoverage request.");
             }
-                        
             List<String> bandsTypes = typeEntry.getBandsTypes();
             
             for (int i = 0; i < fields.size(); i++) {

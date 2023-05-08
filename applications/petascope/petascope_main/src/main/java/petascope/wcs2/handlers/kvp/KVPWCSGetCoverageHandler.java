@@ -76,6 +76,9 @@ import petascope.wcs2.handlers.kvp.service.KVPWCSGetCoverageScalingService;
 import petascope.wcs2.handlers.kvp.service.KVPWCSGetCoverageSubsetDimensionService;
 import petascope.wcs2.handlers.kvp.service.KVPWCSGetcoverageClipService;
 import petascope.wcs2.parsers.subsets.AbstractSubsetDimension;
+import petascope.wcs2.parsers.subsets.SlicingSubsetDimension;
+import petascope.wcs2.parsers.subsets.TrimmingSubsetDimension;
+
 import static petascope.util.ras.RasConstants.RASQL_OPEN_SUBSETS;
 import static petascope.util.ras.RasConstants.RASQL_CLOSE_SUBSETS;
 
@@ -246,7 +249,7 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
      * @return
      */
     private String generateCoverageExpression(Map<String, String[]> kvpParameters,
-            WcpsCoverageMetadata wcpsCoverageMetadata, List<AbstractSubsetDimension> subsetDimensions, String interpolationType) throws WCSException {
+            WcpsCoverageMetadata wcpsCoverageMetadata, List<AbstractSubsetDimension> subsetDimensions, String interpolationType) throws PetascopeException {
 
         // Crs Extension: Translate from the input CRS (subsettingCrs) to native CRS (XYAxes's Crs)
         String subsettingCrs = AbstractController.getValueByKeyAllowNull(kvpParameters, KEY_SUBSETTING_CRS);
@@ -272,6 +275,8 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
         }
 
         List<String> intervals = new ArrayList<>();
+        boolean hasAxisX = true, hasAxisY = true;
+
         for (AbstractSubsetDimension subsetDimension : subsetDimensions) {
             Axis axis = wcpsCoverageMetadata.getAxisByName(subsetDimension.getDimensionName());
             // Only add the axis which is requested with subset parameter
@@ -293,6 +298,14 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
                         // e.g: Lat(350000:450000)&subsettingCrs=http://...3857
                         // NOTE: only apply on the XY geo-referenced axes, as it is not valid to add EPSG:4326 to timeAxis
                         axisDimension = axis.getLabel() + ":" + "\"" + subsettingCrs + "\"" + subsetDimension.getSubsetBoundsRepresentationWCPS();
+                    }
+                }
+
+                if (subsetDimension instanceof SlicingSubsetDimension) {
+                    if (axis.isXAxis()) {
+                        hasAxisX = false;
+                    } else if (axis.isYAxis()) {
+                        hasAxisY = false;
                     }
                 }
 
@@ -320,7 +333,23 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
         // Handle for WCS WKT clipping extension if necessary (i.e: when clip parameter exists in the request)
         coverageExpression = this.kvpGetCoverageClipService.handle(kvpParameters, coverageExpression, subsettingCrs);
 
-        if (outputCrs != null) {
+        String outputCrsCode = "";
+        if (outputCrs != null && !CrsUtil.isIndexCrs(outputCrs)) {
+            outputCrsCode = CrsUtil.getCrsDefinition(outputCrs).getCode();
+        }
+
+        String xyCrsCode = "";
+        String xyCrsURI = wcpsCoverageMetadata.getXYCrs();
+        if (!CrsUtil.isIndexCrs(xyCrsURI)) {
+            xyCrsCode = CrsUtil.getCrsDefinition(xyCrsURI).getCode();
+        }
+
+        if (outputCrs != null && !outputCrsCode.equalsIgnoreCase(xyCrsCode) && hasAxisX && hasAxisY) {
+            // NOTE: if a coverage is sliced on X and Y axes and trimmed on ansi axis,
+            // then even if outputCRS derived from subsettingCRS (e.g. EPSG:32632) is different from coverage's native CRS (e.g. EPSG:31467), crsTransform expression is invalid
+            // because the coverage is actually 1D.
+            // Here, the request only wants to slicing convert coordinates in EPSG:32632 and these coordinates are translated to EPSG:31467 to slice as usual.
+
             // Generate the CrsTransform expression
             coverageExpression = "crsTransform(" + coverageExpression;
             List<String> transformAxes = new ArrayList<>();

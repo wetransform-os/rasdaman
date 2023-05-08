@@ -38,8 +38,6 @@ import org.gdal.osr.SpatialReference;
 import org.rasdaman.config.ConfigManager;
 import org.rasdaman.domain.cis.AxisExtent;
 import org.rasdaman.domain.cis.EnvelopeByAxis;
-import org.rasdaman.domain.cis.GeoAxis;
-import org.rasdaman.domain.cis.IndexAxis;
 import org.rasdaman.domain.cis.Wgs84BoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -628,7 +626,7 @@ public class CrsProjectionUtil {
      * Previous versions are always with XY axes orders for any EPSG CRSs.
      */
     private static double[] adjustCoordinatesByGdalVersion(double[] coordinates, String crs) throws PetascopeException {
-        if (ConfigManager.GDAL_JAVA_VERSION < 3 || CrsUtil.isXYAxesOrder(crs)) {
+        if (ConfigManager.GDAL_JAVA_VERSION < 3 || CrsUtil.isEastNorthOrientation(crs)) {
             return coordinates;
         } else {
             // gdal version 3 and input coordinates (YX axes order), then need to flip the coordinates

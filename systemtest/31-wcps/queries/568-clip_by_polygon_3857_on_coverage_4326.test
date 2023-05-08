@@ -1,0 +1,8 @@
+for $c IN (test_epsg_4326_yx_north_east_orientation)
+	let
+		$p := Polygon((669061 6366581, 774858 6384214, 813650 6279593))
+	return encode (
+		clip(
+			$c, $p, "http://crs.rasdaman.com/def/crs/EPSG/0/3857"),
+        "jpeg"
+)

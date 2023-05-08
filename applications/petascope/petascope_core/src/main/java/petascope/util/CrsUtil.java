@@ -336,7 +336,7 @@ public class CrsUtil {
         }
     }
     
-    public static void handleSecoreController(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    public static void handleSecoreController(HttpServletRequest req, HttpServletResponse resp) throws org.rasdaman.secore.util.SecoreException, ServletException, IOException {
         org.rasdaman.secore.controller.SecoreController controller = new org.rasdaman.secore.controller.SecoreController();
         controller.handleRequest(req, resp);
     }
@@ -1405,12 +1405,36 @@ public class CrsUtil {
         axes = CrsUtil.getCrsDefinition(uri).getAxes();
         if (axes.isEmpty()) {
             throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS does not contain any axis. Given: '" + uri + "'.");
-        } else if (axes.get(0).getType().equals(AxisTypes.Y_AXIS)) {
-            // YX order
+        } else if (axes.get(0).getType().equalsIgnoreCase(AxisTypes.Y_AXIS)) {
+            // YX axis orders
             return false;
         }
         
         // XY order
+        return true;
+    }
+
+    /**
+     * Check if CRS is EastNorth order.
+     * NOTE: Normally XY axis order in the CRS -> EastNorth orientation and YX axis order in the CRS -> NorthEast orientation
+     * However, https://ows.rasdaman.org/rasdaman/def/crs/EPSG/0/31467 is an exception with XY axis order but NorthEast orientation
+     */
+    public static boolean isEastNorthOrientation(String uri) throws PetascopeException {
+        if (isAuthorityCode(uri)) {
+            // e.g: EPSG:4326 -> http://localhost:8080/def/crs/EPSG/0/4326
+            uri = getFullCRSURLByAuthorityCode(uri);
+        }
+        List<CrsDefinition.Axis> axes = new ArrayList<>();
+        axes = CrsUtil.getCrsDefinition(uri).getAxes();
+        if (axes.isEmpty()) {
+            throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS does not contain any axis. Given: '" + uri + "'.");
+        } else if (axes.get(0).getDirection().equalsIgnoreCase(CrsDefinition.Axis.NORTH_ORIENTATION_DIRECTION)) {
+            // YX direction orders
+            // NOTE:  https://ows.rasdaman.org/rasdaman/def/crs/EPSG/0/31467 has XY axes, but their directions are actually North, East (uncommon case)
+            // while: https://ows.rasdaman.org/rasdaman/def/crs/EPSG/0/32632 has XY axes, and their directions are: East, North (normal case)
+            return false;
+        }
+
         return true;
     }
     

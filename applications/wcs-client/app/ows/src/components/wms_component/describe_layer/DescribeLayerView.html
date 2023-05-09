@@ -22,6 +22,12 @@
             </div>
         </div>
 
+        <div class="col-sm-12 input-group input-group-lg" style="margin-top: 20px;" ng-show="getMapRequestURL != null">
+            <div style="float:left">
+                <span>Generated GET URL: </span> <a href="{{getMapRequestURL}}" target="_blank" id="getMapRequestURL" class="long-link-wrap-text"></a>
+            </div>
+        </div>                
+
         <div class="row top15" ng-model="layer" ng-hide="!isLayerDocumentOpen">
             <div class="col-sm-12">
                 <p>You have selected layer with name: <span class="important-text">{{layer.name}}</span></p>
@@ -74,8 +80,7 @@
                     
                     <div>
                         <div>
-                            Default GetMap request of this layer: <br/>
-                            <a href="{{getMapRequestURL}}" target="_blank" id="getMapRequestURL"></a> <br/><br/>
+                             <br/><br/>
 
                             <div ng-show="display3DLayerNotification">
                                 <b>NOTE:</b> When a non-spatial axis for a 3D+ coverage is omitted from the WMS GetMap request, 

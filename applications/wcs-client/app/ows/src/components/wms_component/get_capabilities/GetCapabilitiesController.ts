@@ -417,6 +417,8 @@ module rasdaman {
 
                 //Create capabilities request
                 let capabilitiesRequest = new wms.GetCapabilities();
+
+                $scope.generatedGETURL = settings.wmsFullEndpoint + "&" + capabilitiesRequest.toKVP();
     
                 wmsService.getServerCapabilities(capabilitiesRequest)
                     .then((response:rasdaman.common.Response<wms.Capabilities>) => {
@@ -478,6 +480,8 @@ module rasdaman {
         isCapabilitiesDocumentOpen:boolean;
 
         adminUserLoggedIn:boolean;
+
+        generatedGETURL:string;
 
         // return a correspondent layer by a name
         getLayerByName(layerName:string):wms.Layer;

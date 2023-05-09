@@ -14,7 +14,16 @@
                 </button>
             </span>
             </div>
+            
         </div>
+
+
+        <div class="col-sm-12 input-group input-group-lg" style="margin-top: 20px;" ng-show="generatedGETURL != null">
+            <div style="float:left">
+                <span>Generated GET URL: </span> <a href="{{generatedGETURL}}" class="long-link-wrap-text">{{generatedGETURL}}</a>
+            </div>
+        </div>
+
 
         <div class="row" ng-show="coverageDescriptionsDocument.value" style="margin-top: 15px;">
             <div class="col-sm-12 col-centered">
@@ -291,8 +300,11 @@
             </div>
 
             <!-- Only used for GET KVP Request -->
-            <div ng-show="core.requestUrl" style="background-color: white; padding: 10px; margin-left: 2px; margin-bottom: 15px;">
-                The constructed GET KVP request is: <a href="{{core.requestUrl}}" target="_blank">{{core.requestUrl}}</a>
+
+            <div class="col-sm-12 input-group input-group-lg" style="margin-top: 20px;" ng-show="generatedGETURL != null">
+                <div style="float:left">
+                    <span>Generated GET URL: </span> <a href="{{generatedGETURL}}" target="_blank" class="long-link-wrap-text">{{generatedGETURL}}</a>
+                </div>
             </div>
 
         </div>

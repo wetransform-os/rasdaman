@@ -439,7 +439,9 @@ module rasdaman {
                 settings.wcsEndpoint = $scope.wcsServerEndpoint;
 
                 // Create capabilities request
-                let capabilitiesRequest = new wcs.GetCapabilities();           
+                let capabilitiesRequest = new wcs.GetCapabilities();       
+                
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + capabilitiesRequest.toKVP();
 
                 wcsService.getServerCapabilities(capabilitiesRequest)
                     .then((response:rasdaman.common.Response<wcs.Capabilities>) => {
@@ -497,6 +499,8 @@ module rasdaman {
         showAllFootprints:any;
         adminUserLoggedIn:boolean;
 
+        generatedGETURL:string;
+
         parseCoveragesExtents():void;
 
         // Show/Hide the checked coverage extent on globe of current page
@@ -515,6 +519,8 @@ module rasdaman {
 	
 	    initCheckboxesForCoverageIds():void;
         getCoverageSummaryByCoverageId(coverageId):wcs.CoverageSummary;
+
+
 	
     }
 

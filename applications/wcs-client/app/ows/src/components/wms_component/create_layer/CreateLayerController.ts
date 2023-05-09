@@ -35,6 +35,7 @@ module rasdaman {
             "$log",
             "Notification",
             "rasdaman.WMSService",
+            "rasdaman.WMSSettingsService",            
             "rasdaman.ErrorHandlingService",
             "rasdaman.WebWorldWindService"
         ];
@@ -45,6 +46,7 @@ module rasdaman {
                            private $log:angular.ILogService,
                            private alertService:any,
                            private wmsService:rasdaman.WMSService,
+                           private settings:rasdaman.WMSSettingsService,
                            private errorHandlingService:ErrorHandlingService,
                            private webWorldWindService:rasdaman.WebWorldWindService) {
                         
@@ -137,6 +139,9 @@ module rasdaman {
             $scope.$watch("layerNameToCreate", (newValue:string) => {
                 let foundIndex = getLayerIndexToCreate(newValue);
                 $scope.isLayerNameValid = foundIndex == -1 ? false : true;  
+                if (foundIndex != -1) {
+                    $scope.generatedGETURL = settings.adminEndpoint + "/layer/activate?COVERAGEID=" + newValue;
+                }
             });            
 
 
@@ -186,6 +191,7 @@ module rasdaman {
 
     interface WMSCreateLayerControllerScope extends WCSMainControllerScope {        
         layerNameToCreate:string;
+        generatedGETURL:string;
 
         // the list of geo-referenced coverage Ids but not activated as WMS layers yet
         inactivatedGeoReferencedCoverageIds:string[];

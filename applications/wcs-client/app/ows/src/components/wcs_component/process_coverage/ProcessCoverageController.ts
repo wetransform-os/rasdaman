@@ -34,6 +34,7 @@ module rasdaman {
             "$interval",
             "Notification",
             "rasdaman.WCSService",
+            "rasdaman.WCSSettingsService",            
             "rasdaman.ErrorHandlingService"
         ];
 
@@ -42,7 +43,11 @@ module rasdaman {
                            $interval:angular.IIntervalService,
                            notificationService:any,
                            wcsService:rasdaman.WCSService,
+                           settings:rasdaman.WCSSettingsService,                              
                            errorHandlingService:ErrorHandlingService) {
+
+            $scope.actionGeneratedGETURLText = "Show";                            
+
             $scope.editorOptions = {
                 extraKeys: {"Ctrl-Space": "autocomplete"},
                 mode: "xquery",
@@ -65,7 +70,7 @@ module rasdaman {
             });
 
             // Clear history button's click event handler
-            $scope.clearHistory = ()=> {
+            $scope.clearHistory = () => {
                 var thisQuery:QueryExample;
                 thisQuery = {query:'', title:'--Select a WCPS query---'}
                 $scope.historyOfQueries = [];
@@ -74,7 +79,7 @@ module rasdaman {
 
             $scope.clearHistory();
 
-            var addToHistory = ()=> {
+            var addToHistory = () => {
                 var thisQuery:QueryExample;
                 var thisTitle:any;
                 const NUMBER_OF_ELEMENTS_IN_HISTORY = 25;
@@ -100,8 +105,16 @@ module rasdaman {
                 }
             }
 
+            $scope.showGeneratedGETURL = () => {
+                if ($scope.actionGeneratedGETURLText == "Show") {
+                    $scope.actionGeneratedGETURLText = "Hide";
+                } else {
+                    $scope.actionGeneratedGETURLText = "Show";
+                }                
+            }
+
             // Execute button's click event handler
-            $scope.executeQuery = ()=> {
+            $scope.executeQuery = () => {
                 try {
                     if ($scope.query == '' || $scope.query == null) {
                         notificationService.error("WCPS query cannot be empty");
@@ -121,6 +134,17 @@ module rasdaman {
                         var waitingForResultsPromise = $interval(()=> {
                             $scope.editorData[indexOfResults].secondsPassed++;
                         }, 1000);
+
+
+                        let tmps:string[] = $scope.query.split(">>");
+                        let wcpsQuery:string = "";
+                        if (tmps.length == 2) {
+                            wcpsQuery = tmps[1];
+                        } else {
+                            wcpsQuery = tmps[0];
+                        }
+
+                        $scope.generatedGETURL = settings.wcsFullEndpoint + "&REQUEST=ProcessCoverages&QUERY=" + encodeURIComponent(wcpsQuery);
 
                         wcsService.processCoverages(command.query)
                             .then(
@@ -277,6 +301,9 @@ module rasdaman {
     interface WCSProcessCoveragesViewModel extends angular.IScope {
         query:string;
         selectedQuery:string;
+        actionGeneratedGETURLText:string;
+        generatedGETURL:string;
+
         availableQueries:QueryExample[];
         historyOfQueries:QueryExample[];
         executeQuery():void;
@@ -285,6 +312,8 @@ module rasdaman {
         editorOptions:CodeMirrorOptions;
         editorData:any[];
         getEditorDataType(datum:any):number;
+
+        showGeneratedGETURL():void;        
     }
 
     class WaitingForResult {

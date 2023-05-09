@@ -35,6 +35,7 @@ module rasdaman {
             "$log",
             "Notification",
             "rasdaman.WCSService",
+            "rasdaman.WCSSettingsService",
             "rasdaman.ErrorHandlingService"
         ];
 
@@ -44,6 +45,7 @@ module rasdaman {
                            private $log:angular.ILogService,
                            private alertService:any,
                            private wcsService:rasdaman.WCSService,
+                           private settings:rasdaman.WCSSettingsService,
                            private errorHandlingService:ErrorHandlingService) {
 
             function getCoverageIndexToDelete(coverageId:string):number {
@@ -76,7 +78,11 @@ module rasdaman {
 
             $scope.$watch("coverageIdToDelete", (coverageIdToDelete:string) => {
                 let foundIndex = getCoverageIndexToDelete(coverageIdToDelete);
-                $scope.isCoverageIdValid = foundIndex == -1 ? false : true;                
+                $scope.isCoverageIdValid = foundIndex == -1 ? false : true;      
+                
+                if (foundIndex != -1) {
+                    $scope.generatedGETURL = settings.wcsFullEndpoint + "&REQUEST=DeleteCoverage&COVERAGEID=" + coverageIdToDelete;
+                }
             });
 
             $scope.$watch("wcsStateInformation.serverCapabilities", (capabilities:wcs.Capabilities) => {
@@ -130,6 +136,8 @@ module rasdaman {
         availableCoverageIds:string[];
         requestInProgress:boolean;
         isCoverageIdValid:boolean;
+
+        generatedGETURL:string;
 
         deleteCoverage():void;
     }

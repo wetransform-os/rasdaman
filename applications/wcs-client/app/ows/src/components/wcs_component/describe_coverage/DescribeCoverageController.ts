@@ -265,6 +265,8 @@ module rasdaman {
                 $("#coverageMetadataUploadFile").val("");
                 $("#uploadFileName").html("");
                 $("#btnUpdateCoverageMetadata").hide();
+
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
                             
                 //Retrieve coverage description
                 wcsService.getCoverageDescription(describeCoverageRequest)
@@ -323,6 +325,8 @@ module rasdaman {
 
         metadata:string;
         typeMetadata:string;
+
+        generatedGETURL:string;
 
 
         isCoverageIdValid():boolean;

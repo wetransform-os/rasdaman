@@ -38,6 +38,7 @@ module rasdaman {
             "$rootScope",
             "$log",
             "rasdaman.WCSService",
+            "rasdaman.WCSSettingsService",
             "Notification",
             "rasdaman.WebWorldWindService"
         ];
@@ -47,6 +48,7 @@ module rasdaman {
                            $rootScope:angular.IRootScopeService,
                            $log:angular.ILogService,
                            wcsService:rasdaman.WCSService,
+                           settings:rasdaman.WCSSettingsService,                           
                            alertService:any,
                            webWorldWindService:rasdaman.WebWorldWindService) {
 
@@ -179,7 +181,9 @@ module rasdaman {
                     wcsService.getCoverageHTTPGET(getCoverageRequest)
                     .then(
                         (requestUrl:string)=> {                                        
-                            $scope.core.requestUrl = requestUrl;                                        
+                            $scope.core.requestUrl = requestUrl;          
+                            
+                            $scope.generatedGETURL = settings.wcsEndpoint + "?" + getCoverageRequest.toKVP();
                         },
                         (...args:any[])=> {
                             $scope.core.requestUrl = null;
@@ -207,6 +211,10 @@ module rasdaman {
 
                 return result;
             }
+
+            $scope.setGeneratedGETURL = (numberOfDimensions:number) => {
+                $scope.generatedGETURL = settings.wcsFullEndpoint + "&REQUEST=GetCoverage&COVERAGEID=" + $scope.selectedCoverageId + "&FORMAT=" + $scope.setOutputFormat(numberOfDimensions);
+            };
 
             $scope.$watch("wcsStateInformation.selectedCoverageDescription", (coverageDescription:wcs.CoverageDescription) => {
                     if (coverageDescription) {
@@ -241,6 +249,8 @@ module rasdaman {
                                     $scope.isTemporalAxis[i] = false;
                                 }
                         }
+
+                        $scope.setGeneratedGETURL(numberOfAxis);
                         
                         wcsService.getCoverageDescription(describeCoverageRequest)
                         .then(
@@ -681,6 +691,8 @@ module rasdaman {
 
         getCoverageTabStates:GetCoverageTabStates;
 
+        generatedGETURL:string;
+
         // Based on the number of dimensions to set the output format accordingly
         setOutputFormat(numberOfDimensions:number):string;
 
@@ -692,6 +704,8 @@ module rasdaman {
         getCoverage():void;
 
 	    loadCoverageExtentOnGlobe():void;
+
+        setGeneratedGETURL(numberOfDimensions:number):void;
     }
 
     interface GetCoverageCoreModel {
@@ -727,5 +741,6 @@ module rasdaman {
         //Is the Clipping tab open
         isClippingOpen:boolean;
         isClippingSupported:boolean;
+
     }
 }

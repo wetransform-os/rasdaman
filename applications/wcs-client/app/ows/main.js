@@ -3547,6 +3547,7 @@ var rasdaman;
                 _this.coveragesExtents = [];
                 settings.wcsEndpoint = $scope.wcsServerEndpoint;
                 var capabilitiesRequest = new wcs.GetCapabilities();
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + capabilitiesRequest.toKVP();
                 wcsService.getServerCapabilities(capabilitiesRequest)
                     .then(function (response) {
                     $scope.capabilitiesDocument = response.document;
@@ -3752,6 +3753,7 @@ var rasdaman;
                 $("#coverageMetadataUploadFile").val("");
                 $("#uploadFileName").html("");
                 $("#btnUpdateCoverageMetadata").hide();
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
                 wcsService.getCoverageDescription(describeCoverageRequest)
                     .then(function (response) {
                     $scope.coverageDescription = response.value;
@@ -3795,13 +3797,14 @@ var rasdaman;
 var rasdaman;
 (function (rasdaman) {
     var WCSDeleteCoverageController = (function () {
-        function WCSDeleteCoverageController($rootScope, $scope, $log, alertService, wcsService, errorHandlingService) {
+        function WCSDeleteCoverageController($rootScope, $scope, $log, alertService, wcsService, settings, errorHandlingService) {
             var _this = this;
             this.$rootScope = $rootScope;
             this.$scope = $scope;
             this.$log = $log;
             this.alertService = alertService;
             this.wcsService = wcsService;
+            this.settings = settings;
             this.errorHandlingService = errorHandlingService;
             function getCoverageIndexToDelete(coverageId) {
                 if ($scope.wcsStateInformation.serverCapabilities) {
@@ -3829,6 +3832,9 @@ var rasdaman;
             $scope.$watch("coverageIdToDelete", function (coverageIdToDelete) {
                 var foundIndex = getCoverageIndexToDelete(coverageIdToDelete);
                 $scope.isCoverageIdValid = foundIndex == -1 ? false : true;
+                if (foundIndex != -1) {
+                    $scope.generatedGETURL = settings.wcsFullEndpoint + "&REQUEST=DeleteCoverage&COVERAGEID=" + coverageIdToDelete;
+                }
             });
             $scope.$watch("wcsStateInformation.serverCapabilities", function (capabilities) {
                 if (capabilities) {
@@ -3877,6 +3883,7 @@ var rasdaman;
             "$log",
             "Notification",
             "rasdaman.WCSService",
+            "rasdaman.WCSSettingsService",
             "rasdaman.ErrorHandlingService"
         ];
         return WCSDeleteCoverageController;
@@ -3939,7 +3946,7 @@ var rasdaman;
 var rasdaman;
 (function (rasdaman) {
     var WCSGetCoverageController = (function () {
-        function WCSGetCoverageController($http, $scope, $rootScope, $log, wcsService, alertService, webWorldWindService) {
+        function WCSGetCoverageController($http, $scope, $rootScope, $log, wcsService, settings, alertService, webWorldWindService) {
             var canvasId = "wcsCanvasGetCoverage";
             $scope.selectedCoverageId = null;
             $scope.hideWebWorldWindGlobe = false;
@@ -4039,6 +4046,7 @@ var rasdaman;
                     wcsService.getCoverageHTTPGET(getCoverageRequest)
                         .then(function (requestUrl) {
                         $scope.core.requestUrl = requestUrl;
+                        $scope.generatedGETURL = settings.wcsEndpoint + "?" + getCoverageRequest.toKVP();
                     }, function () {
                         var args = [];
                         for (var _i = 0; _i < arguments.length; _i++) {
@@ -4064,6 +4072,9 @@ var rasdaman;
                 }
                 return result;
             };
+            $scope.setGeneratedGETURL = function (numberOfDimensions) {
+                $scope.generatedGETURL = settings.wcsFullEndpoint + "&REQUEST=GetCoverage&COVERAGEID=" + $scope.selectedCoverageId + "&FORMAT=" + $scope.setOutputFormat(numberOfDimensions);
+            };
             $scope.$watch("wcsStateInformation.selectedCoverageDescription", function (coverageDescription) {
                 if (coverageDescription) {
                     $scope.coverageDescription = $scope.wcsStateInformation.selectedCoverageDescription;
@@ -4087,6 +4098,7 @@ var rasdaman;
                             $scope.isTemporalAxis[i] = false;
                         }
                     }
+                    $scope.setGeneratedGETURL(numberOfAxis);
                     wcsService.getCoverageDescription(describeCoverageRequest)
                         .then(function (response) {
                         $scope.coverageDescriptionsDocument = response.document;
@@ -4400,6 +4412,7 @@ var rasdaman;
             "$rootScope",
             "$log",
             "rasdaman.WCSService",
+            "rasdaman.WCSSettingsService",
             "Notification",
             "rasdaman.WebWorldWindService"
         ];
@@ -4699,7 +4712,8 @@ var rasdaman;
 var rasdaman;
 (function (rasdaman) {
     var WCSProcessCoverageController = (function () {
-        function WCSProcessCoverageController($scope, $log, $interval, notificationService, wcsService, errorHandlingService) {
+        function WCSProcessCoverageController($scope, $log, $interval, notificationService, wcsService, settings, errorHandlingService) {
+            $scope.actionGeneratedGETURLText = "Show";
             $scope.editorOptions = {
                 extraKeys: { "Ctrl-Space": "autocomplete" },
                 mode: "xquery",
@@ -4744,6 +4758,14 @@ var rasdaman;
                     $scope.historyOfQueries.splice(-1, 1);
                 }
             };
+            $scope.showGeneratedGETURL = function () {
+                if ($scope.actionGeneratedGETURLText == "Show") {
+                    $scope.actionGeneratedGETURLText = "Hide";
+                }
+                else {
+                    $scope.actionGeneratedGETURLText = "Show";
+                }
+            };
             $scope.executeQuery = function () {
                 try {
                     if ($scope.query == '' || $scope.query == null) {
@@ -4759,6 +4781,15 @@ var rasdaman;
                         var waitingForResultsPromise = $interval(function () {
                             $scope.editorData[indexOfResults].secondsPassed++;
                         }, 1000);
+                        var tmps = $scope.query.split(">>");
+                        var wcpsQuery = "";
+                        if (tmps.length == 2) {
+                            wcpsQuery = tmps[1];
+                        }
+                        else {
+                            wcpsQuery = tmps[0];
+                        }
+                        $scope.generatedGETURL = settings.wcsFullEndpoint + "&REQUEST=ProcessCoverages&QUERY=" + encodeURIComponent(wcpsQuery);
                         wcsService.processCoverages(command.query)
                             .then(function (data) {
                             var editorRow = rasdaman.WCPSResultFactory.getResult(errorHandlingService, command, data.data, data.headers('Content-Type'), data.headers('File-name'));
@@ -4856,6 +4887,7 @@ var rasdaman;
             "$interval",
             "Notification",
             "rasdaman.WCSService",
+            "rasdaman.WCSSettingsService",
             "rasdaman.ErrorHandlingService"
         ];
         return WCSProcessCoverageController;
@@ -6409,6 +6441,7 @@ var rasdaman;
                 settings.setWMSFullEndPoint();
                 _this.coveragesExtents = [];
                 var capabilitiesRequest = new wms.GetCapabilities();
+                $scope.generatedGETURL = settings.wmsFullEndpoint + "&" + capabilitiesRequest.toKVP();
                 wmsService.getServerCapabilities(capabilitiesRequest)
                     .then(function (response) {
                     $scope.capabilitiesDocument = response.document;
@@ -7187,13 +7220,14 @@ var rasdaman;
 var rasdaman;
 (function (rasdaman) {
     var WMSDeleteLayerController = (function () {
-        function WMSDeleteLayerController($rootScope, $scope, $log, alertService, wmsService, errorHandlingService) {
+        function WMSDeleteLayerController($rootScope, $scope, $log, alertService, wmsService, settings, errorHandlingService) {
             var _this = this;
             this.$rootScope = $rootScope;
             this.$scope = $scope;
             this.$log = $log;
             this.alertService = alertService;
             this.wmsService = wmsService;
+            this.settings = settings;
             this.errorHandlingService = errorHandlingService;
             function getLayerIndexToDelete(layerName) {
                 if ($scope.wmsStateInformation.serverCapabilities) {
@@ -7232,6 +7266,9 @@ var rasdaman;
             $scope.$watch("layerNameToDelete", function (newValue) {
                 var foundIndex = getLayerIndexToDelete(newValue);
                 $scope.isLayerNameValid = foundIndex == -1 ? false : true;
+                if (foundIndex != -1) {
+                    $scope.generatedGETURL = settings.adminEndpoint + "/layer/deactivate?COVERAGEID=" + newValue;
+                }
             });
             $scope.$watch("wmsStateInformation.serverCapabilities", function (capabilities) {
                 if (capabilities) {
@@ -7280,6 +7317,7 @@ var rasdaman;
             "$log",
             "Notification",
             "rasdaman.WMSService",
+            "rasdaman.WMSSettingsService",
             "rasdaman.ErrorHandlingService"
         ];
         return WMSDeleteLayerController;
@@ -7768,13 +7806,14 @@ var rasdaman;
 var rasdaman;
 (function (rasdaman) {
     var WMSCreateLayerController = (function () {
-        function WMSCreateLayerController($rootScope, $scope, $log, alertService, wmsService, errorHandlingService, webWorldWindService) {
+        function WMSCreateLayerController($rootScope, $scope, $log, alertService, wmsService, settings, errorHandlingService, webWorldWindService) {
             var _this = this;
             this.$rootScope = $rootScope;
             this.$scope = $scope;
             this.$log = $log;
             this.alertService = alertService;
             this.wmsService = wmsService;
+            this.settings = settings;
             this.errorHandlingService = errorHandlingService;
             this.webWorldWindService = webWorldWindService;
             function getLayerIndexToCreate(layerName) {
@@ -7844,6 +7883,9 @@ var rasdaman;
             $scope.$watch("layerNameToCreate", function (newValue) {
                 var foundIndex = getLayerIndexToCreate(newValue);
                 $scope.isLayerNameValid = foundIndex == -1 ? false : true;
+                if (foundIndex != -1) {
+                    $scope.generatedGETURL = settings.adminEndpoint + "/layer/activate?COVERAGEID=" + newValue;
+                }
             });
             $scope.createLayer = function () {
                 if ($scope.requestInProgress) {
@@ -7890,6 +7932,7 @@ var rasdaman;
             "$log",
             "Notification",
             "rasdaman.WMSService",
+            "rasdaman.WMSSettingsService",
             "rasdaman.ErrorHandlingService",
             "rasdaman.WebWorldWindService"
         ];

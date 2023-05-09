@@ -35,6 +35,7 @@ module rasdaman {
             "$log",
             "Notification",
             "rasdaman.WMSService",
+            "rasdaman.WMSSettingsService",
             "rasdaman.ErrorHandlingService"
         ];
 
@@ -44,6 +45,7 @@ module rasdaman {
                            private $log:angular.ILogService,
                            private alertService:any,
                            private wmsService:rasdaman.WMSService,
+                           private settings:rasdaman.WMSSettingsService,
                            private errorHandlingService:ErrorHandlingService) {
                         
 
@@ -92,6 +94,9 @@ module rasdaman {
             $scope.$watch("layerNameToDelete", (newValue:string) => {
                 let foundIndex = getLayerIndexToDelete(newValue);
                 $scope.isLayerNameValid = foundIndex == -1 ? false : true;  
+                if (foundIndex != -1) {
+                    $scope.generatedGETURL = settings.adminEndpoint + "/layer/deactivate?COVERAGEID=" + newValue;
+                }
             });
 
             $scope.$watch("wmsStateInformation.serverCapabilities", (capabilities:wms.Capabilities) => {
@@ -102,6 +107,7 @@ module rasdaman {
                     });
                 }
             });
+        
 
             $scope.deleteLayer = () => {
                 if ($scope.requestInProgress) {
@@ -144,6 +150,7 @@ module rasdaman {
 
     interface WMSDeleteLayerControllerScope extends WCSMainControllerScope {        
         layerNameToDelete:string;
+        generatedGETURL:string;
 
         availableLayerNames:string[];
         requestInProgress:boolean;

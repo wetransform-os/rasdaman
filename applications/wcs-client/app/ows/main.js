@@ -5252,6 +5252,11 @@ var rasdaman;
                     $scope.showView($scope.wsclient, "services");
                 }
             });
+            $rootScope.$watch("homeLoggedIn", function (newValue) {
+                if (newValue === true) {
+                    $scope.showView($scope.wsclient, "services");
+                }
+            });
             $scope.checkPetascopeEnableAuthentication = function () {
                 var result = $q.defer();
                 var requestUrl = settings.contextPath + "/admin/authisactive";

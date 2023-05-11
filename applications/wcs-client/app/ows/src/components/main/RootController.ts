@@ -59,6 +59,14 @@ module rasdaman {
                 }
             }); 
 
+            // When logged in in the first page, then shows the main WSClient
+            // NOTE: this works only
+            $rootScope.$watch("homeLoggedIn", (newValue:any) => {
+                if (newValue === true) {                    
+                    $scope.showView($scope.wsclient, "services");
+                }
+            });
+
 
             // --------- defined functions -------------
 

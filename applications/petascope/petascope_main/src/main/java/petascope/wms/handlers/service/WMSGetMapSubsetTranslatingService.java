@@ -32,7 +32,6 @@ import petascope.core.GeoTransform;
 import petascope.exceptions.PetascopeException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsProjectionUtil;
-
 import petascope.wcps.handler.CrsTransformHandler;
 import petascope.wcps.handler.SubsetExpressionHandler;
 import petascope.wcps.metadata.model.Axis;
@@ -344,6 +343,10 @@ public class WMSGetMapSubsetTranslatingService {
             long defaultUpperGridBound = 0;
 
             String scaledExpression = "[" + defaultLowerGridBound + ":" + (extendedWidth - 1) + ", " + defaultUpperGridBound + ":" + (extendedHeight - 1) + "]";
+            if (!wmsLayer.getWcpsCoverageMetadata().isXYGridOrder()) {
+                scaledExpression = "[" + defaultLowerGridBound + ":" + (extendedHeight - 1) + ", " + defaultUpperGridBound + ":" + (extendedWidth - 1) + "]";
+            }
+
             subsetCollectionExpression = "scale( " + subsetCollectionExpression +  ", " + scaledExpression + " ) ";
 
             // Then, apply the original request BBOX on the scaled grid domains based on the extended aligned request BBOX
@@ -390,9 +393,17 @@ public class WMSGetMapSubsetTranslatingService {
                 gridYMax = extendedHeight - 1;
             }
 
-            String finalSizeExpression = ", [0:" + (width - 1) + ", 0:" + (height - 1) + "]";
-            subsetCollectionExpression += " [" + gridXMin + ":" + gridXMax
+            String finalSizeExpression = "";
+
+            if (wmsLayer.getWcpsCoverageMetadata().isXYGridOrder()) {
+                subsetCollectionExpression += " [" + gridXMin + ":" + gridXMax
                         + ", " + gridYMin + ":" + gridYMax + "]";
+                finalSizeExpression = ", [0:" + (width - 1) + ", 0:" + (height - 1) + "]";
+            } else {
+                subsetCollectionExpression += " [" + gridYMin + ":" + gridYMax
+                        + ", " + gridXMin + ":" + gridXMax + "]";
+                finalSizeExpression = ", [0:" + (height - 1) + ", 0:" + (width - 1) + "]";
+            }
 
             subsetCollectionExpression = "scale( " + subsetCollectionExpression + finalSizeExpression + " )";
             finalCollectionExpressionLayer = subsetCollectionExpression;
@@ -401,6 +412,7 @@ public class WMSGetMapSubsetTranslatingService {
         if (needExtend) {
             subsetCollectionExpression = "scale( " + subsetCollectionExpression + ", [" + scaleX + ", " + scaleY + "] )";
             finalCollectionExpressionLayer = EXTEND + "( " + subsetCollectionExpression + ", [" + extendX + ", " + extendY + "] )";
+
         }
         
         if (invalidQuery) {

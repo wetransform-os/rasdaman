@@ -27,14 +27,10 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.TreeMap;
 import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.cis.NilValue;
 import org.slf4j.LoggerFactory;
@@ -45,10 +41,8 @@ import petascope.core.gml.metadata.model.CoverageMetadata;
 import petascope.core.gml.metadata.service.CoverageMetadataService;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.WCPSException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
-import petascope.util.JSONUtil;
 import petascope.util.ListUtil;
 import petascope.wcps.exception.processing.CoverageAxisNotFoundExeption;
 import petascope.wcps.metadata.service.AxesOrderComparator;
@@ -425,6 +419,25 @@ public class WcpsCoverageMetadata {
         
         return false;
     }
+
+    /**
+     * Check if grid orders of a coverage is X (Long) Y (Lat) order (e.g TIFF file)
+     * but with netCDF it can be Y (Lat) X (Long) order
+     */
+    @JsonIgnore
+    public boolean isXYGridOrder() {
+        if (hasXYAxes()) {
+            List<Axis> xyAxes = this.getXYAxes();
+            Axis axisX = xyAxes.get(0);
+            Axis axisY = xyAxes.get(1);
+
+            if (axisX.getRasdamanOrder() < axisY.getRasdamanOrder()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
     
     /**
      * Check if this coverage object contains only 2 axes and they are XY axes, e.g: Long Lat.
@@ -442,7 +455,7 @@ public class WcpsCoverageMetadata {
      */
     @JsonIgnore
     public List<Axis> getXYAxes() {
-        Map<Integer, Axis> map = new HashMap<>();
+        Map<Integer, Axis> map = new TreeMap<>();
         for (Axis axis : this.getAxes()) {
             // NOTE: the order must be XY if the coverage has X-Y axes, or only X or only Y when the coverage has CRS combination (e.g: Lat and Time axes)
             if (axis.getAxisType().equals(AxisTypes.X_AXIS)) {

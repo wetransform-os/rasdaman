@@ -247,8 +247,8 @@ public class SerializationEncodingService {
      * and can be displayable (2D image).
      */
     private Boolean outputNeedsTranspose(String rasqlFormat, JsonExtraParams jsonExtraParams, WcpsCoverageMetadata metadata) {
-        if (jsonExtraParams.getTranspose().isEmpty() && metadata.getAxes().size() == 2 
-                && !metadata.isXYOrder() 
+        if (jsonExtraParams.getTranspose().isEmpty() && metadata.hasXYAxes() && metadata.getAxes().size() == 2
+                && !metadata.isXYGridOrder()
                 && MIMEUtil.displayableMIME(rasqlFormat)) {
             // YX output grid axes and displayable image
             return true;

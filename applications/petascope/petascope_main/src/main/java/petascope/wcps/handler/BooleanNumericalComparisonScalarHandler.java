@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -56,10 +58,10 @@ public class BooleanNumericalComparisonScalarHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult leftCoverageExpression = (WcpsResult) this.getFirstChild().handle();
-        String operator = ((WcpsResult) this.getSecondChild().handle()).getRasql();
-        WcpsResult rightCoverageExpression = (WcpsResult) this.getThirdChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult leftCoverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        String operator = ((WcpsResult) this.getSecondChild().handle(serviceRegistries)).getRasql();
+        WcpsResult rightCoverageExpression = (WcpsResult) this.getThirdChild().handle(serviceRegistries);
         
         WcpsResult result = this.handle(leftCoverageExpression, operator, rightCoverageExpression);
         return result;

@@ -71,21 +71,21 @@ public class RootHandler extends Handler {
         return result;
     }
     
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         
-        WcpsResult forClauseListVisitorResult = (WcpsResult) this.getFirstChild().handle();
+        WcpsResult forClauseListVisitorResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
         
         WcpsResult letClauseListVisitorResult = null;
         if (this.getSecondChild() instanceof LetClauseListHandler) {
-            letClauseListVisitorResult = (WcpsResult) this.getSecondChild().handle();
+            letClauseListVisitorResult = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
         }
         
         WcpsResult whereClauseVisitorResult = null;
         if (this.getThirdChild()instanceof WhereClauseHandler) {
-            whereClauseVisitorResult = (WcpsResult) this.getThirdChild().handle();
+            whereClauseVisitorResult = (WcpsResult) this.getThirdChild().handle(serviceRegistries);
         }
 
-        VisitorResult returnClauseVisitorResult = this.getFourthChild().handle();
+        VisitorResult returnClauseVisitorResult = this.getFourthChild().handle(serviceRegistries);
         
         VisitorResult finalResult = returnClauseVisitorResult;
         
@@ -122,12 +122,10 @@ public class RootHandler extends Handler {
      */
     private List<String> createFinalRasqlQueries(String defaultRasql, String whereClause) throws PetascopeException {
         List<String> finalRaslQueries = new ArrayList<>();
-        
-        this.coverageAliasRegistry.unifyCoverageAliasMappings();
-        
+
         List<List<String>> listsTmp = new ArrayList<>();
         // e.g. c -> [ (cov11:collection11), (cov12: collection12), ...]
-        for (Map.Entry<String, List<Pair<String, String>>> entry : this.coverageAliasRegistry.getCoverageMappings().entrySet()) {
+        for (Map.Entry<String, List<Pair<String, String>>> entry : this.coverageAliasRegistry.getFinalCoverageAliasMappings().entrySet()) {
             // e.g. c
             String coverageVarableName = entry.getKey();
             List<String> collectionVariableNamesList = new ArrayList<>();
@@ -177,8 +175,14 @@ public class RootHandler extends Handler {
         // returns list[ list1[ collection 11 as c, collection21 as d ], list2[ collection12 as c, collection21 as d ] ]
         List<List<String>> catersianProductList = ListUtil.cartesianProduct(listsTmp);
         for (List<String> list : catersianProductList) {
-            String fromClause = " FROM " + ListUtil.join(list, ", ");
-            String rasqlQuery = defaultRasql + fromClause;
+            String rasqlQuery = defaultRasql;
+
+            String concatenatedStr = ListUtil.join(list, ", ");
+            if (!concatenatedStr.isEmpty()) {
+                String fromClause = " FROM " + concatenatedStr;
+                rasqlQuery += fromClause;
+            }
+
             if (whereClause != null) {
                 rasqlQuery += " " + whereClause;
             }

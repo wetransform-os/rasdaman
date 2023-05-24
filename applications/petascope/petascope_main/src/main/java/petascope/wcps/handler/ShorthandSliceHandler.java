@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -58,9 +60,9 @@ public class ShorthandSliceHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
-        WcpsResult dimensionIntervalListExpression = (WcpsResult) this.getSecondChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        WcpsResult dimensionIntervalListExpression = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
         return this.handle(coverageExpression, dimensionIntervalListExpression);
     }
 

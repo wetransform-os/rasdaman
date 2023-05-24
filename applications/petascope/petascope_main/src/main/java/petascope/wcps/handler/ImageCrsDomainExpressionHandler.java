@@ -63,8 +63,8 @@ public class ImageCrsDomainExpressionHandler extends Handler {
         return result;
     }
     
-    public WcpsMetadataResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
+    public WcpsMetadataResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
         WcpsMetadataResult result = this.handle(coverageExpression);
         
         return result;

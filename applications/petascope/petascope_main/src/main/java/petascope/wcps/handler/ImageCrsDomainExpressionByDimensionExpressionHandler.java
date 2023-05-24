@@ -63,9 +63,9 @@ public class ImageCrsDomainExpressionByDimensionExpressionHandler extends Handle
         return result;
     }
     
-    public WcpsMetadataResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
-        String axisName = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+    public WcpsMetadataResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        String axisName = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         WcpsMetadataResult result = this.handle(coverageExpression, axisName);
         return result;

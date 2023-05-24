@@ -1,0 +1,17 @@
+for $c0 in (test_wcps_irregular_time_germany),
+    $c1 in (test_wcps_irregular_time_germany_repeat),
+    $c2 in (test_wcps_irregular_time_germany_duplicate)
+
+let $sub := [ansi:"CRS:1"(0)],
+    $bands := {red:   ($c0[ $sub ] - min($c0[ $sub ])) / (max($c0[ $sub ]) - min($c0[ $sub ])) * 255; 
+               green: ($c1[ $sub ] - min($c1[ $sub ])) / (max($c1[ $sub ]) - min($c1[ $sub ])) * 255; 
+               blue:  ($c2[ $sub ] - min($c2[ $sub ])) / (max($c2[ $sub ]) - min($c2[ $sub ])) * 255 }
+
+return encode(
+       scale(
+           (unsigned char) ($bands),
+           { 
+             Long: "CRS:1"(0: 60)
+           }  
+        ),   
+       "png",  "nodata=0") 

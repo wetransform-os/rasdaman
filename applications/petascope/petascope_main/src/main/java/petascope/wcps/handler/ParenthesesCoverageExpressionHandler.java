@@ -22,11 +22,16 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
+import petascope.wcps.result.VisitorResult;
+import petascope.wcps.result.WcpsMetadataResult;
 import petascope.wcps.result.WcpsResult;
+import petascope.wcps.subset_axis.model.DimensionIntervalList;
 
 /**
  * Translator class for coverage expressions that are surrounded by parenthesis.
@@ -42,21 +47,27 @@ public class ParenthesesCoverageExpressionHandler extends Handler {
     public ParenthesesCoverageExpressionHandler() {
         
     }
-    
-    public ParenthesesCoverageExpressionHandler create(Handler coverageExpressionHandler) {
+
+    public static ParenthesesCoverageExpressionHandler create(Handler coverageExpressionHandler) {
         ParenthesesCoverageExpressionHandler result = new ParenthesesCoverageExpressionHandler();
         result.setChildren(Arrays.asList(coverageExpressionHandler));
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
-        WcpsResult result = this.handle(coverageExpression);
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        VisitorResult coverageExpression = this.getFirstChild().handle(serviceRegistries);
+        VisitorResult result = this.handle(coverageExpression);
         return result;
     } 
 
-    private WcpsResult handle(WcpsResult coverageExpression) {
-        String rasql = " ( " + coverageExpression.getRasql() + " ) ";
-        return new WcpsResult(coverageExpression.getMetadata(), rasql);
+    private VisitorResult handle(VisitorResult coverageExpressionResult) {
+        if (coverageExpressionResult instanceof WcpsResult) {
+            String rasql = " ( " + ((WcpsResult)coverageExpressionResult).getRasql() + " ) ";
+            return new WcpsResult(coverageExpressionResult.getMetadata(), rasql);
+        } else if (coverageExpressionResult instanceof WcpsMetadataResult) {
+            return new WcpsResult(coverageExpressionResult.getMetadata(), ((WcpsMetadataResult)coverageExpressionResult).getResult());
+        } else {
+            return coverageExpressionResult;
+        }
     }
 }

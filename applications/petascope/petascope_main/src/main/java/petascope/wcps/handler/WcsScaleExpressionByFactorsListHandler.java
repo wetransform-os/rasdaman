@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
-import org.rasdaman.config.ConfigManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -52,6 +51,7 @@ import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.AbstractWcpsScaleDimension;
 import petascope.wcps.subset_axis.model.WcpsScaleDimensionIntevalList;
 import petascope.wcps.subset_axis.model.WcpsSliceScaleDimension;
+import org.rasdaman.config.ConfigManager;
 
 /**
  * Class to translate a scale wcps expression into rasql  <code>
@@ -70,6 +70,8 @@ public class WcsScaleExpressionByFactorsListHandler extends Handler {
     private ScaleExpressionByDimensionIntervalsHandler scaleExpressionByDimensionIntervalsHandler;
     @Autowired
     private CollectionAliasRegistry collectionAliasRegistry;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
     
     public WcsScaleExpressionByFactorsListHandler() {
         
@@ -82,17 +84,18 @@ public class WcsScaleExpressionByFactorsListHandler extends Handler {
         result.rasqlTranslationService = this.rasqlTranslationService;
         result.scaleExpressionByDimensionIntervalsHandler = this.scaleExpressionByDimensionIntervalsHandler;
         result.collectionAliasRegistry = this.collectionAliasRegistry;
+        result.httpServletRequest = this.httpServletRequest;
         
         return result;
         
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle());
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle(serviceRegistries));
         
         WcpsScaleDimensionIntevalList scaleDimensionIntevalList = null;
         
-        Object obj = this.getSecondChild().handle();
+        Object obj = this.getSecondChild().handle(serviceRegistries);
         if (obj instanceof WcpsResult) {
             // Scale by 1 factor
             List<AbstractWcpsScaleDimension> elementsList = new ArrayList<>();
@@ -104,7 +107,7 @@ public class WcsScaleExpressionByFactorsListHandler extends Handler {
             scaleDimensionIntevalList = new WcpsScaleDimensionIntevalList(elementsList);
         } else {
             // Scale by a list of axisLabel(factor)
-            scaleDimensionIntevalList = (WcpsScaleDimensionIntevalList)this.getSecondChild().handle();
+            scaleDimensionIntevalList = (WcpsScaleDimensionIntevalList)this.getSecondChild().handle(serviceRegistries);
             
             for (Axis axis : coverageExpression.getMetadata().getAxes()) {
                 boolean exist = false;
@@ -139,6 +142,7 @@ public class WcsScaleExpressionByFactorsListHandler extends Handler {
                     // e.g. avg(c)
                     // NOTE: this is required, to get the correct scale factor by calculating it from rasdaman
                     // then to update the grid domains of the current coverage object c after scale(c, avg(c))
+
                     String query = "SELECT " + scaleFactorStr + " FROM " + this.collectionAliasRegistry.getFromClause();
                     String result = RasUtil.executeQueryToReturnString(query, ConfigManager.RASDAMAN_USER, ConfigManager.RASDAMAN_PASS);
                     scaleFactor = new BigDecimal(result);

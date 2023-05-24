@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -54,9 +56,9 @@ public class CoverageIsNullHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
-        boolean isNull = Boolean.valueOf(((WcpsResult) this.getSecondChild().handle()).getRasql());
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        boolean isNull = Boolean.valueOf(((WcpsResult) this.getSecondChild().handle(serviceRegistries)).getRasql());
         
         WcpsResult result = this.handle(coverageExpression, isNull);
         return result;

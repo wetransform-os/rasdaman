@@ -56,16 +56,16 @@ public class CrsTransformTargetGeoXYBoundingBoxHandler extends Handler {
     }    
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         // CrsTransform target bbox can be fetched from:
         // - {Lat(30:50), Lon(60:70)}
         // - {domain($c)}
         DimensionIntervalList dimensionIntervalListExpression = null;
         WcpsMetadataResult domainExpressionResult = null;
         if (this.getFirstChild() != null) {
-            dimensionIntervalListExpression = (DimensionIntervalList) this.getFirstChild().handle();
+            dimensionIntervalListExpression = (DimensionIntervalList) this.getFirstChild().handle(serviceRegistries);
         } else if (this.getSecondChild() != null) {
-            domainExpressionResult = (WcpsMetadataResult)this.getSecondChild().handle();
+            domainExpressionResult = (WcpsMetadataResult)this.getSecondChild().handle(serviceRegistries);
         }
         
         String axisLabelX = null, trimSubsetX = null, axisLabelY = null, trimSubsetY = null;

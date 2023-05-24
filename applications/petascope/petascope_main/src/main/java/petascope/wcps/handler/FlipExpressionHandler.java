@@ -63,10 +63,10 @@ public class FlipExpressionHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
         // e.g. Lat
-        String axisLabel = ((WcpsResult) this.getSecondChild().handle()).getRasql();
+        String axisLabel = ((WcpsResult) this.getSecondChild().handle(serviceRegistries)).getRasql();
         int axisLabelGridIndex = -1;
         int i = 0;
         

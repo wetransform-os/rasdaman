@@ -63,48 +63,44 @@ public class RangeConstructorElementListHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        VisitorResult result = this.handle(this.getChildren());
-        return result; 
-    }
-    
-    private VisitorResult handle(List<Handler> childHandlers) throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         List<String> rasqlParts = new ArrayList<>();
         WcpsCoverageMetadata metadata = null;
         WcpsResult rangeFieldCoverageExpression = null;
-        
+
         List<RangeField> rangeFields = new ArrayList<>();
         List<String> rangeFieldNames = new ArrayList<>();
-        
-        for (Handler childHandler : childHandlers) {
-            rangeFieldCoverageExpression = (WcpsResult)childHandler.handle();
+
+        for (Handler childHandler : this.getChildren()) {
+            rangeFieldCoverageExpression = (WcpsResult)childHandler.handle(serviceRegistries);
             WcpsCoverageMetadata rangeFieldMetadata = rangeFieldCoverageExpression.getMetadata();
             if (rangeFieldMetadata.getAxes().size() > 0 && metadata == null) {
                 metadata = rangeFieldMetadata;
             }
-            
+
             String rangeFieldName = rangeFieldMetadata.getRangeFields().get(0).getName();
             if (rangeFieldNames.contains(rangeFieldName)) {
                 throw new WCPSException(ExceptionCode.InvalidRequest, "Range field: " + rangeFieldName + " is duplicated in a range constructor.");
             } else {
                 rangeFieldNames.add(rangeFieldName);
             }
-            
+
             rangeFields.addAll(rangeFieldMetadata.getRangeFields());
-            
+
             String rasql = rangeFieldCoverageExpression.getRasql();
             rasqlParts.add(rasql);
         }
-        
+
         if (metadata == null) {
             metadata = new WcpsCoverageMetadata();
         }
         metadata.setRangeFields(rangeFields);
-        
+
         String rasql = ListUtil.join(rasqlParts, ", ");
-        
+
         WcpsResult wcpsResult = new WcpsResult(metadata, rasql);
         return wcpsResult;
     }
+
     
 }

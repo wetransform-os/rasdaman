@@ -1,0 +1,11 @@
+for $co in (test_double_1d)
+
+return encode(
+         scale(
+           $co[i:"CRS:1"(0:0)],
+           { 
+             i:"CRS:1"(0:60)
+           } 
+        ),   
+       "json"
+)

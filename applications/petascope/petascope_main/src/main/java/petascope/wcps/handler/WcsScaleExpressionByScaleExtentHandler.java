@@ -74,15 +74,15 @@ public class WcsScaleExpressionByScaleExtentHandler extends AbstractWcsScaleHand
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult)this.getFirstChild().handle();
-        WcpsScaleDimensionIntevalList scaleAxesDimensionListHandler = (WcpsScaleDimensionIntevalList)this.getSecondChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult)this.getFirstChild().handle(serviceRegistries);
+        WcpsScaleDimensionIntevalList scaleAxesDimensionListHandler = (WcpsScaleDimensionIntevalList)this.getSecondChild().handle(serviceRegistries);
         
-        WcpsResult result = this.handle(coverageExpression, scaleAxesDimensionListHandler);
+        WcpsResult result = this.handle(coverageExpression, scaleAxesDimensionListHandler, serviceRegistries);
         return result;
     }
 
-    private WcpsResult handle(WcpsResult coverageExpression, WcpsScaleDimensionIntevalList scaleAxesDimensionList) throws PetascopeException {
+    private WcpsResult handle(WcpsResult coverageExpression, WcpsScaleDimensionIntevalList scaleAxesDimensionList, List<Object> serviceRegistries) throws PetascopeException {
         // SCALE_EXTENT LEFT_PARENTHESIS
         //        coverageExpression COMMA scaleDimensionIntervalList
         // RIGHT_PARENTHESIS
@@ -104,13 +104,15 @@ public class WcsScaleExpressionByScaleExtentHandler extends AbstractWcsScaleHand
             Long upperBound = Long.valueOf(trimScaleDimension.getUpperBound()) - Long.valueOf(trimScaleDimension.getLowerBound());
             WcpsTrimSubsetDimension trimSubsetDimension = new WcpsTrimSubsetDimension(axis.getLabel(), GRID_CRS,
                                                                                     lowerBound.toString(), upperBound.toString());
-            
+
             wcpsSubsetDimensions.add(trimSubsetDimension);
         }
 
         
         DimensionIntervalList dimensionIntervalList = new DimensionIntervalList(wcpsSubsetDimensions);
-        WcpsResult wcpsResult = this.scaleExpressionByDimensionIntervalsHandler.handle(coverageExpression, dimensionIntervalList, false, this.getFirstChild());
+        WcpsResult wcpsResult = this.scaleExpressionByDimensionIntervalsHandler.handle(coverageExpression, dimensionIntervalList, false, this.getFirstChild(),
+                                                                        serviceRegistries
+                                                            );
         
         return wcpsResult;
     }

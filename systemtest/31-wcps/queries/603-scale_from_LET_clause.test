@@ -1,0 +1,10 @@
+for $c in (test_mean_summer_airtemp)
+let $sub := [ Lat(-24:-14),
+              Lon(125: 145) ],
+    $scale_c := scale($c [ $sub ], { Lat:"CRS:1"(1:100), Lon:"CRS:1"(1:100) })
+return
+  encode(
+
+        $scale_c
+    
+  , "png", "nodata=0")

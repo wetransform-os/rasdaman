@@ -1,0 +1,6 @@
+for c in (test_mr), d in (test_mr)
+return encode(
+
+scale((c + d * 0.1)[i:"CRS:1"(0:59)], {i(0:50)})
+, "png")
+

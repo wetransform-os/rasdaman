@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -55,17 +57,17 @@ public class UnaryArithmeticExpressionHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        String operator = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        WcpsResult coverageExpression = ((WcpsResult)this.getSecondChild().handle());
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String operator = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        WcpsResult coverageExpression = ((WcpsResult)this.getSecondChild().handle(serviceRegistries));
         String leftParenthesis = null;
         String rightParenthesis = null;
         
         if (this.getThirdChild() != null) {
-            leftParenthesis = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+            leftParenthesis = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         }
         if (this.getFourthChild()!= null) {
-            rightParenthesis = ((WcpsResult)this.getFourthChild().handle()).getRasql();
+            rightParenthesis = ((WcpsResult)this.getFourthChild().handle(serviceRegistries)).getRasql();
         }
         
         WcpsResult result = this.handle(operator, coverageExpression, leftParenthesis, rightParenthesis);

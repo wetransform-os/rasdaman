@@ -1,0 +1,16 @@
+for $c0 in (test_wcps_irregular_time_germany)
+
+let $sub := $c0[ansi:"CRS:1"(0)],
+    $bands := switch case $sub > 20
+        		return  $sub * {red: 107; green:17; blue:68}
+           	  default
+        		return $sub * {red: 150; green:103; blue:14}
+
+return encode(
+       scale(
+            $bands,
+           { 
+             Long: "CRS:1"(0: 60)
+           }  
+        ),   
+       "png",  "nodata=0") 

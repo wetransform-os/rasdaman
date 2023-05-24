@@ -81,11 +81,11 @@ public class ClipWKTExpressionHandler extends AbstractClipExpressionHandler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
         // Handle clipWKTExpression: CLIP LEFT_PARENTHESIS coverageExpression COMMA wktExpression (COMMA crsName)? RIGHT_PARENTHESIS
         // e.g: clip(c[i(0:20), j(0:20)], Polygon((0 10, 20 20, 20 10, 0 10)), "http://opengis.net/def/CRS/EPSG/3857")
-        WcpsResult coverageExpressionResult = (WcpsResult) this.getFirstChild().handle();
-        AbstractWKTShape wktShape = (AbstractWKTShape) this.getSecondChild().handle();
+        WcpsResult coverageExpressionResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        AbstractWKTShape wktShape = (AbstractWKTShape) this.getSecondChild().handle(serviceRegistries);
                
         int numberOfDimensions = wktShape.getWktCompoundPointsList().get(0).getNumberOfDimensions();
         if (coverageExpressionResult.getMetadata() == null) {
@@ -99,7 +99,7 @@ public class ClipWKTExpressionHandler extends AbstractClipExpressionHandler {
         // NOTE: This one is optional parameter, if specified, XY coordinates in WKT will be translated from this CRS to coverage's native CRS for XY axes.
         String wktCRS = null;
         if (this.getThirdChild() != null) {
-            String value = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+            String value = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
             wktCRS = StringUtil.stripFirstAndLastQuotes(value);
         }        
         

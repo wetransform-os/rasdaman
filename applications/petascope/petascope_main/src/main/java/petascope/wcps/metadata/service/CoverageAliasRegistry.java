@@ -21,12 +21,8 @@
  */
 package petascope.wcps.metadata.service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -46,26 +42,69 @@ import static petascope.wcps.handler.ForClauseHandler.AS;
 // Create a new instance of this bean for each request (so it will not use the old object with stored data)
 @Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class CoverageAliasRegistry {
-    
+
     @Autowired
     private CollectionAliasRegistry collectionAliasRegistry;
 
+    // e.g. FOR $c in (test_cov1, test_cov2)
+    // Pair<String, String> of test_cov1:coverageId and test_cov1:rasdamanCollectionName
+    private LinkedHashMap<String, List<Pair<String, String>>> forClauseListCoverageMappings = new LinkedHashMap<>();
+
     // NOTE: a coverage variable can be alias for multiple coverage names
     private LinkedHashMap<String, List<Pair<String, String>>> coverageMappings = new LinkedHashMap<>();
+    // e.g. $c (base coverage) and $c_0 (pyramid member coverage) are a pair
+    private LinkedHashMap<String, String> coverageAliasAndDownscaledAliasMappings = new LinkedHashMap<>();
 
     // store the mapping of coverageAlias and coverageId of downscaled pyramid member coverages in case scale() is used
     // e.g. c1 -> (test_pyramid_2, test_pyramid_2_collection), c2 -> (test_pyramid_4, test_pyramid_4_collection))
     private LinkedHashMap<String, Pair<String, String>> downscaledCoverageAliasIdMappings = new LinkedHashMap<>();
-    
-    // These coverage aliases will be removed in the final step to create the final rasql query
-    private List<String> coverageAliasToBeRemoved = new ArrayList<>();
 
+    // Contains only coverage alias (either exist in FOR clause list or implicitly added by SCALE() with downscaled coverage Ids)
+    // which should exist in the final FROM clause in rasql query
+    private LinkedHashMap<String, List<Pair<String, String>>> finalUsedCoverageAliasMappings = new LinkedHashMap<>();
+    
     public CoverageAliasRegistry() {
         
     }
-    
-    public void addCoverageAliasToBeRemoved(String coverageAlias) {
-        this.coverageAliasToBeRemoved.add(coverageAlias);
+
+    // -- For clause list
+
+    public void addCoverageToForClauseListMapping(String coverageAlias, String coverageName, String rasdamanCollectionName) {
+        List<Pair<String, String>> values = this.forClauseListCoverageMappings.get(coverageAlias);
+        if (values != null) {
+            // If key -> value exist then just add new coverage name to value
+            forClauseListCoverageMappings.get(coverageAlias).add(new Pair<>(coverageName, rasdamanCollectionName));
+        } else {
+            // if key does not exist then need to add key first then add value for this key
+            forClauseListCoverageMappings.put(coverageAlias, ListUtil.valuesToList(new Pair<>(coverageName, rasdamanCollectionName)));
+        }
+    }
+
+    public boolean existsInForClauseListMapping(String coverageAlias) {
+        return this.forClauseListCoverageMappings.containsKey(coverageAlias);
+    }
+
+    /**
+     * Mark that this coverageAlias from FOR clause should exist in the final FROM clause in rasql query
+     */
+    public void copyFromForClauseMappingToUsedCoverageAliasMapping(String coverageAlias) {
+        List<Pair<String, String>> pairs = forClauseListCoverageMappings.get(coverageAlias);
+        coverageMappings.put(coverageAlias, pairs);
+    }
+
+    // -- When a downscaled coverage is used instead of a base coverage
+
+    public void addCoverageAliasAndDownscaledAlias(String coverageAlias, String downscaledAlias) {
+        this.coverageAliasAndDownscaledAliasMappings.put(coverageAlias, downscaledAlias);
+    }
+
+    public void removeCoverageAliasAndDownscaledAlias(String coverageAlias) {
+        this.coverageAliasAndDownscaledAliasMappings.remove(coverageAlias);
+    }
+
+    public String getDownscaledAlias(String coverageAlias) {
+        String result = this.coverageAliasAndDownscaledAliasMappings.get(coverageAlias);
+        return result;
     }
     
     public LinkedHashMap<String, Pair<String, String>> getDownscaledCoverageAliasIdMappings() {
@@ -91,37 +130,28 @@ public class CoverageAliasRegistry {
         
         return null;
     }
-    
-    public void unifyCoverageAliasMappings() {
-        for (Map.Entry<String, Pair<String, String>> entry : this.downscaledCoverageAliasIdMappings.entrySet()) {
-            this.coverageMappings.put(entry.getKey(), Arrays.asList(entry.getValue()));
-        }
-        
-        for (String coverageAlias : this.coverageAliasToBeRemoved) {
-            // At the final step to create the final rasql query, any unused coverage aliases must be stripped
-            this.coverageMappings.remove(coverageAlias);
-        }
-    }
-    
+
     /**
-     * As this bean exists for a HTTP request, so in case of WCS multipart, it still contains the data from the first WCPS query, so need to clear it
-     */
-    public void clear() {
-        coverageMappings = new LinkedHashMap<>();
-        downscaledCoverageAliasIdMappings = new LinkedHashMap<>();
-        coverageAliasToBeRemoved = new ArrayList<>();
+    * e.g. baseCoverageName is test_cov
+    * downscaledCoverageName is test_cov_8 and downscaledRasdamanCollectionName is test_cov_rasdaman_8
+    *
+    */
+    public void replaceBaseCoverageByDownscaledCoverage(String baseCoverageName,
+                                                        String downscaledCoverageName, String downscaledRasdamanCollectionName) {
+
+         for (Map.Entry<String, List<Pair<String, String>>> entry : this.coverageMappings.entrySet()) {
+            List<Pair<String, String>> basePairs = entry.getValue();
+            for (int i = 0; i < basePairs.size(); i++) {
+                Pair<String, String> basePair = basePairs.get(i);
+                if (basePair.fst.equals(baseCoverageName)) {
+                    basePair = new Pair<>(downscaledCoverageName, downscaledRasdamanCollectionName);
+                    basePairs.set(i, basePair);
+                }
+            }
+         }
     }
-    
-    public void remove(String coverageAlias) {
-        coverageMappings.remove(coverageAlias);
-    }
-   
-    public void updateCoverageMapping(String coverageAlias, String coverageName, String rasdamanCollectionName) {
-        List<Pair<String, String>> values = coverageMappings.get(coverageAlias);
-        if (values != null) {
-            coverageMappings.put(coverageAlias, ListUtil.valuesToList(new Pair<>(coverageName, rasdamanCollectionName))); 
-        }
-    }
+
+    // -- Common functions
 
     public void addCoverageMapping(String coverageAlias, String coverageName, String rasdamanCollectionName) {
         List<Pair<String, String>> values = coverageMappings.get(coverageAlias);
@@ -132,6 +162,22 @@ public class CoverageAliasRegistry {
             // if key does not exist then need to add key first then add value for this key
             coverageMappings.put(coverageAlias, ListUtil.valuesToList(new Pair<>(coverageName, rasdamanCollectionName)));
         }
+    }
+
+    public void updateCoverageMapping(String coverageAlias, String coverageName, String rasdamanCollectionName) {
+        List<Pair<String, String>> values = coverageMappings.get(coverageAlias);
+        if (values != null) {
+            coverageMappings.put(coverageAlias, ListUtil.valuesToList(new Pair<>(coverageName, rasdamanCollectionName))); 
+        }
+    }
+
+    public void remove(String coverageAlias) {
+        coverageMappings.remove(coverageAlias);
+    }
+
+    public List<Pair<String, String>> getListOfCoveragePairsByCoverageAlias(String coverageAlias) {
+        List<Pair<String, String>> results = this.coverageMappings.get(coverageAlias);
+        return results;
     }
 
     /* Always get the first coverageName in the arrayList to create defaultRasql query
@@ -185,6 +231,29 @@ public class CoverageAliasRegistry {
         }
         return null;
     }
+
+    /**
+     * e.g. for $c in (test_mr), $d in (test_mr) then this function returns [$c, $d] for input coverageName: test_mr
+     */
+    public List<String> getAliasesByCoverageName(String coverageName) {
+        List<String> results = new ArrayList<>();
+
+        for (Map.Entry<String, List<Pair<String, String>>> entry : this.coverageMappings.entrySet()) {
+            for (Pair<String, String> pair : entry.getValue()) {
+                if (pair.fst.equals(coverageName)) {
+                    results.add(entry.getKey());
+                }
+            }
+        }
+
+        for (Map.Entry<String, Pair<String, String>> entry : this.downscaledCoverageAliasIdMappings.entrySet()) {
+            if (entry.getValue().fst.equals(coverageName)) {
+                results.add(entry.getKey());
+            }
+        }
+
+        return results;
+    }
     
     /**
      * Return the rasdaman collection name by coverage name
@@ -199,6 +268,13 @@ public class CoverageAliasRegistry {
                 }
             }
         }
+
+        for (Map.Entry<String, Pair<String, String>> entry : this.downscaledCoverageAliasIdMappings.entrySet()) {
+            if (entry.getValue().fst.equals(coverageName)) {
+                return entry.getValue().snd;
+            }
+        }
+
         return null;
     }
     
@@ -212,6 +288,47 @@ public class CoverageAliasRegistry {
         return this.coverageMappings;
     }
     
+
+    /**
+     * Return the map of coverage Ids -> coverage alias
+     * e.g: test_mean_summer_airtemp -> $c
+     */
+    public Map<String, String> getCoverageAliasMap() {
+        Map<String, String> map = new HashMap<>();
+        for (Map.Entry<String, List<Pair<String, String>>> entry : this.coverageMappings.entrySet()) {
+            String alias = entry.getKey();
+            for (Pair<String, String> pair : entry.getValue()) {
+                String coverageId = pair.fst;
+                map.put(coverageId, alias.replace("$", ""));
+            }
+        }
+        
+        return map;
+    }
+
+    // -- Final steps
+
+    public void addToFinalCoverageAliasMappings(String coverageAlias, String coverageId, String rasdamanCollectionName) {
+        if (this.finalUsedCoverageAliasMappings.containsKey(coverageAlias)) {
+            this.finalUsedCoverageAliasMappings.get((coverageAlias)).add(new Pair<>(coverageId, rasdamanCollectionName));
+        } else {
+            this.finalUsedCoverageAliasMappings.put( coverageAlias, ListUtil.valuesToList(new Pair<>(coverageId, rasdamanCollectionName)) );
+        }
+    }
+
+    public List<Pair<String, String>> getListOfFinalCoveragePairsByCoverageAlias(String coverageAlias) {
+        return this.getFinalCoverageAliasMappings().get(coverageAlias);
+    }
+
+    public LinkedHashMap<String, List<Pair<String, String>>> getFinalCoverageAliasMappings() {
+        if (!this.finalUsedCoverageAliasMappings.isEmpty()) {
+            return this.finalUsedCoverageAliasMappings;
+        } else {
+            // In some cases where no actual coverage ids are used before
+            return this.forClauseListCoverageMappings;
+        }
+    }
+
     /**
      * Return the string representing this Map of coverage iterators and rasdaman collection names
      * e.g: c -> test_mean_summer_airtemp, d -> test_mean_summer_airtemp_repeat
@@ -228,34 +345,25 @@ public class CoverageAliasRegistry {
                     tmpList.add(pair.snd + " " + AS + " " + coverageIterator.replace("$", ""));
                 }
             }
-            
+
             // e.g: test_mean_summer_airtemp as c
             if (tmpList.size() > 0) {
                 String tmpOuput = ListUtil.join(tmpList, ", ");
                 list.add(tmpOuput);
             }
         }
-        
+
         // test_mean_summer_airtemp as c, test_mean_summer_airtemp as d
         String output = ListUtil.join(list, ", ");
-        
+
         return output;
-    } 
-    
+    }
+
     /**
-     * Return the map of coverage Ids -> coverage alias
-     * e.g: test_mean_summer_airtemp -> $c
+     * As this bean exists for a HTTP request, so in case of WCS multipart, it still contains the data from the first WCPS query, so need to clear it
      */
-    public Map<String, String> getCoverageAliasMap() {
-        Map<String, String> map = new HashMap<>();
-        for (Map.Entry<String, List<Pair<String, String>>> entry : this.coverageMappings.entrySet()) {
-            String alias = entry.getKey();
-            for (Pair<String, String> pair : entry.getValue()) {
-                String coverageId = pair.fst;
-                map.put(coverageId, alias.replace("$", ""));
-            }
-        }
-        
-        return map;
+    public void clear() {
+        coverageMappings = new LinkedHashMap<>();
+        downscaledCoverageAliasIdMappings = new LinkedHashMap<>();
     }
 }

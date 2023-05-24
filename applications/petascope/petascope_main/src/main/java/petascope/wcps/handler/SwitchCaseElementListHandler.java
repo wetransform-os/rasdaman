@@ -53,32 +53,27 @@ public class SwitchCaseElementListHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        VisitorResult result = this.handle(this.getChildren());
-        return result;
-    }
-    
-    private VisitorResult handle(List<Handler> switchCaseElementHandlers) throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         List<String> rasqlParts = new ArrayList<>();
         WcpsCoverageMetadata metadata = null;
-        
-        for (Handler handler : switchCaseElementHandlers) {
-            WcpsResult result = ((WcpsResult) handler.handle());
+
+        for (Handler handler : this.getChildren()) {
+            WcpsResult result = ((WcpsResult) handler.handle(serviceRegistries));
             String rasqlPart = result.getRasql();
-            
+
             WcpsCoverageMetadata metadataTmp = result.getMetadata();
             if (metadataTmp != null) {
                 metadata = metadataTmp;
             }
-            
+
             rasqlParts.add(rasqlPart);
         }
-        
+
         // e.g. WHEN ... RETURN {0,1,2} WHEN ... RETURN 1
         String rasql = ListUtil.join(rasqlParts, " ");
         WcpsCoverageMetadata metadataResult = metadata;
-        
+
         return new WcpsResult(metadataResult, rasql);
     }
-    
+
 }

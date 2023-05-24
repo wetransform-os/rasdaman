@@ -28,6 +28,8 @@ import petascope.exceptions.PetascopeException;
 import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsResult;
 
+import java.util.List;
+
 /**
  * Class to translate a boolean constant, e.g. true or false
  * <p/>
@@ -58,7 +60,7 @@ public class BooleanConstantHandler extends Handler {
     }
     
     @Override
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         VisitorResult result = this.handle(this.value);
         return result;
     }

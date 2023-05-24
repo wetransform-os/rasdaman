@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -57,9 +59,9 @@ public class IntervalExpressionHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String lowerBound = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        String upperBound = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String lowerBound = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        String upperBound = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         VisitorResult result = this.handle(lowerBound, upperBound);
         return result;

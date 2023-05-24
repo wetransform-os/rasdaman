@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -56,12 +58,12 @@ public class CrsTransformTargetGeoXYResolutionsHandler extends Handler {
     }    
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String geoResolutionAxisLabelX = getResult(this.getFirstChild().handle());
-        String geoResolutionX = getResult(this.getSecondChild().handle());
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String geoResolutionAxisLabelX = getResult(this.getFirstChild().handle(serviceRegistries));
+        String geoResolutionX = getResult(this.getSecondChild().handle(serviceRegistries));
         
-        String geoResolutionAxisLabelY = getResult(this.getThirdChild().handle());
-        String geoResolutionY = getResult(this.getFourthChild().handle());
+        String geoResolutionAxisLabelY = getResult(this.getThirdChild().handle(serviceRegistries));
+        String geoResolutionY = getResult(this.getFourthChild().handle(serviceRegistries));
         
         CrsTransformTargetGeoXYResolutions tmpObject = new CrsTransformTargetGeoXYResolutions(geoResolutionAxisLabelX, geoResolutionX, geoResolutionAxisLabelY, geoResolutionY);
                

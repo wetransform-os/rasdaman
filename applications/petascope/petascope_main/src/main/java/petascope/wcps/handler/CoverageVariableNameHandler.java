@@ -22,12 +22,17 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.core.Pair;
+import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCPSException;
+import petascope.util.StringUtil;
 import petascope.wcps.metadata.service.CoverageAliasRegistry;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.AxisIteratorAliasRegistry;
@@ -83,10 +88,10 @@ public class CoverageVariableNameHandler extends Handler {
         return result;
     }
     
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         VisitorResult wcpsResult = null;
-        String coverageVariable = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        
+        String coverageVariable = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+
         try {
             wcpsResult = letClauseAliasRegistry.get(coverageVariable);
             if (wcpsResult == null) {
@@ -103,6 +108,13 @@ public class CoverageVariableNameHandler extends Handler {
     private WcpsResult handle(String coverageAlias) throws PetascopeException {
         String rasql;
         WcpsCoverageMetadata metadata;
+
+        if (coverageAliasRegistry.existsInForClauseListMapping(coverageAlias)) {
+            // e.g. $c0 from the list of FOR clause ($c0, $c1 and $c2) is used in a subset expression -> copy $c0 to the map of used aliases
+            // $c1 and $c2 are not added to the final FROM clause in rasql query
+            coverageAliasRegistry.copyFromForClauseMappingToUsedCoverageAliasMapping(coverageAlias);
+        }
+
         String coverageName = coverageAliasRegistry.getCoverageName(coverageAlias);
         // NOTE: if coverageName is null then the coverage alias points to non-existing coverage
         // assume it is an axis iterator
@@ -113,17 +125,46 @@ public class CoverageVariableNameHandler extends Handler {
             //axis iterator, no coverage information, just pass the info up
             metadata = null;
         } else {
-            // coverage does exist, translate the persisted coverage to WcpsCoverageMetadata object
-            metadata = wcpsCoverageMetadataTranslator.translate(coverageName);
-            
-                if (metadata.getRasdamanCollectionName() != null) {
-                    // coverage is persisted in database
-                    rasql = coverageAlias.replace(WcpsSubsetDimension.AXIS_ITERATOR_DOLLAR_SIGN, "");
-                } else {
-                    // coverage is created temporarily from uploaded file path
-                    rasql = metadata.getDecodedFilePath();
+            // coverage does exist
+
+            rasql = StringUtil.stripDollarSign(coverageAlias);
+            String rasdamanCollectionName = this.coverageAliasRegistry.getRasdamanCollectionNameByCoverageName(coverageName);
+
+            // e.g. FOR $c in (test_mr1, test_mr2_ test_mr3)
+            if (this.coverageAliasRegistry.getListOfFinalCoveragePairsByCoverageAlias(coverageAlias) == null) {
+                List<Pair<String, String>> coverageMappingPairs = this.coverageAliasRegistry.getListOfCoveragePairsByCoverageAlias(coverageAlias);
+                for (Pair<String, String> pair : coverageMappingPairs) {
+                    String coverageNameTmp = pair.fst;
+                    String rasdamanCollectionNameTmp = pair.snd;
+                    coverageAliasRegistry.addToFinalCoverageAliasMappings(coverageAlias, coverageNameTmp, rasdamanCollectionNameTmp);
                 }
+            }
+
+            String downscaledCoverageAlias = this.coverageAliasRegistry.getDownscaledAlias(coverageAlias);
+            if (downscaledCoverageAlias != null) {
+                // NOTE: in case the coverageAlias actually points (influenced by SCALE() handler) to a downscaled pyramaid member
+                // e.g. $c0 should point to test_cov_pyramid instead of test_cov_base
+                coverageAlias = downscaledCoverageAlias;
+
+                coverageName = this.coverageAliasRegistry.getCoverageName(downscaledCoverageAlias);
+                rasdamanCollectionName = this.coverageAliasRegistry.getRasdamanCollectionNameByCoverageName(coverageName);
+
+                if (this.coverageAliasRegistry.getListOfFinalCoveragePairsByCoverageAlias(coverageAlias) == null) {
+                    coverageAliasRegistry.addToFinalCoverageAliasMappings(coverageAlias, coverageName, rasdamanCollectionName);
+                }
+
+                rasql = downscaledCoverageAlias;
+            }
+
+            metadata = this.wcpsCoverageMetadataTranslator.translate(coverageName);
+
+            if (metadata.getRasdamanCollectionName() == null) {
+                // coverage is created temporarily from uploaded file path
+                rasql = metadata.getDecodedFilePath();
+
+            }
         }
+
 
         WcpsResult result = new WcpsResult(metadata, rasql);
         return result;

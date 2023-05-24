@@ -23,6 +23,8 @@ package petascope.wcps.handler;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+
 import org.rasdaman.domain.cis.NilValue;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -55,9 +57,9 @@ public class RangeConstructorElementHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String fieldName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        WcpsResult coverageExpression = (WcpsResult) this.getSecondChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String fieldName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        WcpsResult coverageExpression = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
         
         VisitorResult result = this.handle(fieldName, coverageExpression);
         return result;

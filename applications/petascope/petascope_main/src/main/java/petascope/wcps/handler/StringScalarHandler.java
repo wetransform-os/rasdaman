@@ -26,6 +26,8 @@ import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.wcps.result.WcpsResult;
 
+import java.util.List;
+
 /**
  * Translator class for string scalars (leaf node)
  *
@@ -49,11 +51,15 @@ public class StringScalarHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() {
+    public WcpsResult handle(List<Object> serviceRegistries) {
         WcpsResult result = new WcpsResult(null, this.value);
         return result;
     }
-    
+
+    public void setValue(String value) {
+        this.value = value;
+    }
+
     public String getValue() {
         return this.value;
     }

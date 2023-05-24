@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -51,8 +53,8 @@ public class SwitchCaseDefaultValueHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        WcpsResult defaultValueCoverageExpression = (WcpsResult) this.getFirstChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult defaultValueCoverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
         
         VisitorResult result = this.handle(defaultValueCoverageExpression);
         return result;

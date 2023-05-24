@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -52,10 +54,10 @@ public class BinaryScalarExpressionHandler extends Handler {
     
     
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String firstParameter = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        String operator = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        String secondParameter = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String firstParameter = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        String operator = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String secondParameter = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         WcpsResult result = this.handle(firstParameter, operator, secondParameter);
         return result;

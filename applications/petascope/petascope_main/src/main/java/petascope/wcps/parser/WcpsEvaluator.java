@@ -59,7 +59,6 @@ import petascope.wcps.handler.ForClauseListHandler;
 import petascope.wcps.handler.CastExpressionHandler;
 import petascope.wcps.handler.SwitchCaseExpressionHandler;
 import petascope.wcps.handler.CoverageIdentifierHandler;
-import petascope.wcps.handler.ScaleExpressionByImageCrsDomainHandler;
 import petascope.wcps.handler.WcsScaleExpressionByScaleExtentHandler;
 import petascope.wcps.handler.RealNumberConstantHandler;
 import petascope.wcps.handler.WhereClauseHandler;
@@ -268,8 +267,6 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     // WCPS standard
     @Autowired private
     ScaleExpressionByDimensionIntervalsHandler scaleExpressionByDimensionIntervalsHandler;
-    @Autowired private
-    ScaleExpressionByImageCrsDomainHandler scaleExpressionByImageCrsDomainHandler;
     // Made up to handle WCS -> WCPS scale
     @Autowired private
     WcsScaleExpressionByFactorsListHandler scaleExpressionByFactorsListHandler;
@@ -937,7 +934,7 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         }
         StringScalarHandler rightParenthesis = null;
         if (ctx.RIGHT_PARENTHESIS() != null) {
-            leftParenthesis = this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText());
+            rightParenthesis = this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText());
         }        
 
         Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpressionHandler,
@@ -1625,7 +1622,7 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         Handler domainIntervalsHandler = visit(ctx.domainIntervals());
 
-        Handler handler = scaleExpressionByImageCrsDomainHandler.create(coverageExpressionHandler, domainIntervalsHandler);
+        Handler handler = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, domainIntervalsHandler);
         return handler;
     }
 

@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -54,9 +56,9 @@ public class ComplexNumberConstantHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        String re = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        String im = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String re = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        String im = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         WcpsResult result = this.handle(re, im);
         return result;

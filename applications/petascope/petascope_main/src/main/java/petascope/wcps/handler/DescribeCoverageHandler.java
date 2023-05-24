@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import nu.xom.Element;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -73,10 +75,10 @@ public class DescribeCoverageHandler extends Handler {
     }
     
     @Override
-    public WcpsMetadataResult handle() throws PetascopeException {
-        WcpsResult coverageExpressionVisitorResult = (WcpsResult) this.getFirstChild().handle();
-        String outputFormat = ((WcpsResult) this.getSecondChild().handle()).getRasql();
-        String extraParams = ((WcpsResult) this.getThirdChild().handle()).getRasql();
+    public WcpsMetadataResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpressionVisitorResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        String outputFormat = ((WcpsResult) this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String extraParams = ((WcpsResult) this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         WcpsMetadataResult result = this.handle(coverageExpressionVisitorResult, outputFormat, extraParams);
         return result;

@@ -22,7 +22,6 @@
 package petascope.wcps.handler;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
@@ -30,10 +29,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
-import petascope.core.Pair;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCPSException;
-import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.DimensionIntervalList;
 
@@ -49,6 +46,7 @@ public class ShorthandSubsetHandler extends Handler {
     
     @Autowired
     private SubsetExpressionHandler subsetExpressionHandler;
+
     
     public ShorthandSubsetHandler() {
         
@@ -63,101 +61,45 @@ public class ShorthandSubsetHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        if (!this.getChildren().isEmpty()) {
-            this.updateQueryTree(this.getParent(), this.getFirstChild(), this.getSecondChild());
-        }
-        
-        if (this.getChildren().size() == 2) {
-            WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
-            DimensionIntervalList dimensionIntervalListExpression = (DimensionIntervalList) this.getSecondChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        // e.g. encode((c + c)[i(0:30)] [i(0)], "csv")
+        // to change first to (c[i(0:30) + c[i(0:30)]) before applying [i(0)]
+        boolean isCurrentNodeRemoved = false;
 
-            return this.handle(coverageExpression, dimensionIntervalListExpression);
-        } else {
-            // Here, the current node is removed, parent node of the current node has a new child instead
-            WcpsResult coverageExpressionResult = (WcpsResult) this.getFirstChild().handle();
-            return coverageExpressionResult;
-        }
-    }
+        if (!this.isQueryTreeUpdated) {
 
-    private WcpsResult handle(WcpsResult coverageExpression, VisitorResult dimensionIntervalListExpression) throws WCPSException, PetascopeException {
+            if (!this.getChildren().isEmpty()) {
+                this.updateQueryTree(this.getFirstChild(), this.getSecondChild());
+
+                if (this.isQueryTreeUpdated) {
+                    // remove the current shortHandSubset node from the query tree
+                    int currentNodeIndex = this.getChildIndexInParentsList();
+
+                    Handler parentHandler = this.getParent();
+                    Handler firstChildHandler = this.getFirstChild();
+
+                    firstChildHandler.setParent(parentHandler);
+                    parentHandler.getChildren().set(currentNodeIndex, firstChildHandler);
+
+                    isCurrentNodeRemoved = true;
+                }
+            }
+
+            this.isQueryTreeUpdated = true;
+        }
+
         //  coverageExpression LEFT_BRACKET dimensionIntervalList RIGHT_BRACKET
         // e.g: c[Lat(0:20), Long(0:30)] - Trim
-        DimensionIntervalList dimensionIntervalList = (DimensionIntervalList)dimensionIntervalListExpression;
-        WcpsResult wcpsResult = subsetExpressionHandler.handle(coverageExpression, dimensionIntervalList);
-        return wcpsResult;
-    }
-    
-    /**
-     * Traverse the children tree nodes and update the non-updated coverage variable name handler nodes with subset domains
-     * e.g. (c + d)[Lat(0:30)] is translated to (c[Lat(0:30)] + d[Lat(0:30)]
-     */
-    private void updateQueryTree(Handler parentNode, Handler childCoverageExpressionHandler, Handler childDimensionIntervalListHandler) throws PetascopeException {
-        boolean updated = false;
-        Queue<Pair<Handler, Integer>> queue = new ArrayDeque<>();
-        queue.add(new Pair<>(childCoverageExpressionHandler, 0));
-        
-        if (childCoverageExpressionHandler.getClass().getName().equals(this.getClass().getName())
-            || childCoverageExpressionHandler.getClass().getName().equals(ReduceExpressionHandler.class.getName())) {
-            return;
-        }
-        
-        while (!queue.isEmpty()) {
-            Pair<Handler, Integer> currentNodePair = queue.remove();
-            Handler currentNode = currentNodePair.fst;
-            Integer currentNodeIndex = currentNodePair.snd;
-            
-            if (currentNode instanceof CoverageVariableNameHandler && currentNode.isUpdatedHandlerAlready(this) == false) {
-                Handler parentNodeTmp = currentNode.getParent();
-                Handler shortHandSubsetHandler = this.create(currentNode, childDimensionIntervalListHandler);
-                
-                parentNodeTmp.getChildren().set(currentNodeIndex, shortHandSubsetHandler);
-                shortHandSubsetHandler.setParent(parentNodeTmp);
-                
-                currentNode.addUpdatedHandler(this);
-                updated = true;
-            }
-            
-            if (currentNode != null && currentNode.getChildren() != null) {
-                List<Pair<Handler, Integer>> childNodes = new ArrayList<>();
-                int i = 0;
-                for (Handler childHandler : currentNode.getChildren()) {
-                    if (childHandler != null && 
-                           (childHandler.getClass().getName().equals(this.getClass().getName())
-                            || childHandler.getClass().getName().equals(ReduceExpressionHandler.class.getName()))
-                        ) {
-                        // If the child handler of this node is shorthandsubset then do nothing
-                        // e.g. c[ansi("2008-01-03T23:59:55.000Z":"2008-01-08T00:02:58.000Z"), E:"CRS:1"(0:0), N:"CRS:1"(0:0)] [ansi("2008-01-08T00:02:58.000Z")]
+        WcpsResult coverageExpressionResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        DimensionIntervalList dimensionIntervalList = (DimensionIntervalList)this.getSecondChild().handle(serviceRegistries);
 
-                        return;
-                    }
-                    childNodes.add(new Pair<>(childHandler, i));
-                    i++;
-                }
 
-                queue.addAll(childNodes);
-            }
+        if (!isCurrentNodeRemoved) {
+            coverageExpressionResult = subsetExpressionHandler.handle(coverageExpressionResult, dimensionIntervalList);
         }
-        
-        if (updated) {
-//            parentNode.getChildren().set(0, coverageExpressionHandler);
-//            coverageExpressionHandler.setParent(parentNode);
-            int i = 0;
-            for (Handler childNodeHandler : parentNode.getChildren()) {
-                if (childNodeHandler != null && childNodeHandler.getClass().getName().equals(this.getClass().getName())) {
-                    break;
-                }
-                i++;
-                    
-            }
-            
-            Handler pushedUpHandlerNode = this.getChildren().get(0);
-            parentNode.getChildren().set(i, pushedUpHandlerNode);
-            pushedUpHandlerNode.setParent(parentNode);
-            this.getChildren().clear();
-            this.getChildren().add(0, pushedUpHandlerNode);
-        }
-        
+
+        return coverageExpressionResult;
+
     }
 
 }

@@ -61,14 +61,11 @@ public class LetClauseAliasRegistry {
     public void add(String variableName, VisitorResult wcpsResult) {
         this.variablesMap.put(variableName, wcpsResult);
     }
-    
-    /**
-     * Check if map of variables already contains a variable name
-     */
-    public boolean exist(String variableName, WcpsResult wcpsResult) {
-        return this.variablesMap.containsKey(variableName);
+
+    public void remove(String variableName) {
+        this.variablesMap.remove(variableName);
     }
-    
+
     /**
      * Get the processed coverage expression by variable name
      */
@@ -90,5 +87,9 @@ public class LetClauseAliasRegistry {
         }            
         
         return result;
+    }
+
+    public Map<String, VisitorResult> getMap() {
+        return this.variablesMap;
     }
 }

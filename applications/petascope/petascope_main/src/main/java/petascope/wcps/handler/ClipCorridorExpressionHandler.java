@@ -119,12 +119,12 @@ public class ClipCorridorExpressionHandler extends AbstractClipExpressionHandler
     
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult)this.getFirstChild().handle();
-        String corridorProjectionAxisLabel1 = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        String corridorProjectionAxisLabel2 = ((WcpsResult)this.getThirdChild().handle()).getRasql();
-        WKTLineString wktLineString = (WKTLineString)this.getFourthChild().handle();
-        AbstractWKTShape wktShape = (AbstractWKTShape)this.getFifthChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult)this.getFirstChild().handle(serviceRegistries);
+        String corridorProjectionAxisLabel1 = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String corridorProjectionAxisLabel2 = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
+        WKTLineString wktLineString = (WKTLineString)this.getFourthChild().handle(serviceRegistries);
+        AbstractWKTShape wktShape = (AbstractWKTShape)this.getFifthChild().handle(serviceRegistries);
         
         boolean discrete = false;
         if (this.getSixthChild() != null) {
@@ -133,7 +133,7 @@ public class ClipCorridorExpressionHandler extends AbstractClipExpressionHandler
         
         String wktCRS = null;
         if (this.getSeventhChild() != null) {
-            wktCRS = ((WcpsResult)this.getSeventhChild().handle()).getRasql();
+            wktCRS = ((WcpsResult)this.getSeventhChild().handle(serviceRegistries)).getRasql();
         }
         
         int numberOfDimensionsInCoverage = coverageExpression.getMetadata().getAxes().size();

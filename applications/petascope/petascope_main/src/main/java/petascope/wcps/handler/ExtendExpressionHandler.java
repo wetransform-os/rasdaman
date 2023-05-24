@@ -76,9 +76,9 @@ public class ExtendExpressionHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle());
-        DimensionIntervalList dimensionIntervalList = ((DimensionIntervalList)this.getSecondChild().handle());
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle(serviceRegistries));
+        DimensionIntervalList dimensionIntervalList = ((DimensionIntervalList)this.getSecondChild().handle(serviceRegistries));
         
         WcpsResult result = this.handle(coverageExpression, dimensionIntervalList);
         return result;

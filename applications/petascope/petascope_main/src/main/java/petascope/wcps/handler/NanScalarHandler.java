@@ -26,6 +26,8 @@ import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.wcps.result.WcpsResult;
 
+import java.util.List;
+
 /**
  * Translator class for NaN scalar (leaf node)
  *
@@ -49,7 +51,7 @@ public class NanScalarHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() {
+    public WcpsResult handle(List<Object> serviceRegistries) {
         WcpsResult result = this.handle(value);
         return result;
     }

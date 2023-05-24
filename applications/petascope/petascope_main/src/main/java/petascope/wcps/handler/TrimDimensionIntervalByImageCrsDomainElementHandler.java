@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -57,10 +59,10 @@ public class TrimDimensionIntervalByImageCrsDomainElementHandler extends Handler
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String axisName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        String crs = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        WcpsMetadataResult gridBoundExpression = (WcpsMetadataResult) this.getThirdChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String axisName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        String crs = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        WcpsMetadataResult gridBoundExpression = (WcpsMetadataResult) this.getThirdChild().handle(serviceRegistries);
         
         VisitorResult result = this.handle(axisName, crs, gridBoundExpression);
         return result;

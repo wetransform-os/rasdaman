@@ -55,10 +55,10 @@ public class SliceDimensionIntervalElementHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String axisName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        String crs = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        WcpsResult coverageExpression = (WcpsResult)this.getThirdChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String axisName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        String crs = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        WcpsResult coverageExpression = (WcpsResult)this.getThirdChild().handle(serviceRegistries);
         
         VisitorResult result = this.handle(axisName, crs, coverageExpression);
         return result;

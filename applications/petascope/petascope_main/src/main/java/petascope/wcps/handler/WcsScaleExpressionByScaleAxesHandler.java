@@ -78,9 +78,9 @@ public class WcsScaleExpressionByScaleAxesHandler extends AbstractWcsScaleHandle
         return result;        
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpressionResult = (WcpsResult)this.getFirstChild().handle();
-        WcpsScaleDimensionIntevalList scaleAxesDimensionListResult = (WcpsScaleDimensionIntevalList)this.getSecondChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpressionResult = (WcpsResult)this.getFirstChild().handle(serviceRegistries);
+        WcpsScaleDimensionIntevalList scaleAxesDimensionListResult = (WcpsScaleDimensionIntevalList)this.getSecondChild().handle(serviceRegistries);
         
         WcpsResult result = this.handle(coverageExpressionResult, scaleAxesDimensionListResult);
         return result;

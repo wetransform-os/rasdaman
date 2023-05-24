@@ -1,3 +1,10 @@
+# https://rasdaman.org/ticket/2731
+017-climate_over_earth.test
+018-climate_over_water.test
+
+# http://rasdaman.org/ticket/2732
+593-scale_switch_case_with_LET_clause.test
+
 031-Discrete_Fourier.test
 053-jpeg2000-params-filling.test
 157-extra_params_json_jpeg2000.test

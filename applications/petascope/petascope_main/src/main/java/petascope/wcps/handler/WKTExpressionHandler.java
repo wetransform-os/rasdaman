@@ -52,8 +52,8 @@ public class WKTExpressionHandler extends Handler {
     }
     
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        AbstractWKTShape result = (AbstractWKTShape) this.getFirstChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        AbstractWKTShape result = (AbstractWKTShape) this.getFirstChild().handle(serviceRegistries);
         return result;
     }
 }

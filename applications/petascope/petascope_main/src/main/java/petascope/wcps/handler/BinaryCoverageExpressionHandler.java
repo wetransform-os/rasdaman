@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -64,10 +66,14 @@ public class BinaryCoverageExpressionHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        VisitorResult firstCoverageExpressionVisitorResult = this.getFirstChild().handle();
-        String operator = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        VisitorResult secondCoverageExpressionVisitorResult = this.getThirdChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        if (this.wcpsCoverageMetadataService == null) {
+            this.wcpsCoverageMetadataService = (WcpsCoverageMetadataGeneralService) this.getServiceRegistry(WcpsCoverageMetadataGeneralService.class.getName());
+        }
+
+        VisitorResult firstCoverageExpressionVisitorResult = this.getFirstChild().handle(serviceRegistries);
+        String operator = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        VisitorResult secondCoverageExpressionVisitorResult = this.getThirdChild().handle(serviceRegistries);
         
         WcpsResult result = this.handle(firstCoverageExpressionVisitorResult, operator, secondCoverageExpressionVisitorResult);
         return result;

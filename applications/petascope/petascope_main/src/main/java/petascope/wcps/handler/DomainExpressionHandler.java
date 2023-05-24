@@ -78,10 +78,10 @@ public class DomainExpressionHandler extends Handler {
         return result;
     }
     
-    public VisitorResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
-        String axisName = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        String axisCrs = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        String axisName = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String axisCrs = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         VisitorResult result = this.handle(coverageExpression, axisName, axisCrs);
         return result;       
@@ -133,7 +133,6 @@ public class DomainExpressionHandler extends Handler {
      *
      * @param coverageExpression
      * @param axisName
-     * @param crsUri
      * @return
      */
     private String getDomainByAxisCrs(WcpsResult coverageExpression, String axisName, String axisCrs) throws PetascopeException {

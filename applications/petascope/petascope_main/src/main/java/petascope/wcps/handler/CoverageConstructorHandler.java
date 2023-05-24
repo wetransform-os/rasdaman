@@ -108,8 +108,8 @@ public class CoverageConstructorHandler extends Handler {
         return result;
     }
     
-    public VisitorResult handle() throws PetascopeException {
-        String coverageName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String coverageName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
         
         List<AxisIterator> axisIterators = new ArrayList<>();
         List<Handler> axisIteratorHandlers = this.getChildren().subList(1, this.getChildren().size() - 1);
@@ -119,7 +119,7 @@ public class CoverageConstructorHandler extends Handler {
         int count = 0;
         
         for (Handler axisIteratorHandler : axisIteratorHandlers) {
-            AxisIterator axisIterator = (AxisIterator) axisIteratorHandler.handle();
+            AxisIterator axisIterator = (AxisIterator) axisIteratorHandler.handle(serviceRegistries);
             
             aliasName = axisIterator.getAliasName();
             if (rasqlAliasName.isEmpty()) {
@@ -136,7 +136,7 @@ public class CoverageConstructorHandler extends Handler {
         }
          
         Handler valuesCoverageExpressionHandler = this.getChildren().get(this.getChildren().size() - 1);
-        WcpsResult valuesCoverageExpression = (WcpsResult)valuesCoverageExpressionHandler.handle();
+        WcpsResult valuesCoverageExpression = (WcpsResult)valuesCoverageExpressionHandler.handle(serviceRegistries);
         
         WcpsResult result = this.handle(coverageName, axisIterators, valuesCoverageExpression);
         return result;

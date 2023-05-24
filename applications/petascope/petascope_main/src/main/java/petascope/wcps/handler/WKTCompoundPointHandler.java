@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -50,9 +52,9 @@ public class WKTCompoundPointHandler extends Handler {
     }
     
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        WcpsResult compoundPointsResult = (WcpsResult) this.getFirstChild().handle();
-        WcpsResult numberOfDimensionsStringHandler = (WcpsResult) this.getSecondChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult compoundPointsResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        WcpsResult numberOfDimensionsStringHandler = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
         
         String compoundPoints = compoundPointsResult.getRasql();
         int numberOfDimensions = Integer.parseInt(numberOfDimensionsStringHandler.getRasql());

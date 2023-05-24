@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -67,9 +69,9 @@ public class RangeSubsettingHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult)this.getFirstChild().handle();
-        String fieldName = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult)this.getFirstChild().handle(serviceRegistries);
+        String fieldName = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         WcpsResult result = this.handle(fieldName, coverageExpression);
         return result;

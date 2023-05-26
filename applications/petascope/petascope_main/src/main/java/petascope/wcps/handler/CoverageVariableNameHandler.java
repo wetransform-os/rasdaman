@@ -130,16 +130,6 @@ public class CoverageVariableNameHandler extends Handler {
             rasql = StringUtil.stripDollarSign(coverageAlias);
             String rasdamanCollectionName = this.coverageAliasRegistry.getRasdamanCollectionNameByCoverageName(coverageName);
 
-            // e.g. FOR $c in (test_mr1, test_mr2_ test_mr3)
-            if (this.coverageAliasRegistry.getListOfFinalCoveragePairsByCoverageAlias(coverageAlias) == null) {
-                List<Pair<String, String>> coverageMappingPairs = this.coverageAliasRegistry.getListOfCoveragePairsByCoverageAlias(coverageAlias);
-                for (Pair<String, String> pair : coverageMappingPairs) {
-                    String coverageNameTmp = pair.fst;
-                    String rasdamanCollectionNameTmp = pair.snd;
-                    coverageAliasRegistry.addToFinalCoverageAliasMappings(coverageAlias, coverageNameTmp, rasdamanCollectionNameTmp);
-                }
-            }
-
             String downscaledCoverageAlias = this.coverageAliasRegistry.getDownscaledAlias(coverageAlias);
             if (downscaledCoverageAlias != null) {
                 // NOTE: in case the coverageAlias actually points (influenced by SCALE() handler) to a downscaled pyramaid member
@@ -154,6 +144,16 @@ public class CoverageVariableNameHandler extends Handler {
                 }
 
                 rasql = downscaledCoverageAlias;
+            } else {
+                // e.g. FOR $c in (test_mr1, test_mr2_ test_mr3)
+                if (this.coverageAliasRegistry.getListOfFinalCoveragePairsByCoverageAlias(coverageAlias) == null) {
+                    List<Pair<String, String>> coverageMappingPairs = this.coverageAliasRegistry.getListOfCoveragePairsByCoverageAlias(coverageAlias);
+                    for (Pair<String, String> pair : coverageMappingPairs) {
+                        String coverageNameTmp = pair.fst;
+                        String rasdamanCollectionNameTmp = pair.snd;
+                        coverageAliasRegistry.addToFinalCoverageAliasMappings(coverageAlias, coverageNameTmp, rasdamanCollectionNameTmp);
+                    }
+                }
             }
 
             metadata = this.wcpsCoverageMetadataTranslator.translate(coverageName);

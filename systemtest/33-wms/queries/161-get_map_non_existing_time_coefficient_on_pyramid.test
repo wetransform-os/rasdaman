@@ -1,0 +1,1 @@
+service=WMS&version=1.3.0&request=GetMap&layers=test_wms_base_with_2_dates&bbox=47.13501923451768,5.565789213302955,55.06020370246992,15.652387627060358&time=%222020-05-06T00:00:00.000Z%22&width=8&height=6&crs=EPSG:4326&format=image/png&transparent=true&styles=

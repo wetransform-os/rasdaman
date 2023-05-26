@@ -336,7 +336,7 @@ public class CrsUtil {
         }
     }
     
-    public static void handleSecoreController(HttpServletRequest req, HttpServletResponse resp) throws org.rasdaman.secore.util.SecoreException, ServletException, IOException {
+    public static void handleSecoreController(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException, org.rasdaman.secore.util.SecoreException {
         org.rasdaman.secore.controller.SecoreController controller = new org.rasdaman.secore.controller.SecoreController();
         controller.handleRequest(req, resp);
     }
@@ -791,7 +791,7 @@ public class CrsUtil {
      * @return
      */
     public static boolean isGridCrs(String axisCrs) {
-        if (axisCrs.equals(CrsUtil.GRID_CRS)) {
+        if (CrsUtil.GRID_CRS.equals(axisCrs)) {
             return true;
         }
         return false;

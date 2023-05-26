@@ -47,6 +47,8 @@ import petascope.util.ListUtil;
 import petascope.wcps.exception.processing.CoverageAxisNotFoundExeption;
 import petascope.wcps.metadata.service.AxesOrderComparator;
 import petascope.wcps.metadata.service.CrsUtility;
+import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
+import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 
 /**
  * Class that keeps information about the coverages (such as domains, CRSs etc.)
@@ -90,6 +92,8 @@ public class WcpsCoverageMetadata {
     
     private CoveragePyramid coveragePyramid;
     
+    // Any axis which is sliced should be kept here for further processing
+    private List<WcpsSliceSubsetDimension> slicedWcpsSubsetDimensions;
     
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(WcpsCoverageMetadata.class);
     
@@ -164,7 +168,18 @@ public class WcpsCoverageMetadata {
         
         return this.axes;
     }
-    
+
+    public List<WcpsSliceSubsetDimension> getSlicedWcpsSubsetDimensions() {
+        if (this.slicedWcpsSubsetDimensions == null) {
+            this.slicedWcpsSubsetDimensions = new ArrayList<>();
+        }
+        return slicedWcpsSubsetDimensions;
+    }
+
+    public void setSlicedWcpsSubsetDimensions(List<WcpsSliceSubsetDimension> slicedWcpsSubsetDimensions) {
+        this.slicedWcpsSubsetDimensions = slicedWcpsSubsetDimensions;
+    }
+
     /**
      * Find the geo order of an original axis by name.
      */
@@ -322,10 +337,19 @@ public class WcpsCoverageMetadata {
         this.crsUri = newCrsUri;
     }
 
+
     public String getCoverageName() {
         return this.coverageName;
     }
-    
+
+    public void getCoverageName(String coverageName) {
+        this.coverageName = coverageName;
+    }
+
+    public void setCoverageName(String coverageName) {
+        this.coverageName = coverageName;
+    }
+
     public String getRasdamanCollectionName() {
         return this.rasdamanCollectionName;
     }

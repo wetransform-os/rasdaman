@@ -376,10 +376,13 @@ public class WcpsCoverageMetadataGeneralService {
      * @param metadata
      * @param subsetDimensions
      */
-    public void stripSlicingAxes(WcpsCoverageMetadata metadata, List<WcpsSubsetDimension> subsetDimensions) {
+    public void stripSlicingAxes(WcpsCoverageMetadata metadata, List<WcpsSubsetDimension> subsetDimensions) throws PetascopeException {
         List<Integer> removeIndexes = new ArrayList<>();
-        int i = 0
-                ;
+        int i = 0;
+
+        List<WcpsSliceSubsetDimension> slicedDimensions = new ArrayList<>();
+        metadata.setSlicedWcpsSubsetDimensions(slicedDimensions);
+
         for (Axis axis : metadata.getAxes()) {
             for (WcpsSubsetDimension subset : subsetDimensions) {
                 
@@ -387,6 +390,17 @@ public class WcpsCoverageMetadataGeneralService {
                     
                     // Subset is slice then the axis should be removed from coverage's metadata
                     if (subset instanceof WcpsSliceSubsetDimension) {
+                        WcpsSliceSubsetDimension sliceSubsetDimension = (WcpsSliceSubsetDimension) subset;
+
+                        // e.g. ansi:"CRS:1"(0) -> ansi("2016-05-07")
+                        String geoBound = axis.getLowerGeoBoundRepresentation();
+                        sliceSubsetDimension.setBound(geoBound);
+                        String axisCrs = sliceSubsetDimension.getCrs();
+                        if (CrsUtil.isGridCrs(axisCrs)) {
+                            sliceSubsetDimension.setCrs(null);
+                        }
+
+                        slicedDimensions.add(sliceSubsetDimension);
                         removeIndexes.add(i);
                     }
                 }

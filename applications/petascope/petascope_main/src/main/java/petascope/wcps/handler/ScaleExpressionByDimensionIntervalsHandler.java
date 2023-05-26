@@ -212,8 +212,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
             }
 
             coverageExpressionResult = this.handle(coverageExpressionResult, dimensionIntervalList, true, null,
-                                                    serviceRegistries
-            );
+                                                    serviceRegistries);
         }
 
         return coverageExpressionResult;
@@ -361,7 +360,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
      * with $c_0 points to **pyramid_cov** and this expression needs to be recalculated corresponding to **pyramid_cov**.
      */
 
-    public WcpsResult handle(WcpsResult coverageExpression, DimensionIntervalList dimensionIntervalList, boolean implcitScaleByXorYAxis, Handler firstChildHandler,
+    public WcpsResult handle(WcpsResult coverageExpression, DimensionIntervalList dimensionIntervalList, boolean implicitScaleByXorYAxis, Handler firstChildHandler,
                              List<Object> serviceRegistries
                 ) throws PetascopeException {
         // SCALE LEFT_PARENTHESIS
@@ -374,9 +373,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
             throw new Coverage0DMetadataNullException(OPERATOR);
         }
 
-        checkOperandIsCoverage(coverageExpression, OPERATOR); 
-        
-        DimensionIntervalList originalDimensionIntervalList = (DimensionIntervalList) JSONUtil.clone(dimensionIntervalList);
+        checkOperandIsCoverage(coverageExpression, OPERATOR);
 
         WcpsCoverageMetadata metadata = coverageExpression.getMetadata();
         // scale(coverageExpression, {domainIntervals})
@@ -385,11 +382,11 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
             this.validateAxisLabelExist(metadata, subset.getAxisName());
         }
         List<Subset> numericSubsets = subsetParsingService.convertToNumericSubsets(subsetDimensions, metadata.getAxes());
-        
+
         if (this.processXOrYAxisImplicitly(metadata, numericSubsets)) {
-            this.handleScaleWithOnlyXorYAxis(coverageExpression, numericSubsets, implcitScaleByXorYAxis);
+            this.handleScaleWithOnlyXorYAxis(coverageExpression, numericSubsets, implicitScaleByXorYAxis);
         }
-        
+
         // Then, check if any non-XY axes from coverage which are not specified from the scale() interval
         // will be added implitcily to the scale domains interval
         List<Axis> nonXYAxes = metadata.getNonXYAxes();
@@ -463,8 +460,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         }
         
         // Only for 2D XY coverage imported with downscaled collections
-        WcpsCoverageMetadata selectedCoverage = this.wcpsCoverageMetadataTranslatorService.applyDownscaledLevelOnXYGridAxesForScale(coverageExpression, metadata, numericSubsets
-                                                                                                                                    );
+        WcpsCoverageMetadata selectedCoverage = this.wcpsCoverageMetadataTranslatorService.applyDownscaledLevelOnXYGridAxesForScale(coverageExpression, metadata, numericSubsets);
         String selectedCoverageId = selectedCoverage.getCoverageName();
         
         if (!selectedCoverageId.equals(metadata.getCoverageName())) {
@@ -480,6 +476,9 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
             String baseCoverageAlias = this.coverageAliasRegistry.getAliasByCoverageName(baseCoverageId);
             // e.g. $c_0 -> points to pyramid_member_cov
             String pyramidMemberCoverageAlias = this.coverageAliasRegistry.retrieveDownscaledCoverageAliasByCoverageId(selectedCoverageId);
+            if (!this.coverageAliasRegistry.existInFinalCoverageAliasMappings(pyramidMemberCoverageAlias)) {
+                this.coverageAliasRegistry.addToFinalCoverageAliasMappings(pyramidMemberCoverageAlias, selectedCoverageId, selectedRasdamanCollectionName);
+            }
             
             Handler firstChildHandlerTmp = firstChildHandler;
             if (firstChildHandlerTmp == null) {

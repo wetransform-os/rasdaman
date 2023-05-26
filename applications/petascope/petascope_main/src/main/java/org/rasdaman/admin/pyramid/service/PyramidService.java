@@ -537,11 +537,12 @@ public class PyramidService {
                 
                 if (subsetDimension instanceof WcpsSliceSubsetDimension) {
                     WcpsSliceSubsetDimension sliceSubset = (WcpsSliceSubsetDimension)subsetDimension;
-                    geoLowerBound = new BigDecimal((sliceSubset.getBound()));
+                    geoLowerBound = geoAxis.getBoundNumber(sliceSubset.getBound());
+                    geoUpperBound = geoLowerBound;
                 } else {
                     WcpsTrimSubsetDimension trimSubset = (WcpsTrimSubsetDimension)subsetDimension;
-                    geoLowerBound = new BigDecimal((trimSubset.getLowerBound()));
-                    geoUpperBound = new BigDecimal((trimSubset.getUpperBound()));
+                    geoLowerBound = geoAxis.getBoundNumber(trimSubset.getLowerBound());
+                    geoUpperBound = geoAxis.getBoundNumber(trimSubset.getUpperBound());
                 }
                 
                 if (!BigDecimalUtil.isValidValue(geoAxis.getLowerBoundNumber(), geoAxis.getUpperBoundNumber(), geoLowerBound)) {

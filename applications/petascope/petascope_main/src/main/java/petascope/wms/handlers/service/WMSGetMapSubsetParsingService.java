@@ -78,9 +78,16 @@ public class WMSGetMapSubsetParsingService {
                     String geoLowerBound = parsedSubset.getLowerLimit().toPlainString();
                     String geoUpperBound = parsedSubset.getUpperLimit().toPlainString();
 
-                    WcpsSubsetDimension subsetDimension = new WcpsTrimSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(), 
+                    WcpsSubsetDimension subsetDimension = null;
+
+                    if (!geoLowerBound.equalsIgnoreCase(geoUpperBound)) {
+                        subsetDimension = new WcpsTrimSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(),
                                                                     geoLowerBound,
                                                                     geoUpperBound);
+                    } else {
+                        subsetDimension = new WcpsSliceSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(),
+                                                                        geoLowerBound);
+                    }
 
                     results.add(subsetDimension);
                 }

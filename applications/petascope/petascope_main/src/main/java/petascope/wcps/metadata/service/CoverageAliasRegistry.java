@@ -89,7 +89,9 @@ public class CoverageAliasRegistry {
      */
     public void copyFromForClauseMappingToUsedCoverageAliasMapping(String coverageAlias) {
         List<Pair<String, String>> pairs = forClauseListCoverageMappings.get(coverageAlias);
-        coverageMappings.put(coverageAlias, pairs);
+        if (!coverageMappings.containsKey(coverageAlias)) {
+            coverageMappings.put(coverageAlias, pairs);
+        }
     }
 
     // -- When a downscaled coverage is used instead of a base coverage
@@ -149,6 +151,12 @@ public class CoverageAliasRegistry {
                 }
             }
          }
+    }
+
+    public void addCollectionAliasToRegistry(String collectionAlias, String coverageId, String rasdamanCollectionName) {
+        if (rasdamanCollectionName != null) {
+            this.collectionAliasRegistry.add(collectionAlias, coverageId, rasdamanCollectionName);
+        }
     }
 
     // -- Common functions
@@ -312,8 +320,12 @@ public class CoverageAliasRegistry {
         if (this.finalUsedCoverageAliasMappings.containsKey(coverageAlias)) {
             this.finalUsedCoverageAliasMappings.get((coverageAlias)).add(new Pair<>(coverageId, rasdamanCollectionName));
         } else {
-            this.finalUsedCoverageAliasMappings.put( coverageAlias, ListUtil.valuesToList(new Pair<>(coverageId, rasdamanCollectionName)) );
+            this.finalUsedCoverageAliasMappings.put(coverageAlias, ListUtil.valuesToList(new Pair<>(coverageId, rasdamanCollectionName)) );
         }
+    }
+
+    public boolean existInFinalCoverageAliasMappings(String coverageAlias) {
+        return this.finalUsedCoverageAliasMappings.containsKey(coverageAlias);
     }
 
     public List<Pair<String, String>> getListOfFinalCoveragePairsByCoverageAlias(String coverageAlias) {

@@ -20,3 +20,7 @@
 
 # https://rasdaman.org/ticket/2480
 202-describe_coverage_non_ascii_characters_in_metadata.kvp
+
+
+# Scale up on irregular axis is not supported
+223-get_coverage_scalefactore_up_irregular_axis.kvp

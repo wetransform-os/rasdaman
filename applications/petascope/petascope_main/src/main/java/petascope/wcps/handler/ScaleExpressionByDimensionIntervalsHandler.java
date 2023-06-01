@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
-import liquibase.pro.packaged.D;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -40,28 +39,26 @@ import org.springframework.stereotype.Service;
 import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.PetascopeRuntimeException;
 import petascope.exceptions.WCPSException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.JSONUtil;
+
+import static petascope.util.CrsUtil.GRID_CRS;
 import static petascope.wcps.handler.AbstractOperatorHandler.checkOperandIsCoverage;
 
 import petascope.util.StringUtil;
 import petascope.wcps.exception.processing.Coverage0DMetadataNullException;
 import petascope.wcps.exception.processing.IncompatibleAxesNumberException;
-import petascope.wcps.metadata.model.Axis;
-import petascope.wcps.metadata.model.IrregularAxis;
-import petascope.wcps.metadata.model.NumericTrimming;
-import petascope.wcps.metadata.model.Subset;
-import petascope.wcps.metadata.model.WcpsCoverageMetadata;
+import petascope.wcps.exception.processing.InvalidScaleExtentException;
+import petascope.wcps.handler.service.ScaleHandlerService;
+import petascope.wcps.metadata.model.*;
 import petascope.wcps.metadata.service.*;
 import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsMetadataResult;
 import petascope.wcps.result.WcpsResult;
-import petascope.wcps.subset_axis.model.DimensionIntervalList;
-import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
-import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
+import petascope.wcps.subset_axis.model.*;
+import petascope.wcps.xml.handler.DimensionInterval;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -76,6 +73,14 @@ import javax.servlet.http.HttpServletRequest;
 @Service
 @Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
+
+    public enum ScaleType {
+        DEFAULT_TYPE,
+        SCALE_BY_FACTORS,
+        SCALE_BY_AXES,
+        SCALE_BY_EXTENTS,
+        SCALE_BY_SIZES
+    }
 
     @Autowired
     private WcpsCoverageMetadataGeneralService wcpsCoverageMetadataService;
@@ -107,14 +112,24 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
 
     @Autowired
     private WcpsCoverageMetadataTranslator wcpsCoverageMetadataTranslator;
+    @Autowired
+    private ScaleHandlerService scaleHandlerService;
+
+    private ScaleType scaleType;
 
     public static final String OPERATOR = "scale";
     
     public ScaleExpressionByDimensionIntervalsHandler() {
         
     }
-    
+
     public ScaleExpressionByDimensionIntervalsHandler create(Handler coverageExpressionHandler, Handler dimensionIntervalListHandler) {
+        ScaleExpressionByDimensionIntervalsHandler result = this.create(coverageExpressionHandler, dimensionIntervalListHandler, this.scaleType);
+        return result;
+    }
+
+    public ScaleExpressionByDimensionIntervalsHandler create(Handler coverageExpressionHandler, Handler dimensionIntervalListHandler,
+                                                             ScaleType scaleType) {
         ScaleExpressionByDimensionIntervalsHandler result = new ScaleExpressionByDimensionIntervalsHandler();
         
         result.setChildren(Arrays.asList(coverageExpressionHandler, dimensionIntervalListHandler));
@@ -135,6 +150,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         result.wcpsCoverageMetadataTranslator = wcpsCoverageMetadataTranslator;
         result.httpServletRequest = httpServletRequest;
         result.coordinateTranslationService = coordinateTranslationService;
+        result.scaleHandlerService = scaleHandlerService;
 
 
         this.injectedServicesRegistries = Arrays.asList(
@@ -150,15 +166,20 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
                 letClauseAliasCoverageExpressionHandlerRegistry,
                 wcpsCoverageMetadataTranslator,
                 httpServletRequest,
-                coordinateTranslationService
+                coordinateTranslationService,
+                scaleHandlerService
 
         );
         result.injectedServicesRegistries = injectedServicesRegistries;
-        
+
+        result.scaleType = scaleType;
+
         return result;
         
     }
-    
+
+
+
     public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
         // e.g. scale( (c0 + c1)[ansi("2016-07-25"), {...} )
         // then, first handle (c0 + c1)[ansi("2016-07-25")] to convert it to: (c0[ansi("2016-07-25")] + c1[ansi("2016-07-25")])
@@ -207,8 +228,11 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
                 // In case scale(..., { imageCrsdomain() })
                 WcpsMetadataResult metadataResult = (WcpsMetadataResult)secondChildHandlerResult;
                 dimensionIntervalList = this.convertFromImageCrsDomain(coverageExpressionResult, metadataResult);
-            } else {
+            } else if (secondChildHandlerResult instanceof DimensionIntervalList) {
                 dimensionIntervalList = (DimensionIntervalList) secondChildHandlerResult;
+            } else {
+                dimensionIntervalList = this.createDimensionalIntervalListByScalingType(coverageExpressionResult.getMetadata(),
+                                                                                       secondChildHandlerResult);
             }
 
             coverageExpressionResult = this.handle(coverageExpressionResult, dimensionIntervalList, true, null,
@@ -346,7 +370,64 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
             }
         }
     }
-    
+
+    /**
+     * Iterate all CoverageVariableName child handlers of this SCALE() node and update to use the selected pyramid member coverage
+     * instead of base coverage.
+     *
+     */
+    private void updateCoverageVariableNameChildHandlers(String pyramidMemberCoverageId, String pyramidMemberRasdamanCollectionName) throws PetascopeException {
+        if (this.getChildren() == null || this.getChildren().isEmpty()) {
+            return;
+        }
+        
+        Queue<Handler> queue = new ArrayDeque<>();
+        queue.add(this.getFirstChild());
+
+        while (!queue.isEmpty()) {
+            Handler currentHandler = queue.remove();
+            if (currentHandler.getChildren() != null) {
+
+                if (currentHandler instanceof CoverageVariableNameHandler) {
+                    StringScalarHandler stringScalarHandler = ((StringScalarHandler)currentHandler.getFirstChild());
+                    // e.g. co -> baseCoverage
+                    String currentCoverageAlias = stringScalarHandler.getValue();
+                    if (!this.axisIteratorAliasRegistry.exists(currentCoverageAlias)) {
+                        // e.g. co_0 -> pyramidMemberCoverage
+                        String newlyCoverageAlias = this.coverageAliasRegistry.getNextDownscaledCoverageAlias(currentCoverageAlias);
+                        stringScalarHandler.setValue(newlyCoverageAlias);
+
+                        this.coverageAliasRegistry.addCoverageToForClauseListMapping(newlyCoverageAlias, pyramidMemberCoverageId, pyramidMemberRasdamanCollectionName);
+                    }
+                }
+
+                for (Handler childHandler : currentHandler.getChildren()) {
+                    if (childHandler != null) {
+                        queue.add(childHandler);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Depending on the type of scale, then adjust the dimensionIntervalList accordingly.
+     */
+    private DimensionIntervalList createDimensionalIntervalListByScalingType(WcpsCoverageMetadata metadata, VisitorResult scaleAxesDimensionList) throws PetascopeException {
+        DimensionIntervalList result = new DimensionIntervalList();
+
+        if (this.scaleType == ScaleType.SCALE_BY_EXTENTS) {
+            result = this.scaleHandlerService.createDimensionIntervalListByScalingExtends(metadata, scaleAxesDimensionList);
+        } else if (this.scaleType == ScaleType.SCALE_BY_FACTORS
+                || this.scaleType == ScaleType.SCALE_BY_AXES) {
+            // NOTE: WCS scaleAxes = WCPS scale factor for each axis
+            result = this.scaleHandlerService.createDimensionalIntervalListByScalingFactors(metadata, scaleAxesDimensionList);
+        } else if (this.scaleType == ScaleType.SCALE_BY_SIZES) {
+            result = this.scaleHandlerService.createDimensionalIntervalListByScalingSizes(metadata, scaleAxesDimensionList);
+        }
+
+        return result;
+    }
 
     /**
      * For example, this query:
@@ -360,7 +441,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
      * with $c_0 points to **pyramid_cov** and this expression needs to be recalculated corresponding to **pyramid_cov**.
      */
 
-    public WcpsResult handle(WcpsResult coverageExpression, DimensionIntervalList dimensionIntervalList, boolean implicitScaleByXorYAxis, Handler firstChildHandler,
+    public WcpsResult handle (WcpsResult coverageExpression, DimensionIntervalList dimensionIntervalList, boolean implicitScaleByXorYAxis, Handler firstChildHandler,
                              List<Object> serviceRegistries
                 ) throws PetascopeException {
         // SCALE LEFT_PARENTHESIS
@@ -368,7 +449,6 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         //       RIGHT_PARENTHESIS
         // scale($c, {intervalList})
         // e.g: scale(c[t(0)], {Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)}
-
         if (coverageExpression.getMetadata() == null) {
             throw new Coverage0DMetadataNullException(OPERATOR);
         }
@@ -379,12 +459,12 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         // scale(coverageExpression, {domainIntervals})
         List<WcpsSubsetDimension> subsetDimensions = dimensionIntervalList.getIntervals();
         for (WcpsSubsetDimension subset : subsetDimensions) {
-            this.validateAxisLabelExist(metadata, subset.getAxisName());
+            this.scaleHandlerService.validateAxisLabelExist(metadata, subset.getAxisName());
         }
         List<Subset> numericSubsets = subsetParsingService.convertToNumericSubsets(subsetDimensions, metadata.getAxes());
 
-        if (this.processXOrYAxisImplicitly(metadata, numericSubsets)) {
-            this.handleScaleWithOnlyXorYAxis(coverageExpression, numericSubsets, implicitScaleByXorYAxis);
+        if (this.scaleHandlerService.processXOrYAxisImplicitly(metadata, numericSubsets)) {
+            this.scaleHandlerService.handleScaleWithOnlyXorYAxis(coverageExpression, numericSubsets, implicitScaleByXorYAxis);
         }
 
         // Then, check if any non-XY axes from coverage which are not specified from the scale() interval
@@ -462,52 +542,22 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         // Only for 2D XY coverage imported with downscaled collections
         WcpsCoverageMetadata selectedCoverage = this.wcpsCoverageMetadataTranslatorService.applyDownscaledLevelOnXYGridAxesForScale(coverageExpression, metadata, numericSubsets);
         String selectedCoverageId = selectedCoverage.getCoverageName();
+        String selectedRasdamanCollectionName = selectedCoverage.getRasdamanCollectionName();
         
         if (!selectedCoverageId.equals(metadata.getCoverageName())) {
+
             // NOTE: here it needs to recalculate coverageExpression based on the new pyramid member
             // a pyramid member is selected, this scale expression needs to rerun for this selected pyramid member
-            String selectedRasdamanCollectionName = selectedCoverage.getRasdamanCollectionName();
-            
-            this.coverageAliasRegistry.addDownscaledCoverageAliasId(selectedCoverageId, selectedRasdamanCollectionName);
-            // e.g. $c -> points to base_cov
-            String baseCoverageId = metadata.getCoverageName();
-            String baseRasdamanCollectionName = metadata.getRasdamanCollectionName();
+            this.updateCoverageVariableNameChildHandlers(selectedCoverageId, selectedRasdamanCollectionName);
 
-            String baseCoverageAlias = this.coverageAliasRegistry.getAliasByCoverageName(baseCoverageId);
-            // e.g. $c_0 -> points to pyramid_member_cov
-            String pyramidMemberCoverageAlias = this.coverageAliasRegistry.retrieveDownscaledCoverageAliasByCoverageId(selectedCoverageId);
-            if (!this.coverageAliasRegistry.existInFinalCoverageAliasMappings(pyramidMemberCoverageAlias)) {
-                this.coverageAliasRegistry.addToFinalCoverageAliasMappings(pyramidMemberCoverageAlias, selectedCoverageId, selectedRasdamanCollectionName);
-            }
-            
             Handler firstChildHandlerTmp = firstChildHandler;
             if (firstChildHandlerTmp == null) {
                 firstChildHandlerTmp = this.getFirstChild();
             }
 
-            // e.g. $c and $c_0 (pyramid member coverage alias)
-            List<String> baseCoverageAliases = this.coverageAliasRegistry.getAliasesByCoverageName(baseCoverageId);
-            for (String baseAliasTmp : baseCoverageAliases) {
-                coverageAliasRegistry.addCoverageAliasAndDownscaledAlias(baseAliasTmp, pyramidMemberCoverageAlias);
-            }
-
-            // Then, temporarily update coverage aliases to point to selected pyramid member instead of base coverage
-            coverageAliasRegistry.replaceBaseCoverageByDownscaledCoverage(baseCoverageId,
-                                                                        selectedCoverageId,
-                                                                        selectedRasdamanCollectionName);
-
             WcpsResult coverageExpressionResult = (WcpsResult)firstChildHandlerTmp.handle(serviceRegistries);
             coverageExpression = coverageExpressionResult;
             metadata = coverageExpressionResult.getMetadata();
-
-            // NOTE:after scaling, revert downscaled alias back to base alias for other expression handlers
-            // e.g. scale($c, {...}) + avg($c) then inside scale() $c can be a pyramid member, but inside avg() $c must be a base coverage
-            coverageAliasRegistry.replaceBaseCoverageByDownscaledCoverage(selectedCoverageId,
-                                                                        baseCoverageId,
-                                                                        baseRasdamanCollectionName);
-            for (String baseAliasTmp : baseCoverageAliases) {
-                coverageAliasRegistry.removeCoverageAliasAndDownscaledAlias(baseAliasTmp);
-            }
 
         }
         
@@ -518,262 +568,21 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         //          domain(C2,a,c) = domain(C1,a,c) - it means: ***axis's geo domain will not change***!
         wcpsCoverageMetadataService.applySubsets(false, false, metadata, subsetDimensions, numericSubsets);
         
-        this.addImplicitScaleGridIntervals(metadata, numericSubsets);
+        this.scaleHandlerService.addImplicitScaleGridIntervals(metadata, numericSubsets);
         
         // it will not get all the axis to build the intervals in case of (extend() and scale())
         String domainIntervals = rasqlTranslationService.constructSpecificRasqlDomain(metadata.getSortedAxesByGridOrder(), numericSubsets);
 
-        String rasql = coverageExpression.getRasql();
-        rasql = TEMPLATE.replace("$coverage", coverageExpression.getRasql())
-                         .replace("$intervalList", domainIntervals);
+        String rasql = TEMPLATE.replace("$coverage", coverageExpression.getRasql())
+                               .replace("$intervalList", domainIntervals);
 
-        
-        this.revertAfterScale(metadata, geoBoundAxes, directPositionsMap);
-        this.applyScaleOnIrregularAxes(metadata, gridBoundAxes);
+        this.scaleHandlerService.revertAfterScale(metadata, geoBoundAxes, directPositionsMap);
+        this.scaleHandlerService.applyScaleOnIrregularAxes(metadata, gridBoundAxes);
         
         return new WcpsResult(metadata, rasql);
     }
 
 
-    /**
-     * Check if scaling axis exists in the input coverage
-     */
-    private void validateAxisLabelExist(WcpsCoverageMetadata metadata, String scaleAxisLabel) {
-        List<Axis> coverageAxes = metadata.getAxes();
-        
-        boolean result = false;
-        for (Axis axis : coverageAxes) {
-            if (CrsUtil.axisLabelsMatch(axis.getLabel(), scaleAxisLabel)) {
-                result = true;
-                break;
-            }
-        }
-        
-        if (!result) {
-            throw new WCPSException(ExceptionCode.InvalidAxisLabel, "Scaling axis label '" + scaleAxisLabel + "' does not exist in coverage '" + metadata.getCoverageName() + "'.");
-        }
-    }
-    
-    /**
-     * Special case, only 1 X or Y axis specified, find the grid domain for another axis implicitly from the specified axis
-     */
-    private void handleScaleWithOnlyXorYAxis(WcpsResult coverageExpression, List<Subset> subsets, boolean implicitScaleByXorYAxis) {
-        // e.g: for c in (test_mean_summer_airtemp) return encode(scale( c, { Long:"CRS:1"(0:10)} ), "png")
-        Subset subset1 = subsets.get(0);
-        BigDecimal lowerLimit1 = subset1.getNumericSubset().getLowerLimit();
-        BigDecimal upperLimit1 = subset1.getNumericSubset().getUpperLimit();            
-
-        // e.g: Long axis has grid bounds: 30:50
-        Axis axis1 = coverageExpression.getMetadata().getAxisByName(subset1.getAxisName());
-        List<Axis> xyAxes = coverageExpression.getMetadata().getXYAxes();
-        Axis axis2 = null;
-        for (Axis axis : xyAxes) {
-            if (!CrsUtil.axisLabelsMatch(axis.getLabel(), subset1.getAxisName())) {
-                axis2 = axis;
-                break;
-            }
-        }
-        
-        if (!implicitScaleByXorYAxis) {
-            // NOTE: for example scaleextent() of WCS scale extension, it doesn't have this auto implicitly scale ratio by X or Y axis
-            NumericTrimming numericTrimming = new NumericTrimming(axis2.getGridBounds().getLowerLimit(), axis2.getGridBounds().getUpperLimit());
-            Subset subset2 = new Subset(numericTrimming, axis2.getNativeCrsUri(), axis2.getLabel());
-            subsets.add(subset2);
-            return;
-        }        
-        
-        BigDecimal gridDistance1 = axis1.getGridBounds().getUpperLimit().subtract(axis1.getGridBounds().getLowerLimit());
-        // scale ratio is: (10 - 0) / (50 - 30) = 10 / 20 = 0.5 (downscale)
-        BigDecimal scaleRatio = BigDecimalUtil.divide(upperLimit1.subtract(lowerLimit1), gridDistance1);
-
-        // Lat axis has grid bounds: 60:70
-        // -> scale on Lat axis: 0:(70 - 60) * 0.5 = 0:5
-        BigDecimal gridDistance2 = axis2.getGridBounds().getUpperLimit().subtract(axis2.getGridBounds().getLowerLimit());
-        BigDecimal lowerLimit2 = BigDecimal.ZERO;
-        BigDecimal upperLimit2 = gridDistance2.multiply(scaleRatio);
-        NumericTrimming numericTrimming = new NumericTrimming(lowerLimit2, upperLimit2);
-
-        Subset subset2 = new Subset(numericTrimming, subset1.getCrs(), axis2.getLabel());
-        subsets.add(subset2);
-    }    
-    
-    
-    /**
-     * Add each axis's grid domains which is not decleared in the scale's interval explicitly
-     */
-    private void addImplicitScaleGridIntervals(WcpsCoverageMetadata metadata, List<Subset> gridNumericSubsets) {
-        for (Axis axis : metadata.getAxes()) {
-            boolean exists = false;
-            for (Subset subset : gridNumericSubsets) {
-                if (CrsUtil.axisLabelsMatch(axis.getLabel(), subset.getAxisName())) {
-                    exists = true;
-                    break;
-                }
-            }
-            
-            if (!exists) {
-                NumericTrimming numericTrimming = new NumericTrimming(axis.getGridBounds().getLowerLimit(), axis.getGeoBounds().getUpperLimit());
-                Subset subset = new Subset(numericTrimming, axis.getNativeCrsUri(), axis.getLabel());
-                gridNumericSubsets.add(subset);
-            }
-        }
-    }
-    
-    /**
-     * Revert some values after applying subset from scale's intervals
-     */
-    private void revertAfterScale(WcpsCoverageMetadata metadata, List<Pair> geoBoundAxes, Map<String, List<BigDecimal>> directPositionsMap) {
-        // Revert the changed axes' geo bounds as before applying scale subsets.
-        // e.g: scale(c, {Lat:"CRS:1"(0:20), Long:"CRS:1"(0:20)} and before scale, 
-        // coverage has geo domains: Lat(-40, 40), Long(-30, 30), grid domains: Lat":CRS:1"(0:300), Long:"CRS:1"(0:200)
-        // After scale, the geo domains are kept and grid domain will be: Lat":CRS1:"(0:20), Long:"CRS:1"(0:20)
-        for (Axis axis : metadata.getAxes()) {
-            for (Pair<String, NumericTrimming> pair : geoBoundAxes) {
-                if (CrsUtil.axisLabelsMatch(axis.getLabel(), pair.fst)) {
-                    axis.getGeoBounds().setLowerLimit(pair.snd.getLowerLimit());
-                    axis.getGeoBounds().setUpperLimit(pair.snd.getUpperLimit());
-                    
-                    this.wcpsCoverageMetadataService.updateGeoResolutionByGridBound(axis);
-                }
-            }
-        }
-        
-        // Revert the direct positions for irregular axes to the ones before applying scaling intervals
-        for (Axis axis : metadata.getAxes()) {
-            if (axis instanceof IrregularAxis) {
-                IrregularAxis irregularAxis = ((IrregularAxis)axis);
-                List<BigDecimal> directPositions = directPositionsMap.get(axis.getLabel());
-                irregularAxis.setDirectPositions(directPositions);
-            }
-        }
-    }
-    
-    /**
-     * For irregular axes, when scaling, the coefficients must be filtered (scale down, typical case) or added (scale up).
-     * 
-     */
-    public void applyScaleOnIrregularAxes(WcpsCoverageMetadata metadata, List<Pair> gridBoundAxes) {
-        for (Axis axis : metadata.getAxes()) {
-            for (Pair<String, NumericTrimming> pair : gridBoundAxes) {
-                String axisLabel = pair.fst;
-                if (axis instanceof IrregularAxis && CrsUtil.axisLabelsMatch(axis.getLabel(), axisLabel)) {
-                    // e.g: [0:10]
-                    NumericTrimming scaleGridTrimming = pair.snd;
-                    long sourceGridLowerBound = scaleGridTrimming.getLowerLimit().longValue();
-                    long sourceGridUpperBound = scaleGridTrimming.getUpperLimit().longValue();
-                    long sourceGridPoints = sourceGridUpperBound - sourceGridLowerBound + 1;
-                    
-                    // e.g: [0:4]
-                    long destGridLowerBound = axis.getGridBounds().getLowerLimit().longValue();
-                    long destGridUpperBound = axis.getGridBounds().getUpperLimit().longValue();
-                    long destGridPoints = destGridUpperBound - destGridLowerBound + 1;                    
-                    
-                    if (sourceGridPoints >= destGridPoints) {
-                        // scale down [0:11] -> [0:3]
-                        this.applyScaleDownOnIrregularAxis((IrregularAxis)axis, scaleGridTrimming);
-                    } else {
-                        // scale up [0:11] -> [0:300]                        
-                        // e.g: before scale time("2001":"2010") has 6 coefficients: 2001, 2002, 2005, 2007, 2008, 2009, 2010 with grid [0:5]
-                        //      after scale  time("2001":"2010") has 301 coefficients: 2001, ... 2010 with grid [0:300]
-                        // @TODO: how to calculate the newly added coefficients in the middle of irregular axis?                        
-                        if (CrsUtil.isGridCrs(axis.getNativeCrsUri())) {
-                            throw new WCPSException(ExceptionCode.NoApplicableCode, 
-                                    "Cannot scale up on irregular axis '" + axisLabel + "', only scale down is supported.");
-                        } else {
-                            this.applyScaleUpOnIrregularAxisWithGridCRS((IrregularAxis) axis);
-                        }
-                    }
-                                        
-                }
-            }            
-        }
-    }
-    
-    /**
-     * e.g: irregular time axis has 11 coefficients (time slices) with grid bounds [0:10] and scaling's grid interval is [0:3]
-     * then after scaling, only 4 coefficients are left on time axis
-     */
-    private void applyScaleDownOnIrregularAxis(IrregularAxis axis, NumericTrimming sourceGridTrimming) {
-        // e.g: [0:11]
-        long sourceLowerBound = sourceGridTrimming.getLowerLimit().longValue();
-        long sourceUpperBound = sourceGridTrimming.getUpperLimit().longValue();
-        long sourceGridPoints = sourceUpperBound - sourceLowerBound;
-        sourceLowerBound = 0;
-        sourceUpperBound = sourceGridPoints;
-        
-        // e.g: scale to [0:3]
-        long destLowerBound = axis.getGridBounds().getLowerLimit().longValue();        
-        long destUpperBound = axis.getGridBounds().getUpperLimit().longValue();
-        long destGridPoints = destUpperBound - destLowerBound;
-        destLowerBound = 0;
-        destUpperBound = destGridPoints;
-        
-        BigDecimal scaleRatio = BigDecimalUtil.divide(new BigDecimal(sourceUpperBound - sourceLowerBound + 1), new BigDecimal(destUpperBound - destLowerBound + 1));
-        BigDecimal realIndex = BigDecimal.ZERO;
-        int intIndex = 0;
-        List<BigDecimal> selectedCoefficients = new ArrayList<>();
-        selectedCoefficients.add(axis.getDirectPositions().get(0));
-        
-        while (intIndex <= sourceUpperBound) {
-            realIndex = realIndex.add(scaleRatio); 
-           intIndex = realIndex.intValue();
-            
-            if (intIndex <= sourceUpperBound) {
-                BigDecimal coefficient = axis.getDirectPositions().get(intIndex);
-                selectedCoefficients.add(coefficient);
-            }
-        }
-        
-        axis.setDirectPositions(selectedCoefficients);        
-    }
-    
-    /**
-     * e.g: irregular time axis has 11 coefficients (time slices) with grid bounds [0:10] and scaling's grid interval is [0:3]
-     * then after scaling, only 4 coefficients are left on time axis
-     */
-    private void applyScaleUpOnIrregularAxisWithGridCRS(IrregularAxis axis) {
-        // e.g: scale grid domain to [0:10]
-        long destLowerBound = axis.getGridBounds().getLowerLimit().longValue();        
-        long destUpperBound = axis.getGridBounds().getUpperLimit().longValue();
-        long destGridPoints = destUpperBound - destLowerBound;
-        axis.setDirectPositions(new ArrayList<>());
-        
-        for (int i = 0; i <= destGridPoints; i++) {
-            axis.getDirectPositions().add(new BigDecimal(i));
-        }
-    }
-    
-    /**
-     * Check if the coverage contains X and Y axes, but one only specifies
-     * X or Y axis for scale()
-     */
-    private boolean processXOrYAxisImplicitly(WcpsCoverageMetadata metadata, List<Subset> numericSubsets) {
-        if (metadata.hasXYAxes()) {
-            // NOTE: in case 
-            Axis axisX = metadata.getXYAxes().get(0);
-            Axis axisY = metadata.getXYAxes().get(1);
-            List<Boolean> hasXYAxes = new ArrayList<>();
-            
-            for (Subset subset : numericSubsets) {
-                if (CrsUtil.axisLabelsMatch(subset.getAxisName(), axisX.getLabel())
-                    || CrsUtil.axisLabelsMatch(subset.getAxisName(), axisY.getLabel())) {
-                    hasXYAxes.add(true);
-                }
-                
-                if (hasXYAxes.size() == 2) {
-                    break;
-                }
-            }
-            
-            // Coverage has X and Y axes, but user only specifies one of X or Y for the scale(), then the domain for the other axis
-            // will be determined from the specified X/Y axis.
-            if (hasXYAxes.size() == 1) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
 
     //in case we will need to handle scale with a factor, use a method such as below
     //public  WcpsResult handle(WcpsResult coverageExpression, BigDecimal scaleFactor)

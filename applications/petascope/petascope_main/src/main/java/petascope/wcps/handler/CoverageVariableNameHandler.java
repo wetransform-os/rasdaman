@@ -125,39 +125,12 @@ public class CoverageVariableNameHandler extends Handler {
             //axis iterator, no coverage information, just pass the info up
             metadata = null;
         } else {
-            // coverage does exist
+            // coverage exists
 
             rasql = StringUtil.stripDollarSign(coverageAlias);
-            String rasdamanCollectionName = this.coverageAliasRegistry.getRasdamanCollectionNameByCoverageName(coverageName);
-
-            String downscaledCoverageAlias = this.coverageAliasRegistry.getDownscaledAlias(coverageAlias);
-            if (downscaledCoverageAlias != null) {
-                // NOTE: in case the coverageAlias actually points (influenced by SCALE() handler) to a downscaled pyramaid member
-                // e.g. $c0 should point to test_cov_pyramid instead of test_cov_base
-                coverageAlias = downscaledCoverageAlias;
-
-                coverageName = this.coverageAliasRegistry.getCoverageName(downscaledCoverageAlias);
-                rasdamanCollectionName = this.coverageAliasRegistry.getRasdamanCollectionNameByCoverageName(coverageName);
-
-                if (this.coverageAliasRegistry.getListOfFinalCoveragePairsByCoverageAlias(coverageAlias) == null) {
-                    coverageAliasRegistry.addToFinalCoverageAliasMappings(coverageAlias, coverageName, rasdamanCollectionName);
-                }
-
-                rasql = downscaledCoverageAlias;
-            } else {
-                // e.g. FOR $c in (test_mr1, test_mr2_ test_mr3)
-                if (this.coverageAliasRegistry.getListOfFinalCoveragePairsByCoverageAlias(coverageAlias) == null) {
-                    List<Pair<String, String>> coverageMappingPairs = this.coverageAliasRegistry.getListOfCoveragePairsByCoverageAlias(coverageAlias);
-                    for (Pair<String, String> pair : coverageMappingPairs) {
-                        String coverageNameTmp = pair.fst;
-                        String rasdamanCollectionNameTmp = pair.snd;
-                        coverageAliasRegistry.addToFinalCoverageAliasMappings(coverageAlias, coverageNameTmp, rasdamanCollectionNameTmp);
-                    }
-                }
-            }
 
             metadata = this.wcpsCoverageMetadataTranslator.translate(coverageName);
-
+            
             if (metadata.getRasdamanCollectionName() == null) {
                 // coverage is created temporarily from uploaded file path
                 rasql = metadata.getDecodedFilePath();

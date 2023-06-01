@@ -3,6 +3,6 @@
     xsi:schemaLocation="http://www.opengis.net/ows/2.0 http://schemas.opengis.net/ows/2.0/owsExceptionReport.xsd"
     xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink">
     <ows:Exception exceptionCode="SyntaxError" >
-        <ows:ExceptionText><![CDATA[A parsing error occurred at line '4', column '65'. Offending token is '/'. Reason: no viable alternative at input '[Long(-29.8:-15.4), Lat(35.6:65.0), t($ts)          /'.]]></ows:ExceptionText>
+        <ows:ExceptionText><![CDATA[A parsing error occurred at line '5', column '65'. Offending token is '/'. Reason: no viable alternative at input '[Long(-29.8:-15.4), Lat(35.6:65.0), t($ts)          /'.]]></ows:ExceptionText>
     </ows:Exception>
 </ows:ExceptionReport>

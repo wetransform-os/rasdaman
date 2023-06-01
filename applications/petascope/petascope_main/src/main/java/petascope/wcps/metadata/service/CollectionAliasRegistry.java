@@ -99,17 +99,19 @@ public class CollectionAliasRegistry {
      * e.g. test_mr as c, test_rgb as d
      */
     public String getFromClause() {
-        List<String> results = new ArrayList<>();
+        List<String> list = new ArrayList<>();
         for (Map.Entry<String, Pair<String, String>> entry : this.getAliasMap().entrySet()) {
             String alias = entry.getKey();
             String collectionName = entry.getValue().fst;
 
-            results.add(collectionName + " AS " + alias);
+            list.add(collectionName + " AS " + alias);
         }
 
-        String result = ListUtil.join(results, ", ");
-        if (result.isEmpty()) {
+        String result = "";
+        if (list.isEmpty()) {
             result = this.coverageAliasRegistry.getRasqlFromClause();
+        } else {
+            result = " FROM " + ListUtil.join(list, ", ");
         }
 
         return result;

@@ -23,6 +23,8 @@ package petascope.util;
 
 import java.io.File;
 import java.io.IOException;
+
+import org.apache.commons.lang3.StringUtils;
 import petascope.core.XMLSymbols;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -782,6 +784,25 @@ public class StringUtil {
         }
         
         return true;
+    }
+
+    /**
+     * Given a string, find the start index of a pattern in the string
+     */
+    public static int getIndexOfPattern(Pattern pattern, String str) {
+        Matcher matcher = pattern.matcher(str);
+        if (matcher.find()) {
+            return matcher.start();
+        }
+
+        return -1;
+    }
+
+    public static String stripOpenAndCloseParentheses(String str) {
+        String result = StringUtils.replaceOnce(str, "(", "");
+        result = StringUtils.replaceOnce(result, ")", "");
+
+        return result;
     }
     
 }

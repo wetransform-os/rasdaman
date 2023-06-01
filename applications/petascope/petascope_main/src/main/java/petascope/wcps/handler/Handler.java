@@ -28,7 +28,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.PetascopeRuntimeException;
 import petascope.wcps.result.VisitorResult;
 
 /**
@@ -124,6 +123,9 @@ public abstract class Handler {
     }
 
     public List<Handler> getChildren() {
+        if (children == null) {
+            children = new ArrayList<>();
+        }
         return children;
     }
 
@@ -300,6 +302,24 @@ public abstract class Handler {
     }
 
     /**
+     * if a given Handler is an instance of one object in this list, then
+     * WCPS query traversing should not go inside it.
+     */
+    protected boolean stopToTraverseFurtherInTree(Handler coverageExpressionHandler) {
+        return (coverageExpressionHandler instanceof ReduceExpressionHandler
+                || coverageExpressionHandler instanceof ScaleExpressionByDimensionIntervalsHandler
+                || coverageExpressionHandler instanceof CrsTransformHandler
+                || coverageExpressionHandler instanceof CrsTransformShorthandHandler
+                || coverageExpressionHandler instanceof ExtendExpressionHandler
+                || coverageExpressionHandler instanceof ExtendExpressionByImageCrsDomainHandler
+                || coverageExpressionHandler instanceof CoverageConstantHandler
+                || coverageExpressionHandler instanceof CoverageConstructorHandler
+                || coverageExpressionHandler instanceof GeneralCondenserHandler
+                || coverageExpressionHandler instanceof AbstractClipExpressionHandler
+        );
+    }
+
+    /**
      * Pushdown handlers (scale() and slice/trim() to further suitable children nodes).
      *
      * e.g. scale((c + d), {Lat:"CRS:1"(0:30)}) -> scale(c, {Lat:"CRS:1"(0:30)}) + scale(d, {Lat:"CRS:1"(0:30)})
@@ -308,20 +328,8 @@ public abstract class Handler {
      */
     protected void updateQueryTree(Handler coverageExpressionHandler, Handler childDimensionIntervalListHandler) throws PetascopeException {
         if (
-                (coverageExpressionHandler.isUpdatedHandlerAlready(this))
-                        ||
-                        (coverageExpressionHandler instanceof ReduceExpressionHandler
-                                || coverageExpressionHandler instanceof ScaleExpressionByDimensionIntervalsHandler
-                                || coverageExpressionHandler instanceof CrsTransformHandler
-                                || coverageExpressionHandler instanceof CrsTransformShorthandHandler
-                                || coverageExpressionHandler instanceof ExtendExpressionHandler
-                                || coverageExpressionHandler instanceof ExtendExpressionByImageCrsDomainHandler
-                                || coverageExpressionHandler instanceof CoverageConstantHandler
-                                || coverageExpressionHandler instanceof CoverageConstructorHandler
-                                || coverageExpressionHandler instanceof GeneralCondenserHandler
-                                || coverageExpressionHandler instanceof AbstractClipExpressionHandler
-                        )
-
+            (coverageExpressionHandler.isUpdatedHandlerAlready(this))
+            || this.stopToTraverseFurtherInTree(coverageExpressionHandler)
         ) {
             // NOTE: e.g. $c[i(0:30)][i(0)] then it should not move [i(0)]
             // as child of $c to $c[i(0)][i(0:30)] as it is invalid to trim after slicing on i axis

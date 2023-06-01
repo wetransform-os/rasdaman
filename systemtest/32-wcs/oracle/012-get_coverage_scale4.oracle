@@ -10,30 +10,30 @@
         <gml:RectifiedGrid dimension="2" gml:id="test_mr-grid">
             <gml:limits>
                 <gml:GridEnvelope>
-                    <gml:low>10 0</gml:low>
-                    <gml:high>10 18</gml:high>
+                    <gml:low>0 0</gml:low>
+                    <gml:high>18 18</gml:high>
                 </gml:GridEnvelope>
             </gml:limits>
             <gml:axisLabels>i j</gml:axisLabels>
             <gml:origin>
                 <gml:Point gml:id="test_mr-point" srsName="http://localhost:8080/rasdaman/def/crs/OGC/0/Index2D">
-                    <gml:pos>10.5 10.973684210526315789473684210526315789473684210526315</gml:pos>
+                    <gml:pos>10.026315789473684210526315789473684210526315789473685 10.973684210526315789473684210526315789473684210526315</gml:pos>
                 </gml:Point>
             </gml:origin>
-            <gml:offsetVector srsName="http://localhost:8080/rasdaman/def/crs/OGC/0/Index2D">1 0</gml:offsetVector>
+            <gml:offsetVector srsName="http://localhost:8080/rasdaman/def/crs/OGC/0/Index2D">0.05263157894736842105263157894736842105263157894737 0</gml:offsetVector>
             <gml:offsetVector srsName="http://localhost:8080/rasdaman/def/crs/OGC/0/Index2D">0 -0.05263157894736842105263157894736842105263157894737</gml:offsetVector>
         </gml:RectifiedGrid>
     </gml:domainSet>
     <gml:rangeSet>
         <gml:DataBlock>
             <gml:rangeParameters/>
-            <gml:tupleList cs=" " ts=",">0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0</gml:tupleList>
+            <gml:tupleList cs=" " ts=",">0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0</gml:tupleList>
         </gml:DataBlock>
     </gml:rangeSet>
     <gml:coverageFunction>
         <gml:GridFunction>
             <gml:sequenceRule axisOrder="+2 +1">Linear</gml:sequenceRule>
-            <gml:startPoint>10 0</gml:startPoint>
+            <gml:startPoint>0 0</gml:startPoint>
         </gml:GridFunction>
     </gml:coverageFunction>
     <gmlcov:rangeType>

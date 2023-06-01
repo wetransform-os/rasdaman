@@ -997,7 +997,13 @@ public class GMLGetCapabilitiesBuilder {
      * which can project to EPSG:4326 CRS (Long - Lat order)
      */
     private Element createWGS84BoundingBoxElement(Coverage coverage) throws PetascopeException {
-        Wgs84BoundingBox wgs84BoundingBox = coverage.getEnvelope().getEnvelopeByAxis().getWgs84BBox();
+        Wgs84BoundingBox wgs84BoundingBox = null;
+        try {
+            wgs84BoundingBox = coverage.getEnvelope().getEnvelopeByAxis().getWgs84BBox();
+        } catch (Exception ex) {
+            log.error("Failed to create WGS84 bounding box for coverage '" + coverage.getCoverageId() + "'. Reason: " + ex.getMessage(), ex);
+        }
+
         Element wgs84BoundingBoxElement = null;
         
         if (wgs84BoundingBox != null) {

@@ -510,7 +510,7 @@ public abstract class AbstractClipExpressionHandler extends Handler {
         
         // all the possible coverages and alias comes from FOR clause of WCPS query
         String aliasRasdamanCollectionNames = this.coverageAliasRegistry.getRasqlFromClause();
-        String rasqlQuery = "Select sdom(" + clipRasqlQuery + ") FROM " + aliasRasdamanCollectionNames;        
+        String rasqlQuery = "Select sdom(" + clipRasqlQuery + ") " + aliasRasdamanCollectionNames;
         try {
             // e.g: [0:20,0:50]
             Pair<String, String> userPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(httpServletRequest);

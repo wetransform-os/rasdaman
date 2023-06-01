@@ -121,7 +121,7 @@ class GdalToCoverageConverter(AbstractToCoverageConverter):
                 return self.default_null_values
 
             # NOTE: all files should have same bands's metadata, so 1 file is ok
-            gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.files)
+            gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.files, self.session)
             if gdal_dataset is None:
                 return None
             # band in gdal starts with 1

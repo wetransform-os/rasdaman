@@ -10,14 +10,14 @@
   "input": {
     "coverage_id": "test_global_bands_metadata_auto_netcdf",
     "paths": [
-      "../wcs_pml_global_metadata_auto/ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OC4v6-200007-fv2.0.nc"
+      "../090-wcs_ampersand_in_metadata/ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OC4v6-200007-fv2.0.nc"
     ]
   },
   "recipe": {
     "name": "general_coverage",
     "options": {
       "coverage": {
-        "crs": "EPSG/0/4326@OGC/0/AnsiDate",
+        "crs": "OGC/0/AnsiDate@EPSG/0/4326",
         "metadata": {
           "type": "xml",
           "global": "auto",
@@ -50,7 +50,6 @@
             "ansi": {
               "min": "datetime(${netcdf:variable:time:min} * 24 * 3600)",
               "max": "datetime(${netcdf:variable:time:max} * 24 * 3600)",
-	      "directPositions": "[datetime(${netcdf:variable:time:min} * 24 * 3600)]",
               "resolution": 1,
               "type": "ansidate",
               "irregular": true

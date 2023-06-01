@@ -139,7 +139,7 @@ class Recipe(BaseRecipe):
                 subsets = GdalAxisFiller(crs_axes, gdal_file).fill()
             except Exception as ex:
                 # If skip: true then just ignore this file from importing, else raise exception
-                FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex)
+                FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex, self.session)
                 valid_coverage_slice = False
 
             if valid_coverage_slice:
@@ -166,7 +166,7 @@ class Recipe(BaseRecipe):
         """
         Returns the list of coverages to be used for the importer
         """
-        gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.session.get_files())
+        gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.session.get_files(), self.session)
         if gdal_dataset is None:
             return []
 

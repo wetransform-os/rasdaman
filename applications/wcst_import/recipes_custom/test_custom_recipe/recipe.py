@@ -97,7 +97,7 @@ class Recipe(BaseRecipe):
                 gdal_dataset = GDALGmlUtil.get(file_path)
                 break
             except Exception as e:
-                if ConfigManager.skip == True:
+                if self.session.skip_file_that_fail_to_open():
                     pass
                 else:
                     raise e

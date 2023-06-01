@@ -519,7 +519,7 @@ class AbstractToCoverageConverter:
                 ok_files.append(file)
             except Exception as ex:
                 # If skip: true then just ignore this file from importing, else raise exception
-                FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex)
+                FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex, self.session)
                 valid_coverage_slice = False
 
             if valid_coverage_slice:
@@ -545,7 +545,7 @@ class AbstractToCoverageConverter:
                         try:
                             CRSUtil.validate_crs(coverage_crs, geo_axis_crs)
                         except Exception as ex:
-                            FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex)
+                            FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex, self.session)
                             valid_coverage_slice = False
                         if valid_coverage_slice:
                             if self.session.import_overviews_only is False:

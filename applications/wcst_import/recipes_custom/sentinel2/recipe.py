@@ -140,7 +140,7 @@ class Recipe(GeneralCoverageRecipe):
         log.info(make_bold("Mocked: ") + str(ConfigManager.mock))
         if ConfigManager.track_files:
             log.info(make_bold("Track files: ") + str(ConfigManager.track_files))
-        if ConfigManager.skip:
+        if self.session.skip_is_enabled():
             log.info(make_bold("Skip: ") + str(ConfigManager.skip))
         if ConfigManager.retry:
             log.info(make_bold("Retries: ") + str(ConfigManager.retries))

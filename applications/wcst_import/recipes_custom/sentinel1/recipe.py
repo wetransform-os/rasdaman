@@ -119,7 +119,7 @@ class Recipe(GeneralCoverageRecipe):
         log.info(make_bold("Mocked: ") + str(ConfigManager.mock))
         if ConfigManager.track_files:
             log.info(make_bold("Track files: ") + str(ConfigManager.track_files))
-        if ConfigManager.skip:
+        if self.session.skip_is_enabled():
             log.info(make_bold("Skip: ") + str(ConfigManager.skip))
         if ConfigManager.retry:
             log.info(make_bold("Retries: ") + str(ConfigManager.retries))
@@ -226,7 +226,7 @@ class Recipe(GeneralCoverageRecipe):
                 self.epsg_xy_crs = gdal_ds.get_crs()
                 break
             except Exception as e:
-                if ConfigManager.skip == True:
+                if self.session.skip_file_that_fail_to_open():
                     pass
                 else:
                     raise e

@@ -266,7 +266,7 @@ class Recipe(BaseRecipe):
                             ))
                         break
                     except Exception as e:
-                        if ConfigManager.skip == True:
+                        if self.session.skip_file_that_fail_to_open():
                             pass
                         else:
                             raise e
@@ -484,7 +484,7 @@ class Recipe(BaseRecipe):
                     result = escape_metadata_nested_dicts(metadata_dict)
                     return result
                 except Exception as e:
-                    if ConfigManager.skip == True:
+                    if self.session.skip_file_that_fail_to_open():
                         # Error with opening the first file, then try with another file as skip is true
                         pass
                     else:
@@ -588,7 +588,7 @@ class Recipe(BaseRecipe):
 
                     return escape_metadata_nested_dicts(bands_metadata)
                 except Exception as e:
-                    if ConfigManager.skip == True:
+                    if self.session.skip_file_that_fail_to_open():
                         pass
                     else:
                         raise e
@@ -683,7 +683,7 @@ class Recipe(BaseRecipe):
 
                     return escape_metadata_nested_dicts(axes_metadata)
             except Exception as e:
-                if ConfigManager.skip == True:
+                if self.session.skip_file_that_fail_to_open():
                     pass
                 else:
                     raise e
@@ -804,7 +804,7 @@ class Recipe(BaseRecipe):
                 log.warn(error_message)
                 log_to_file(error_message)
 
-                if ConfigManager.skip is True:
+                if self.session.skip_file_that_fail_to_open():
                     continue
                 else:
                     raise e

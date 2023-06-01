@@ -514,7 +514,7 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
 
 
     @staticmethod
-    def open_gdal_dataset_from_any_file(files):
+    def open_gdal_dataset_from_any_file(files, session):
         """
         This method is used to open 1 dataset to get the common metadata shared from all input files.
         :param list files: input files
@@ -532,7 +532,7 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
                 log_to_file(error_message)
 
                 # Cannot open file by gdal, try with next file
-                if ConfigManager.skip:
+                if session.skip_file_that_fail_to_open():
                     continue
                 else:
                     raise ex

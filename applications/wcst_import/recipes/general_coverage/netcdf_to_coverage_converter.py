@@ -122,7 +122,7 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
                 netcdf_dataset = netcdf4_open(file_path)
                 break
             except Exception as e:
-                if ConfigManager.skip is True:
+                if self.session.skip_file_that_fail_to_open():
                     log.warn("Failed to open netCDF dataset from input file: '{}'. Reason: {}.".format(file_path, str(e)))
                     continue
                 else:

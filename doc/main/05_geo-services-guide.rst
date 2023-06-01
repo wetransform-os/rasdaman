@@ -2659,8 +2659,13 @@ config section
 
 .. _data-import-skip:
 
-* ``skip`` - Set to ``true`` to ignore files that failed to import; by default it
-  is ``false``, i.e. the import process is terminated when a file fails to import.
+* ``skip`` - Set to ``true`` to ignore files that failed to analyze 
+  (i.e. file can be accessed but it is not possible to open and read its content) 
+  or failed to import to rasdaman. If set to ``files_that_fail_to_open``,
+  then files that failed to analyze will be skipped,
+  however if a file failed to import to rasdaman, then import process is terminated.
+  By default it is ``false``, i.e. the import process is terminated when a file fails to import.
+  
 
 * ``retry`` - Set to ``true`` to retry a failed request. The number of retries is
   either 5, or the value of setting ``retries`` if specified. This is set to

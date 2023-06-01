@@ -57,6 +57,8 @@ class Session:
 
     total_files_to_import = 0
 
+    SKIP_FILES_THAT_FAIL_TO_OPEN = "files_that_fail_to_open"
+
     def __init__(self, config, inp, recipe, hooks, ingredient_file_name, ingredients_dir_path):
         """
         This class is used to hold the configuration for this importing session
@@ -128,7 +130,7 @@ class Session:
         ConfigManager.blocking = self.blocking
 
         self.subset_correction = bool(self.config['subset_correction']) if "subset_correction" in self.config else False
-        self.skip = bool(self.config['skip']) if "skip" in self.config else False
+        self.skip = self.config['skip'] if "skip" in self.config else False
         self.retry = bool(self.config['retry']) if "retry" in self.config else False
         self.slice_restriction = self.config['slice_restriction'] if "slice_restriction" in self.config else None
         self.retries = int(self.config['retries']) if "retries" in self.config else 5
@@ -601,6 +603,23 @@ class Session:
         :rtype list
         """
         return self.default_null_values
+
+    def skip_file_that_fail_to_open(self):
+        """
+        Return true if "skip": true or "skip:" "files_that_fail_to_open"
+        :return: boolean
+        """
+        return self.skip is True or self.skip == Session.SKIP_FILES_THAT_FAIL_TO_OPEN
+
+    def skip_file_in_any_cases(self):
+        """
+        Return true if "skip": true
+        :return: boolean
+        """
+        return self.skip is True
+
+    def skip_is_enabled(self):
+        return self.skip is not False
 
 
     @staticmethod

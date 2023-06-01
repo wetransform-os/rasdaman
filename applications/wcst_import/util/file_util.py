@@ -82,8 +82,8 @@ class FileUtil:
             # or Amazon S3 file path, just ignore
             return True
         elif not os.access(file_path, os.R_OK):
-            log.warn("File '" + file_path + "' is not accessible, will be skipped from further processing.")
-            return False
+            raise RuntimeException("File '" + file_path + "' is not accessible. "
+                                   "Hint: Make sure user running wcst_import has permission to read the file.")
 
         return True
 
@@ -99,18 +99,19 @@ class FileUtil:
 
 
     @staticmethod
-    def ignore_coverage_slice_from_file_if_possible(file_path, exception):
+    def ignore_coverage_slice_from_file_if_possible(file_path, exception, session):
         """
         In case, wcst_import cannot process 1 file due to some problem on it and "skip" is set to True,
         wcst_import should not throw exception but log an warning to user.
 
+        :param session: Session object
         :param str file_path: path to the problem file.
         :param Exception exception: exception was thrown from previous statements.
         """
 
-        if ConfigManager.skip:
+        if session.skip_file_that_fail_to_open():
             error_message = "WARNING: input file '" + file_path + "' cannot be processed,\n " \
-                                                                  "wcst_import will ignore this file as \"skip\" is set to true in the ingredient file. Reason: " + str(exception)
+                                                                  "wcst_import will ignore this file as \"skip\" is set to: " + str(session.skip) + " in the ingredient file. Reason: " + str(exception)
             log.warn(error_message)
             log_to_file(error_message)
         else:

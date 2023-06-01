@@ -316,8 +316,8 @@ class Importer:
                             # import file by file with blocking: false
                             self.session.imported_files = [imported_file]
             except Exception as e:
-                if ConfigManager.skip:
-                    log.warn("Skipped slice " + str(self.coverage.slices[i]))
+                if self.session.skip_file_in_any_cases():
+                    log.warn("Skipped slice: " + str(self.coverage.slices[i]) + ". Error message: " + str(e))
                     if is_loggable and is_ingest_file:
                         log_file.write("\nSkipped file: " + file_name + ".")
                         log_file.write("\nReason: " + str(e))

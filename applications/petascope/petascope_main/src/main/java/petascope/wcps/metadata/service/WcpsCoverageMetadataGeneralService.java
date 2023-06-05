@@ -646,8 +646,8 @@ public class WcpsCoverageMetadataGeneralService {
                     origin = bound;
                 }
 
-                // the crs of axis
-                String crsUri = CrsUtil.INDEX_CRS_PATTERN;
+                // Index crs of axis: e.g. http://.../def/crs/OGC/0/Index1D
+                String crsUri = CrsUtility.createIndexNDCrsUri(axes);
 
                 // the created coverage now is only RectifiedGrid then it will use GridSpacing UoM
                 String axisUoM = CrsUtil.INDEX_UOM;
@@ -1365,8 +1365,8 @@ public class WcpsCoverageMetadataGeneralService {
                 String secondAxisName = secondAxis.getLabel();
                 String secondAxisType = secondAxis.getAxisType();
                 
-                if (!(firstAxis.getNativeCrsUri().contains(CrsUtil.INDEX_CRS_PATTERN) 
-                    || secondAxis.getNativeCrsUri().contains(CrsUtil.INDEX_CRS_PATTERN))) {
+                if ( !(CrsUtil.isIndexCrs(firstAxis.getNativeCrsUri()) 
+                    || CrsUtil.isIndexCrs(secondAxis.getNativeCrsUri())) ) {
                     if (!firstAxisType.equals(secondAxisType)) {
                         String errorMessage = "Axis type is different, given first coverage's axis with name '" + firstAxisName + "', type '" + firstAxisType 
                                             + "' and second coverage's axis with name '" + secondAxisName + "', type '" + secondAxisType + "'.";

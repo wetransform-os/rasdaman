@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.PetascopeException;
 import petascope.core.AxisTypes;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.TimeUtil;
@@ -123,7 +124,14 @@ public abstract class Axis<T> {
         return nativeCrsUri;
     }
 
-    public CrsDefinition getCrsDefinition() {
+    public CrsDefinition getCrsDefinition() throws PetascopeRuntimeException {
+        if (this.crsDefinition == null) {
+            try {
+                this.crsDefinition = CrsUtil.getCrsDefinition(this.nativeCrsUri);
+            } catch (PetascopeException e) {
+                throw new PetascopeRuntimeException(e);
+            }
+        }
         return crsDefinition;
     }
 

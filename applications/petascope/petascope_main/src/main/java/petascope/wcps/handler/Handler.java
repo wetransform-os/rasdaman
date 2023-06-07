@@ -316,6 +316,7 @@ public abstract class Handler {
                 || coverageExpressionHandler instanceof CoverageConstructorHandler
                 || coverageExpressionHandler instanceof GeneralCondenserHandler
                 || coverageExpressionHandler instanceof AbstractClipExpressionHandler
+                || coverageExpressionHandler instanceof FlipExpressionHandler
         );
     }
 

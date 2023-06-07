@@ -63,7 +63,7 @@
                         <swe:description/>
                         <swe:nilValues>
                             <swe:NilValues>
-                                <swe:nilValue reason="">-9.22337204e+18</swe:nilValue>
+                                <swe:nilValue reason="">-9.223372036854776e+18</swe:nilValue>
                             </swe:NilValues>
                         </swe:nilValues>
                         <swe:uom code="10^0"/>
@@ -76,7 +76,7 @@
                         <swe:description/>
                         <swe:nilValues>
                             <swe:NilValues>
-                                <swe:nilValue reason="">-9.22337204e+18</swe:nilValue>
+                                <swe:nilValue reason="">-9.223372036854776e+18</swe:nilValue>
                             </swe:NilValues>
                         </swe:nilValues>
                         <swe:uom code="10^0"/>

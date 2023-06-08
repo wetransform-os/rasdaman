@@ -83,7 +83,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/testcases_services/test_all_wcst_import/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-01.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/home/rasdaman/rasdaman_community/rasdaman/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-01.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -150,7 +150,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/testcases_services/test_all_wcst_import/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-02.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/home/rasdaman/rasdaman_community/rasdaman/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-02.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -217,7 +217,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/testcases_services/test_all_wcst_import/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-05.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/home/rasdaman/rasdaman_community/rasdaman/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-05.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -284,7 +284,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/testcases_services/test_all_wcst_import/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-07.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/home/rasdaman/rasdaman_community/rasdaman/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-07.tiff</fileReferenceHistory>
                         </slice>
                     </slices>
                     <AREA_OR_POINT>Area</AREA_OR_POINT>
@@ -306,7 +306,7 @@
                         <gml:pos>"2012-12-02T20:12:02.000Z" -9.475 112.475</gml:pos>
                     </gml:Point>
                 </gml:origin>
-                <gml:offsetVector srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">2.006979166666667 0 0</gml:offsetVector>
+                <gml:offsetVector srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">2.0069791666666665 0 0</gml:offsetVector>
                 <gml:offsetVector srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">0 -1 0</gml:offsetVector>
                 <gml:offsetVector srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">0 0 1</gml:offsetVector>
             </gml:RectifiedGrid>

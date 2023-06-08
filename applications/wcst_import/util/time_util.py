@@ -304,6 +304,31 @@ class DateTimeUtil:
 
         return result
 
+    @staticmethod
+    def get_time_delta_in_target_uom(days_time_delta, target_uom):
+        """
+        :param days_time_delta: double, time delta of days
+        :param target_uom: uom of time CRS (e.g. AnsiDate: d and UnixTime: s)
+        :return: time_delta in target_uom
+        """
+        result = datetime.timedelta(days=days_time_delta).total_seconds()
+
+        if target_uom == DateTimeUtil.UCUM_MILLIS:
+            result = result * 1000
+        elif target_uom == DateTimeUtil.UCUM_SECOND:
+            result = result * 1
+        elif target_uom == DateTimeUtil.UCUM_MINUTE:
+            result = result / 60
+        elif target_uom == DateTimeUtil.UCUM_HOUR:
+            result = result / (60 * 60)
+        elif target_uom == DateTimeUtil.UCUM_DAY:
+            result = result / (60 * 60 * 24)
+        elif target_uom == DateTimeUtil.UCUM_WEEK:
+            result = result / (60 * 60 * 24 * 7)
+        else:
+            raise RuntimeException("UoM for time CRS is not supported. Given '" + target_uom + "'.")
+
+        return result
 
     __UOM_TIME_MAP_CACHE__ = {}
     __TIME_CRS_MAP_CACHE__ = {}

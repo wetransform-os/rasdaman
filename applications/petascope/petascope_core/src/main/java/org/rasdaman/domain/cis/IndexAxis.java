@@ -25,6 +25,7 @@ import java.io.Serializable;
 import javax.persistence.*;
 import javax.persistence.PrimaryKeyJoinColumn;
 import javax.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * CIS 1.1
@@ -107,5 +108,10 @@ public class IndexAxis extends Axis implements Serializable {
 
     public void setAxisOrder(int axisOrder) {
         this.axisOrder = axisOrder;
+    }
+
+    @JsonIgnore
+    public Long getTotalPixels() {
+        return this.upperBound - this.lowerBound + 1;
     }
 }

@@ -1,45 +1,23 @@
-031-Discrete_Fourier.test
+# http://rasdaman.org/ticket/2651
+017-climate_over_earth.test
+018-climate_over_water.test
+
+# jp2000 slight values always changed
 053-jpeg2000-params-filling.test
 157-extra_params_json_jpeg2000.test
-153-irr_cube_3D_time_irregular.test
-# This query returns invalid gdal file
-195_encode_bands.test
-# This query returns different color paletter for bands in Centos (Red, Undefined, Undefined) instead of (Red, Green, Blue) in other VMs
-214-colorPalette_json_full_json.test
-# This query failed on VMs but not on development system (need to verify later).
-216-json_with_break_lines.test
-# Failed only on Ubuntu for some reason with gdal
-155-irr-cube-1.test
-# Oracle needs to be updated as this is no longer an error
-256-clip_polygon_geo_coordinates_duplicate_vertices.error.test
 
-# Feature is not supported in rasql (operand of complex type)
-470-let_clause_clip.test
-
-347-corridor_2D_linestring_E_N_source_CRS_4326_on_3Dcoverage_as_gml.test
-
-
-498-domain_lo_on_non_XY_axis.test
-499-domain_hi_on_non_XY_axis.test
-
-
+# http://rasdaman.org/ticket/2737
 506-flip_on_2d_encode_netcd.test
 
-# difference results between ubuntu and centos 7
+# http://rasdaman.org/ticket/2738
 507-sort_on_2d.test
 
+# http://rasdaman.org/ticket/2732
 520-scale_by_imgCrsdomain_with_let_clauses.test
+593-scale_switch_case_with_LET_clause.test
 
+# http://rasdaman.org/ticket/2736
 542-complex_query_encoded_in_json.test
 543-create_multi_dimensional_coverage_constructors.test
-
-
-
-505-flip_on_3d_time_axis_with_subset.test
-
-
-# it failed because of rasql query
 554-scale_up_out_of_grid_bounds_on_irregular_axis.test
-
-# t failed because of rasql query
 563-domain_time_axis_iterator_coverage_constructor.test

@@ -75,8 +75,8 @@ public class CrsTransformShorthandHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle());
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle(serviceRegistries));
         WcpsCoverageMetadata metadata = coverageExpression.getMetadata();
         
         String errorMessage = "The coverage operand of crsTransform() must be 2D and has spatial X and Y geo axes.";
@@ -90,7 +90,7 @@ public class CrsTransformShorthandHandler extends Handler {
         String axisLabelX = geoXYAxes.get(0).getLabel();
         String axisLabelY = geoXYAxes.get(1).getLabel();
         
-        String crsXY = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+        String crsXY = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         String outputCRS = "";
         if (crsXY.contains("/")) {
             // e.g. http://localhost:8080/def/crs/EPSG/0/4326
@@ -100,13 +100,13 @@ public class CrsTransformShorthandHandler extends Handler {
             outputCRS = CrsUtil.getFullCRSURLByAuthorityCode(crsXY);
         }        
         
-        String interpolationType = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+        String interpolationType = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         
         CrsTransformTargetGeoXYResolutions targetGeoXYResolutions = null;
         
         if (this.getFourthChild() != null) {
-            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getFourthChild().handle();
+            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getFourthChild().handle(serviceRegistries);
             if (wcpsMetadataResult.getTmpObject() instanceof CrsTransformTargetGeoXYResolutions) {
                 targetGeoXYResolutions = (CrsTransformTargetGeoXYResolutions) wcpsMetadataResult.getTmpObject();
             }
@@ -114,7 +114,7 @@ public class CrsTransformShorthandHandler extends Handler {
         
         CrsTransformTargetGeoXYBoundingBox targetGeoXYBBox = null;
         if (this.getFifthChild()!= null) {
-            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getFifthChild().handle();
+            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getFifthChild().handle(serviceRegistries);
             if (wcpsMetadataResult.getTmpObject() instanceof CrsTransformTargetGeoXYBoundingBox) {
                 targetGeoXYBBox = (CrsTransformTargetGeoXYBoundingBox) wcpsMetadataResult.getTmpObject();
             }

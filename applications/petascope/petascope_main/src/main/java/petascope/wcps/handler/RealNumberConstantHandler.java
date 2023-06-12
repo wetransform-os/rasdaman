@@ -26,6 +26,8 @@ import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.wcps.result.WcpsResult;
 
+import java.util.List;
+
 /**
  * Translator class for real numbers. The numbers in WCPS correspond to their
  * definition in rasql so no translation to a number format is done, the string
@@ -51,9 +53,13 @@ public class RealNumberConstantHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() {
+    public WcpsResult handle(List<Object> serviceRegistries) {
         WcpsResult wcpsResult = this.handle(this.number);
         return wcpsResult;
+    }
+
+    public String getNumber() {
+        return number;
     }
 
     private WcpsResult handle(String number) {

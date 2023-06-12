@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,9 @@ import petascope.util.ListUtil;
 // Create a new instance of this bean for each request (so it will not use the old object with stored data)
 @Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class CollectionAliasRegistry {
+
+    @Autowired
+    private CoverageAliasRegistry coverageAliasRegistry;
 
     // c0 -> Pair<collection1, coverage1>
     private HashMap<String, Pair<String, String>> aliasMap = new LinkedHashMap<>();
@@ -94,15 +99,21 @@ public class CollectionAliasRegistry {
      * e.g. test_mr as c, test_rgb as d
      */
     public String getFromClause() {
-        List<String> results = new ArrayList<>();
+        List<String> list = new ArrayList<>();
         for (Map.Entry<String, Pair<String, String>> entry : this.getAliasMap().entrySet()) {
             String alias = entry.getKey();
             String collectionName = entry.getValue().fst;
-            
-            results.add(collectionName + " AS " + alias);
+
+            list.add(collectionName + " AS " + alias);
         }
-        
-        String result = ListUtil.join(results, ", ");
+
+        String result = "";
+        if (list.isEmpty()) {
+            result = this.coverageAliasRegistry.getRasqlFromClause();
+        } else {
+            result = " FROM " + ListUtil.join(list, ", ");
+        }
+
         return result;
     }
 

@@ -71,21 +71,21 @@ public class RootHandler extends Handler {
         return result;
     }
     
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         
-        WcpsResult forClauseListVisitorResult = (WcpsResult) this.getFirstChild().handle();
+        WcpsResult forClauseListVisitorResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
         
         WcpsResult letClauseListVisitorResult = null;
         if (this.getSecondChild() instanceof LetClauseListHandler) {
-            letClauseListVisitorResult = (WcpsResult) this.getSecondChild().handle();
+            letClauseListVisitorResult = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
         }
         
         WcpsResult whereClauseVisitorResult = null;
         if (this.getThirdChild()instanceof WhereClauseHandler) {
-            whereClauseVisitorResult = (WcpsResult) this.getThirdChild().handle();
+            whereClauseVisitorResult = (WcpsResult) this.getThirdChild().handle(serviceRegistries);
         }
 
-        VisitorResult returnClauseVisitorResult = this.getFourthChild().handle();
+        VisitorResult returnClauseVisitorResult = this.getFourthChild().handle(serviceRegistries);
         
         VisitorResult finalResult = returnClauseVisitorResult;
         
@@ -100,92 +100,16 @@ public class RootHandler extends Handler {
     
     private WcpsResult handle(WcpsResult forClauseList, WcpsResult letClauseList, WcpsResult whereClause, WcpsResult returnClause) throws PetascopeException {
         // SELECT c1 + c2
-        String rasql = returnClause.getRasql();
-
-        String whereClauseStr = null;
+        String selectClauseStr = returnClause.getRasql();
+        String whereClauseStr = "";
         
         if (whereClause != null) {
             whereClauseStr = whereClause.getRasql();
         }
         
-        List<String> finalRasqlQueries = this.createFinalRasqlQueries(rasql, whereClauseStr);
-        returnClause.setFinalRasqlQueries(finalRasqlQueries);
+        String finalRasqlQuery = selectClauseStr + " " + this.coverageAliasRegistry.getRasqlFromClause() + " " + whereClauseStr;
+        returnClause.setFinalRasqlQuery(finalRasqlQuery);
         
         return returnClause;
     }
-    
-    
-    /***
-     * Normally for c in (cov1) return c; returns 1 query, 
-     * but if for c in (cov1, cov2) then it returns 2 rasql queries (one for collection1 as c and one for collection2 as c)
-     * 
-     */
-    private List<String> createFinalRasqlQueries(String defaultRasql, String whereClause) throws PetascopeException {
-        List<String> finalRaslQueries = new ArrayList<>();
-        
-        this.coverageAliasRegistry.unifyCoverageAliasMappings();
-        
-        List<List<String>> listsTmp = new ArrayList<>();
-        // e.g. c -> [ (cov11:collection11), (cov12: collection12), ...]
-        for (Map.Entry<String, List<Pair<String, String>>> entry : this.coverageAliasRegistry.getCoverageMappings().entrySet()) {
-            // e.g. c
-            String coverageVarableName = entry.getKey();
-            List<String> collectionVariableNamesList = new ArrayList<>();
-
-            // e.g. [ (cov11:collection11), (cov12: collection12), ...]
-            List<Pair<String, String>> coverageIdsCollectionNamesList = entry.getValue();
-            for (Pair<String, String> pair : coverageIdsCollectionNamesList) {
-                String collectionName = pair.snd;
-                if (collectionName != null) {
-                    // e.g collection11 as c
-                    String clause = pair.snd + " AS " + StringUtil.stripDollarSign(coverageVarableName);
-                    collectionVariableNamesList.add(clause);
-                }
-
-            }            
-            
-            if (!collectionVariableNamesList.isEmpty()) {
-                listsTmp.add(collectionVariableNamesList);
-            }
-        }
-        
-        
-        // for virtual coverages, their rasdaman collection names are null -> collect source coverages' collections
-        for (Map.Entry<String, Pair<String, String>> entry : this.collectionAliasRegistry.getAliasMap().entrySet()) {
-            // e.g: utm31 as c0
-            String collectionIterator = entry.getKey();
-            String clause = entry.getValue().fst + " " + AS + " " + entry.getKey();
-            boolean mustAdd = true;
-            for (List<String> list : listsTmp) {
-                for (String str : list) {
-                    if (str.endsWith(collectionIterator)) {
-                        mustAdd = false;
-                        break;
-                    }
-                }
-            }
-            
-            if (mustAdd) {
-                List<String> collectionVariableNamesList = new ArrayList<>();            
-                collectionVariableNamesList.add(clause);
-
-                listsTmp.add(collectionVariableNamesList);
-            }
-        }  
-        
-        // e.g. with list1[ collection11 as c, collection12 as c ], list2[ collection21 as d]
-        // returns list[ list1[ collection 11 as c, collection21 as d ], list2[ collection12 as c, collection21 as d ] ]
-        List<List<String>> catersianProductList = ListUtil.cartesianProduct(listsTmp);
-        for (List<String> list : catersianProductList) {
-            String fromClause = " FROM " + ListUtil.join(list, ", ");
-            String rasqlQuery = defaultRasql + fromClause;
-            if (whereClause != null) {
-                rasqlQuery += " " + whereClause;
-            }
-            finalRaslQueries.add(rasqlQuery);
-        }
-        
-        return finalRaslQueries;
-    }
-    
 }

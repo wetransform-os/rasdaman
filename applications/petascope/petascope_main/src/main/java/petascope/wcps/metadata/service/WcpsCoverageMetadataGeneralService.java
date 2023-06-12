@@ -376,10 +376,13 @@ public class WcpsCoverageMetadataGeneralService {
      * @param metadata
      * @param subsetDimensions
      */
-    public void stripSlicingAxes(WcpsCoverageMetadata metadata, List<WcpsSubsetDimension> subsetDimensions) {
+    public void stripSlicingAxes(WcpsCoverageMetadata metadata, List<WcpsSubsetDimension> subsetDimensions) throws PetascopeException {
         List<Integer> removeIndexes = new ArrayList<>();
-        int i = 0
-                ;
+        int i = 0;
+
+        List<WcpsSliceSubsetDimension> slicedDimensions = new ArrayList<>();
+        metadata.setSlicedWcpsSubsetDimensions(slicedDimensions);
+
         for (Axis axis : metadata.getAxes()) {
             for (WcpsSubsetDimension subset : subsetDimensions) {
                 
@@ -387,6 +390,17 @@ public class WcpsCoverageMetadataGeneralService {
                     
                     // Subset is slice then the axis should be removed from coverage's metadata
                     if (subset instanceof WcpsSliceSubsetDimension) {
+                        WcpsSliceSubsetDimension sliceSubsetDimension = (WcpsSliceSubsetDimension) subset;
+
+                        // e.g. ansi:"CRS:1"(0) -> ansi("2016-05-07")
+                        String geoBound = axis.getLowerGeoBoundRepresentation();
+                        sliceSubsetDimension.setBound(geoBound);
+                        String axisCrs = sliceSubsetDimension.getCrs();
+                        if (CrsUtil.isGridCrs(axisCrs)) {
+                            sliceSubsetDimension.setCrs(null);
+                        }
+
+                        slicedDimensions.add(sliceSubsetDimension);
                         removeIndexes.add(i);
                     }
                 }
@@ -632,8 +646,8 @@ public class WcpsCoverageMetadataGeneralService {
                     origin = bound;
                 }
 
-                // the crs of axis
-                String crsUri = CrsUtil.INDEX_CRS_PATTERN;
+                // Index crs of axis: e.g. http://.../def/crs/OGC/0/Index1D
+                String crsUri = CrsUtility.createIndexNDCrsUri(axes);
 
                 // the created coverage now is only RectifiedGrid then it will use GridSpacing UoM
                 String axisUoM = CrsUtil.INDEX_UOM;
@@ -758,7 +772,7 @@ public class WcpsCoverageMetadataGeneralService {
             unTranslatedNumericSubset = (NumericTrimming) axis.getGeoBounds();
             this.translateTrimmingGridToGeoSubset(axis, subsetDimension, numericSubset, unAppliedNumericSubset, unTranslatedNumericSubset);
             
-            axis.setTransatedGridToGeoBounds(true);
+            axis.setTranslatedGridToGeoBounds(true);
         }
     }
 
@@ -1351,8 +1365,8 @@ public class WcpsCoverageMetadataGeneralService {
                 String secondAxisName = secondAxis.getLabel();
                 String secondAxisType = secondAxis.getAxisType();
                 
-                if (!(firstAxis.getNativeCrsUri().contains(CrsUtil.INDEX_CRS_PATTERN) 
-                    || secondAxis.getNativeCrsUri().contains(CrsUtil.INDEX_CRS_PATTERN))) {
+                if ( !(CrsUtil.isIndexCrs(firstAxis.getNativeCrsUri()) 
+                    || CrsUtil.isIndexCrs(secondAxis.getNativeCrsUri())) ) {
                     if (!firstAxisType.equals(secondAxisType)) {
                         String errorMessage = "Axis type is different, given first coverage's axis with name '" + firstAxisName + "', type '" + firstAxisType 
                                             + "' and second coverage's axis with name '" + secondAxisName + "', type '" + secondAxisType + "'.";

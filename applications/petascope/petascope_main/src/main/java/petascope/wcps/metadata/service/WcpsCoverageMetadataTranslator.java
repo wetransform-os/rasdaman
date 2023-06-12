@@ -51,6 +51,7 @@ import petascope.wcps.metadata.model.NumericTrimming;
 import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.metadata.model.Subset;
 import petascope.wcps.result.WcpsResult;
+import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 
@@ -152,7 +153,8 @@ public class WcpsCoverageMetadataTranslator {
      * e.g: Lat axis with grid bound (0:10) will change to (0/2:10/2) = (0:5)
      */
     public WcpsCoverageMetadata applyDownscaledLevelOnXYGridAxesForScale(WcpsResult coverageExpression, 
-                                                         WcpsCoverageMetadata wcpsCoverageMetadataBase, List<Subset> numericSubsets) throws PetascopeException {
+                                                         WcpsCoverageMetadata wcpsCoverageMetadataBase, List<Subset> numericSubsets
+                                                    ) throws PetascopeException {
         // @TODO: NOTE: it needs to find out which pyramid member should be selected before subsetting in scale() operator
         // e.g. for c in (base) return encode(
         //      scale(c[ansi("2016-01-01":"2020-01-01")], {Lat:"CRS:1"(0:30), Long:"CRS:1"(0:20)}), "csv")
@@ -178,7 +180,7 @@ public class WcpsCoverageMetadataTranslator {
             List<Axis> nonXYAxes = wcpsCoverageMetadataBase.getNonXYAxes();
 
             for (Subset numericSubset : numericSubsets) {
-                // In case X or Y axis is speficied in the target scaling of scale() operator
+                // In case X or Y axis is specified in the target scaling of scale() operator
                 if (CrsUtil.axisLabelsMatch(subsettedAxisX.getLabel(), numericSubset.getAxisName())) {
                     width = numericSubsets.get(0).getNumericSubset().getUpperLimit().toBigInteger().intValue() - numericSubsets.get(0).getNumericSubset().getLowerLimit().toBigInteger().intValue();
                 }
@@ -200,6 +202,18 @@ public class WcpsCoverageMetadataTranslator {
                     }
                 }
             }
+
+            for (WcpsSliceSubsetDimension sliceSubsetDimension : wcpsCoverageMetadataBase.getSlicedWcpsSubsetDimensions()) {
+                String sliceAxisLabel = sliceSubsetDimension.getAxisName();
+
+                if (!(CrsUtil.axisLabelsMatch(subsettedAxisX.getLabel(), sliceAxisLabel)
+                    || CrsUtil.axisLabelsMatch(subsettedAxisY.getLabel(), sliceAxisLabel))) {
+                    // NOTE: In this case this is sliced dimension on non-XY axis from ShorthandSubsetHandler before, but this is kept to consider to select
+                    // a suitable pyramid member. e.g. Base coverage has 2 dates: "2020-05-07" and "2021-06-07" and pyramid member has only date "2020-05-07"
+                    // then scaling on c[ansi("2021-06-07")] should go to base coverage, even though the XY domains are fit in pyramid member.
+                    nonXYSubsetDimensions.add(sliceSubsetDimension);
+                }
+            }
             
             List<Subset> trimmingSubsets = new ArrayList<>();
             for (Axis axis : wcpsCoverageMetadataBase.getAxes()) {
@@ -210,6 +224,7 @@ public class WcpsCoverageMetadataTranslator {
             String contributingCoverageId = wcpsCoverageMetadataBase.getCoverageName();
 
             GeneralGridCoverage baseCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(contributingCoverageId);
+
             CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY,
                                                                                                     subsettedAxisX, subsettedAxisY,
                                                                                                     width, height, nonXYSubsetDimensions);
@@ -381,10 +396,7 @@ public class WcpsCoverageMetadataTranslator {
 
     /**
      * Build list of axes for WcpsCoverageMetadata from the coverage's axes
-     *
-     * @param geoDomains
-     * @param gridDomains
-     * @return
+
      */
     private List<Axis> buildAxes(String coverageCRS, List<GeoAxis> geoAxes, List<IndexAxis> indexAxes) throws PetascopeException {
         List<Axis> result = new ArrayList();

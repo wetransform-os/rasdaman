@@ -85,18 +85,18 @@ public class CoverageConstantHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        String coverageName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String coverageName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
         List<Handler> axisIteratorHandlers = this.getChildren().subList(1, this.getChildren().size() - 1);
         List<AxisIterator> axisIterators = new ArrayList<>();
         
         for (Handler handler : axisIteratorHandlers) {
-            AxisIterator axisIterator = (AxisIterator)handler.handle();
+            AxisIterator axisIterator = (AxisIterator)handler.handle(serviceRegistries);
             axisIterators.add(axisIterator);
         }
         
         Handler constantValuesListHandler = this.getChildren().get(this.getChildren().size() - 1);
-        String rasql = ((WcpsResult)constantValuesListHandler.handle()).getRasql();
+        String rasql = ((WcpsResult)constantValuesListHandler.handle(serviceRegistries)).getRasql();
         List<String> constantValues = Arrays.asList(rasql.split(","));
         
         WcpsResult result = this.handle(coverageName, axisIterators, constantValues);

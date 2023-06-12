@@ -22,14 +22,18 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCPSException;
+import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.DimensionIntervalList;
+import petascope.wcps.xml.handler.DimensionInterval;
 
 /**
 Handler for this expression:
@@ -57,16 +61,35 @@ public class ShortHandSubsetWithLetClauseVariableHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageVariableNameExpression = (WcpsResult)this.getFirstChild().handle();
-        WcpsResult letClauseVariableNameExpression = (WcpsResult) this.getSecondChild().handle();
-        return this.handle(coverageVariableNameExpression, letClauseVariableNameExpression);
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageVariableNameExpression = (WcpsResult)this.getFirstChild().handle(serviceRegistries);
+        VisitorResult secondChildResult = this.getSecondChild().handle(serviceRegistries);
+
+        if (this.subsetExpressionHandler == null) {
+            this.subsetExpressionHandler = (SubsetExpressionHandler) this.getServiceRegistry(SubsetExpressionHandler.class.getName());
+        }
+
+        if (secondChildResult instanceof WcpsResult) {
+            WcpsResult letClauseVariableNameExpression = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
+            return this.handle(coverageVariableNameExpression, letClauseVariableNameExpression);
+        } else {
+            DimensionIntervalList dimensionIntervalList = (DimensionIntervalList) this.getSecondChild().handle(serviceRegistries);
+            return this.handle(coverageVariableNameExpression, dimensionIntervalList);
+        }
+
     }
 
     private WcpsResult handle(WcpsResult coverageVariableNameExpression, WcpsResult letClauseVariableNameExpression) throws WCPSException, PetascopeException {
         //  coverageExpression LEFT_BRACKET dimensionIntervalList RIGHT_BRACKET
         // e.g: c[Lat(0:20), Long(0:30)] - Trim
         WcpsResult wcpsResult = subsetExpressionHandler.handle(coverageVariableNameExpression, letClauseVariableNameExpression.getDimensionIntervalList());
+        return wcpsResult;
+    }
+
+    private WcpsResult handle(WcpsResult coverageVariableNameExpression, DimensionIntervalList dimensionIntervalList) throws WCPSException, PetascopeException {
+        //  coverageExpression LEFT_BRACKET dimensionIntervalList RIGHT_BRACKET
+        // e.g: c[Lat(0:20), Long(0:30)] - Trim
+        WcpsResult wcpsResult = subsetExpressionHandler.handle(coverageVariableNameExpression, dimensionIntervalList);
         return wcpsResult;
     }
 

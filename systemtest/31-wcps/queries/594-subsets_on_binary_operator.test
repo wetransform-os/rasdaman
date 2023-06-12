@@ -1,0 +1,9 @@
+for $c0 in (test_wcps_irregular_time_germany_4),
+    $c1 in (test_wcps_irregular_time_germany_repeat_4)
+
+let $sub := $c0[ansi:"CRS:1"(0)],
+    $bands := $sub
+return encode(
+        ($c0 + $c1 + min($sub))[ansi:"CRS:1"(0)],   
+       "png"
+)

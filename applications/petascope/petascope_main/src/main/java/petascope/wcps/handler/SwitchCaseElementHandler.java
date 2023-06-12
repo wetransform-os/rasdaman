@@ -54,9 +54,9 @@ public class SwitchCaseElementHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        WcpsResult booleanCoverageExpression = (WcpsResult) this.getFirstChild().handle();
-        WcpsResult returnValueCoverageExpression = (WcpsResult) this.getSecondChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult booleanCoverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        WcpsResult returnValueCoverageExpression = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
         
         VisitorResult result = this.handle(booleanCoverageExpression, returnValueCoverageExpression);
         return result;

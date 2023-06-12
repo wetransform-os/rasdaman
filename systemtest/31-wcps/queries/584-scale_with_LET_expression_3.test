@@ -1,0 +1,15 @@
+for $c0 in (test_wcps_irregular_time_germany),
+    $c1 in (test_wcps_irregular_time_germany_repeat),
+    $c2 in (test_wcps_irregular_time_germany_duplicate)
+
+let $sub := $c0[ansi:"CRS:1"(0)],
+    $bands := $sub - ( $sub ) * 0.1
+return encode(
+         scale(
+           $bands,
+           { 
+             Long:"CRS:1"(0:60), Lat:"CRS:1"(0:70)
+           } 
+        ),   
+       "png"
+) 

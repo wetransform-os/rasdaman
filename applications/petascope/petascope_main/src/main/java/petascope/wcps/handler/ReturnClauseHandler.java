@@ -57,8 +57,8 @@ public class ReturnClauseHandler extends Handler {
         return result;
     }
     
-    public VisitorResult handle() throws PetascopeException {
-        VisitorResult temp = this.getFirstChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        VisitorResult temp = this.getFirstChild().handle(serviceRegistries);
         
         VisitorResult result = temp;
         if (temp instanceof WcpsResult) {

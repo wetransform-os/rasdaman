@@ -65,9 +65,9 @@ public class SwitchCaseExpressionHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult switchCaseElementListResult = (WcpsResult)(this.getFirstChild().handle());
-        WcpsResult returnValueElementResult = (WcpsResult)(this.getSecondChild().handle());
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult switchCaseElementListResult = (WcpsResult)(this.getFirstChild().handle(serviceRegistries));
+        WcpsResult returnValueElementResult = (WcpsResult)(this.getSecondChild().handle(serviceRegistries));
         
         WcpsResult result = this.handle(switchCaseElementListResult, returnValueElementResult);
         return result;

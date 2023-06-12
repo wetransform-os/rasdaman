@@ -107,20 +107,20 @@ public class CrsTransformHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle());
-        String axisLabelX = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        String crsX = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle(serviceRegistries));
+        String axisLabelX = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String crsX = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
-        String axisLabelY = ((WcpsResult)this.getFourthChild().handle()).getRasql();
-        String crsY = ((WcpsResult)this.getFifthChild().handle()).getRasql();
+        String axisLabelY = ((WcpsResult)this.getFourthChild().handle(serviceRegistries)).getRasql();
+        String crsY = ((WcpsResult)this.getFifthChild().handle(serviceRegistries)).getRasql();
         
-        String interpolationType = ((WcpsResult)this.getSixthChild().handle()).getRasql();
+        String interpolationType = ((WcpsResult)this.getSixthChild().handle(serviceRegistries)).getRasql();
         
         
         CrsTransformTargetGeoXYResolutions targetGeoXYResolutions = null;
         if (this.getSeventhChild() != null) {
-            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getSeventhChild().handle();
+            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getSeventhChild().handle(serviceRegistries);
             if (wcpsMetadataResult.getTmpObject() instanceof CrsTransformTargetGeoXYResolutions) {
                 targetGeoXYResolutions = (CrsTransformTargetGeoXYResolutions) wcpsMetadataResult.getTmpObject();
             }
@@ -129,7 +129,7 @@ public class CrsTransformHandler extends Handler {
         
         CrsTransformTargetGeoXYBoundingBox targetGeoXYBBox = null;
         if (this.getEighthChild()!= null) {
-            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getEighthChild().handle();
+            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getEighthChild().handle(serviceRegistries);
             if (wcpsMetadataResult.getTmpObject() instanceof CrsTransformTargetGeoXYBoundingBox) {
                 targetGeoXYBBox = (CrsTransformTargetGeoXYBoundingBox) wcpsMetadataResult.getTmpObject();
             }
@@ -146,9 +146,7 @@ public class CrsTransformHandler extends Handler {
      * Constructor for the class
      *
      * @param coverageExpression the coverage expression that is encoded
-     * @param axisCrss List of 2 coverage's axes and their CRS (e.g:
-     * http://opengis.net/def/crs/epsg/0/4326)
-     * @param interpolationType resample algorithm (e.g: "near", "bilinear",...). 
+     * @param interpolationType resample algorithm (e.g: "near", "bilinear",...).
      * If interpolation type is null, use default type = near.
      * @return
      */

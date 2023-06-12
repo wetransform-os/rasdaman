@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -64,12 +66,12 @@ public class AxisIteratorDomainIntervalsHandler extends Handler {
         return result;
     }
     
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         // e.g. $px
-        String axisIteratorName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
+        String axisIteratorName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
         // .e.g X
-        String axisName = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        WcpsMetadataResult domainIntervalsMetadataResult = (WcpsMetadataResult)this.getThirdChild().handle();
+        String axisName = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        WcpsMetadataResult domainIntervalsMetadataResult = (WcpsMetadataResult)this.getThirdChild().handle(serviceRegistries);
         
         VisitorResult result = this.handle(axisIteratorName, axisName, domainIntervalsMetadataResult);
         return result;

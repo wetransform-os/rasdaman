@@ -103,8 +103,8 @@ public class GeneralCondenserHandler extends Handler {
     }
 
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        String operator = ((WcpsResult)this.getFirstChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String operator = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
         // NOTE: this is important to handle general condenser for virtual coverage properly 
         // e.g. over $pt t (imageCrsdomain(c[unix("2011-01-01":"2012-01-01")], unix)) 
         //      using scale(c[unix($pt)] , {Lat:"CRS:1"(0:5)})
@@ -118,7 +118,7 @@ public class GeneralCondenserHandler extends Handler {
         
         List<AxisIterator> axisIterators = new ArrayList<>();
         for (Handler axisIteratorHandler : axisIteratorHandlers) {
-            AxisIterator axisIterator = (AxisIterator)axisIteratorHandler.handle();
+            AxisIterator axisIterator = (AxisIterator)axisIteratorHandler.handle(serviceRegistries);
             aliasName = axisIterator.getAliasName();
             axisIteratorAliasRegistry.addAxisIteratorAliasMapping(aliasName, axisIterator);
             
@@ -136,11 +136,11 @@ public class GeneralCondenserHandler extends Handler {
         Handler whereClauseHandler = this.getChildren().get(this.getChildren().size() - 2);
         WcpsResult whereClause = null;
         if (whereClauseHandler != null) {
-            whereClause = (WcpsResult) whereClauseHandler.handle(); 
+            whereClause = (WcpsResult) whereClauseHandler.handle(serviceRegistries);
         }
         
         Handler usingClauseHandler = this.getChildren().get(this.getChildren().size() - 1);
-        WcpsResult usingExpressionResult = (WcpsResult) usingClauseHandler.handle();
+        WcpsResult usingExpressionResult = (WcpsResult) usingClauseHandler.handle(serviceRegistries);
         if (usingExpressionResult.getMetadata() != null) {
             usingExpressionResult.getMetadata().setCondenserResult(true);
         }

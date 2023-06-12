@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -80,11 +82,11 @@ public class SortExpressionHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
         
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
         // e.g. sorted by Long axis
-        String sortedAxisLabel = ((WcpsResult) this.getSecondChild().handle()).getRasql();
+        String sortedAxisLabel = ((WcpsResult) this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         int sortedAxisLabelIndex = -1;
         int i = 0;
@@ -102,14 +104,14 @@ public class SortExpressionHandler extends Handler {
             throw new CoverageAxisNotFoundExeption(sortedAxisLabel);
         }
         
-        String sortingOrder = ((WcpsResult) this.getThirdChild().handle()).getRasql();
+        String sortingOrder = ((WcpsResult) this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         this.sortedAxisIteratorAliasRegistry.add(sortedAxisLabel);
         
         // e.g. i
         String sortedAxisIteratorLabel = this.sortedAxisIteratorAliasRegistry.getIteratorLabel(sortedAxisLabel);
         
-        WcpsResult cellExpression = (WcpsResult) this.getFourthChild().handle();
+        WcpsResult cellExpression = (WcpsResult) this.getFourthChild().handle(serviceRegistries);
         
         this.sortedAxisIteratorAliasRegistry.remove(sortedAxisLabel);        
         

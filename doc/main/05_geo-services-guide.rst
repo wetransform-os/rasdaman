@@ -3110,7 +3110,20 @@ Recipe time_series_regular
 
 Well suited for importing multiple 2-D slices created at regular
 intervals of time (e.g sensor data, satelite imagery etc) as 3-D cube
-with the third axis being a temporal one. Parameters are explained below
+with the third axis being a temporal one. 
+
+.. NOTE::
+
+    This recipe should be used to update an existing coverage with new data
+    only in the case when ``"track_files": "false"`` and previously imported files
+    have not been removed. The *timestamp* for the first input file
+    is set by the ``time_start`` setting, so if old imported files are removed 
+    the timestamp will be set again to ``time_start`` when wcst_import is run again
+    with new files to be imported. The effect is that new input files will 
+    override the existing time slices instead of adding new time slices on top of *time* axis.
+
+
+Parameters are explained below:
 
 .. hidden-code-block:: json
 

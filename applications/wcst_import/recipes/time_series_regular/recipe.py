@@ -74,6 +74,8 @@ class Recipe(BaseRecipe):
             self.options['coverage']['slicer'] = {}
             self.options['coverage']['slicer']['type'] = GdalToCoverageConverter.RECIPE_TYPE
 
+        self.time_crs = None
+
 
     def validate(self):
         super(Recipe, self).validate()
@@ -132,6 +134,9 @@ class Recipe(BaseRecipe):
         time_offset = 0
         time_format = self.options['time_format'] if self.options['time_format'] != "auto" else None
         time_start = DateTimeUtil(self.options['time_start'], time_format, self.options['time_crs'])
+
+        self.time_crs = CRSUtil(self.options['time_crs'])
+
         for tfile in self.session.get_files():
             if len(ret) == limit:
                 break
@@ -253,6 +258,10 @@ class Recipe(BaseRecipe):
         """
         days, hours, minutes, seconds = self._get_real_step()
         number_of_days = days + hours / float(24) + minutes / float(60 * 24) + seconds / float(60 * 60 * 24)
+
+        # e.g. AnsiDate: d, UnixTime: s
+        time_crs_uom = self.time_crs.axes[0].uom
+
         for i in range(0, len(subsets)):
             if subsets[i].coverage_axis.axis.crs_axis is not None and subsets[i].coverage_axis.axis.crs_axis.is_time_axis():
                 subsets[i].coverage_axis.axis = RegularAxis(subsets[i].coverage_axis.axis.label,
@@ -260,7 +269,8 @@ class Recipe(BaseRecipe):
                                                             tpair.time.to_string(),
                                                             tpair.time.to_string(), tpair.time.to_string(),
                                                             subsets[i].coverage_axis.axis.crs_axis)
-                subsets[i].coverage_axis.grid_axis.resolution = number_of_days
+                # NOTE: time resolution must be based on UoM in CRS definition
+                subsets[i].coverage_axis.grid_axis.resolution = DateTimeUtil.get_time_delta_in_target_uom(number_of_days, time_crs_uom)
                 subsets[i].interval.low = tpair.time.to_string()
         return subsets
 

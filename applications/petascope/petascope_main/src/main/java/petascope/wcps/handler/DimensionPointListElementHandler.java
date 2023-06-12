@@ -52,21 +52,16 @@ public class DimensionPointListElementHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        VisitorResult result = this.handle(this.getChildren());
-        return result;
-    }
-    
-    private VisitorResult handle(List<Handler> childHandlers) throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         // dimensionPointElement (COMMA dimensionPointElement)*
         // e.g: i(0), j(0) - List of Slicing points
         List<WcpsSubsetDimension> intervalList = new ArrayList<>();
-        for (Handler childHandler : childHandlers) {
-            intervalList.add((WcpsSubsetDimension) childHandler.handle());
+        for (Handler childHandler : this.getChildren()) {
+            intervalList.add((WcpsSubsetDimension) childHandler.handle(serviceRegistries));
         }
 
         DimensionIntervalList dimensionIntervalList = new DimensionIntervalList(intervalList);
         return dimensionIntervalList;
     }
-    
+
 }

@@ -112,6 +112,8 @@ class Recipe(BaseRecipe):
                 # so the irregular axis must be fetched from file name and considered as slice with coefficient is [0]
                 # However, [0] could be miscalculated with arrow so set it to [None] and return [0] later
                 axis["directPositions"] = AbstractToCoverageConverter.DIRECT_POSITIONS_SLICING
+            if "irregular" not in axis and "resolution" not in axis:
+                raise RecipeValidationException("Regular axis '" + name + "' must specify \"resolution\" setting value.")
 
         if "metadata" in self.options['coverage'] and "type" not in self.options['coverage']['metadata']:
             raise RecipeValidationException("No type given for the metadata parameter.")

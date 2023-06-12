@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -61,9 +63,9 @@ public class DomainIntervalsHandler extends Handler {
         return result;
     }
     
-    public WcpsMetadataResult handle() throws PetascopeException {
-        WcpsMetadataResult metadataResult = ((WcpsMetadataResult)this.getFirstChild().handle());
-        String domainPropertyValue = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+    public WcpsMetadataResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsMetadataResult metadataResult = ((WcpsMetadataResult)this.getFirstChild().handle(serviceRegistries));
+        String domainPropertyValue = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         WcpsMetadataResult result = this.handle(new WcpsResult(metadataResult.getMetadata(), metadataResult.getResult()), domainPropertyValue);
         return result;

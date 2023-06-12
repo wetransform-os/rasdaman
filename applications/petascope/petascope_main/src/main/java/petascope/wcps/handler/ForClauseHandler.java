@@ -82,23 +82,23 @@ public class ForClauseHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
         Handler coverageIteratorHandler = this.getFirstChild();
-        String coverageIterator = ((WcpsResult)coverageIteratorHandler.handle()).getRasql();
+        String coverageIterator = ((WcpsResult)coverageIteratorHandler.handle(serviceRegistries)).getRasql();
         
         List<String> coverageIds = new ArrayList<>();
         
         Handler decodeCoverageHandler = this.getSecondChild();
         String coverageIdFromDecodeExpression = null;
         if (decodeCoverageHandler != null) {
-            coverageIdFromDecodeExpression = ((WcpsResult)decodeCoverageHandler.handle()).getRasql();
+            coverageIdFromDecodeExpression = ((WcpsResult)decodeCoverageHandler.handle(serviceRegistries)).getRasql();
             coverageIds.add(coverageIdFromDecodeExpression);
         }
         
         List<Handler> coverageIdHandlers = this.getChildren().subList(2, this.getChildren().size());
         
         for (Handler coverageIdHandler : coverageIdHandlers) {
-            String coverageId = ((WcpsResult)coverageIdHandler.handle()).getRasql();
+            String coverageId = ((WcpsResult)coverageIdHandler.handle(serviceRegistries)).getRasql();
             coverageIds.add(coverageId);
         }
         
@@ -119,11 +119,7 @@ public class ForClauseHandler extends Handler {
             if (rasdamanCollectionName != null) {
                 rasdamanCollectionNames.add(rasdamanCollectionName);
             }
-            coverageAliasRegistry.addCoverageMapping(coverageIterator, coverageId, rasdamanCollectionName);
-            
-            if (rasdamanCollectionName != null) {
-                collectionAliasRegistry.add(StringUtil.stripDollarSign(coverageIterator), rasdamanCollectionName, coverageId);
-            }
+            coverageAliasRegistry.addCoverageToForClauseListMapping(coverageIterator, coverageId, rasdamanCollectionName);
         }
         
         String translatedCoverageIterator = coverageIterator;

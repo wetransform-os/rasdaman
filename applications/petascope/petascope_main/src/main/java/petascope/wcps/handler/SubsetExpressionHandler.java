@@ -161,6 +161,9 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
 	            aliasTmp = StringUtil.stripDollarSign(aliasTmp);
        	    }
 
+	        // e.g. from c0 -> base_cov to c0 -> pyramid_cov
+	        this.coverageAliasRegistry.updateCoverageMapping(aliasTmp, afterCoverageId, metadata.getRasdamanCollectionName());
+
             // e.g. c0 Important (!)
             rasql = aliasTmp;
             
@@ -190,8 +193,7 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
                 }
             }
             
-            // c0 -> Pair<collectionName,coverageId>
-            this.collectionAliasRegistry.add(aliasTmp, metadata.getRasdamanCollectionName(), metadata.getCoverageName());
+
         }
 
         // Validate axis name before doing other processes.

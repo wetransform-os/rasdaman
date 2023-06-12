@@ -30,7 +30,6 @@ import petascope.wcps.handler.ImageCrsDomainExpressionByDimensionExpressionHandl
 import petascope.wcps.handler.ForClauseHandler;
 import petascope.wcps.handler.ComplexNumberConstantHandler;
 import petascope.wcps.handler.ImageCrsDomainExpressionHandler;
-import petascope.wcps.handler.WcsScaleExpressionByScaleAxesHandler;
 import petascope.wcps.handler.ImageCrsExpressionHandler;
 import petascope.wcps.handler.RootHandler;
 import petascope.wcps.handler.UnaryBooleanExpressionHandler;
@@ -44,7 +43,6 @@ import petascope.wcps.handler.RangeSubsettingHandler;
 import petascope.wcps.handler.EncodeCoverageHandler;
 import petascope.wcps.handler.ReturnClauseHandler;
 import petascope.wcps.handler.GeneralCondenserHandler;
-import petascope.wcps.handler.WcsScaleExpressionByScaleSizeHandler;
 import petascope.wcps.handler.DomainExpressionHandler;
 import petascope.wcps.handler.ReduceExpressionHandler;
 import petascope.wcps.handler.CrsTransformHandler;
@@ -59,8 +57,6 @@ import petascope.wcps.handler.ForClauseListHandler;
 import petascope.wcps.handler.CastExpressionHandler;
 import petascope.wcps.handler.SwitchCaseExpressionHandler;
 import petascope.wcps.handler.CoverageIdentifierHandler;
-import petascope.wcps.handler.ScaleExpressionByImageCrsDomainHandler;
-import petascope.wcps.handler.WcsScaleExpressionByScaleExtentHandler;
 import petascope.wcps.handler.RealNumberConstantHandler;
 import petascope.wcps.handler.WhereClauseHandler;
 import petascope.wcps.handler.BooleanConstantHandler;
@@ -129,7 +125,7 @@ import petascope.wcps.metadata.service.SortedAxisIteratorAliasRegistry;
 import petascope.wcps.metadata.service.UsingCondenseRegistry;
 
 import petascope.wcps.handler.TrimDimensionIntervalByImageCrsDomainElementHandler;
-import petascope.wcps.handler.WcsScaleExpressionByFactorsListHandler;
+
 
 /**
  * Class that implements the parsing rules described in wcps.g4
@@ -268,18 +264,7 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     // WCPS standard
     @Autowired private
     ScaleExpressionByDimensionIntervalsHandler scaleExpressionByDimensionIntervalsHandler;
-    @Autowired private
-    ScaleExpressionByImageCrsDomainHandler scaleExpressionByImageCrsDomainHandler;
-    // Made up to handle WCS -> WCPS scale
-    @Autowired private
-    WcsScaleExpressionByFactorsListHandler scaleExpressionByFactorsListHandler;
-    @Autowired private
-    WcsScaleExpressionByScaleAxesHandler scaleExpressionByScaleAxesHandler;
-    @Autowired private
-    WcsScaleExpressionByScaleSizeHandler scaleExpressionByScaleSizeHandler;
-    @Autowired private
-    WcsScaleExpressionByScaleExtentHandler scaleExpressionByScaleExtentHandler;
-    
+
     @Autowired private
     SliceScaleDimensionPointElement sliceScaleDimensionPointElement;
     @Autowired private
@@ -937,7 +922,7 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         }
         StringScalarHandler rightParenthesis = null;
         if (ctx.RIGHT_PARENTHESIS() != null) {
-            leftParenthesis = this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText());
+            rightParenthesis = this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText());
         }        
 
         Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpressionHandler,
@@ -1541,7 +1526,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         Handler factorNumberHandler = visit(ctx.scalarExpression());
         
-        Handler result = scaleExpressionByFactorsListHandler.create(coverageExpressionHandler, factorNumberHandler);        
+        Handler result = this.scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, factorNumberHandler,
+                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_FACTORS);
         return result;
     }
     
@@ -1554,7 +1540,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         Handler scaleFactorsListHandler = visit(ctx.scaleDimensionPointList());       
         
-        Handler result = this.scaleExpressionByFactorsListHandler.create(coverageExpressionHandler, scaleFactorsListHandler);
+        Handler result = this.scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleFactorsListHandler,
+                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_FACTORS);
         return result;
     }    
     
@@ -1569,7 +1556,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         Handler scaleAxesDimensionListHandler = visit(ctx.scaleDimensionPointList());
         
-        Handler result = scaleExpressionByScaleAxesHandler.create(coverageExpressionHandler, scaleAxesDimensionListHandler);        
+        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleAxesDimensionListHandler,
+                                    ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_AXES);
         return result;
     }
     
@@ -1582,7 +1570,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         Handler scaleDimensionIntervalListHandler = visit(ctx.scaleDimensionPointList());
         
-        Handler result = scaleExpressionByScaleSizeHandler.create(coverageExpressionHandler, scaleDimensionIntervalListHandler);        
+        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleDimensionIntervalListHandler,
+                                                                        ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_SIZES);
         return result;
     }
   
@@ -1595,7 +1584,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         Handler scaleAxesDimensionListHandler = visit(ctx.scaleDimensionIntervalList());
         
-        Handler result = scaleExpressionByScaleExtentHandler.create(coverageExpressionHandler, scaleAxesDimensionListHandler);
+        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleAxesDimensionListHandler,
+                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_EXTENTS);
         return result;
     }
 
@@ -1610,7 +1600,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         Handler dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
 
-        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, dimensionIntervalListHandler);
+        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, dimensionIntervalListHandler,
+                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.DEFAULT_TYPE);
         return result;
     }
     
@@ -1625,7 +1616,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         Handler domainIntervalsHandler = visit(ctx.domainIntervals());
 
-        Handler handler = scaleExpressionByImageCrsDomainHandler.create(coverageExpressionHandler, domainIntervalsHandler);
+        Handler handler = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, domainIntervalsHandler,
+                                                                           ScaleExpressionByDimensionIntervalsHandler.ScaleType.DEFAULT_TYPE);
         return handler;
     }
 

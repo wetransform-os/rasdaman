@@ -21,13 +21,13 @@
  */
 package petascope.wcps.metadata.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import java.math.BigDecimal;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.PetascopeException;
 import petascope.core.AxisTypes;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.TimeUtil;
@@ -61,7 +61,7 @@ public abstract class Axis<T> {
     
     // If this axis was created by subsetting by "CRS:1" -> true
     // NOTE: this is used only when considering if a pyramid member can be used for scaling
-    private boolean transatedGridToGeoBounds = false;
+    private boolean translatedGridToGeoBounds = false;
     
     public Axis() {
         
@@ -124,7 +124,14 @@ public abstract class Axis<T> {
         return nativeCrsUri;
     }
 
-    public CrsDefinition getCrsDefinition() {
+    public CrsDefinition getCrsDefinition() throws PetascopeRuntimeException {
+        if (this.crsDefinition == null) {
+            try {
+                this.crsDefinition = CrsUtil.getCrsDefinition(this.nativeCrsUri);
+            } catch (PetascopeException e) {
+                throw new PetascopeRuntimeException(e);
+            }
+        }
         return crsDefinition;
     }
 
@@ -342,12 +349,12 @@ public abstract class Axis<T> {
         return slicing == true;
     }
 
-    public boolean isTransatedGridToGeoBounds() {
-        return transatedGridToGeoBounds;
+    public boolean isTranslatedGridToGeoBounds() {
+        return translatedGridToGeoBounds;
     }
 
-    public void setTransatedGridToGeoBounds(boolean transatedGridToGeoBounds) {
-        this.transatedGridToGeoBounds = transatedGridToGeoBounds;
+    public void setTranslatedGridToGeoBounds(boolean translatedGridToGeoBounds) {
+        this.translatedGridToGeoBounds = translatedGridToGeoBounds;
     }
     
     public String toString() {

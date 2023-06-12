@@ -53,23 +53,18 @@ public class ScaleDimensionIntervalListHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        VisitorResult result = this.handle(this.getChildren());
-        return result;
-    }
-    
-    private VisitorResult handle(List<Handler> handlers) throws PetascopeException {
-        // scaleDimensionIntervalElement (COMMA scaleDimensionIntervalElement)* 
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        // scaleDimensionIntervalElement (COMMA scaleDimensionIntervalElement)*
         // e.g: [i(0.5),j(0.5)]
         List<AbstractWcpsScaleDimension> intervalList = new ArrayList<>();
-        
-        for (Handler handler : handlers) {
-            AbstractWcpsScaleDimension scaleDimension = (AbstractWcpsScaleDimension) handler.handle();
+
+        for (Handler handler : this.getChildren()) {
+            AbstractWcpsScaleDimension scaleDimension = (AbstractWcpsScaleDimension) handler.handle(serviceRegistries);
             intervalList.add(scaleDimension);
         }
-        
+
         WcpsScaleDimensionIntevalList result = new WcpsScaleDimensionIntevalList(intervalList);
         return result;
     }
-    
+
 }

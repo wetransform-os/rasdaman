@@ -1,0 +1,2 @@
+for c in (test_wms_base_with_2_dates)
+return encode(scale(c[ansi("2020-05-06T00:00:00.000Z")], {Lat:"CRS:1"(0:20), Long:"CRS:1"(0:30)}), "png")

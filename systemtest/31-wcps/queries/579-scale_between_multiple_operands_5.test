@@ -1,0 +1,20 @@
+for $c0 in (test_wcps_irregular_time_germany),
+    $c1 in (test_wcps_irregular_time_germany_repeat),
+    $c2 in (test_wcps_irregular_time_germany_duplicate)
+
+return encode(
+          scale(
+
+
+scale($c0[ansi:"CRS:1"(0)], {  Lat:"CRS:1"(0:30), Long:"CRS:1"(0:20) } ) 
+-  
+( scale($c1[ansi:"CRS:1"(0)], { Lat:"CRS:1"(0:30), Long:"CRS:1"(0:20)   } ) ) * 0.1
+
+
+,
+           { 
+             Lat:"CRS:1"(0:60), Long:"CRS:1"(0:70)
+           } 
+        ),   
+       "png"
+)

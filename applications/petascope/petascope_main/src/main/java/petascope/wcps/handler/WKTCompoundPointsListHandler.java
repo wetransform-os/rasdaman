@@ -50,11 +50,11 @@ public class WKTCompoundPointsListHandler extends Handler {
     }
     
     @Override
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         List<WKTCompoundPoint> compoundPoints = new ArrayList<>();
         
         for (Handler compoundPointHandler : this.getChildren()) {
-            WKTCompoundPoint compoundPoint = (WKTCompoundPoint) compoundPointHandler.handle();
+            WKTCompoundPoint compoundPoint = (WKTCompoundPoint) compoundPointHandler.handle(serviceRegistries);
             compoundPoints.add(compoundPoint);
         }
         

@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -61,17 +63,17 @@ public class AxisIteratorHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         // e.g. $px X( 0:20 )
         
         // e.g. $px
-        String axisIteratorName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
+        String axisIteratorName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
         // e.g. X
-        String axisName = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+        String axisName = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         String gridLowerBound = null, gridUpperBound = null;
-        VisitorResult thirdChildResult = this.getThirdChild().handle();
-        VisitorResult fourthChildResult = this.getFourthChild().handle();
+        VisitorResult thirdChildResult = this.getThirdChild().handle(serviceRegistries);
+        VisitorResult fourthChildResult = this.getFourthChild().handle(serviceRegistries);
         
         if (thirdChildResult instanceof WcpsResult) {
             gridLowerBound = ((WcpsResult) thirdChildResult).getRasql();

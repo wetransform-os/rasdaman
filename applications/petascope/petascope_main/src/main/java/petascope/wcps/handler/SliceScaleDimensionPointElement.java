@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -53,9 +55,9 @@ public class SliceScaleDimensionPointElement extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String axisLabel = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        String scaleFactor = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String axisLabel = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        String scaleFactor = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         VisitorResult result = this.handle(axisLabel, scaleFactor);
         return result;

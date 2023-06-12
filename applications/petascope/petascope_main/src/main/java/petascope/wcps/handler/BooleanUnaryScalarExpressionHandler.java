@@ -55,9 +55,9 @@ public class BooleanUnaryScalarExpressionHandler extends Handler {
     }
     
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String operator = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        WcpsResult scalarExpression = (WcpsResult)this.getSecondChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String operator = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        WcpsResult scalarExpression = (WcpsResult)this.getSecondChild().handle(serviceRegistries);
         
         WcpsResult result = this.handle(operator, scalarExpression);
         return result;

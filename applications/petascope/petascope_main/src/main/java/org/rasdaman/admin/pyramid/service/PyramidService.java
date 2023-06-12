@@ -321,7 +321,7 @@ public class PyramidService {
             IndexAxis pyramidIndexAxis = pyramidMemberCoverage.getIndexAxisByOrder(i);
             
             if (i == gridOrderAxisX || i == gridOrderAxisY) {
-                // X or Y axes, seperated by size 10000 x 10000
+                // X or Y axes, seperated by size 10000 x 10000                
                 separatedPair = this.separateGridDomainByValue(sourceAffectedGridDomain, MAX_SELECT_GRID_WIDTH_HEIGHT_AXIS,
                                                                                             upperBoundGridAxis, targetDownscaledRatio, pyramidIndexAxis);
             } else {
@@ -537,11 +537,12 @@ public class PyramidService {
                 
                 if (subsetDimension instanceof WcpsSliceSubsetDimension) {
                     WcpsSliceSubsetDimension sliceSubset = (WcpsSliceSubsetDimension)subsetDimension;
-                    geoLowerBound = new BigDecimal((sliceSubset.getBound()));
+                    geoLowerBound = geoAxis.getBoundNumber(sliceSubset.getBound());
+                    geoUpperBound = geoLowerBound;
                 } else {
                     WcpsTrimSubsetDimension trimSubset = (WcpsTrimSubsetDimension)subsetDimension;
-                    geoLowerBound = new BigDecimal((trimSubset.getLowerBound()));
-                    geoUpperBound = new BigDecimal((trimSubset.getUpperBound()));
+                    geoLowerBound = geoAxis.getBoundNumber(trimSubset.getLowerBound());
+                    geoUpperBound = geoAxis.getBoundNumber(trimSubset.getUpperBound());
                 }
                 
                 if (!BigDecimalUtil.isValidValue(geoAxis.getLowerBoundNumber(), geoAxis.getUpperBoundNumber(), geoLowerBound)) {
@@ -620,22 +621,36 @@ public class PyramidService {
             IndexAxis pyramidMemberIndexAxisX = pyramidMemberCoverage.getIndexAxisByName(pyramidMemberGeoAxisX.getAxisLabel());
             IndexAxis pyramidMemberIndexAxisY = pyramidMemberCoverage.getIndexAxisByName(pyramidMemberGeoAxisY.getAxisLabel());
             
-            if (subsettedAxisX != null && subsettedAxisY != null
-                && subsettedAxisX.isTransatedGridToGeoBounds() && subsettedAxisY.isTransatedGridToGeoBounds()) {
+            if (subsettedAxisX != null && subsettedAxisY != null) {
                 Long gridLowerBoundX = subsettedAxisX.getGridBounds().getLowerLimit().longValue();
                 Long gridUpperBoundX = subsettedAxisX.getGridBounds().getUpperLimit().longValue();
                 
                 Long gridLowerBoundY = subsettedAxisY.getGridBounds().getLowerLimit().longValue();
                 Long gridUpperBoundY = subsettedAxisY.getGridBounds().getUpperLimit().longValue();
                 
-                if (pyramidMemberIndexAxisX.getLowerBound() > gridLowerBoundX
-                    || pyramidMemberIndexAxisX.getUpperBound() < gridUpperBoundX
-                    || pyramidMemberIndexAxisY.getLowerBound() > gridLowerBoundY
-                    || pyramidMemberIndexAxisY.getUpperBound() < gridUpperBoundY) {
-                    // NOTE: in this case, pyramid member doesn't have adequate grid domains on XY axes as the ones from subsetted X,Y axes
-                    // so this pyramid member cannot be chosen
+                long totalNumberOfSubsetXGridPixels = gridUpperBoundX - gridLowerBoundX + 1;
+                long totalNumberOfSubsetYGridPixels = gridUpperBoundY - gridLowerBoundY + 1;
+
+                long totalNumberOfPyramidMemberXGridPixels = pyramidMemberIndexAxisX.getTotalPixels();
+                long totalNumberOfPyramidMemberYGridPixels = pyramidMemberIndexAxisY.getTotalPixels();
+
+                if (subsettedAxisX.isTranslatedGridToGeoBounds()
+                        && (pyramidMemberIndexAxisX.getLowerBound() > gridLowerBoundX
+                            || pyramidMemberIndexAxisX.getUpperBound() < gridUpperBoundX
+                            ||  totalNumberOfPyramidMemberXGridPixels < totalNumberOfSubsetXGridPixels)) {
+                    // NOTE: in this case, pyramid member doesn't have adequate grid domains so this pyramid member cannot be chosen
                     return result;
                 }
+
+                if (subsettedAxisY.isTranslatedGridToGeoBounds()
+                        && (pyramidMemberIndexAxisY.getLowerBound() > gridLowerBoundY
+                        || pyramidMemberIndexAxisY.getUpperBound() < gridUpperBoundY
+                        || totalNumberOfPyramidMemberYGridPixels < totalNumberOfSubsetYGridPixels)) {
+                    // NOTE: in this case, pyramid member doesn't have adequate grid domains so this pyramid member cannot be chosen
+                    return result;
+                }
+
+
             }
             
             ParsedSubset<BigDecimal> pyramidMemberXParsedSubset = new ParsedSubset<>(geoSubsetX.fst, geoSubsetX.snd);

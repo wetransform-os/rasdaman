@@ -35,19 +35,12 @@ spring.http.multipart.max-request-size=128MB
 
 #--------------------------- Database configuration ----------------------------
 
-# Default configuration for all DBMS.
-spring.jpa.database=default
-spring.jpa.hibernate.ddl-auto=none
 
 spring.datasource.url=jdbc:postgresql://localhost:5432/petascopedb
 spring.datasource.username=petauser
 spring.datasource.password=petapasswd
 spring.datasource.jdbc_jar_path=
 
-# configurations for Tomcat JDBC Connection Pool
-spring.datasource.tomcat.initial-size=30
-spring.datasource.tomcat.max-active=70
-spring.datasource.tomcat.max-idle=30
 
 metadata_url=jdbc:postgresql://localhost:5432/petascopedb
 metadata_user=petauser
@@ -57,7 +50,7 @@ metadata_jdbc_jar_path=
 
 #---------------------------- General configuration ---------------------------
 
-server.contextPath=/rasdaman
+
 secore_urls=internal
 xml_validation=false
 ogc_cite_output_optimization=false

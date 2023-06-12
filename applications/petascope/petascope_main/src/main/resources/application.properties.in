@@ -45,10 +45,21 @@ logging.level.liquibase=WARN
 # This is used to allow multiple slashes before context path, e.g. http://localhost:8080//////rasdaman/ows is valid
 spring.mvc.pathmatch.matching-strategy=ant-path-matcher
 
-# Only for embedded petascope
-server.servlet.context-path=/rasdaman
-
 # default is /opt/rasdaman/etc
 secore.confDir=@CONF_DIR@
+
+##### Overridable settings in petascope.properties
+
+# Default configuration for all DBMS.
+spring.jpa.database=default
+spring.jpa.hibernate.ddl-auto=none
+
+# configurations for Tomcat JDBC Connection Pool
+spring.datasource.tomcat.initial-size=30
+spring.datasource.tomcat.max-active=70
+spring.datasource.tomcat.max-idle=30
+
+# Only for embedded petascope
+server.contextPath=/rasdaman
 
 

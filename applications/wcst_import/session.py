@@ -42,6 +42,7 @@ from decimal import Decimal
 
 glob = import_glob()
 
+DEFAULT_PETASCOPE_CONTEXT_PATH = "/rasdaman"
 INTERNAL_SECORE = "internal"
 DEFAULT_SECORE_URL = "http://localhost:8080/def"
 INTERNAL_SECORE_URL_CONTEXT_PATH = "/rasdaman/def"
@@ -306,7 +307,7 @@ class Session:
                     raise RuntimeException("NOTE: Importing overviews is only supported since gdal version 2.0, "
                                            "and your system has GDAL version '" + version + "'.")
 
-    def __get_setting_value_from_properties_file(self, properties_file, setting_key):
+    def __get_setting_value_from_properties_file(self, properties_file, setting_key, default_setting_value=None):
         """
         Given a properties file, e.g. /opt/rasdaman/etc/petascope.properties and setting key, e.g. secore_urls
         return setting value of this key
@@ -327,7 +328,10 @@ class Session:
                     value = line.split("=")[1].strip()
                     return value
 
-        raise RuntimeException("Cannot find setting '" + setting_key + "' from properties file '" + properties_file + "'.")
+        if default_setting_value is None:
+            raise RuntimeException("Cannot find setting '" + setting_key + "' from properties file '" + properties_file + "'.")
+        
+        return default_setting_value
 
     def __get_crs_resolver_and_embedded_petascope_port_configuration(self):
         """
@@ -361,7 +365,7 @@ class Session:
                                                                                 "server.port")
 
         crs_resolver_urls = self.__get_setting_value_from_properties_file(petascope_properties_path, "secore_url").split(",")
-        context_path = self.__get_setting_value_from_properties_file(petascope_properties_path, "server.contextPath").strip()
+        context_path = self.__get_setting_value_from_properties_file(petascope_properties_path, "server.contextPath", DEFAULT_PETASCOPE_CONTEXT_PATH).strip()
         crs_resolver = self.get_running_crs_resolver(context_path, crs_resolver_urls, embedded_petascope_port)
 
         if crs_resolver is None:

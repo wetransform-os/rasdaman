@@ -223,6 +223,7 @@ public class ConfigManager {
     public static final String KEY_PETASCOPE_DATASOURCE_JDBC_JAR_PATH = "spring.datasource.jdbc_jar_path";
     private static final String KEY_PETASCOPE_SERVLET_URL = "petascope_servlet_url";
     private static final String KEY_APPLICATION_NAME = "server.contextPath";
+    private static final String KEY_APPLICATION_NAME_NEW = "server.servlet.context-path";
     
     private static final String KEY_INSPIRE_METADATA_URL = "inspire_common_url";
 
@@ -453,7 +454,19 @@ public class ConfigManager {
         
         INSPIRE_COMMON_URL = getOptionalPropertyValue(KEY_INSPIRE_METADATA_URL, "");
         
-        PETASCOPE_APPLICATION_CONTEXT_PATH = get(KEY_APPLICATION_NAME);
+        PETASCOPE_APPLICATION_CONTEXT_PATH = getOptionalPropertyValue(KEY_APPLICATION_NAME_NEW, "");
+        if (PETASCOPE_APPLICATION_CONTEXT_PATH.trim().isEmpty()) {
+            
+            // If new setting not found, then try again with old setting
+            PETASCOPE_APPLICATION_CONTEXT_PATH = getOptionalPropertyValue(KEY_APPLICATION_NAME, "");
+            
+            if (PETASCOPE_APPLICATION_CONTEXT_PATH.trim().isEmpty()) {
+                // No setting found, just use the default one
+                PETASCOPE_APPLICATION_CONTEXT_PATH = "/" + CONTEXT_PATH;
+                log.warn("Setting: " + KEY_APPLICATION_NAME_NEW + " not found in petascope.properties, "
+                        + "hence, it is set to default value: " + PETASCOPE_APPLICATION_CONTEXT_PATH);
+            }
+        }
 
         PETASCOPE_DATASOURCE_URL = get(KEY_PETASCOPE_DATASOURCE_URL);
         PETASCOPE_DATASOURCE_USERNAME = get(KEY_PETASCOPE_DATASOURCE_USERNAME);

@@ -49,6 +49,7 @@ import static petascope.core.KVPSymbols.WMS_SERVICE;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.rasdaman.exceptions.RasdamanException;
+import petascope.util.CrsUtil;
 import petascope.util.IOUtil;
 import petascope.util.StringUtil;
 import petascope.util.ras.RasUtil;
@@ -187,6 +188,9 @@ public class ConfigManager {
     public static final String DEFAULT_SECORE_INTERNAL_URL = "http://localhost:8080/rasdaman/def";
     public static final String DEFAULT_SECORE_INTERNAL_URL_TEMPLATE = "http://localhost:8080/$CONTEXT_PATH/def";
     public static final String SECORE_INTERNAL_CONTEXT_PATH = "/rasdaman/def";
+
+    // by default, petascope runs embedded secore
+    public static boolean SECORE_INTERNAL_SHOULD_RUN = true;
     
     /* ***** AJP connector configuration for embedded tomcat ***** */
     public static int EMBEDDED_AJP_PORT = 0;
@@ -432,7 +436,9 @@ public class ConfigManager {
         // server.port
         EMBEDDED_PETASCOPE_PORT = this.get(KEY_EMBEDDED_PETASCOPE_PORT);
         
-        PETASCOPE_ENDPOINT_URL = get(KEY_PETASCOPE_SERVLET_URL);
+        String petascopeEndpointURL = get(KEY_PETASCOPE_SERVLET_URL);
+        this.setPetascopeEndpointUrl(petascopeEndpointURL);
+
         if (PETASCOPE_ENDPOINT_URL != null && !PETASCOPE_ENDPOINT_URL.trim().isEmpty()) {
             try {
                 URL url = new URL(PETASCOPE_ENDPOINT_URL);
@@ -545,6 +551,17 @@ public class ConfigManager {
             EMBEDDED_AJP_PORT = new Integer(ajpPort);
         }
  
+    }
+
+    public static void setPetascopeEndpointUrl(String petascopeEndpointUrl) {
+        if (!petascopeEndpointUrl.isEmpty()) {
+            PETASCOPE_ENDPOINT_URL = petascopeEndpointUrl;
+            if (SECORE_INTERNAL_SHOULD_RUN) {
+                // In case embedded SECORE should run under petascope, then the URL for it is dictated by petascope
+                String secoreEndpointUrl = StringUtil.replaceLast(petascopeEndpointUrl, OWS, CrsUtil.SECORE_CONTEXT_PATH);
+                org.rasdaman.secore.ConfigManager.getInstance().setServiceUrl(secoreEndpointUrl);
+            }
+        }
     }
     
     private void initRasdamanSettings() throws PetascopeException {

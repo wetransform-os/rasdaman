@@ -145,6 +145,10 @@ public class SecoreController {
         IOUtils.write(bytesArray, os);
     }
 
+    public static void clearCache() {
+        cache.clear();
+    }
+
     private String exceptionToXml(SecoreException ex) {
         ExceptionReport report = ex.getReport();
         StringBuilder ret = new StringBuilder(500);

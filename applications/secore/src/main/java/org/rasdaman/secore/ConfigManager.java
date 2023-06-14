@@ -33,6 +33,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.PropertyConfigurator;
+import org.rasdaman.secore.controller.SecoreController;
 import org.rasdaman.secore.util.ExceptionCode;
 import org.rasdaman.secore.util.SecoreException;
 import org.rauschig.jarchivelib.Archiver;
@@ -76,6 +77,8 @@ public class ConfigManager {
     // NOTE: extracted gml dir will be at /tmp, but secoredb containing baseX files will be in different places (tomcat/webapps or /opt/rasdaman/data/secore)
     private static final String EXTRACTED_GML_DIR_TMP = "/tmp/rasdaman/secore";
     private static final String EMBEDDED_SECOREDB_FOLDER_PATH = "/opt/rasdaman/data/secore";
+
+    private static String SERVICE_URL = null;
     
     // username, password to log in admin pages (*.jsp files)
     // NOTE: if no configurations in secore.properties, just login normally
@@ -299,7 +302,17 @@ public class ConfigManager {
      * URL.
      */
     public String getServiceUrl() {
-        return get(KEY_SERVICE_URL);
+        if (SERVICE_URL == null) {
+            SERVICE_URL = get(KEY_SERVICE_URL);
+        }
+
+        return SERVICE_URL;
+    }
+
+    public void setServiceUrl(String serviceUrl) {
+        SERVICE_URL = serviceUrl;
+
+        SecoreController.clearCache();
     }
 
     public String getCodespace() {

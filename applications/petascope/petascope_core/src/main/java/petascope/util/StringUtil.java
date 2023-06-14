@@ -804,5 +804,19 @@ public class StringUtil {
 
         return result;
     }
+
+    /**
+     * Replace "from" to "to" in a given string
+     *
+     */
+    public static String replaceLast(String string, String from, String to) {
+        int lastIndex = string.lastIndexOf(from);
+        if (lastIndex < 0) {
+            return string;
+        }
+
+        String tail = string.substring(lastIndex).replaceFirst(from, to);
+        return string.substring(0, lastIndex) + tail;
+    }
     
 }

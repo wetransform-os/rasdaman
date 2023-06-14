@@ -80,6 +80,7 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.core.AxisTypes;
 import petascope.core.XMLSymbols;
+
 import static petascope.util.StringUtil.ENCODING_UTF8;
 import static petascope.core.CrsDefinition.LONGITUDE_AXIS_LABEL_EPGS_VERSION_0;
 import static petascope.core.CrsDefinition.LONGITUDE_AXIS_LABEL_EPGS_VERSION_85;
@@ -308,6 +309,7 @@ public class CrsUtil {
             
             if (!isResovlerInternalEnabled()) {
                 // secore_urls doesn't contain internal -> no need to initialize embedded SECORE
+                ConfigManager.SECORE_INTERNAL_SHOULD_RUN = false;
                 return;
             }
             

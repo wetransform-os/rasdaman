@@ -1464,6 +1464,11 @@ public class CrsUtil {
     public static boolean isTimeAxis(String axisType) {
         return axisType.equals(AxisTypes.T_AXIS);
     }
+
+    public static boolean isElevationAxis(String axisType) {
+        return axisType.equals(AxisTypes.HEIGHT_AXIS)
+            || axisType.equals(AxisTypes.DEPTH_AXIS);
+    }
     
     /**
      * e.g. if input crsURL is http://localhost:8080/def/crs/EPSG/0/4326 -> http://localhost:8080/rasdaman/def/crs/EPSG/0/4326
@@ -2142,6 +2147,24 @@ public class CrsUtil {
                 result = SECORE_URL_PREFIX + "/" + CrsUtil.KEY_RESOLVER_CRS + "/" + authority + "/" + version + "/" + code;
             }
 
+            return result;
+        }
+        
+        /**
+         * Return the shorthand version of a CRS
+         * e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326 -> EPSG:4326
+         * "http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326&2=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate"
+         * -> EPSG:4326+OGC:AnsiDate
+         */
+        public static String getShorthandUri(String inputCRS) {
+            List<String> crss = decomposeUri(inputCRS);
+
+            List<String> tmps = new ArrayList<>();
+            for (String crs : crss) {
+                tmps.add(getAuthorityCode(crs));
+            }
+            
+            String result = ListUtil.join(tmps, "+");
             return result;
         }
     }

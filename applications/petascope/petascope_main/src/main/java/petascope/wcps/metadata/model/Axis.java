@@ -319,8 +319,7 @@ public abstract class Axis<T> {
     }
     
     public boolean isElevationAxis() {
-        return this.axisType.equals(AxisTypes.HEIGHT_AXIS) 
-            || this.axisType.equals(AxisTypes.DEPTH_AXIS);
+        return CrsUtil.isElevationAxis(this.axisType);
     }
     
     /**

@@ -818,5 +818,35 @@ public class StringUtil {
         String tail = string.substring(lastIndex).replaceFirst(from, to);
         return string.substring(0, lastIndex) + tail;
     }
+
+    /**
+     * Given a value of a KVP parameter, check if it is a >= 0 number to return
+     */
+    public static Integer getNonNegativeInteger(String prameterName, String input, Integer defaultValue, boolean isNullable) throws PetascopeException {
+        int result = 0;
+        PetascopeException exception = new PetascopeException(ExceptionCode.InvalidRequest, 
+                                            "Value of parameter: " + prameterName + " must be interger and >= 0. Given: " + input);
+        if (input != null) {
+            try {
+                result = Integer.parseInt(input);
+            } catch (NumberFormatException ex) {
+                throw exception;
+            }
+            
+            if (result < 0) {
+                throw exception;
+            } else {
+                return result;
+            }
+        } else if (defaultValue != null) {
+            return defaultValue;
+        }
+        
+        if (!isNullable) {
+            throw exception;
+        }
+        
+        return null;
+    }
     
 }

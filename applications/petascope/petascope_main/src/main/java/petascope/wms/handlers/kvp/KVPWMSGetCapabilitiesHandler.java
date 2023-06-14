@@ -21,6 +21,8 @@
  */
 package petascope.wms.handlers.kvp;
 
+import org.rasdaman.domain.cis.Axis;
+import org.rasdaman.domain.cis.AxisExtent;
 import petascope.core.response.Response;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -58,6 +60,9 @@ import org.springframework.stereotype.Service;
 import petascope.controller.PetascopeController;
 import petascope.core.KVPSymbols;
 import petascope.core.XMLSymbols;
+
+import static petascope.core.KVPSymbols.KEY_WMS_HEIGHT;
+import static petascope.core.KVPSymbols.KEY_WMS_TIME;
 import static petascope.core.XMLSymbols.ATT_HREF;
 import static petascope.core.XMLSymbols.ATT_TYPE;
 import static petascope.core.XMLSymbols.ATT_WMS_TYPE_VALUE;
@@ -139,7 +144,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         return new Response(Arrays.asList(result.getBytes()), MIMEUtil.MIME_GML);
     }
     
-    private Element buildWMSGetCapabilitiesElement() throws PetascopeException {
+    private Element buildWMSGetCapabilitiesElement() throws PetascopeException, SecoreException {
         
         Set<String> schemaLocations = new LinkedHashSet<>();
         schemaLocations.add(SCHEMA_LOCATION_WMS);
@@ -147,11 +152,6 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         Element wmsCapabilitiesElement = new Element(XMLSymbols.LABEL_WMS_WMS_CAPABILITIES, NAMESPACE_WMS);
         Attribute versionAttribute = new Attribute(LABEL_VERSION, VersionManager.WMS_VERSION_13);
         wmsCapabilitiesElement.addAttribute(versionAttribute);
-  
-        // TESTING !!!
-//        Attribute updateSequenceAttribute = new Attribute(XMLSymbols.ATT_WMS_UPDATE_SEQUENCE, "3");
-//        wmsCapabilitiesElement.addAttribute(updateSequenceAttribute);
-        
         
         Element serviceElement = this.buildServiceElement();
         Element capabilityElement = this.buildCapabilityElement();
@@ -317,7 +317,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         return contactInformationElement;
     }
     
-    private Element buildCapabilityElement() throws PetascopeException {
+    private Element buildCapabilityElement() throws PetascopeException, SecoreException {
         Element capabilityElement = new Element(XMLSymbols.LABEL_WMS_CAPABILITY, NAMESPACE_WMS);
         
         Element requestElement = new Element(XMLSymbols.LABEL_WMS_REQUEST, NAMESPACE_WMS);
@@ -432,7 +432,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
      *
      * @return
      */
-    private void buildLayerElements(Element layerElement) throws WMSLayerNotExistException, PetascopeException {
+    private void buildLayerElements(Element layerElement) throws WMSLayerNotExistException, PetascopeException, SecoreException {
         // All WMS layers
         List<Layer> layers = this.wmsRepostioryService.readAllLayersFromCaches();
         
@@ -449,7 +449,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
     /**
      * Build a layer element
      */
-    private Element buildLayerElement(Layer layer) throws PetascopeException {
+    public Element buildLayerElement(Layer layer) throws PetascopeException, SecoreException {
         Element layerElement = new Element(XMLSymbols.LABEL_WMS_LAYER, NAMESPACE_WMS);
 
         // All the attributes for one layer element
@@ -528,7 +528,18 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         // Dimension (Current not support yet)
         if (layer.getDimensions().size() > 0) {
             for (Dimension dimension : layer.getDimensions()) {
-                layerElement.appendChild(dimension.getElement());
+                Element dimensionElement = dimension.getElement();
+                layerElement.appendChild(dimensionElement);
+
+                String units = dimension.getUnits();
+                if (units == null) {
+                    Coverage basicCoverage = this.coverageRepositoryService.readCoverageBasicMetadataByIdFromCache(layer.getName());
+                    List<AxisExtent> axisExtents = basicCoverage.getEnvelope().getEnvelopeByAxis().getAxisExtents();
+                    units = Dimension.getUnits(dimension.getName(), axisExtents);
+                }
+
+                Attribute unitsAttribute = new Attribute(XMLSymbols.ATT_WMS_UNITS, units);
+                dimensionElement.addAttribute(unitsAttribute);
             }
         }
 

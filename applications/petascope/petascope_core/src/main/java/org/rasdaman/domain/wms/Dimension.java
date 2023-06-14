@@ -23,6 +23,7 @@ package org.rasdaman.domain.wms;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.Serializable;
+import java.util.List;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -33,7 +34,16 @@ import javax.persistence.Table;
 import nu.xom.Attribute;
 import nu.xom.Element;
 import static org.rasdaman.domain.wms.Layer.TABLE_PREFIX;
+
+import org.rasdaman.domain.cis.AxisExtent;
+import petascope.core.KVPSymbols;
 import petascope.core.XMLSymbols;
+import petascope.exceptions.PetascopeException;
+import petascope.exceptions.SecoreException;
+import petascope.util.CrsUtil;
+
+import static petascope.core.KVPSymbols.KEY_WMS_HEIGHT;
+import static petascope.core.KVPSymbols.KEY_WMS_TIME;
 import static petascope.core.XMLSymbols.NAMESPACE_WMS;
 
 /**
@@ -137,7 +147,11 @@ public class Dimension implements Serializable {
         this.units = units;
         this.extent = extent;
     }
-    
+
+    /**
+     * NOTE: name here is special for TIME and HEIGHT, e.g. normal ansi axis is called TIME in Dimension object
+     *
+     */
     public String getName() {
         return name;
     }
@@ -217,9 +231,12 @@ public class Dimension implements Serializable {
         
         Element dimensionElement = new Element(XMLSymbols.LABEL_WMS_DIMENSION, NAMESPACE_WMS);
         Attribute nameAttribute = new Attribute(XMLSymbols.ATT_WMS_NAME, this.name);
-        
+
+        if (this.units != null) {        
+            Attribute unitsAttribute = new Attribute(XMLSymbols.ATT_WMS_UNITS, this.units);
+        }
+
         // Optional values according to Table C.1 WMS 1.3 document
-//        Attribute unitsAttribute = new Attribute(XMLSymbols.ATT_WMS_UNITS, this.units);
 //        Attribute defaultAttribute = new Attribute(XMLSymbols.ATT_WMS_DEFAULT, this.defaultValue);
 //        Attribute multipleValuesAttribute = new Attribute(XMLSymbols.ATT_WMS_MULTIPLE_VALUES, String.valueOf(this.multipleValues));
 //        Attribute nearestValueAttribute = new Attribute(XMLSymbols.ATT_WMS_NEAREST_VALUES, String.valueOf(this.nearestValue));
@@ -238,6 +255,27 @@ public class Dimension implements Serializable {
         dimensionElement.appendChild(this.extent);
 
         return dimensionElement;
-    }    
+    }
+
+    public static String getUnits(String axisCRS) throws SecoreException, PetascopeException {
+        String result = CrsUtil.getAxesUoMs(axisCRS).get(0);
+        return result;
+    }
+
+    public static String getUnits(String dimensionName, List<AxisExtent> axisExtents) throws SecoreException, PetascopeException {
+        String units = CrsUtil.INDEX_UOM;
+
+        for (AxisExtent axisExtent : axisExtents) {
+            if (
+                (axisExtent.isTimeAxis() && dimensionName.equalsIgnoreCase(KEY_WMS_TIME))
+                    || (axisExtent.isElevationAxis() && dimensionName.equalsIgnoreCase(KEY_WMS_HEIGHT))
+            ) {
+                units = getUnits(axisExtent.getSrsName());
+                break;
+            }
+        }
+
+        return units;
+    }
 
 }

@@ -5691,6 +5691,7 @@ var wms;
                 posNameStart += 17;
                 var posNameEnd = this.gmlDocument.indexOf('">', posNameStart);
                 dim.name = this.gmlDocument.substr(posNameStart, posNameEnd - posNameStart);
+                dim.name = dim.name.substring(0, dim.name.indexOf('"'));
                 var posElementsStart = posNameEnd + 2;
                 var posElementsEnd = this.gmlDocument.indexOf('</Dimension>', posElementsStart);
                 dim.startPos = posElementsEnd;

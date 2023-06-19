@@ -124,6 +124,8 @@ module wms {
                 
                 // extract the name of the dimenisonal axis
                 dim.name = this.gmlDocument.substr(posNameStart, posNameEnd - posNameStart);
+                // e.g. cloud_top_height" units="GridSpacing -> cloud_top_height
+                dim.name = dim.name.substring(0, dim.name.indexOf('"'));
                 
                 // search for the end of the elements of the dimensioal axis
                 var posElementsStart = posNameEnd + 2;

@@ -141,6 +141,9 @@ public class AdminCreateOrUpdateLayerService {
                     dimension.setName(axis.getLabel());
                 }
 
+                String units = Dimension.getUnits(axis.getNativeCrsUri());
+                dimension.setUnits(units);
+
                 String axisExtent;
                 // According to Table C.2, WMS 1.3 document
                 // if axis is regular, the extent will be: minGeoBound/maxGeoBound/resolution_with_axisUom (e.g: "1949-12-31T12:00:00.000Z"/"1950-01-06T12:00:00.000Z"/1d)

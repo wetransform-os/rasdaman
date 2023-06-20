@@ -588,7 +588,7 @@ public class WMSGetMapService {
         if (style == null) {
             // Layer has no style
             String styleQuery = FRAGMENT_ITERATOR_PREFIX + layerName;
-            collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery, layerName,                                                                        
+            collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery,
                                                                         wmsLayer, wcpsCoverageMetadata,
                                                                         dimSubsetsMap,
                                                                         extendedFittedRequestGeoBBoxesMap.get(orgLayerName));
@@ -597,7 +597,7 @@ public class WMSGetMapService {
                 // rasqlTransformFragment
                 // e.g: $Iterator -> $covA
                 String styleQuery = this.replaceLayerIteratorByLayerName(style.getRasqlQueryFragment(), RASQL_FRAGMENT_ITERATOR, FRAGMENT_ITERATOR_PREFIX + layerName);
-                collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery, layerName,
+                collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery,
                                                                         wmsLayer, wcpsCoverageMetadata,
                                                                         dimSubsetsMap,
                                                                         extendedFittedRequestGeoBBoxesMap.get(orgLayerName));
@@ -606,14 +606,14 @@ public class WMSGetMapService {
                 // e.g: $c -> $covA
                 String styleQuery = this.replaceLayerIteratorByLayerName(style.getWcpsQueryFragment(), WCPS_FRAGMENT_ITERATOR, FRAGMENT_ITERATOR_PREFIX + layerName);
                 collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForWCPSFragment(
-                                                                        styleQuery, layerName,
+                                                                        styleQuery,
                                                                         wmsLayer, wcpsCoverageMetadata,
                                                                         dimSubsetsMap,
                                                                         extendedFittedRequestGeoBBoxesMap.get(orgLayerName));
             } else {
                 // Style is not null, but no query fragment was defined, e.g: only contains colorTable value
                 String styleQuery = FRAGMENT_ITERATOR_PREFIX + layerName;
-                collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery, layerName,
+                collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery,
                                                                         wmsLayer, wcpsCoverageMetadata,
                                                                         dimSubsetsMap,
                                                                         extendedFittedRequestGeoBBoxesMap.get(orgLayerName));   

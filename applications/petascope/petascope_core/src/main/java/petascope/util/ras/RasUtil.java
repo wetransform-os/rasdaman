@@ -197,9 +197,9 @@ public class RasUtil {
     public static Object executeRasqlQuery(String query, String username, String password, boolean rw, RasGMArray rasGMArray) throws PetascopeException {
         final long startTime = System.currentTimeMillis();
         String queryCounter = QUERY_COUNTER_PREFIX + QUERY_COUNTER;
+                
         QUERY_COUNTER++;
-        
-        log.info("Executing rasql query " + queryCounter + ": " + query);
+        log.info("Executing rasql query " + queryCounter + " with user " + username + ": " + query);
         
         RasImplementation impl = null;
         

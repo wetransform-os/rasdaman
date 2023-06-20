@@ -123,7 +123,7 @@ public class WMSGetMapStyleService {
      * From a rasql style expression with layer name iterator, return a rasql expression for it
      * e.g: $covA + $covB -> collectionA[0:10,0:20] + collectionB[0:20,0:40]
      */
-    public String buildRasqlStyleExpressionForRasqFragment(String styleQuery, String layerName, WMSLayer wmsLayer,
+    public String buildRasqlStyleExpressionForRasqFragment(String styleQuery, WMSLayer wmsLayer,
                                                 WcpsCoverageMetadata wcpsCoverageMetadata,
                                                 Map<String, String> dimSubsetsMap,
                                                 BoundingBox extendedFittedRequestGeoBBox) 
@@ -173,7 +173,7 @@ public class WMSGetMapStyleService {
      * From a wcps style expression with layer name iterator, return a rasql expression for it
      * e.g: $covA + $covB -> collectionA[0:10,0:20] + collectionB[0:20,0:40]
      */
-    public String buildRasqlStyleExpressionForWCPSFragment(String styleQuery, String layerName, WMSLayer wmsLayer,
+    public String buildRasqlStyleExpressionForWCPSFragment(String styleQuery, WMSLayer wmsLayer,
                                                            WcpsCoverageMetadata wcpsCoverageMetadata,
                                                            Map<String, String> dimSubsetsMap,                                                      
                                                            BoundingBox extendedFittedRequestGeoBBox)
@@ -182,8 +182,8 @@ public class WMSGetMapStyleService {
        
         WcpsCoverageMetadata wcpsCoverageMetadataTmp = this.wcpsCoverageMetadataTranslator.translate(wcpsCoverageMetadata.getCoverageName());
   
-        this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getRequestBBox(), wmsLayer.getLayerName());
-        this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getExtendedRequestBBox(), wmsLayer.getLayerName());        
+        this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getRequestBBox(), wcpsCoverageMetadata.getCoverageName());
+        this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getExtendedRequestBBox(), wcpsCoverageMetadata.getCoverageName());
         
         List<WcpsSubsetDimension> wcpsSubsetDimensions = new ArrayList<>();
         List<WcpsSubsetDimension> wcpsGeoXYSubsetDimensions = this.wmsGetMapSubsetTranslatingService.parseWcpsSubsetDimensions(wcpsCoverageMetadataTmp, 
@@ -271,7 +271,7 @@ public class WMSGetMapStyleService {
      * Return a translated coverage expression as rasdaman subquery for a WMS style by Rasql fragment
      */
     private String getCoverageExpressionForRasqlFragment(String layerNameIterator, 
-                                                         WMSLayer wmsLayer, 
+                                                         WMSLayer wmsLayer,
                                                          BoundingBox extendedFittedRequestGeoBBox,
                                                          WcpsCoverageMetadata wcpsCoverageMetadata,
                                                          List<WcpsSliceSubsetDimension> nonXYGridSliceSubsetDimensions
@@ -279,8 +279,8 @@ public class WMSGetMapStyleService {
         
         WcpsCoverageMetadata wcpsCoverageMetadataTmp = this.wcpsCoverageMetadataTranslator.translate(wcpsCoverageMetadata.getCoverageName());        
         
-        this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getRequestBBox(), wmsLayer.getLayerName());
-        this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getExtendedRequestBBox(), wmsLayer.getLayerName());     
+        this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getRequestBBox(), wcpsCoverageMetadata.getCoverageName());
+        this.wmsGetMapBBoxService.fitBBoxToCoverageGeoXYBounds(wmsLayer.getExtendedRequestBBox(), wcpsCoverageMetadata.getCoverageName());
         
         List<WcpsSubsetDimension> wcpsSubsetDimensions = this.wmsGetMapSubsetTranslatingService.parseWcpsSubsetDimensions(wcpsCoverageMetadata, 
                                                                                                            wmsLayer.getExtendedRequestBBox());

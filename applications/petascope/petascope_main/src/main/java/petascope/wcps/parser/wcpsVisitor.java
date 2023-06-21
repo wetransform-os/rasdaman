@@ -103,13 +103,6 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	T visitRangeConstructorElementListLabel(@NotNull wcpsParser.RangeConstructorElementListLabelContext ctx);
 
 	/**
-	 * Visit a parse tree produced by {@link wcpsParser#CoverageExpressionScaleByAxesLabel}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitCoverageExpressionScaleByAxesLabel(@NotNull wcpsParser.CoverageExpressionScaleByAxesLabelContext ctx);
-
-	/**
 	 * Visit a parse tree produced by {@link wcpsParser#CastExpressionLabel}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -143,13 +136,6 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitCoverageExpressionComparissonLabel(@NotNull wcpsParser.CoverageExpressionComparissonLabelContext ctx);
-
-	/**
-	 * Visit a parse tree produced by {@link wcpsParser#CoverageExpressionScaleByExtentLabel}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitCoverageExpressionScaleByExtentLabel(@NotNull wcpsParser.CoverageExpressionScaleByExtentLabelContext ctx);
 
 	/**
 	 * Visit a parse tree produced by {@link wcpsParser#fieldName}.
@@ -493,13 +479,6 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitCoverageExpressionModLabel(@NotNull wcpsParser.CoverageExpressionModLabelContext ctx);
-
-	/**
-	 * Visit a parse tree produced by {@link wcpsParser#CoverageExpressionScaleBySizeLabel}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitCoverageExpressionScaleBySizeLabel(@NotNull wcpsParser.CoverageExpressionScaleBySizeLabelContext ctx);
 
 	/**
 	 * Visit a parse tree produced by {@link wcpsParser#DecodedCoverageExpressionLabel}.

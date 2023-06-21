@@ -235,6 +235,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
                                                                                        secondChildHandlerResult);
             }
 
+
             coverageExpressionResult = this.handle(coverageExpressionResult, dimensionIntervalList, true, null,
                                                     serviceRegistries);
         }
@@ -376,7 +377,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
      * instead of base coverage.
      *
      */
-    private void updateCoverageVariableNameChildHandlers(String pyramidMemberCoverageId, String pyramidMemberRasdamanCollectionName) throws PetascopeException {
+    private void updateCoverageVariableNameChildHandlers(String pyramidMemberCoverageId, String pyramidMemberRasdamanCollectionName, boolean hasPyramidMember) throws PetascopeException {
         if (this.getChildren() == null || this.getChildren().isEmpty()) {
             return;
         }
@@ -393,11 +394,19 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
                     // e.g. co -> baseCoverage
                     String currentCoverageAlias = stringScalarHandler.getValue();
                     if (!this.axisIteratorAliasRegistry.exists(currentCoverageAlias)) {
-                        // e.g. co_0 -> pyramidMemberCoverage
-                        String newlyCoverageAlias = this.coverageAliasRegistry.getNextDownscaledCoverageAlias(currentCoverageAlias);
-                        stringScalarHandler.setValue(newlyCoverageAlias);
 
-                        this.coverageAliasRegistry.addCoverageToForClauseListMapping(newlyCoverageAlias, pyramidMemberCoverageId, pyramidMemberRasdamanCollectionName);
+                        String coverageAliasTmp = currentCoverageAlias;
+                        if (hasPyramidMember) {
+                            // e.g. co_0 -> pyramidMemberCoverage
+                            String newlyCoverageAlias = this.coverageAliasRegistry.getNextDownscaledCoverageAlias(currentCoverageAlias);
+                            this.coverageAliasRegistry.addInternalCoverageAliasForScaleNodesToSet(newlyCoverageAlias);
+                            stringScalarHandler.setValue(newlyCoverageAlias);
+
+                            this.coverageAliasRegistry.addCoverageToForClauseListMapping(newlyCoverageAlias, pyramidMemberCoverageId, pyramidMemberRasdamanCollectionName);
+                            coverageAliasTmp = newlyCoverageAlias;
+                        }
+
+                        this.coverageAliasRegistry.addInternalCoverageAliasForScaleNodesToSet(coverageAliasTmp);
                     }
                 }
 
@@ -543,12 +552,16 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         WcpsCoverageMetadata selectedCoverage = this.wcpsCoverageMetadataTranslatorService.applyDownscaledLevelOnXYGridAxesForScale(coverageExpression, metadata, numericSubsets);
         String selectedCoverageId = selectedCoverage.getCoverageName();
         String selectedRasdamanCollectionName = selectedCoverage.getRasdamanCollectionName();
+
+        boolean hasPyramidMember = false;
         
         if (!selectedCoverageId.equals(metadata.getCoverageName())) {
 
             // NOTE: here it needs to recalculate coverageExpression based on the new pyramid member
             // a pyramid member is selected, this scale expression needs to rerun for this selected pyramid member
-            this.updateCoverageVariableNameChildHandlers(selectedCoverageId, selectedRasdamanCollectionName);
+
+            hasPyramidMember = true;
+            this.updateCoverageVariableNameChildHandlers(selectedCoverageId, selectedRasdamanCollectionName, hasPyramidMember);
 
             Handler firstChildHandlerTmp = firstChildHandler;
             if (firstChildHandlerTmp == null) {
@@ -559,6 +572,11 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
             coverageExpression = coverageExpressionResult;
             metadata = coverageExpressionResult.getMetadata();
 
+        }
+
+        if (hasPyramidMember == false) {
+            // In this case, this pyramid has no pyramid members for SCALE() -> coverage alias is kept
+            this.updateCoverageVariableNameChildHandlers(selectedCoverageId, selectedRasdamanCollectionName, hasPyramidMember);
         }
         
         

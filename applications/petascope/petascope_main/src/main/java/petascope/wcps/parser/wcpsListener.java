@@ -152,17 +152,6 @@ public interface wcpsListener extends ParseTreeListener {
 	void exitRangeConstructorElementListLabel(@NotNull wcpsParser.RangeConstructorElementListLabelContext ctx);
 
 	/**
-	 * Enter a parse tree produced by {@link wcpsParser#CoverageExpressionScaleByAxesLabel}.
-	 * @param ctx the parse tree
-	 */
-	void enterCoverageExpressionScaleByAxesLabel(@NotNull wcpsParser.CoverageExpressionScaleByAxesLabelContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link wcpsParser#CoverageExpressionScaleByAxesLabel}.
-	 * @param ctx the parse tree
-	 */
-	void exitCoverageExpressionScaleByAxesLabel(@NotNull wcpsParser.CoverageExpressionScaleByAxesLabelContext ctx);
-
-	/**
 	 * Enter a parse tree produced by {@link wcpsParser#CastExpressionLabel}.
 	 * @param ctx the parse tree
 	 */
@@ -216,17 +205,6 @@ public interface wcpsListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitCoverageExpressionComparissonLabel(@NotNull wcpsParser.CoverageExpressionComparissonLabelContext ctx);
-
-	/**
-	 * Enter a parse tree produced by {@link wcpsParser#CoverageExpressionScaleByExtentLabel}.
-	 * @param ctx the parse tree
-	 */
-	void enterCoverageExpressionScaleByExtentLabel(@NotNull wcpsParser.CoverageExpressionScaleByExtentLabelContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link wcpsParser#CoverageExpressionScaleByExtentLabel}.
-	 * @param ctx the parse tree
-	 */
-	void exitCoverageExpressionScaleByExtentLabel(@NotNull wcpsParser.CoverageExpressionScaleByExtentLabelContext ctx);
 
 	/**
 	 * Enter a parse tree produced by {@link wcpsParser#fieldName}.
@@ -766,17 +744,6 @@ public interface wcpsListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitCoverageExpressionModLabel(@NotNull wcpsParser.CoverageExpressionModLabelContext ctx);
-
-	/**
-	 * Enter a parse tree produced by {@link wcpsParser#CoverageExpressionScaleBySizeLabel}.
-	 * @param ctx the parse tree
-	 */
-	void enterCoverageExpressionScaleBySizeLabel(@NotNull wcpsParser.CoverageExpressionScaleBySizeLabelContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link wcpsParser#CoverageExpressionScaleBySizeLabel}.
-	 * @param ctx the parse tree
-	 */
-	void exitCoverageExpressionScaleBySizeLabel(@NotNull wcpsParser.CoverageExpressionScaleBySizeLabelContext ctx);
 
 	/**
 	 * Enter a parse tree produced by {@link wcpsParser#DecodedCoverageExpressionLabel}.

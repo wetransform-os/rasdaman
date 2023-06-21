@@ -138,6 +138,21 @@ public class CoverageVariableNameHandler extends Handler {
             }
         }
 
+        // Check if this coverageAlias registry doesn't have any ancestor which is ScaleExpression -> add it to a set
+        Handler parentHandler = this.getParent();
+        while (parentHandler != null) {
+            if (parentHandler instanceof ScaleExpressionByDimensionIntervalsHandler) {
+                break;
+            }
+
+            parentHandler = parentHandler.getParent();
+        }
+
+        if (parentHandler == null) {
+            // This coverage alias doesn't have any ancestor as SCALE(), e.g. return encode( avg(c), "csv" )
+            this.coverageAliasRegistry.addChildOfNonScaleNodesToSet(coverageAlias);
+        }
+
 
         WcpsResult result = new WcpsResult(metadata, rasql);
         return result;

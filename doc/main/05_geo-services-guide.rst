@@ -1836,8 +1836,8 @@ value equals to a random number for all WMS `GetMap` requests. For example:
 
 
 In petascope, this ``random`` parameter is stripped when petascope
-receives a WMS ``GetMap`` request, hence, if the request is already processed,
-the result stored in the cache will be returned as usual. 
+receives a **W*S** request containing this parameter, hence, if the request is already processed,
+the result stored in the cache will be returned as usual.
 
 
 nD Coverages as WMS Layers

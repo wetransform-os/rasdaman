@@ -405,6 +405,19 @@ decodeCoverageExpression: DECODE LEFT_PARENTHESIS
  */
 coverageExpression: coverageExpression booleanOperator coverageExpression
                     #CoverageExpressionLogicLabel
+                    
+                  | coverageExpression LEFT_BRACKET dimensionPointList RIGHT_BRACKET
+                    #CoverageExpressionShorthandSliceLabel
+                  | SLICE LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionPointList RIGHT_BRACE
+                          RIGHT_PARENTHESIS
+                    #CoverageExpressionSliceLabel
+                  | coverageExpression LEFT_BRACKET dimensionIntervalList RIGHT_BRACKET
+                    #CoverageExpressionShorthandSubsetLabel
+                  | coverageExpression LEFT_BRACKET coverageVariableName RIGHT_BRACKET
+                    #coverageExpressionShortHandSubsetWithLetClauseVariableLabel
+                  | TRIM LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
+                    RIGHT_PARENTHESIS
+                    #CoverageExpressionTrimCoverageLabel                    
 
                   | LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
                     #CoverageExpressionCoverageLabel
@@ -431,18 +444,7 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                     #CoverageExpressionConstantLabel
                   | decodeCoverageExpression
                     #CoverageExpressionDecodeLabel
-                  | coverageExpression LEFT_BRACKET dimensionPointList RIGHT_BRACKET
-                    #CoverageExpressionShorthandSliceLabel
-                  | SLICE LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionPointList RIGHT_BRACE
-                          RIGHT_PARENTHESIS
-                    #CoverageExpressionSliceLabel
-                  | coverageExpression LEFT_BRACKET dimensionIntervalList RIGHT_BRACKET
-                    #CoverageExpressionShorthandSubsetLabel
-                  | coverageExpression LEFT_BRACKET coverageVariableName RIGHT_BRACKET
-                    #coverageExpressionShortHandSubsetWithLetClauseVariableLabel
-                  | TRIM LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
-                    RIGHT_PARENTHESIS
-                    #CoverageExpressionTrimCoverageLabel
+                  
                   | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionExtendLabel

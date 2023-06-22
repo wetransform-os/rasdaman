@@ -145,7 +145,9 @@ public interface KVPSymbols {
     String KEY_WMS_COLOR_TABLE_DEFINITION = "ColorTableDefinition";
     String KEY_WMS_DEFAULT_STYLE = "default";
     String KEY_WMS_LEGEND_GRAPHIC = "legendGraphic";
-    String KEY_WMS_RASDAMAN_RANDOM = "random";
+
+    // Petascope ignore random=anyValue parameter from clients to bypass the cache from web browser
+    String KEY_RASDAMAN_RANDOM = "random";
 
     // used for non XY axes, time axis, elevation axis, (e.g: dim_pressure with axis name is pressure) 
     String KEY_WMS_DIM_PREFIX = "dim_";

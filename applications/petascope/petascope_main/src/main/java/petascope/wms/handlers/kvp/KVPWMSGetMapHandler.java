@@ -196,7 +196,7 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
         int width = 256;
         int height = 256;
         // if the request contains a random=random_number then just ignore it as it is used to bypass Web Browser's cache only
-        kvpParameters.remove(KVPSymbols.KEY_WMS_RASDAMAN_RANDOM);
+        kvpParameters.remove(KVPSymbols.KEY_RASDAMAN_RANDOM);
 
         // NOTE: If first query returns success, then just fetch it from cache
         String queryString = StringUtil.buildQueryString(kvpParameters);

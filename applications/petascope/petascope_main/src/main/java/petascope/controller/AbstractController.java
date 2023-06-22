@@ -41,7 +41,10 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.maven.wagon.util.FileUtils;
 import org.rasdaman.config.ConfigManager;
+import static org.rasdaman.config.ConfigManager.UPLOADED_FILE_DIR_TMP;
+import static org.rasdaman.config.ConfigManager.UPLOAD_FILE_PREFIX;
 import org.rasdaman.config.VersionManager;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -330,7 +333,7 @@ public abstract class AbstractController {
                 if (this.getValueByKeyAllowNull(kvpParameters, KVPSymbols.KEY_SERVICE) != null) {
                     kvpParameters.put(KVPSymbols.KEY_SERVICE, new String[] { KVPSymbols.KEY_SOAP });
                     kvpParameters.put(KVPSymbols.KEY_REQUEST_BODY, new String[] { requestBody });
-                    
+
                     return kvpParameters;
                 }
             }
@@ -396,24 +399,12 @@ public abstract class AbstractController {
             }
         }
 
+
+        // NOTE: random=anyValue is used to ignore cache from web browser to clients, so in petascope it has no use
+        kvpParameters.remove(KVPSymbols.KEY_RASDAMAN_RANDOM);
         return kvpParameters;
     }
 
-    /**
-     * Check if petascope can read file's content from uploaded multipart file. If yes, then get file's content.
-     */
-    protected byte[] getUploadedMultipartFileContent(MultipartFile uploadedFile) throws PetascopeException {
-        byte[] bytes = null;            
-            try {
-                bytes = uploadedFile.getBytes();
-            } catch (IOException ex) {
-                throw new PetascopeException(ExceptionCode.IOConnectionError, 
-                        "Cannot get data from uploaded file. Reason: " + ex.getMessage() + ".", ex);
-            }
-            
-        return bytes;
-    }
-    
     /**
      * Write the uploaded file from client and store to a folder in server
      * @return the stored file path in server
@@ -1059,5 +1050,6 @@ public abstract class AbstractController {
     public boolean isPostRequest(HttpServletRequest httpServletRequest) {
         return httpServletRequest.getMethod().toLowerCase().equals("post");
     }
+
 }
 

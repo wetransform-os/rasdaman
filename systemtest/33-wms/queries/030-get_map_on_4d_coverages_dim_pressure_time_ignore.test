@@ -9,3 +9,4 @@ styles=&
 crs=EPSG:4326&
 format=image/png&
 dim_forecast=0
+&TRANSPARENT=TRUE

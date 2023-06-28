@@ -8,3 +8,4 @@ width=60&
 height=60&
 Styles=wcpsQueryFragment,rasqlTransformFragment,wcpsQueryFragment&
 format=image/png
+&TRANSPARENT=TRUE

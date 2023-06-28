@@ -20,12 +20,8 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 package org.rasdaman.datamigration;
-import jdk.vm.ci.meta.Local;
-import liquibase.pro.packaged.D;
-import org.rasdaman.admin.pyramid.service.PyramidService;
 import org.rasdaman.domain.cis.AxisExtent;
 import org.rasdaman.domain.cis.Coverage;
-import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.wms.Dimension;
 import org.rasdaman.domain.wms.Layer;
 import org.rasdaman.repository.service.CoverageRepositoryService;

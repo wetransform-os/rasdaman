@@ -7,3 +7,4 @@ bbox=-44.525,111.975,-8.978,156.272&crs=EPSG:4326&
 width=60&
 height=60&
 format=image/png
+&TRANSPARENT=TRUE

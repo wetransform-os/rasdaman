@@ -1776,8 +1776,8 @@ GetMap extensions
 
 .. _wms-transparency:
 
-Transparency
-^^^^^^^^^^^^
+Transparency and background color
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 By adding a parameter ``transparent=true`` to WMS requests the returned image
 will have ``NoData Value=0`` in the metadata indicating to the client 
@@ -1791,6 +1791,30 @@ encoding format. Example:
         &BBOX=618887,3228196,690885,3300195.0
         &CRS=EPSG:32615&WIDTH=600&HEIGHT=600&FORMAT=image/png
         &TRANSPARENT=true
+
+When ``transparent=false`` or omitted in a WMS ``GetMap`` request, by default 
+the response has white color for no-data pixels. To colorize no-data pixels the
+``GetMap`` request should specify ``BGCOLOR=<hexcolor>``, where ``<hexcolor>``
+is in format ``0xRRGGBB``, e.g. ``0x0000FF`` for blue color:
+  
+  .. hidden-code-block:: text
+
+    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
+        REQUEST=GetMap&LAYERS=test_wms_4326&
+        BBOX=111.976,-44.525,156.274,-8.978&
+        CRS=CRS:84&WIDTH=60&HEIGHT=60&
+        STYLES=&FORMAT=image/png&
+        BGCOLOR=0x0000FF
+        &TRANSPARENT=TRUE
+   
+  .. NOTE::
+
+     - ``BGCOLOR`` is valid only with a layer containing 1, 3 or 4 bands.
+     - ``BGCOLOR`` does not work together with range constructor defined in a 
+       WMS style via rasql / WCPS fragments.
+     - ``BGCOLOR`` is ignored when ``transparent=true``.
+      
+        
 
 .. _wms-interpolation:
 

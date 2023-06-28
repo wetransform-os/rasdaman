@@ -33,9 +33,9 @@
 </DCPType>
 </GetCapabilities>
 <GetMap>
-<Format>image/jpeg</Format>
 <Format>image/png</Format>
 <Format>image/tiff</Format>
+<Format>image/jpeg</Format>
 <DCPType>
 <HTTP>
 <Get>

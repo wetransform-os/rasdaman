@@ -482,9 +482,10 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
 
         // Abstract
         Element abstractElement = new Element(XMLSymbols.LABEL_WMS_ABSTRACT, NAMESPACE_WMS);
-        String layerAbstract = layer.getLayerAbstract();        
-        abstractElement.appendChild(layerAbstract);
-        layerElement.appendChild(abstractElement);
+        String layerAbstract = layer.getLayerAbstract();
+        if (layerAbstract == null) {
+            layerAbstract = "";
+        }
         
         Coverage coverage = this.coverageRepositoryService.readCoverageFromLocalCache(layer.getName());
         try {
@@ -492,16 +493,20 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
             if (coverage != null) {
                 Element customizedMetadataElement = this.wcsGMLGetCapabilitiesBuild.createCustomizedCoverageMetadataElement(coverage);
                 if (customizedMetadataElement != null) {
-                    layerElement.appendChild(customizedMetadataElement);
+                    // Add these rasdaman proprietary extra metadata is not valid in XML schema -> add it under <Abstract> element of <Layer> element
+                    layerAbstract += "\n" + XMLUtil.enquoteCDATA(customizedMetadataElement.toXML());
                 }
             }
         } catch (PetascopeException ex) {
             if (ex.getExceptionCode().equals(ExceptionCode.NoSuchCoverage)) {
                 // The associated coverage with the layer was changed, log an warning instead of throwing exception
-                log.warn("Coverage associated with the layer: " + layer.getName() + " doees not exist.");
+                log.warn("Coverage associated with the layer: " + layer.getName() + " does not exist.");
                 return null;
             }
         }
+
+        abstractElement.appendChild(layerAbstract);
+        layerElement.appendChild(abstractElement);
 
         // KeywordList
         if (layer.getKeywordList().size() > 0) {
@@ -596,7 +601,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         styleElement.appendChild(abstractElement);
 
         if (style.getLegendURL() != null) {
-            styleElement.appendChild(this.buildLegendURLElement(style));
+            styleElement.appendChild(this.buildLegendURLElement(style, styleNamepsace));
         }
 
         return styleElement;
@@ -693,18 +698,18 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
      /**
      * If a style has legendURL then it shows in WMS GetCapabilities
      */
-    private Element buildLegendURLElement(Style style) {
+    private Element buildLegendURLElement(Style style, String styleNamepsace) {
         LegendURL legendURL = style.getLegendURL();
         
-        Element legendURLElement = new Element(XMLSymbols.LABEL_WMS_LEGEND_URL);
+        Element legendURLElement = new Element(XMLSymbols.LABEL_WMS_LEGEND_URL, styleNamepsace);
         
         // Format (required)
-        Element formatElement = new Element(XMLSymbols.LABEL_WMS_FORMAT);
+        Element formatElement = new Element(XMLSymbols.LABEL_WMS_FORMAT, styleNamepsace);
         formatElement.appendChild(legendURL.getFormat());
         legendURLElement.appendChild(formatElement);
         
         // OnlineResource (required)
-        Element onlineResourceElement = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE);
+        Element onlineResourceElement = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE, styleNamepsace);
         
         // e.g. https://localhost:8080/rasdaman/ows?service=WMS&request=GetLegendGraphic&format=image%2Fpng&width=20&height=20&layer=ne%3Ane
         String getLegendGraphicURL = StringUtil.escapeAmpersands(legendURL.getOnlineResourceURL());

@@ -66,7 +66,14 @@ log_file="$OUTPUT_DIR/petascope.log"
 
 # replace port from default one to 9090
 
-sed -i "s@secore_urls=internal@secore_urls=https://ows.rasdaman.org/rasdaman/def/@g" "$temp_petascope_properties"
+check_petascope_started () {
+  grep -q "Started ApplicationMain" "$log_file"
+  status_code=$?
+  echo $status_code
+}
+
+
+sed -i "s@secore_urls=internal@secore_urls=http://crs.rasdaman.com/def/@g" "$temp_petascope_properties"
 sed -i "s@server.port=.*@server.port=$port@g" "$temp_petascope_properties"
 sed -i "s@allow_write_requests_from=127.0.0.1@allow_write_requests_from=1.2.3.4@g" "$temp_petascope_properties"
 sed -i "s@log4j.appender.rollingFile.File=.*@log4j.appender.rollingFile.File=$log_file@g" "$temp_petascope_properties"
@@ -84,12 +91,74 @@ sleep 30
 if [ ! -f "$log_file" ]; then
   log "$log_file not found."
 else
-  ( tail -F -n0 --quiet "$log_file" 2> /dev/null & ) | timeout 100 grep -q "Started ApplicationMain"
-  if [ $? -eq 124 ]; then
-    log "startup timed out, petascope.log:"
-    cat "$log_file"
-    exit $RC_ERROR
+  status_code=$(check_petascope_started)
+
+  if [ "$status_code" -ne 0 ]; then
+    log "1. Checking petascope status again in 5 seconds ..."
+    sleep 5
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "2. Checking petascope status again in another 5 seconds ..."
+      sleep 5
+    fi
+
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "3. Checking petascope status again in another 5 seconds ..."
+      sleep 5
+    fi
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "4. Checking petascope status again in another 5 seconds ..."
+      sleep 5
+    fi
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "5. Checking petascope status again in another 5 seconds ..."
+      sleep 5
+    fi
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "6. Checking petascope status again in another 5 seconds ..."
+      sleep 5
+    fi          
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "7. Checking petascope status again in another 10 seconds ..."
+      sleep 10
+    fi            
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "8. Checking petascope status again in another 10 seconds ..."
+      sleep 10
+    fi    
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "9. Checking petascope status again in another 10 seconds ..."
+      sleep 10
+    fi    
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+      log "10. Checking petascope status again in another 10 seconds ..."
+      sleep 10
+    fi    
+    
+    status_code=$(check_petascope_started)
+    if [ "$status_code" -ne 0 ]; then
+        log "startup timed out, petascope.log:"
+        cat "$log_file"
+        exit $RC_ERROR
+    fi
   fi
+  
 fi
 
 $WGET -q --spider "http://localhost:$port/rasdaman/ows?service=WCS&version=2.0.1&request=GetCapabilities"

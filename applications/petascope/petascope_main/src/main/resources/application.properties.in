@@ -52,3 +52,6 @@ server.servlet.context-path=/rasdaman
 secore.confDir=@CONF_DIR@
 
 
+# Hot reload to provide changed in classpath of petascope_core directly to petascope_main when developing with IDE
+spring.devtools.restart.additional-paths=../petascope_core
+

@@ -87,9 +87,6 @@ void QtMDDAccess::open()
     // create the iterator
     mddIter = mddColl->createIterator();
 
-    //for( mddIter->reset(); mddIter->notDone(); mddIter->advance() )
-    //  mddIter->getElement()->printStatus();
-
     mddIter->reset();
 
     pauseTimer();

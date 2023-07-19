@@ -924,7 +924,75 @@ updateExp:
           FREESTACK($5)
           FREESTACK($7)
           FREESTACK($9)
-        };
+        }
+        | UPDATE iteratedCollection mddConfiguration
+        {
+          try {
+            accessControl.wantToWrite();
+          }
+          catch(...) {
+            // save the parse error info and stop the parser
+            if ( parseError ) delete parseError;
+            parseError = new ParseInfo( NO_PERMISSION_FOR_OPERATION, $1.info->getToken().c_str(),
+                                        $1.info->getLineNo(), $1.info->getColumnNo() );
+            FREESTACK($1)
+            QueryTree::symtab.wipe();
+            YYABORT;
+          }
+
+          // create an update node
+          QtUpdate* update = new QtUpdate( $3 );
+          update->setStreamInput( $2 );
+          update->setParseInfo( *($1.info) );
+          parseQueryTree->removeDynamicObject( $2 );
+          parseQueryTree->removeDynamicObject( $3 );
+
+          // set the update node  as root of the Query Tree
+          parseQueryTree->setRoot( update );
+
+          FREESTACK($1)
+        }
+        | UPDATE iteratedCollection mddConfiguration WHERE generalExp
+        {
+          try {
+            accessControl.wantToWrite();
+          }
+          catch(...) {
+            // save the parse error info and stop the parser
+            if ( parseError ) delete parseError;
+            parseError = new ParseInfo( NO_PERMISSION_FOR_OPERATION, $1.info->getToken().c_str(),
+                                        $1.info->getLineNo(), $1.info->getColumnNo() );
+            FREESTACK($1)
+            FREESTACK($4)
+            QueryTree::symtab.wipe();
+            YYABORT;
+          }
+
+          QtIterator::QtONCStreamList* streamList = new QtIterator::QtONCStreamList(1);
+          (*streamList)[0] = $2;
+          parseQueryTree->removeDynamicObject( $2 );
+
+          QtSelectionIterator* si = new QtSelectionIterator();
+          si->setStreamInputs( streamList );
+          si->setConditionTree( $5 );
+          si->setParseInfo( *($4.info) );
+          parseQueryTree->removeDynamicObject( $5 );
+
+          // create an update node
+          QtUpdate* update = new QtUpdate( $3 );
+          update->setStreamInput( si );
+          update->setParseInfo( *($1.info) );
+          parseQueryTree->removeDynamicObject( $3 );
+
+          // set the update node  as root of the Query Tree
+          parseQueryTree->setRoot( update );
+
+          FREESTACK($1)
+          FREESTACK($4)
+        }
+
+        
+        ;
 
 alterExp: ALTER COLLECTION namedCollection SET TYPE typeName
     {

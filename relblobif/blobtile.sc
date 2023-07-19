@@ -54,7 +54,7 @@ void BLOBTile::updateInDb()
     SQLiteQuery checkQuery(fmt::format("SELECT BlobId FROM RAS_TILES WHERE BlobId = {}", blobOid));
     if (!checkQuery.nextRow())
     {
-        LERROR << "no tile with id " << blobOid << " found.";
+        LERROR << "no tile with id " << blobOid << " found for update.";
         throw r_Ebase_dbms(SQLITE_NOTFOUND, "tile not found in database");
     }
     checkQuery.finalize();
@@ -100,7 +100,7 @@ void BLOBTile::deleteFromDb()
     SQLiteQuery checkQuery(fmt::format("SELECT BlobId FROM RAS_TILES WHERE BlobId = {}", blobOid));
     if (!checkQuery.nextRow())
     {
-        LERROR << "no tile with id " << blobOid << " found.";
+        LERROR << "no tile with id " << blobOid << " found for delete.";
         throw r_Ebase_dbms(SQLITE_NOTFOUND, "tile not found in database");
     }
     checkQuery.finalize();
@@ -237,7 +237,7 @@ r_Data_Format BLOBTile::getTileDataFormat(long long blobOid)
     }
     else
     {
-        LERROR << "no tile with id " << blobOid << " found.";
+        LERROR << "no tile with id " << blobOid << " found for format read.";
         throw r_Error(r_Error::r_Error_ObjectUnknown, "tile id " + std::to_string(blobOid));
     }
 }

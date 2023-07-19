@@ -48,7 +48,6 @@ rasdaman GmbH.
 #include "sstoragelayout.hh"                // for StorageLayout
 #include "relstorageif/dbstoragelayout.hh"  // for DBStorageLayout
 #include "stgmddconfig.hh"                  // for StgMddConfig
-#include "relstorageif/storageid.hh"        // for DBStorageLayoutId
 #include "reladminif/oidif.hh"              // for operator<<, OId
 #include "mddmgr/mddobj.hh"
 #include "rasodmg/alignedtiling.hh"

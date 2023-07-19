@@ -4,6 +4,7 @@
 #include "qlparser/qtexecute.hh"
 #include "qlparser/qtoncstream.hh"
 #include "qlparser/qtoperation.hh"
+#include "qlparser/qtmddcfgop.hh"
 #include "qlparser/qtmdd.hh"
 #include "catalogmgr/ops.hh"
 
@@ -52,6 +53,9 @@ public:
     /// constructor getting target, domain, and source expressions of the update
     QtUpdate(QtOperation *initUpdateTarget, QtOperation *initUpdateDomain, QtOperation *initUpdateSource);
 
+    /// constructor getting storage layout
+    QtUpdate(QtOperation *storage);
+
     /// virtual destructor
     virtual ~QtUpdate();
 
@@ -92,9 +96,19 @@ public:
     /// type checking
     virtual void checkType();
 
+    /// tiling functions
+    r_Data_Format getDataFormat(QtMDDConfig *config);
+    r_Index_Type getIndexType(QtMDDConfig *config);
+    r_Tiling_Scheme getTilingScheme(QtMDDConfig *cfg);
+    vector<r_Minterval> getIntervals(QtMDDConfig *cfg);
+    r_Minterval getTileConfig(QtMDDConfig *cfg, int baseTypeSize, r_Dimension sourceDimension);
+
 private:
     /// evaluate one tuple of the input stream
     void evaluateTuple(QtNode::QtDataList *nextTuple);
+
+    /// repartition one tuple of the input stream
+    void repartitionTuple(QtNode::QtDataList *nextTuple, QtMDDConfig *mddConfig);
 
     /// check validity of operands
     bool checkOperands(QtNode::QtDataList *nextTuple, QtData *target, QtData *source);
@@ -109,16 +123,27 @@ private:
                     QtData *source, int errorNumber, QtData *domainData = NULL);
 
     /// one input stream
+    /// Used to iterate through the collection.
+    ///Specified by the UPDATE clause.
     QtONCStream *input;
 
     /// target expression
+    /// Specifies the target collection on which the update is performed.
+    /// Specified by the SET clause.
     QtOperation *updateTarget;
 
     /// target domain expression
+    /// Specifies the domain of the target collection on which the update is performed.
+    /// Specified by the SET clause.
     QtOperation *updateDomain;
 
     /// target expression
+    /// Specifies the source collection to apply to the target collection.
+    /// Specified by the ASSIGN clause.
     QtOperation *updateSource;
+
+    // Storage and Tiling type
+    QtOperation *stgLayout;
 
     /// attribute for identification of nodes
     static const QtNodeType nodeType;

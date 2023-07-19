@@ -32,8 +32,7 @@ endforeach ()
 
 add_library(relstorageif ${COMPILED_SQL_SOURCES}
         dbstoragelayout.hh
-        empty.cc
-        storageid.hh)
+        empty.cc)
 
 target_include_directories(relstorageif PUBLIC ${BASEDB_INCLUDE_DIR})
 target_include_directories(relstorageif PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

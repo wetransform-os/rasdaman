@@ -288,6 +288,9 @@ public:
     /// Return the storage layout of this object
     StorageLayout *getStorageLayout() const;
 
+    /// Set the storage layout of this object
+    void setStorageLayout(const StorageLayout &storageLayout);
+
     /// Override method in NullValuesHandler, in order to set null values to the
     /// underlying database object
     void setUpdateNullValues(r_Nullvalues *newNullValues);

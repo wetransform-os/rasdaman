@@ -107,6 +107,16 @@ DBMDDObj::getDBStorageLayout() const
     return storageLayoutId;
 }
 
+void
+DBMDDObj::setDBStorageLayout(const DBStorageLayoutId &newSL)
+{
+    if (storageLayoutId.getOId() != newSL.getOId())
+    {
+        storageLayoutId = newSL;
+        setModified();
+    }
+}
+
 const char *DBMDDObj::getCellTypeName() const
 {
     return mddType->getBaseType()->getTypeName();
@@ -254,14 +264,25 @@ DBMDDObj::setNullValues(const r_Nullvalues &newNullValues)
     setModified();
 }
 
+void DBMDDObj::commitUpdate()
+{
+    if (isModified())
+    {
+        if (isPersistent())
+        {
+            updateInDb();
+        }
+    }
+}
+
 void DBMDDObj::updateInDb()
 {
     const auto mddoid = myOId.getCounter();
     auto persRefCount3 = persistentRefCount;
 
     SQLiteQuery::execute(fmt::format(
-        "UPDATE RAS_MDDOBJECTS SET PersRefCount = {}, NodeOId = {} WHERE MDDId = {}",
-        persRefCount3, static_cast<long long>(objIxId.getOId()), mddoid));
+        "UPDATE RAS_MDDOBJECTS SET PersRefCount = {}, NodeOId = {}, StorageOId = {} WHERE MDDId = {}",
+        persRefCount3, static_cast<long long>(objIxId.getOId()), static_cast<long long>(storageLayoutId.getOId()), mddoid)); 
 
     if (nullValues != NULL)
     {

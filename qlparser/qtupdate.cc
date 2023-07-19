@@ -27,12 +27,15 @@ rasdaman GmbH.
 #include "qlparser/qtdata.hh"
 #include "qlparser/qtmdd.hh"
 #include "qlparser/qtmintervaldata.hh"
+#include "qlparser/qtinsert.hh"
+#include "qlparser/qtpointdata.hh"
 
 #include "tilemgr/tile.hh"
 #include "tilemgr/tiler.hh"
 #include "storagemgr/sstoragelayout.hh"
 #include "relcatalogif/basetype.hh"
 #include "relcatalogif/mddbasetype.hh"
+#include "relcatalogif/mdddomaintype.hh"
 
 #include "mddmgr/mddobj.hh"
 #include "qtnullvaluesdata.hh"
@@ -48,7 +51,8 @@ QtUpdate::QtUpdate(QtOperation *initUpdateTarget, QtOperation *initUpdateDomain,
     : QtExecute(), input(NULL),
       updateTarget(initUpdateTarget),
       updateDomain(initUpdateDomain),
-      updateSource(initUpdateSource)
+      updateSource(initUpdateSource),
+      stgLayout(NULL)
 {
     if (updateTarget)
     {
@@ -64,12 +68,31 @@ QtUpdate::QtUpdate(QtOperation *initUpdateTarget, QtOperation *initUpdateDomain,
     }
 }
 
+QtUpdate::QtUpdate(QtOperation *storage)
+    : QtExecute(), input(NULL),
+      updateTarget(NULL),
+      updateDomain(NULL),
+      updateSource(NULL),
+      stgLayout(storage)
+{
+    if (stgLayout)
+    {
+        stgLayout->setParent(this);
+    }
+}
+
 QtUpdate::~QtUpdate()
 {
     delete updateTarget;
     delete updateDomain;
     delete updateSource;
     delete input;
+
+    if (stgLayout)
+    {
+        delete stgLayout;
+        stgLayout = NULL;
+    }
 }
 
 QtData *
@@ -109,6 +132,44 @@ QtUpdate::evaluate()
 
         input->close();
     }
+    else if (stgLayout && input)
+    {
+        try
+        {
+            // Open input stream
+            input->open();
+
+            // Retrieve configuration from stgLayout
+            QtMddCfgOp* configOp = static_cast<QtMddCfgOp*>(stgLayout);
+            QtMDDConfig* mddConfig = configOp->getMddConfig();
+
+            // Read all tiles into memory
+            QtNode::QtDataList* nextTuple;
+            while ((nextTuple = input->next()))
+            {
+                repartitionTuple(nextTuple, mddConfig);
+
+                // Delete tuple vector received by next()
+                for (auto it = nextTuple->begin(); it != nextTuple->end(); it++)
+                {
+                    if (*it)
+                    {
+                        (*it)->deleteRef();
+                    }
+                }
+
+                delete nextTuple;
+                nextTuple = NULL;
+            }
+
+            input->close();
+        }
+        catch (...)
+        {
+            input->close();
+            throw;
+        }
+    }
     else
     {
         LERROR << "at least one operand branch is invalid.";
@@ -117,6 +178,117 @@ QtUpdate::evaluate()
     stopTimer();
 
     return 0;
+}
+
+void
+QtUpdate::repartitionTuple(QtNode::QtDataList *nextTuple, QtMDDConfig *mddConfig) {
+    QtMDD* targetMDD = static_cast<QtMDD*>(nextTuple->at(0));
+    MDDObj* targetMDDObj = targetMDD->getMDDObject();
+    const MDDBaseType* mddBaseType = targetMDDObj->getMDDBaseType();
+
+    // Get original tiles
+    std::vector<std::shared_ptr<Tile>>* sourceTiles = targetMDDObj->getTiles();
+
+    // Create a vector of Tile pointers
+    std::vector<Tile *> rawTilePointers;
+    for (const auto& tileSharedPtr : *sourceTiles)
+    {
+        rawTilePointers.push_back(tileSharedPtr.get());
+    }
+    Tile* mergedTile = new Tile(&rawTilePointers);
+
+    // Remove all tiles from targetMDDObj
+    for (auto &tile : *sourceTiles)
+    {
+        targetMDDObj->removeTile(tile);
+    }
+
+    // delete source tile vector
+    delete sourceTiles;
+    sourceTiles = NULL;
+
+    int cellSize = static_cast<int>(targetMDDObj->getMDDBaseType()->getBaseType()->getSize());
+
+    if (mddConfig->getBorderThreshold() < 0)
+    {
+        mddConfig->setBorderThreshold(r_Stat_Tiling::DEF_BORDER_THR);
+    }
+
+    r_Index_Type ri = getIndexType(mddConfig);
+    r_Data_Format dataFormat = getDataFormat(mddConfig);
+    StorageLayout tempStorageLayout;
+    tempStorageLayout.setDataFormat(dataFormat);
+    r_Tiling_Scheme scheme = getTilingScheme(mddConfig);
+    tempStorageLayout.setIndexType(ri);
+    tempStorageLayout.setTilingScheme(scheme);
+    tempStorageLayout.setTileSize((mddConfig != NULL && mddConfig->getTileSize() > 0) ? static_cast<unsigned int>(mddConfig->getTileSize()) : StorageLayout::DefaultTileSize);
+
+    // Additional configuration
+    if (mddConfig != NULL)
+    {
+        tempStorageLayout.setInterestThreshold(mddConfig->getInterestThreshold());
+        tempStorageLayout.setBorderThreshold(static_cast<unsigned int>(mddConfig->getBorderThreshold()));
+        if (mddConfig->getDirDecomp() != NULL)
+        {
+            tempStorageLayout.setDirDecomp(mddConfig->getDirDecomp());
+        }
+        vector<r_Minterval> intervals = getIntervals(mddConfig);
+        tempStorageLayout.setCellSize(cellSize);
+        if (mddConfig->getTilingType() == QtMDDConfig::r_DRLDECOMP_TLG)
+        {
+            tempStorageLayout.resetSubTiling();
+        }
+        else if (mddConfig->getTilingType() == QtMDDConfig::r_DRLDECOMPSUBTILE_TLG)
+        {
+            tempStorageLayout.setSubTiling();
+        }
+        if (intervals.size() > 0)
+        {
+            tempStorageLayout.setBBoxes(intervals);
+        }
+
+        //uadhikari from QtInsert
+        r_Interest_Tiling::Tilesize_Limit AOI_tileSizeControl;
+        switch (mddConfig->getTilingType())
+        {
+        case QtMDDConfig::r_AREAOFINTERESTNOLIMIT_TLG:
+            AOI_tileSizeControl = r_Interest_Tiling::NO_LIMIT;
+            break;
+        case QtMDDConfig::r_AREAOFINTERESTREGROUP_TLG:
+            AOI_tileSizeControl = r_Interest_Tiling::REGROUP;
+            break;
+        case QtMDDConfig::r_AREAOFINTERESTSUBTILING_TLG:
+            AOI_tileSizeControl = r_Interest_Tiling::SUB_TILING;
+            break;
+        case QtMDDConfig::r_AREAOFINTERESTREGROUPANDSUBTILING_TLG:
+            AOI_tileSizeControl = r_Interest_Tiling::REGROUP_AND_SUBTILING;
+            break;
+        default:  //r_AREAOFINTEREST_TLG:
+            AOI_tileSizeControl = r_Interest_Tiling::SUB_TILING;
+            break;
+        }
+        tempStorageLayout.setTilingSizeStrategy_AOI(AOI_tileSizeControl);
+    }
+    r_Dimension sourceDimension = targetMDDObj->getDefinitionDomain().dimension();
+    r_Minterval tileCfg = getTileConfig(mddConfig, cellSize, sourceDimension);
+    std::vector<std::string> trueAxisNames;
+    r_Minterval newDomain = targetMDDObj->getDefinitionDomain();
+    const auto *mddDomainType = dynamic_cast<const MDDDomainType *>(mddBaseType);
+    if (mddDomainType != NULL)
+    {
+        const auto *trueDomain = mddDomainType->getDomain();
+        trueAxisNames = trueDomain->get_axis_names();
+        tileCfg.set_axis_names(trueAxisNames);
+        newDomain.set_axis_names(trueAxisNames);
+    }
+    if (sourceDimension == tileCfg.dimension())
+    {
+        tempStorageLayout.setTileConfiguration(tileCfg);
+    }
+
+    targetMDDObj->setStorageLayout(tempStorageLayout);
+
+    targetMDDObj->insertTile(mergedTile);
 }
 
 void QtUpdate::evaluateTuple(QtNode::QtDataList *nextTuple)
@@ -767,8 +939,288 @@ void QtUpdate::checkType()
             throw parseInfo;
         }
     }
+    else if (stgLayout && input)
+    {
+        QtTypeTuple inputType = input->checkType();
+        // checking for stgLayout can be added here
+    }
     else
     {
         LERROR << "operand branch invalid.";
     }
+}
+
+r_Data_Format
+QtUpdate::getDataFormat(QtMDDConfig *config)
+{
+    if (!config)
+    {
+        return StorageLayout::DefaultDataFormat;
+    }
+    int dataType = config->getStorageType();
+    switch (dataType)
+    {
+    case QtMDDConfig::r_DEFAULT_STG:
+        return StorageLayout::DefaultDataFormat;
+    case QtMDDConfig::r_ARRAY_STG:
+        return r_Array;
+    case QtMDDConfig::r_AUTO_STG:
+        return r_Auto_Compression;
+    case QtMDDConfig::r_BMP_STG:
+        return r_BMP;
+    case QtMDDConfig::r_DEM_STG:
+        return r_DEM;
+    case QtMDDConfig::r_HDF_STG:
+        return r_HDF;
+    case QtMDDConfig::r_NETCDF_STG:
+        return r_NETCDF;
+    case QtMDDConfig::r_GDAL_STG:
+        return r_GDAL;
+    //        case QtMDDConfig::r_HDF5_STG://need review
+    //            return r_HDF;
+    case QtMDDConfig::r_JPEG_STG:
+        return r_JPEG;
+    case QtMDDConfig::r_NITF_STG:
+        return r_NITF;
+    case QtMDDConfig::r_PACKBITS_STG:
+        return r_Pack_Bits;
+    case QtMDDConfig::r_PNG_STG:
+        return r_PNG;
+    case QtMDDConfig::r_PPM_STG:
+        return r_PPM;
+    case QtMDDConfig::r_RLE_STG:
+        return r_RLE;
+    case QtMDDConfig::r_RLESEP_STG:
+        return r_Sep_RLE;
+    case QtMDDConfig::r_TIFF_STG:
+        return r_TIFF;
+    case QtMDDConfig::r_WLTCOIFLETINT_STG:
+        if (config->getWltValue() == 6)
+        {
+            return r_Wavelet_Coiflet6;
+        }
+        if (config->getWltValue() == 12)
+        {
+            return r_Wavelet_Coiflet12;
+        }
+        if (config->getWltValue() == 18)
+        {
+            return r_Wavelet_Coiflet18;
+        }
+        if (config->getWltValue() == 24)
+        {
+            return r_Wavelet_Coiflet24;
+        }
+        if (config->getWltValue() == 30)
+        {
+            return r_Wavelet_Coiflet30;
+        }
+        return StorageLayout::DefaultDataFormat;  //may be null
+    case QtMDDConfig::r_WLTDAUBECHIES_STG:
+        return r_Wavelet_Daubechies;
+    case QtMDDConfig::r_WLTDAUBECHIESINT_STG:
+        if (config->getWltValue() == 6)
+        {
+            return r_Wavelet_Daub6;
+        }
+        if (config->getWltValue() == 8)
+        {
+            return r_Wavelet_Daub8;
+        }
+        if (config->getWltValue() == 10)
+        {
+            return r_Wavelet_Daub10;
+        }
+        if (config->getWltValue() == 12)
+        {
+            return r_Wavelet_Daub12;
+        }
+        if (config->getWltValue() == 14)
+        {
+            return r_Wavelet_Daub14;
+        }
+        if (config->getWltValue() == 16)
+        {
+            return r_Wavelet_Daub16;
+        }
+        if (config->getWltValue() == 18)
+        {
+            return r_Wavelet_Daub18;
+        }
+        if (config->getWltValue() == 20)
+        {
+            return r_Wavelet_Daub20;
+        }
+        return StorageLayout::DefaultDataFormat;  //may be default
+    case QtMDDConfig::r_WLTHAAR_STG:
+        return r_Wavelet_Haar;
+    case QtMDDConfig::r_WLTLEASTINT_STG:
+        if (config->getWltValue() == 8)
+        {
+            return r_Wavelet_Least8;
+        }
+        if (config->getWltValue() == 10)
+        {
+            return r_Wavelet_Least10;
+        }
+        if (config->getWltValue() == 12)
+        {
+            return r_Wavelet_Least12;
+        }
+        if (config->getWltValue() == 14)
+        {
+            return r_Wavelet_Least14;
+        }
+        if (config->getWltValue() == 16)
+        {
+            return r_Wavelet_Least16;
+        }
+        if (config->getWltValue() == 18)
+        {
+            return r_Wavelet_Least18;
+        }
+        if (config->getWltValue() == 20)
+        {
+            return r_Wavelet_Least20;
+        }
+    case QtMDDConfig::r_WLTQHAAR_STG:
+        return r_Wavelet_QHaar;
+    case QtMDDConfig::r_ZLIB_STG:
+        return r_ZLib;
+    case QtMDDConfig::r_ZLIBSEP_STG:
+        return r_Sep_ZLib;
+    default:
+        return StorageLayout::DefaultDataFormat;
+    }
+}
+
+r_Index_Type
+QtUpdate::getIndexType(QtMDDConfig *config)
+{
+    if (!config)
+    {
+        return StorageLayout::DefaultIndexType;
+    }
+    int indexType = config->getIndexType();
+
+    switch (indexType)
+    {
+    case QtMDDConfig::r_A_INDEX:
+        return r_Auto_Index;
+    case QtMDDConfig::r_DEFAULT_INDEX:
+        return StorageLayout::DefaultIndexType;
+    case QtMDDConfig::r_D_INDEX:
+        return r_Directory_Index;
+    case QtMDDConfig::r_IT_INDEX:
+        return r_Index_Type_NUMBER;
+    case QtMDDConfig::r_RC_INDEX:
+        return r_Reg_Computed_Index;
+    case QtMDDConfig::r_RD_INDEX:
+        return r_Reg_Directory_Index;
+    case QtMDDConfig::r_RPT_INDEX:
+        return r_RPlus_Tree_Index;
+    case QtMDDConfig::r_RRPT_INDEX:
+        return r_Reg_RPlus_Tree_Index;
+    case QtMDDConfig::r_TC_INDEX:
+        return r_Tile_Container_Index;
+    default:
+        return StorageLayout::DefaultIndexType;
+    }
+}
+
+r_Tiling_Scheme
+QtUpdate::getTilingScheme(QtMDDConfig *cfg)
+{
+    if (!cfg)
+    {
+        return StorageLayout::DefaultTilingScheme;
+    }
+    int tileType = cfg->getTilingType();
+    switch (tileType)
+    {
+    case QtMDDConfig::r_ALIGNED_TLG:
+        return r_AlignedTiling;
+    case QtMDDConfig::r_AREAOFINTEREST_TLG:
+        return r_InterestTiling;
+    case QtMDDConfig::r_AREAOFINTERESTNOLIMIT_TLG:
+        return r_InterestTiling;
+    case QtMDDConfig::r_AREAOFINTERESTREGROUP_TLG:
+        return r_InterestTiling;
+    case QtMDDConfig::r_AREAOFINTERESTSUBTILING_TLG:
+        return r_InterestTiling;
+    case QtMDDConfig::r_AREAOFINTERESTREGROUPANDSUBTILING_TLG:
+        return r_InterestTiling;
+    case QtMDDConfig::r_REGULAR_TLG:
+        return r_RegularTiling;
+    case QtMDDConfig::r_DRLDECOMPSUBTILE_TLG:
+        return r_DirectionalTiling;
+    case QtMDDConfig::r_DRLDECOMP_TLG:
+        return r_DirectionalTiling;
+    case QtMDDConfig::r_STATISTICSPARAM_TLG:
+        return r_StatisticalTiling;
+    case QtMDDConfig::r_STATISTICS_TLG:
+        return r_StatisticalTiling;
+
+    default:
+        return StorageLayout::DefaultTilingScheme;
+    }
+}
+
+vector<r_Minterval>
+QtUpdate::getIntervals(QtMDDConfig *cfg)
+{
+    vector<r_Minterval> intervals;
+    if (!cfg)
+    {
+        return intervals;
+    }
+    QtNode::QtOperationList *oplist = cfg->getBboxList();
+    if (!oplist)
+    {
+        return intervals;
+    }
+    QtNode::QtDataList *nextTuple = new QtNode::QtDataList(0);
+    QtOperationList::iterator iter;
+    for (iter = oplist->begin(); iter != oplist->end(); iter++)
+    {
+        QtData *data = (*iter)->evaluate(nextTuple);
+        QtMintervalData *intervalData = static_cast<QtMintervalData *>(data);
+        r_Minterval interval = intervalData->getMintervalData();
+        intervals.push_back(interval);
+    }
+    return intervals;
+}
+
+r_Minterval
+QtUpdate::getTileConfig(QtMDDConfig *cfg, int baseTypeSize, r_Dimension sourceDimension)
+{
+    r_Minterval tileConfig;
+
+    if (!cfg || !(cfg->getTilingType() == QtMDDConfig::r_ALIGNED_TLG ||
+                  cfg->getTilingType() == QtMDDConfig::r_REGULAR_TLG))
+    {
+        return (StorageLayout::getDefaultTileCfg(baseTypeSize, sourceDimension));
+    }
+
+    QtOperation *op = cfg->getTileCfg();
+    if (!op)
+    {
+        return tileConfig;
+    }
+    QtNode::QtDataList *nextTuple = new QtNode::QtDataList(0);
+    QtData *data = op->evaluate(nextTuple);
+    if (data->getDataType() == QT_MINTERVAL)
+    {
+        QtMintervalData *intervalData = static_cast<QtMintervalData *>(data);
+        tileConfig = intervalData->getMintervalData();
+    }
+    else if (data->getDataType() == QT_POINT)
+    {
+        QtPointData *intervalData = static_cast<QtPointData *>(data);
+        const auto &point = intervalData->getPointData();
+        tileConfig = r_Minterval::fromPoint(point);
+    }
+    delete data;
+    delete nextTuple;
+    return tileConfig;
 }

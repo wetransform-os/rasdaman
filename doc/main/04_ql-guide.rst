@@ -5579,6 +5579,55 @@ effect ``[5:7,100:200,0:100]``: ::
 
 The sdom of Coll is now ``[0:10,100:200,0:100]``.
 
+.. _sec-update-tiling:
+
+Tiling Update
+-------------
+
+The **update** statement in rasdaman offers the functionality to modify the tiling configuration of MDD objects within a collection. This manipulation can be applied overall to all MDDs in a collection, or selectively, by using the **where** clause to affect specific arrays.
+
+
+Syntax
+^^^^^^
+
+The syntax for the **update** operation involving tiling is as follows:
+
+::
+
+    update collName as collIterator
+    mddConfiguration
+
+    update collName as collIterator
+    mddConfiguration
+    where generalExp
+
+Each element of the set *collName* which fulfils the selection predicate *booleanEpxr* (or all elements in the absence of the **where** clause) is retiled based on the tiling configuration specified in *mddConfiguration*. 
+
+Examples
+^^^^^^^^
+
+The following examples demonstrate the usage of the **update** statement for tiling.
+
+1. To update the tiling configuration of all MDDs in a collection, you can use:
+
+::
+
+    update MyCollection
+    tiling
+        area of interest [0:20,0:40],[45:80,80:85]
+        tile size 1000000
+
+2. To update the tiling configuration of selected MDDs in a collection based on a condition, you can use:
+
+::
+
+    update MyCollection
+    tiling
+        regular [ 256 : 256 ]
+    where oid( MyCollection ) = 337
+
+For additional details on tiling, different tiling methods and how to work with tiling configurations, refer to the :ref:`storage-layout` of the documentation.
+
 .. _sec-delete:
 
 Delete
@@ -6111,7 +6160,7 @@ appearance.
 **Example**
 
 The following defines a directional tiling with split vectors (0; 512;
-1024) and (0; 15; 200) for axes 0 and 2, respectively, with dimension 1
+1)    and (0; 15; 200) for axes 0 and 2, respectively, with dimension 1
 as a pre­ferred axis: ::
 
     tiling directional [0,512,1024], [], [0,15,200]

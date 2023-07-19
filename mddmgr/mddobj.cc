@@ -43,8 +43,9 @@ rasdaman GmbH.
 #include "relblobif/tileid.hh"          // for DBTileId
 #include "relcatalogif/basetype.hh"     // for BaseType
 #include "relcatalogif/mddbasetype.hh"  // for MDDBaseType
+#include "reladminif/dbref.hh"
+#include "relstorageif/dbstoragelayout.hh" // for DBStorageLayoutId
 #include "relmddif/dbmddobj.hh"         // for DBMDDObj
-#include "relstorageif/storageid.hh"    // for DBStorageLayoutId
 #include "raslib/error.hh"              // for r_Error, MDDTYPE_NULL, LAYOUTALGO...
 #include "raslib/mddtypes.hh"           // for r_Ptr, r_Dimension, r_Directory_I...
 #include "raslib/sinterval.hh"          // for r_Sinterval
@@ -431,6 +432,21 @@ void MDDObj::releaseTiles()
 StorageLayout *MDDObj::getStorageLayout() const
 {
     return myStorageLayout;
+}
+
+void MDDObj::setStorageLayout(const StorageLayout &newStorageLayout)
+{
+    myStorageLayout = new StorageLayout(newStorageLayout);
+    myStorageLayout->getDBStorageLayout().ptr()->setPersistent(true);
+    const MDDBaseType *mddType = myDBMDDObj->getMDDBaseType();
+    const r_Minterval &domain = myDBMDDObj->getDefinitionDomain();
+
+    myMDDIndex = new MDDObjIx(*myStorageLayout, checkStorage(domain), mddType->getBaseType());
+    myMDDIndex->getDBMDDObjIxId().ptr()->setPersistent(true);
+    DBMDDObj* DBMDDObjToChange = myDBMDDObj.ptr();
+    DBMDDObjToChange->setDBStorageLayout(newStorageLayout.getDBStorageLayout());
+    DBMDDObjToChange->setIx(myMDDIndex->getDBMDDObjIxId());
+    DBMDDObjToChange->commitUpdate();
 }
 
 void MDDObj::setUpdateNullValues(r_Nullvalues *newNullValues)

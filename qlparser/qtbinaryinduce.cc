@@ -21,6 +21,7 @@ rasdaman GmbH.
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
+#include "catalogmgr/ops.hh"
 #include "config.h"
 
 #include "qlparser/qtbinaryinduce.hh"
@@ -31,8 +32,10 @@ rasdaman GmbH.
 
 #include "mddmgr/mddobj.hh"
 
+#include <cstddef>
 #include <logging.hh>
 
+#include "raslib/minterval.hh"
 #include "relcatalogif/typefactory.hh"
 #include "relcatalogif/mdddomaintype.hh"
 #include "relcatalogif/basetype.hh"
@@ -69,7 +72,7 @@ QtBinaryInduce::computeOp(QtData *operand1, QtData *operand2)
         BinaryOp *myOp = Ops::getBinaryOp(opType, resultBaseType, op1->getCellType(), op2->getCellType());
         try
         {
-            returnValue = computeBinaryMDDOp(mdd1, mdd2, resultBaseType, myOp);
+            returnValue = computeBinaryMDDOp(mdd1, mdd2, resultBaseType, myOp, &opType);
         }
         catch (int errcode)
         {
@@ -221,7 +224,7 @@ QtBinaryInduce::computeUnaryMDDOp(QtMDD *operand1, QtScalarData *operand2, const
 }
 
 QtData *
-QtBinaryInduce::computeBinaryMDDOp(QtMDD *operand1, QtMDD *operand2, const BaseType *resultBaseType, BinaryOp *myOp)
+QtBinaryInduce::computeBinaryMDDOp(QtMDD *operand1, QtMDD *operand2, const BaseType *resultBaseType, BinaryOp *myOp, Ops::OpType *opType)
 {
     QtData *returnValue = NULL;
     // get the MDD objects
@@ -298,6 +301,31 @@ QtBinaryInduce::computeBinaryMDDOp(QtMDD *operand1, QtMDD *operand2, const BaseT
                                                               areaOp1, resultBaseType, myOp, false, capturedErrCode);
                 for (const auto &tile: currResTiles)
                     mddres->insertTile(tile);
+            }
+        }
+
+        if (!mddres->getTiles() || mddres->getTiles()->empty())
+        {
+            if (*opType == Ops::OP_OVERLAY)
+            {
+                constexpr auto insertAllTiles = [](const auto &vec, auto &mdd)
+                {
+                    for (size_t i = 0; i < vec->size(); i++)
+                    {
+                        auto tile = vec->at(i);
+                        mdd->insertTile(tile);
+                    }
+                };
+                auto allTilesOp2(op2->intersect(areaOp2));
+                insertAllTiles(allTilesOp1, mddres);
+                insertAllTiles(allTilesOp2, mddres);
+            }
+            else
+            {
+                Tile *emtpyTile = new Tile(areaOp1, resultBaseType);
+                emtpyTile->setPersistent(false);
+                mddres->fillTileWithNullvalues(emtpyTile->getContents(), emtpyTile->getDomain().cell_count());
+                mddres->insertTile(emtpyTile);
             }
         }
 

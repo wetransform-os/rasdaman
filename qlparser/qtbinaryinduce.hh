@@ -23,6 +23,7 @@ rasdaman GmbH.
 #ifndef _QTBINARYINDUCE_
 #define _QTBINARYINDUCE_
 
+#include <cstddef>
 #include <string>
 
 #include "qlparser/qtbinaryoperation.hh"
@@ -55,7 +56,7 @@ public:
     virtual const QtTypeElement &checkType(QtTypeTuple *typeTuple = NULL);
 
     /// computes a binary induce operation on two MDD objects
-    static QtData *computeBinaryMDDOp(QtMDD *operand1, QtMDD *operand2, const BaseType *resultBaseType, BinaryOp *myOp);
+    static QtData *computeBinaryMDDOp(QtMDD *operand1, QtMDD *operand2, const BaseType *resultBaseType, BinaryOp *myOp, Ops::OpType* opType = nullptr);
     static std::vector<std::shared_ptr<Tile>> computeBinaryMDDOpOneTile(
         const std::shared_ptr<Tile> &tileOp1, const std::unique_ptr<std::vector<std::shared_ptr<Tile>>> &tileOp2,
         const r_Point &offset12, const r_Point &offset21, const r_Minterval &areaOp1,

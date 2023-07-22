@@ -9,7 +9,7 @@
 </ContactPersonPrimary>
 <ContactPosition>Project Leader</ContactPosition>
 <ContactAddress>
-<AddessType>postal</AddessType>
+<AddressType>postal</AddressType>
 <Address>Campus Ring 1</Address>
 <City>Bremen</City>
 <StateOrProvince>Bremen</StateOrProvince>
@@ -33,9 +33,9 @@
 </DCPType>
 </GetCapabilities>
 <GetMap>
-<Format>image/jpeg</Format>
 <Format>image/png</Format>
 <Format>image/tiff</Format>
+<Format>image/jpeg</Format>
 <DCPType>
 <HTTP>
 <Get>

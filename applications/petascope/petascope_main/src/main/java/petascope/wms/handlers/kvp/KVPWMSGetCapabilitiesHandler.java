@@ -23,6 +23,7 @@ package petascope.wms.handlers.kvp;
 
 import org.rasdaman.domain.cis.Axis;
 import org.rasdaman.domain.cis.AxisExtent;
+import org.rasdaman.domain.wms.*;
 import petascope.core.response.Response;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -43,12 +44,6 @@ import org.rasdaman.domain.owsmetadata.OwsServiceMetadata;
 import org.rasdaman.domain.owsmetadata.Phone;
 import org.rasdaman.domain.owsmetadata.ServiceIdentification;
 import org.rasdaman.domain.owsmetadata.ServiceProvider;
-import org.rasdaman.domain.wms.Dimension;
-import org.rasdaman.domain.wms.EXGeographicBoundingBox;
-import org.rasdaman.domain.wms.Layer;
-import org.rasdaman.domain.wms.LayerAttribute;
-import org.rasdaman.domain.wms.LegendURL;
-import org.rasdaman.domain.wms.Style;
 import org.rasdaman.domain.wms.Style.ColorTableType;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.rasdaman.repository.service.OWSMetadataRepostioryService;
@@ -248,6 +243,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         Element contactPersonElement = new Element(XMLSymbols.LABEL_WMS_CONTACT_PERSON, NAMESPACE_WMS);
         contactPersonElement.appendChild(serviceProvider.getServiceContact().getIndividualName());
         contactPersonPrimaryElement.appendChild(contactPersonElement);
+
         // ContactOrganization
         Element contactOrganizationElement = new Element(XMLSymbols.LABEL_WMS_CONTACT_ORGANIZATION, NAMESPACE_WMS);
         contactOrganizationElement.appendChild(serviceProvider.getProviderName());
@@ -363,7 +359,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         Element getMapElement = new Element(XMLSymbols.LABEL_WMS_GET_MAP, NAMESPACE_WMS);
         requestElement.appendChild(getMapElement);
         
-        List<String> formats = Arrays.asList("image/jpeg", "image/png", "image/tiff");
+        List<String> formats = Arrays.asList(MIMEUtil.MIME_PNG, MIMEUtil.MIME_TIFF, MIMEUtil.MIME_JPEG);
         for (String format : formats) {
             Element formatElementTmp = new Element(XMLSymbols.LABEL_WMS_FORMAT, NAMESPACE_WMS);
             formatElementTmp.appendChild(format);
@@ -412,12 +408,17 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         capabilityElement.appendChild(layerElement);
         
         Element titleElement = new Element(XMLSymbols.LABEL_WMS_TITLE, NAMESPACE_WMS);
-        titleElement.appendChild("asdaman Web Map Service");
+        titleElement.appendChild("rasdaman Web Map Service");
         Element abstractElement = new Element(XMLSymbols.LABEL_WMS_ABSTRACT, NAMESPACE_WMS);
         abstractElement.appendChild("A compliant implementation of WMS 1.3.0 for raster data");
         
         layerElement.appendChild(titleElement);
         layerElement.appendChild(abstractElement);
+
+        // <!-- all layers are available in at least this CRS -->
+        Element wgs84CrsElement = new Element(XMLSymbols.LABEL_WMS_CRS, NAMESPACE_WMS);
+        wgs84CrsElement.appendChild(CrsUtil.WMS_WGS84_CRS);
+        layerElement.appendChild(wgs84CrsElement);
         
         this.buildLayerElements(layerElement);
         
@@ -481,9 +482,10 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
 
         // Abstract
         Element abstractElement = new Element(XMLSymbols.LABEL_WMS_ABSTRACT, NAMESPACE_WMS);
-        String layerAbstract = layer.getLayerAbstract();        
-        abstractElement.appendChild(layerAbstract);
-        layerElement.appendChild(abstractElement);
+        String layerAbstract = layer.getLayerAbstract();
+        if (layerAbstract == null) {
+            layerAbstract = "";
+        }
         
         Coverage coverage = this.coverageRepositoryService.readCoverageFromLocalCache(layer.getName());
         try {
@@ -491,16 +493,20 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
             if (coverage != null) {
                 Element customizedMetadataElement = this.wcsGMLGetCapabilitiesBuild.createCustomizedCoverageMetadataElement(coverage);
                 if (customizedMetadataElement != null) {
-                    layerElement.appendChild(customizedMetadataElement);
+                    // Add these rasdaman proprietary extra metadata is not valid in XML schema -> add it under <Abstract> element of <Layer> element
+                    layerAbstract += "\n" + XMLUtil.enquoteCDATA(customizedMetadataElement.toXML());
                 }
             }
         } catch (PetascopeException ex) {
             if (ex.getExceptionCode().equals(ExceptionCode.NoSuchCoverage)) {
                 // The associated coverage with the layer was changed, log an warning instead of throwing exception
-                log.warn("Coverage associated with the layer: " + layer.getName() + " doees not exist.");
+                log.warn("Coverage associated with the layer: " + layer.getName() + " does not exist.");
                 return null;
             }
         }
+
+        abstractElement.appendChild(layerAbstract);
+        layerElement.appendChild(abstractElement);
 
         // KeywordList
         if (layer.getKeywordList().size() > 0) {
@@ -523,6 +529,10 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         // BoundingBox (Current only contain one bounding box for geo XY axes)
         // NOTE: WMS 1.3 use the order from CRS (e.g: CRS:4326, order is Lat, Long, CRS:3857, order is E, N)
         // @TODO: If layer has multiple bboxes (!)
+        BoundingBox crs84BBox = new BoundingBox(CrsUtil.WMS_WGS84_CRS,
+                                            wgs84BBox.getMinLong().toPlainString(), wgs84BBox.getMinLat().toPlainString(),
+                                            wgs84BBox.getMaxLong().toPlainString(), wgs84BBox.getMaxLat().toPlainString());
+        layerElement.appendChild(crs84BBox.getElement());
         layerElement.appendChild(layer.getBoundingBoxes().get(0).getElement());
 
         // Dimension (Current not support yet)
@@ -591,7 +601,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         styleElement.appendChild(abstractElement);
 
         if (style.getLegendURL() != null) {
-            styleElement.appendChild(this.buildLegendURLElement(style));
+            styleElement.appendChild(this.buildLegendURLElement(style, styleNamepsace));
         }
 
         return styleElement;
@@ -688,18 +698,18 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
      /**
      * If a style has legendURL then it shows in WMS GetCapabilities
      */
-    private Element buildLegendURLElement(Style style) {
+    private Element buildLegendURLElement(Style style, String styleNamepsace) {
         LegendURL legendURL = style.getLegendURL();
         
-        Element legendURLElement = new Element(XMLSymbols.LABEL_WMS_LEGEND_URL);
+        Element legendURLElement = new Element(XMLSymbols.LABEL_WMS_LEGEND_URL, styleNamepsace);
         
         // Format (required)
-        Element formatElement = new Element(XMLSymbols.LABEL_WMS_FORMAT);
+        Element formatElement = new Element(XMLSymbols.LABEL_WMS_FORMAT, styleNamepsace);
         formatElement.appendChild(legendURL.getFormat());
         legendURLElement.appendChild(formatElement);
         
         // OnlineResource (required)
-        Element onlineResourceElement = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE);
+        Element onlineResourceElement = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE, styleNamepsace);
         
         // e.g. https://localhost:8080/rasdaman/ows?service=WMS&request=GetLegendGraphic&format=image%2Fpng&width=20&height=20&layer=ne%3Ane
         String getLegendGraphicURL = StringUtil.escapeAmpersands(legendURL.getOnlineResourceURL());

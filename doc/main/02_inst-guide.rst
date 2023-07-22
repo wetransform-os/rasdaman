@@ -708,11 +708,11 @@ Ubuntu 20.04
     # To run Java components
     $ sudo apt install default-jre-headless libgdal-java tomcat9
 
-    # To run wcst_import.sh; it is recommended to install Python 3.6
+    # To run wcst_import.sh; it is recommended to install at least Python 3.6
     $ pip3 install --user jsonschema python-dateutil lxml \
-      pyproj pygrib numpy netCDF4==1.2.7 GDAL==2.2.3
+                          pyproj pygrib numpy netCDF4==1.3.1 GDAL==3.0.4
     # To run rasdapy
-    $ pip3 install --user grpcio==1.9.0 protobuf==3.6.1
+    $ pip3 install --user grpcio==1.30.0 protobuf==3.6.1
 
     # To run systemtest
     $ sudo apt install bc vim-common valgrind netcdf-bin libpython3-dev

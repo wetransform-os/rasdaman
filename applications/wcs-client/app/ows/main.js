@@ -5349,7 +5349,7 @@ var wms;
 var wms;
 (function (wms) {
     var Capabilities = (function () {
-        function Capabilities(source, gmlDocument) {
+        function Capabilities(serializedObjectFactory, source, gmlDocument) {
             var _this = this;
             this.totalLocalLayerSizesInBytes = 0;
             this.totalRemoteLayerSizesInBytes = 0;
@@ -5388,7 +5388,12 @@ var wms;
                     var name = obj.getChildAsSerializedObject("Name").getValueAsString();
                     var title = obj.getChildAsSerializedObject("Title").getValueAsString();
                     var abstract = obj.getChildAsSerializedObject("Abstract").getValueAsString();
-                    var customizedMetadata = _this.parseLayerCustomizedMetadata(obj);
+                    var startingElement = "<ows:AdditionalParameters";
+                    var endingElement = "</ows:AdditionalParameters>";
+                    var rasdamanAdditionalMetadataStr = abstract.substring(abstract.indexOf(startingElement), abstract.indexOf(endingElement) + endingElement.length).trim();
+                    var gmlDocument = new rasdaman.common.ResponseDocument(rasdamanAdditionalMetadataStr, rasdaman.common.ResponseDocumentType.XML);
+                    var addionalParametersSource = serializedObjectFactory.getSerializedObject(gmlDocument);
+                    var customizedMetadata = _this.parseLayerCustomizedMetadata(addionalParametersSource);
                     if (customizedMetadata != null) {
                         if (customizedMetadata.hostname != null) {
                             _this.showLayerLocationsColumn = true;
@@ -5429,10 +5434,10 @@ var wms;
             }
         }
         Capabilities.prototype.parseLayerCustomizedMetadata = function (source) {
-            var childElement = "ows:AdditionalParameters";
+            var childElement = "ows:AdditionalParameter";
             var customizedMetadata = null;
             if (source.doesElementExist(childElement)) {
-                customizedMetadata = new ows.CustomizedMetadata(source.getChildAsSerializedObject(childElement));
+                customizedMetadata = new ows.CustomizedMetadata(source);
             }
             return customizedMetadata;
         };
@@ -5906,7 +5911,7 @@ var rasdaman;
                 try {
                     var gmlDocument = new rasdaman.common.ResponseDocument(data.data, rasdaman.common.ResponseDocumentType.XML);
                     var serializedResponse = self.serializedObjectFactory.getSerializedObject(gmlDocument);
-                    var capabilities = new wms.Capabilities(serializedResponse, gmlDocument.value);
+                    var capabilities = new wms.Capabilities(self.serializedObjectFactory, serializedResponse, gmlDocument.value);
                     var response = new rasdaman.common.Response(gmlDocument, capabilities);
                     result.resolve(response);
                 }

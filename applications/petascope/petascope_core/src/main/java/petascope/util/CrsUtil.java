@@ -152,6 +152,8 @@ public class CrsUtil {
 
     // WGS84
     public static final String WGS84_EPSG_CODE = "4326";
+    // Used only for WMS
+    public static final String WMS_WGS84_CRS = "CRS:84";
 
     // e.g: <identifier>http://localhost:8080/def/crs/EPSG/0/4326</identifier>
     public static final String SECORE_IDENTIFIER_PATTERN = "<identifier>(.+?)</identifier>";
@@ -1531,6 +1533,10 @@ public class CrsUtil {
                 }
             }
         }
+    }
+
+    public static boolean isCRS84(String crs) {
+        return WMS_WGS84_CRS.equalsIgnoreCase(crs);
     }
 
     /**

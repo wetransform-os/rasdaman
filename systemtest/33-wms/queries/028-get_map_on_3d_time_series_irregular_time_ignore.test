@@ -8,3 +8,4 @@ height=60&
 styles=&
 crs=EPSG:4326&
 format=image/png
+&TRANSPARENT=TRUE

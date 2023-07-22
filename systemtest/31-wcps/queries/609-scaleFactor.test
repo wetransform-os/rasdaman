@@ -1,0 +1,2 @@
+for c in (test_mr)
+return encode( scale(c, { 1.5  }) , "jpeg")

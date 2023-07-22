@@ -106,9 +106,15 @@ documentation. This is a short guide on how to do this.
 Getting started
 ===============
 
-1. Install dependencies ::
+1. Install dependencies
 
-    $ sudo pip install -U sphinx sphinx_rtd_theme
+   - On Ubuntu 22.04 and later: ::
+
+        $ sudo apt install python3-sphinx python3-sphinx-rtd-theme
+
+   - On Ubuntu 20.04 or earlier: ::
+
+        $ sudo pip install -U sphinx sphinx_rtd_theme
 
 2. Main documentation can be found in ``doc/main`` (``*.rst`` files).
 
@@ -643,8 +649,8 @@ experienced C++ programmers.
     debugging, and ``-DCMAKE_BUILD_TYPE=Release`` for benchmarking (and
     production deployment).
 
-Debuging rasserver
-------------------
+Debuging a running server
+-------------------------
 
 In *rasnet* (the default network protocol), in order to attach to the ``rasserver``
 process (with e.g. ``gdb -p <pid>``) it is necessary to increase the values of
@@ -662,25 +668,24 @@ purpose. Then, attach to the pid: ::
 
     $ gdb -p <pid>
 
-Debugging directql
-------------------
+Debugging a query directly
+--------------------------
 
-When not debugging the network protocol, it's recommended to use ``directql``.
-``directql`` has the same interface as ``rasql``, with an important behind the
-scenes difference: it is a fully fledged ``rasserver`` itself actually, so
-it doesn't need to go through the client protocol. This makes it ideal
-for running tools like ``gdb``, ``valgrind``, etc.
+When not debugging the network protocol, it's recommended to invoke
+``rasserver`` itself directly, instead of via the network protocol with
+``rasql``. ``rasserver`` has a similar interface as ``rasql``, and it is ideal
+for easily running tools like ``gdb``, ``valgrind``, etc.
 
-When executing directql, use the same parameters as for rasql, but add
+In this case use the same parameters as for rasql, but add
 ``-d /opt/rasdaman/data/RASBASE`` (or substitute that to whatever is the
--connect value in ``rasmgr.conf``).
+``-connect`` value in ``rasmgr.conf``).
 
 Example with gdb:
 
 .. code-block:: text
 
-    $ gdb --args directql -q 'query that causes a segfault' \
-                          --out file -d /opt/rasdaman/data/RASBASE
+    $ gdb --args rasserver -q 'query that causes a segfault' \
+                           --out file -d /opt/rasdaman/data/RASBASE
     ...
     > run
     ...
@@ -695,8 +700,8 @@ Valgrind can be used to detect uninitialized values, memory errors, and
 memory leaks, e.g. ::
 
     $ valgrind --leak-check=full --track-origins=yes \
-               directql -q 'query that causes memory problems' \
-                        --out file -d /opt/rasdaman/data/RASBASE
+               rasserver -q 'query that causes memory problems' \
+                         --out file -d /opt/rasdaman/data/RASBASE
 
 
 Memory debugging with AddressSanitizer
@@ -727,8 +732,8 @@ more-verbose logging. E.g. in your build directory ::
     $ make
     $ make install
 
-You may, optionally, alter settings in $RMANHOME/etc/log-client.conf and
-$RMANHOME/etc/log-server.conf to enable various other logging
+You may, optionally, alter settings in ``$RMANHOME/etc/log-client.conf`` and
+``$RMANHOME/etc/log-server.conf`` to enable various other logging
 parameters, e.g. DEBUG and TRACE for extra verbose output in the logs.
 
 
@@ -765,56 +770,44 @@ The 1-D internal\_array (in code) corresponds to external\_array (in rasql):
 Adding Tests
 ************
 
-**TODO**: this is somewhat outdated and incomplete.
-
 The rasdaman source tree comes with integration tests ("systemtest" for
 historical reasons) and unit tests (in each component directory ``X`` there is a
 subdirectory ``X/test/``). To run the integration test: ::
 
-        $ cd systemtest
+        $ cd rasdaman-build-dir
         $ make check
 
 After your patch submission, the patchmanager will automatically run the
 systemtest in a sandbox; the result will be flagged in the patchmanager table
-for each patch submitted. Allow some time (usually 1.5 hours) until the result
+for each patch submitted. Allow some time (usually one hour) until the result
 gets visible. Patches which do not pass systemtest will be rejected without
 further inspection.
 
-``make check`` will automatically find all tests in the four test case
-directories, specifically, testcases\_mandatory, testcases\_petascope,
-testcases\_fixed and testcases\_open.
-
-1. whenever a bug is found, a corresponding test should be created in the testcases\_open directory;
-2. when the bug is fixed, the test should be moved to the testcases\_fixed directory;
-3. testcases\_services holds the test cases for petascope and secore;
-4. testcases\_mandatory holds the test cases for rasql typically.
+``make check`` will automatically execute all test.sh / test.py scripts it finds
+in the ``systemtest/`` directory. These tests are distributes across multiple
+directory named ``NN-<name>``, where NN is some number.
 
 Each test should have a folder which is inside one of the above mentioned
-directories, by convention named ``test_X``, e.g. ``test_select``. The test
-should be executed by a shell script inside the folder; its exit code indicates
-whether the test passed (0) or failed (non-0). Details of the test execution
-should be logged in the same folder. In ``systemtest/util`` there are various
-bash utility functions that can be used in the test scripts, e.g. for logging,
-checking result, etc.
+directories,. The test should be executed by a shell script inside the folder;
+its exit code indicates whether the test passed (0) or failed (non-0). Details
+of the test execution should be logged in the same folder. In
+``systemtest/util`` there are various bash utility functions that can be used
+in the test scripts, e.g. for logging, checking result, etc.
 
 Add a rasql test query
 ======================
 
-1. save the test query as ``systemtest/test_mandatory/test_select/queries/<queryName>.rasql``
-2. save the expected query result file in ``systemtest/test_mandatory/test_select/oracle/<queryName>.oracle``
+1. save the test query as ``systemtest/00-select/queries/<queryName>.rasql``
+2. save the expected query result file in ``systemtest/00-select/oracle/<queryName>.oracle``
 
-To generate a test oracle:
+To generate a test oracle you can just run the test, which produces results in
+the ``output`` directory, and then copy the corresponding result to the oracle
+directory with a ``.oracle`` extension. Make sure to validate the correctness
+of the oracle before adding to the systemtest.
 
-1. if the result is a scalar, run ::
-
-        rasql -q  "<query>" --out string | grep Result > <queryName>.oracle
-
-2. if the result is an array, run ::
-
-        rasql -q  "<query>" --out file --outfile <queryName>.oracle
-
-Make sure to validate the correctness of the oracle before adding
-to the systemtest.
+A single test query can usually be executed with ``./test.sh <queryName>.rasql``
+To avoid reimporting the testdata every time, you can execute the test with
+a ``--no-ingest`` option.
 
 If a query is *known to fail* and documented by a ticket, it can be marked
 in the systemtest, so that the result of that query is *SKIPPED*, rather
@@ -825,30 +818,13 @@ put each query file name in a single line in this file.
 Add a petascope test
 ====================
 
-The scripts for WMS, WCS and WCPS testing can be found respectively in:
-
-* ``rasdaman/systemtest/testcases_services/test_wcps``
-* ``rasdaman/systemtest/testcases_services/test_wcs``
-* ``rasdaman/systemtest/testcases_services/test_wms``
-
-To run a specific test (besides ``make check`` that runs the whole systemtest),
-go to the directory and execute ::
-
-        $ ./test.sh
-
-Do **not** execute ``sh test.sh`` as the script is written for bash, and ``sh``
-is often linked to a restricted version of bash like dash, or similar.
-Variables like Tomcat port, host, ``rasdaman`` connection details, etc. may need
-to be adapted before running the tests by editing ``rasdaman/systemtest/conf/test.cfg``.
-
 Testdata
 --------
 
 Various coverages are inserted when running ``make check`` with the
-``wcst_import`` test suite in
-``testcases_services/test_all_wcst_import/test.sh``. These are subsequently
+``wcst_import`` test suite in ``30-wcstimport/test.sh``. These are subsequently
 available in the WCPS, WCS, and WMS tests. At the testing end, they are removed
-by running ``testcases_services/test_zero_cleanup/test.sh``.
+by running ``40-dropcovs/test.sh``.
 
 Adding tests
 ------------
@@ -1377,7 +1353,7 @@ Uploading a patch to the `patchmanager <http://rasdaman.org/patchmanager>`_ will
 automatically trigger a  `jenkins build
 <http://codereview.rasdaman.org/jenkins/>`_ that applies the patch on master
 and runs the systemtest. The jenkins testing is done on several OS in parallel:
-CentOS 7, Ubuntu 16.04 and Ubuntu 18.04.
+Ubuntu 20.04 and Ubuntu 22.04.
 
 You can run the systemtest directly on your installation. But sometimes it can
 be useful to replicate the same environment as in the jenkins tests, as the 
@@ -1396,7 +1372,7 @@ are `rasdaman installer <sec-system-install-installer>`_ and `vagrant
   cd rasdaman-installer/test
 
   # the vm on which to test; can be centos7 or ubuntu1604 as well
-  vm=ubuntu1804
+  vm=ubuntu2204
   # the patch id to be fetched from the patchmanager
   # download the patch beforehand to find out the id
   patch_id=4000
@@ -1426,7 +1402,7 @@ the VM directory (where the Vagrantfile is). Example follows below.
 .. hidden-code-block:: bash
 
   cd rasdaman-installer/test
-  vm=ubuntu1804
+  vm=ubuntu2204
   branch=master
   patch_local="$HOME/patches/mypatch.patch"
 
@@ -1448,7 +1424,7 @@ the VM directory (where the Vagrantfile is). Example follows below.
   ./run_vm.sh "$vm" 1 "./ci_test.sh systemtest.toml $branch"
 
 Instead of testing a single VM, it's possible to run the testing in parallel on
-all supported VMs (centos7, ubuntu1604, ubuntu1804). It's similar steps as
+all supported VMs (ubuntu2004, ubuntu2204). It's similar steps as
 before, except instead of ``./run_vm.sh`` we execute ``./test_installer.sh``;
 the argument is the command which will be executed in the
 ``/vagrant/rasdamaninstaller`` directory on each VM:

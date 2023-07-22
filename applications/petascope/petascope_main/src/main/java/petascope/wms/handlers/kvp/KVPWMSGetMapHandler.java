@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.lang3.tuple.Triple;
 import org.rasdaman.config.ConfigManager;
 import org.rasdaman.domain.cis.Wgs84BoundingBox;
 import org.rasdaman.domain.wms.Layer;
@@ -44,10 +45,7 @@ import petascope.core.response.Response;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WMSException;
-import petascope.util.CrsProjectionUtil;
-import petascope.util.ListUtil;
-import petascope.util.MIMEUtil;
-import petascope.util.StringUtil;
+import petascope.util.*;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wms.exception.WMSInvalidBoundingBoxException;
@@ -133,7 +131,7 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
             String crs = crsParam[0];
             // Check if crs is supported for projection
             try {
-                if (!CrsProjectionUtil.isValidTransform(crs)) {
+                if (!CrsUtil.isCRS84(crs) && !CrsProjectionUtil.isValidTransform(crs)) {
                     throw new WMSInvalidCrsUriException(crs);
                 }
             } catch (Exception ex) {
@@ -196,7 +194,7 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
         int width = 256;
         int height = 256;
         // if the request contains a random=random_number then just ignore it as it is used to bypass Web Browser's cache only
-        kvpParameters.remove(KVPSymbols.KEY_WMS_RASDAMAN_RANDOM);
+        kvpParameters.remove(KVPSymbols.KEY_RASDAMAN_RANDOM);
 
         // NOTE: If first query returns success, then just fetch it from cache
         String queryString = StringUtil.buildQueryString(kvpParameters);
@@ -223,6 +221,12 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
         String outputCRS = AbstractController.getValueByKey(kvpParameters, KVPSymbols.KEY_WMS_CRS);
         String bboxParam = AbstractController.getValueByKey(kvpParameters, KVPSymbols.KEY_WMS_BBOX);
         BoundingBox bbox = this.createBoundingBox(bboxParam);
+
+        if (CrsUtil.isCRS84(outputCRS)) {
+            // NOTE: in the case WMS GetMap request with CRS:84 (minLong,minLat,maxLong,maxLat), then it uses EPSG:4326 instead
+            outputCRS = CrsUtil.EPSG_4326_AUTHORITY_CODE;
+            bbox.swapXYOrder();
+        }
 
         String widthValue = AbstractController.getValueByKey(kvpParameters, KVPSymbols.KEY_WMS_WIDTH);
         try {
@@ -295,6 +299,15 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
             }
         } else {
             interpolation = WMSGetMapService.DEFAULT_INTERPOLATION;
+        }
+
+
+        // BGCOLOR - optional - Hexadecimal red-green-blue colour value for the background
+        // (IF not specified and TRANSPARENT=FALSE -> default color is: white color default=0xFFFFFF)
+        String bgcolorParam = AbstractController.getValueByKeyAllowNull(kvpParameters, KVPSymbols.KEY_WMS_BGCOLOR);
+        if (bgcolorParam != null) {
+            Triple<Integer, Integer, Integer> bgcolorTriple = StringUtil.parseHexRGBColor(bgcolorParam);
+            wmsGetMapService.setBackgroundColorTriple(bgcolorTriple);
         }
 
         wmsGetMapService.setLayerNames(layerNames);

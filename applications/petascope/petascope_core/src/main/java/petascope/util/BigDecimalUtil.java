@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +56,8 @@ public class BigDecimalUtil {
     public static final int MIN_SCALE_TO_CHECK_EPSILON = 10;
     
     private static final Logger log = LoggerFactory.getLogger(BigDecimalUtil.class);
+
+    private static final Pattern decimalPattern = Pattern.compile("-?\\d+(\\.\\d+)?");
     
     /**
      * Scale of a quotient between two BigDecimals.
@@ -392,6 +396,18 @@ public class BigDecimalUtil {
      */
     public static boolean isValidValue(BigDecimal minLowerBound, BigDecimal maxLowerBound, BigDecimal bound) {
         return bound.compareTo(minLowerBound) >=0 && bound.compareTo(maxLowerBound) <= 0;
+    }
+
+    /**
+     * e.g. parse 1.3222 from 1.3222s
+     */
+    public static BigDecimal parseDecimalFromString(String str) {
+        Matcher matcher = decimalPattern.matcher(str);
+        while (matcher.find()) {
+            return new BigDecimal(matcher.group(0));
+        }
+
+        return null;
     }
 
 }

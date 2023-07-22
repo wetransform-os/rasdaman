@@ -158,7 +158,7 @@ SCIENTIFIC_NUMBER_CONSTANT: [0-9]+('.'[0-9]*)?('e'|'E')(('+'|'-'))?[0-9]+;
 POSITIONAL_PARAMETER: [$0-9]+;
 //COVERAGE_VARIABLE_NAME: '$'[a-zA-Z0-9_]+; disabled for backwards compatibility with WCPS1
 COVERAGE_VARIABLE_NAME: [$a-zA-Z0-9_]+;
-COVERAGE_NAME: ([a-zA-Z0-9_][a-zA-Z0-9_\.-]*':'([0-9]+':')?)?[a-zA-Z_][a-zA-Z0-9_]*;
+COVERAGE_NAME: ([a-zA-Z0-9_][a-zA-Z0-9_\\.-]*':'([0-9]+':')?)?[a-zA-Z_][a-zA-Z0-9_]*;
 
 STRING_LITERAL: '"' [a-zA-Z0-9!#$&.+-^_/ ]+? '"';
 WS: [ \n\t\r]+ -> channel(HIDDEN);

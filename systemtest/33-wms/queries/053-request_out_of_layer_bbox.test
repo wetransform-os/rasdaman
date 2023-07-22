@@ -7,3 +7,4 @@ crs=EPSG:4326&width=120&
 height=120&
 Styles=&
 format=image/png
+&TRANSPARENT=TRUE

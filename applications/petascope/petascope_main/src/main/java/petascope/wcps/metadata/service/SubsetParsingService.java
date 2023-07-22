@@ -72,6 +72,8 @@ public class SubsetParsingService {
     
     @Autowired
     private HttpServletRequest httpServletRequest;
+    @Autowired
+    private CoverageAliasRegistry coverageAliasRegistry;
 
     public SubsetParsingService() {
 

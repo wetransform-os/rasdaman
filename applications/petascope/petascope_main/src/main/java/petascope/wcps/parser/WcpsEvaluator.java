@@ -1518,8 +1518,9 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
 
     @Override
     public Handler visitCoverageExpressionScaleByFactorLabel(@NotNull wcpsParser.CoverageExpressionScaleByFactorLabelContext ctx) {
+        // WCS - scaleFactor (all axes will be scaled up / down)
         // SCALE LEFT_PARENTHESIS
-        //        coverageExpression COMMA number
+        //        coverageExpression LEFT_BRACE? scalarExpression RIGHT_BRACE?
         // RIGHT_PARENTHESIS
         // e.g: scale(c[t(0)], 2.5) with c is 3D coverage which means 2D output will be 
         // upscaled to 2.5 by each dimension (e.g: grid pixel is: 100 x 100 then the result is 100 * 100 * 2.5)
@@ -1532,7 +1533,12 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     }
     
     @Override 
-    public Handler visitCoverageExpressionScaleByFactorListLabel(@NotNull wcpsParser.CoverageExpressionScaleByFactorListLabelContext ctx) { 
+    public Handler visitCoverageExpressionScaleByFactorListLabel(@NotNull wcpsParser.CoverageExpressionScaleByFactorListLabelContext ctx) {
+        // WCS - scaleAxes (listed Axes will be scaled up / down accordingly)
+        // NOTE: in WCPS it doesn't support scaleSize as it is ambiguous to scaleAxes (!)
+        // In WCS scaleSize (e.g. scaleSize=Lat(300)) means after scaling axis Lat has size 300
+        // In WCPS it has this syntax already for scaleAxes, e.g. scale(c, {Lat(300)}) which means the size of Lat axis is 300 times bigger
+        // To have Lat with grid 300 in WCPS, it is used with scaleExtent: scale(c, {Lat:"CRS:1"(0, 299)})
 //      SCALE LEFT_PARENTHESIS
 //                coverageExpression COMMA LEFT_BRACE scaleDimensionByFactorList RIGHT_BRACE
 //            RIGHT_PARENTHESIS
@@ -1544,53 +1550,10 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
                                                                             ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_FACTORS);
         return result;
     }    
-    
-    
-    @Override
-    public Handler visitCoverageExpressionScaleByAxesLabel(@NotNull wcpsParser.CoverageExpressionScaleByAxesLabelContext ctx) {
-        // SCALE_AXES LEFT_PARENTHESIS
-        //        coverageExpression COMMA scaleDimensionIntervalList
-        // RIGHT_PARENTHESIS
-        // e.g: scaleaxes(c[t(0)], [Lat(2.5), Long(2.5)]) with c is 3D coverage which means 2D output will be 
-        // downscaled to 2.5 by each dimension (e.g: grid pixel is: 100 then the result is 100 / 2.5)
-        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler scaleAxesDimensionListHandler = visit(ctx.scaleDimensionPointList());
-        
-        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleAxesDimensionListHandler,
-                                    ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_AXES);
-        return result;
-    }
-    
-    @Override
-    public Handler visitCoverageExpressionScaleBySizeLabel(@NotNull wcpsParser.CoverageExpressionScaleBySizeLabelContext ctx) {
-        // SCALE_SIZE LEFT_PARENTHESIS
-        //        coverageExpression COMMA scaleDimensionIntervalList
-        // RIGHT_PARENTHESIS
-        // e.g: scalesize(c[t(0)], [Lat(25), Long(25)]) with c is 3D coverage which means 2D output will have grid domain: 0:24, 0:24 (25 pixesl for each dimension)
-        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler scaleDimensionIntervalListHandler = visit(ctx.scaleDimensionPointList());
-        
-        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleDimensionIntervalListHandler,
-                                                                        ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_SIZES);
-        return result;
-    }
-  
-    @Override
-    public Handler visitCoverageExpressionScaleByExtentLabel(@NotNull wcpsParser.CoverageExpressionScaleByExtentLabelContext ctx) {
-        // SCALE_EXTENT LEFT_PARENTHESIS
-        //        coverageExpression COMMA scaleDimensionIntervalList
-        // RIGHT_PARENTHESIS
-        // e.g: scaleextent(c[t(0)], [Lat(25:30), Long(25:30)]) with c is 3D coverage which means 2D output will have grid domain: 25:30, 25:30 (6 pixesl for each dimension)
-        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler scaleAxesDimensionListHandler = visit(ctx.scaleDimensionIntervalList());
-        
-        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleAxesDimensionListHandler,
-                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_EXTENTS);
-        return result;
-    }
 
     @Override
     public Handler visitCoverageExpressionScaleByDimensionIntervalsLabel(@NotNull wcpsParser.CoverageExpressionScaleByDimensionIntervalsLabelContext ctx) {
+        // WCS - scaleExtent
         // SCALE LEFT_PARENTHESIS
         //          coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE (COMMA fieldInterpolationList)*
         //       RIGHT_PARENTHESIS

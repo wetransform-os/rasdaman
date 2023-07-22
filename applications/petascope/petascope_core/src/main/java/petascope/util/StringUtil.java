@@ -21,10 +21,13 @@
  */
 package petascope.util;
 
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
 import petascope.core.XMLSymbols;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -81,6 +84,10 @@ public class StringUtil {
   
     public static final Pattern squareBracketsPattern = Pattern.compile("\\[(.*?)\\]");
     public static final Pattern parenthesesPattern = Pattern.compile("\\((.*?)\\)");
+
+    public static final String HEX_COLOR_PREFIX = "0x";
+    public static final String JAVA_HEX_COLOR_PREFIX = "#";
+    public static final String HEX_RGB_COLOR_FORMAT = "0xRRGGBB";
     
     /**
      * For coverages created temporarily, used for WCPS decode() from uploaded files
@@ -847,6 +854,30 @@ public class StringUtil {
         }
         
         return null;
+    }
+
+
+    /**
+     * e.g. backgroundColor is 0xFFFFFF (0xRRGGBB format)
+     *
+     */
+    public static Triple<Integer, Integer, Integer> parseHexRGBColor(String colorStr) throws PetascopeException {
+        PetascopeException exception = new PetascopeException(ExceptionCode.InvalidRequest, "Given color '" + colorStr + "' is not hexadecimal red-green-blue value.");
+        if (!colorStr.startsWith(HEX_COLOR_PREFIX)) {
+            throw exception;
+        }
+
+        colorStr = colorStr.replace(HEX_COLOR_PREFIX, JAVA_HEX_COLOR_PREFIX);
+        Color color = null;
+
+        try {
+            color = Color.decode(colorStr);
+        } catch (Exception ex) {
+            throw exception;
+        }
+
+        Triple<Integer, Integer, Integer> result = new ImmutableTriple<>(color.getRed(), color.getGreen(), color.getBlue());
+        return result;
     }
     
 }

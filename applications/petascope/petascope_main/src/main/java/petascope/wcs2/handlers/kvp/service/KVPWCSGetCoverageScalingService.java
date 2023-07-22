@@ -35,7 +35,11 @@ import static petascope.core.KVPSymbols.KEY_INTERPOLATION;
 import static petascope.core.gml.GMLGetCapabilitiesBuilder.INTERPOLATION_NEAR;
 import static petascope.core.gml.GMLGetCapabilitiesBuilder.OGC_CITE_INTEPOLATION_NEAR;
 import petascope.exceptions.PetascopeException;
+import petascope.util.BigDecimalUtil;
+import petascope.util.CrsUtil;
 import petascope.util.ListUtil;
+import petascope.util.StringUtil;
+import petascope.wcps.exception.processing.ScaleValueLessThanZeroException;
 
 /**
  * Service class for Scaling handler of GetCoverageKVP class
@@ -85,34 +89,62 @@ public class KVPWCSGetCoverageScalingService {
         }
 
         if (kvpParameters.containsKey(KVPSymbols.KEY_SCALEFACTOR)) {
-            // e.g: scalefactor=3 then all axes will downscaled by 3 (e.g: i has 100 pixels, then the ouput is 100 / 3)
+            // e.g: scaleFactor=3 then all axes will downscaled by 3 (e.g: Lat axis has 100 pixels, then the ouput of Lat axis is 100 / 3)
             String scaleFactor = kvpParameters.get(KVPSymbols.KEY_SCALEFACTOR)[0];
-            queryContent = KVPSymbols.KEY_SCALE_PREFIX + "( " + queryContent + ", " + scaleFactor + " )";
+            queryContent = KVPSymbols.KEY_SCALE_PREFIX + "( " + queryContent + ", { " + scaleFactor + " } )";
 
         } else if (kvpParameters.containsKey(KVPSymbols.KEY_SCALEAXES)) {
-            // e.g: scaleaxes=i(5)&scaleaxes=j(3) then (e.g: i has 100 pixels, then the output is 100 / 5 pixels, j has 100 pixels, then the output is 100 / 3 pixels)            
+            // scaleAxes is the extension of scaleFactor
+            // e.g: scaleAxes=Lat(5)&scaleAxes=Long(0.3) then (e.g: Lat axis has 100 pixels, then the output is 100 * 5 pixels, Long has 100 pixels, then the output is 100 * 0.3 pixels)
             String[] scaleAxesParams = kvpParameters.get(KVPSymbols.KEY_SCALEAXES);
             List<String> scaleAxes = new ArrayList<>();
             for (String scaleAxisParam : scaleAxesParams) {
                 scaleAxes.add(scaleAxisParam);
             }
-            queryContent = KVPSymbols.KEY_SCALEAXES + "( " + queryContent + ", [" + ListUtil.join(scaleAxes, ", ") + "] )";
+            queryContent = KVPSymbols.KEY_SCALE_PREFIX + "( " + queryContent + ", {" + ListUtil.join(scaleAxes, ", ") + "} )";
         } else if (kvpParameters.containsKey(KVPSymbols.KEY_SCALESIZE)) {
-            // e.g: scalesize=i(5)&scalesize=j(3) then (e.g: i has 100 pixels, then the output is 5 pixels, j has 100 pixels, then the output is 3 pixels)            
+            // scaleSize is the extension of scaleExtent
+            // e.g: scaleSize=Lat(5)&scaleSize=Long(3) then (e.g: Lat has 100 pixels, then the output is 5 pixels, Long has 100 pixels, then the output is 3 pixels)
             String[] scaleSizeParams = kvpParameters.get(KVPSymbols.KEY_SCALESIZE);
             List<String> scaleSizes = new ArrayList<>();
             for (String scaleSizeParam : scaleSizeParams) {
-                scaleSizes.add(scaleSizeParam);
+                // e.g. scaleSize=Lat(30),Long(500)
+                String[] parts = scaleSizeParam.split(",");
+                for (String part : parts) {
+                    int index = part.indexOf("(");
+                    String axisLabel = part.substring(0, index);
+                    // e.g. (30): target is 30 grid pixels
+                    int size = BigDecimalUtil.parseDecimalFromString(StringUtil.stripParentheses(part.substring(index))).intValue();
+
+                    if (size <= 0) {
+                        throw new ScaleValueLessThanZeroException(axisLabel, String.valueOf(size));
+                    }
+
+                    // e.g. Lat:"CRS:1"(20,30) then output of Lat is scaled to [25:30] grid domains
+                    String gridCRSExtent = axisLabel + ":\"" + CrsUtil.GRID_CRS + "\"(0:" + (size - 1) + ")";
+                    scaleSizes.add(gridCRSExtent);
+                }
             }
-            queryContent = KVPSymbols.KEY_SCALESIZE + "( " + queryContent + ", [" + ListUtil.join(scaleSizes, ", ") + "] )";
+            queryContent = KVPSymbols.KEY_SCALE_PREFIX + "( " + queryContent + ", {" + ListUtil.join(scaleSizes, ", ") + "} )";
         } else if (kvpParameters.containsKey(KVPSymbols.KEY_SCALEEXTENT)) {
-            // e.g: scaleextent=i(5:10)&scaleaxes=j(3:30) then (e.g: i has 100 pixels, then the output is 5:10 pixels, j has 100 pixels, then the output is 3:30 pixels)            
+            // e.g: scaleExtent=Lat(5:10)&scaleExtent=Long(3:30) then (e.g: Lat has 100 pixels, then the output is 5:10 pixels, Long has 100 pixels, then the output is 3:30 pixels)
             String[] scaleExtentParams = kvpParameters.get(KVPSymbols.KEY_SCALEEXTENT);
             List<String> scaleExtents = new ArrayList<>();
             for (String scaleExtentParam : scaleExtentParams) {
-                scaleExtents.add(scaleExtentParam);
+                // e.g. scaleExtent=Lat(10:20),Lon(15:20)
+                String[] parts = scaleExtentParam.split(",");
+                for (String part : parts) {
+                    int index = part.indexOf("(");
+                    String axisLabel = part.substring(0, index);
+                    // e.g. (20,30): target is 11 grid pixels
+                    String tuple = part.substring(index).replace(",", ":");
+
+                    // e.g. Lat:"CRS:1"(20,30) then output of Lat is scaled to [25:30] grid domains
+                    String gridCRSExtent = axisLabel + ":\"" + CrsUtil.GRID_CRS + "\"" + tuple;
+                    scaleExtents.add(gridCRSExtent);
+                }
             }
-            queryContent = KVPSymbols.KEY_SCALEEXTENT + "( " + queryContent + ", [" + ListUtil.join(scaleExtents, ", ") + "] )";
+            queryContent = KVPSymbols.KEY_SCALE_PREFIX + "( " + queryContent + ", { " + ListUtil.join(scaleExtents, ", ") + "} )";
         }
         
         if (!scaleParameters.isEmpty()) {

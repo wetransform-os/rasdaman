@@ -161,7 +161,8 @@ public class WMSGetMapSubsetTranslatingService {
      */
     public String createGridScalingOutputNonProjection(String subsetCollectionExpression,
                                                        WMSLayer wmsLayer, 
-                                                       BoundingBox originalRequestBBox, String outputCRS)
+                                                       BoundingBox originalRequestBBox, String outputCRS,
+                                                       String backgroundColorFragment)
             throws PetascopeException {
         
         WcpsCoverageMetadata wcpsCoverageMetadata = this.wmsGetMapWCPSMetadataTranslatorService.createWcpsCoverageMetadataForDownscaledLevelByExtendedRequestBBox(wmsLayer);
@@ -358,20 +359,6 @@ public class WMSGetMapSubsetTranslatingService {
             NumericSubset gridBoundsYTmp = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(extendedHeight - 1));
             Axis axisYTmp = new RegularAxis(axisY, geoBoundsYTmp, gridBoundsYTmp, gridBoundsYTmp);
 
-            if (originalRequestBBox.getXMin().compareTo(axisX.getOriginalGeoBounds().getLowerLimit()) < 0) {
-                originalRequestBBox.setXMin(axisX.getOriginalGeoBounds().getLowerLimit());
-            }
-            if (originalRequestBBox.getXMax().compareTo(axisX.getOriginalGeoBounds().getUpperLimit()) > 0) {
-                originalRequestBBox.setXMax(axisX.getOriginalGeoBounds().getUpperLimit());
-            }
-
-            if (originalRequestBBox.getYMin().compareTo(axisY.getOriginalGeoBounds().getLowerLimit()) < 0) {
-                originalRequestBBox.setYMin(axisY.getOriginalGeoBounds().getLowerLimit());
-            }
-            if (originalRequestBBox.getYMax().compareTo(axisY.getOriginalGeoBounds().getUpperLimit()) > 0) {
-                originalRequestBBox.setYMax(axisY.getOriginalGeoBounds().getUpperLimit());
-            }
-
             BoundingBox originalGridBBoxInScaledExpression = this.coordinateTranslationService.calculageGridXYBoundingBox(false, false, axisXTmp, axisYTmp, originalRequestBBox);
 
             long gridXMin = BigDecimalUtil.shiftToInteger(originalGridBBoxInScaledExpression.getXMin());
@@ -416,8 +403,8 @@ public class WMSGetMapSubsetTranslatingService {
         }
         
         if (invalidQuery) {
-            // return blank image
-            finalCollectionExpressionLayer =  EXTEND + "(" + TRANSPARENT_DOMAIN + ", [0:" + (width - 1) + ",0:" + (height - 1) + "])";
+            // return transparent image
+            finalCollectionExpressionLayer = backgroundColorFragment;
         }
         
         return finalCollectionExpressionLayer;

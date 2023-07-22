@@ -23,6 +23,8 @@ package petascope.wms.handlers.service;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.awt.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,6 +40,9 @@ import org.apache.commons.lang3.StringUtils;
 import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.util.regex.Matcher;
 
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
+import org.rasdaman.config.ConfigManager;
 import org.rasdaman.domain.cis.NilValue;
 import org.rasdaman.domain.cis.Wgs84BoundingBox;
 import org.rasdaman.domain.wms.Layer;
@@ -72,10 +77,9 @@ import petascope.wcps.encodeparameters.model.JsonExtraParams;
 import petascope.wcps.encodeparameters.model.NoData;
 import petascope.wcps.encodeparameters.service.SerializationEncodingService;
 import petascope.wcps.encodeparameters.service.TranslateColorTableService;
-import petascope.wcps.handler.SubsetExpressionHandler;
-import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wms.exception.WMSStyleNotFoundException;
+import petascope.wms.exception.WMSUnsupportedBgColorException;
 import petascope.wms.handlers.model.WMSLayer;
 import static petascope.wms.handlers.service.WMSGetMapStyleService.ENCODE;
 import static petascope.wms.handlers.service.WMSGetMapStyleService.EXTEND;
@@ -203,6 +207,9 @@ public class WMSGetMapService {
     private Map<String, String> aliasCollectionNameRegistry = new LinkedHashMap<>();
     
     private List<WMSLayer> wmsLayers = new ArrayList<>();
+
+    private static final String DEFAULT_ONE_BAND_COLOR_TEMPLATE = "<[0:0,0:0] $VALUEc>";
+    private Triple<Integer, Integer, Integer> backgroundColorTriple = null;
     
     private static Logger log = LoggerFactory.getLogger(WMSGetMapService.class);
     
@@ -265,6 +272,10 @@ public class WMSGetMapService {
 
     public void setInterpolation(String interpolation) {
         this.interpolation = interpolation;
+    }
+
+    public void setBackgroundColorTriple(Triple<Integer, Integer, Integer> backgroundColorTriple) {
+        this.backgroundColorTriple = backgroundColorTriple;
     }
 
     public String getWMTSTileMatrixName() {
@@ -346,7 +357,21 @@ public class WMSGetMapService {
 
             List<WMSLayer> wmsLayers = this.createWMSLayers(wcpsCoverageMetadatas);
 
-            List<String> finalCollectionExpressions = new ArrayList<>();            
+            List<String> finalCollectionExpressions = new ArrayList<>();
+
+            // @TODO: This number of bands selection (e.g. 10 bands) from the first layer doesn't work with rasql / wcps style
+            //  in where the range constructor defined by user can have different number of bands (e.g. 3 bands)
+            String backgroundColorFragment = this.getBackgroundColorFragment(wcpsCoverageMetadatas.get(0).getRangeFields().size());
+
+            if (backgroundColorFragment != null) {
+                // NOTE: in case transparent=FALSE then depending on BGCOLOR value -> return corresponding background color as the base layer
+                finalCollectionExpressions.add(backgroundColorFragment);
+            }
+            if (this.transparent) {
+                // In case transparent = true -> get a transparent fragment to be used when it is needed
+                backgroundColorFragment = this.getTransparentFragment();
+            }
+
             // If GetMap requests with transparent=true then extract the nodata values from layer to be added to final rasql query
             List<NilValue> nilValues = new ArrayList<>();
             
@@ -384,7 +409,7 @@ public class WMSGetMapService {
                 
                 if (!isProjection) {
                     finalCollectionExpressionLayer = this.wmsGetMapSubsetTranslatingService.createGridScalingOutputNonProjection(subsetCollectionExpression,
-                                                                                            wmsLayer, this.originalRequestBBox, outputCRS);
+                                                                                            wmsLayer, this.originalRequestBBox, outputCRS, backgroundColorFragment);
                 } else {
                     finalCollectionExpressionLayer = this.wmsGetMapSubsetTranslatingService.createGridScalingOutputProjection(nativeCRS, subsetCollectionExpression,
                                                                                             wmsLayer, this.originalRequestBBox, outputCRS, 
@@ -548,7 +573,7 @@ public class WMSGetMapService {
         
         String layerName = wmsLayer.getLayerName();
         List<String> coverageExpressionsLayer = new ArrayList<>();
-            
+
         // CoverageExpression is the main part of a Rasql query builded from the current layer and style
         // e.g: c1 + 5, case c1 > 5 then {0, 1, 2}
         String collectionExpression = null;
@@ -637,7 +662,7 @@ public class WMSGetMapService {
         String result = ListUtil.join(coverageExpressionsLayer, OVERLAY);
         return result;
     }
-    
+
     /**
      * Check if request BBox in native CRS intersects with first layer's BBox.
      */
@@ -707,11 +732,17 @@ public class WMSGetMapService {
         String key = this.width + "_" + this.height;
         Response response = this.blankTileMap.get(key);
         
-        if (response == null) {
+        if (ConfigManager.MAX_WMS_CACHE_SIZE == 0 || response == null) {
             // Create a transparent image by input width and height parameters
-            String query = SELECT + ENCODE + "(" + EXTEND + "(" + TRANSPARENT_DOMAIN 
-                         + ", [0:" + (this.width - 1) + ",0:" + (this.height - 1) + "])  NULL VALUES [" + DEFAULT_NULL_VALUE + "] , \"" 
-                         + this.format + "\", \"{\\\"nodata\\\": [" + DEFAULT_NULL_VALUE + "]}\") ";
+            String query = SELECT + ENCODE + "(";
+
+            if (this.transparent) {
+                query += this.getTransparentFragment();
+            } else {
+                query += this.getBackgroundColorFragment(1);
+            }
+
+            query +=  " , \"" + this.format + "\", \"{\\\"nodata\\\": [" + DEFAULT_NULL_VALUE + "]}\") ";
             
             Pair<String, String> userPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(httpServletRequest);
             byte[] bytes = RasUtil.getRasqlResultAsBytes(query, userPair.fst, userPair.snd);
@@ -720,5 +751,54 @@ public class WMSGetMapService {
         }
         
         return response;       
+    }
+
+    /**
+     * According to WMS standard,
+     * - if transparent=TRUE -> transparency for no-data pixels
+     * - if transparent=FALSE -> BGCOLOR parameter omitted -> whitecolor for no-data pixels
+     * - if transparent=FALSE and BGCOLOR specified -> RGB color for no-data pixels
+     *
+     */
+    private String getBackgroundColorFragment(int numberOfBands) throws WMSUnsupportedBgColorException {
+        String result = null;
+
+        if (!this.transparent) {
+            result = "SCALE( $COLOR_FRAGMENT, [0:" + (this.width - 1) + ", 0:"  + (this.height - 1) + "] )";
+            String colorFragment = "";
+
+            if (this.backgroundColorTriple == null) {
+                // Then, default color is white color
+                colorFragment = DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", "255");
+            } else {
+                if (numberOfBands != 1 && numberOfBands != 3 && numberOfBands != 4) {
+                    throw new WMSUnsupportedBgColorException(numberOfBands);
+                }
+                // BGCOLOR parameter is set with Hex-color RGB -> return band constructor for it
+                // TODO: convert RGB hex color to RGB colors
+                colorFragment = " { ";
+                colorFragment += DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", this.backgroundColorTriple.getLeft().toString()) + ", "
+                             + DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", this.backgroundColorTriple.getMiddle().toString()) + ", "
+                             + DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", this.backgroundColorTriple.getRight().toString());
+
+                if (numberOfBands == 4) {
+                    // alpha band in case layer has 4 bands
+                    colorFragment += ", " + DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", "255");
+                }
+
+                colorFragment += " } ";
+            }
+
+            result = result.replace("$COLOR_FRAGMENT", colorFragment);
+        }
+
+        return result;
+    }
+
+    /**
+     * Return a rasql fragment to return a transparent image
+     */
+    private String getTransparentFragment() {
+        return EXTEND + "(" + TRANSPARENT_DOMAIN + ", [0:" + (this.width - 1) + ",0:" + (this.height - 1) + "]) NULL VALUES [" + DEFAULT_NULL_VALUE + "]";
     }
 }

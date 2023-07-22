@@ -28,13 +28,8 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.Pair;
-import petascope.exceptions.PetascopeException;
 import petascope.util.ListUtil;
 import petascope.util.StringUtil;
-import petascope.wcps.handler.CoverageVariableNameHandler;
-import petascope.wcps.handler.Handler;
-import petascope.wcps.handler.ReturnClauseHandler;
-import petascope.wcps.handler.StringScalarHandler;
 
 import static petascope.wcps.handler.ForClauseHandler.AS;
 
@@ -60,6 +55,11 @@ public class CoverageAliasRegistry {
     // NOTE: a coverage variable can be alias for multiple coverage names
     private LinkedHashMap<String, Pair<String, String>> coverageMappings = new LinkedHashMap<>();
 
+    // If a coverage alias registry has an ancestor which is NOT a ScaleNode -> add it to here
+    private Set<String> childOfNonScaleNodesSet = new LinkedHashSet<>();
+    // A set of internal generated coverage aliases from scale()
+    private Set<String> internalCoverageAliasForScaleNodesSet = new LinkedHashSet<>();
+
     // Used internally in petascope for SCALE() when a pyramid member is selected instead of a base coverage exists in FOR clause list
     public static final String DOWNSCALED_COVERAGE_ALIAS_PATTERN = "_";
     
@@ -78,8 +78,11 @@ public class CoverageAliasRegistry {
             }
         }
 
-        return baseCoverageAlias + DOWNSCALED_COVERAGE_ALIAS_PATTERN + i;
+        // e.g. c_0 from c
+        String result = baseCoverageAlias + DOWNSCALED_COVERAGE_ALIAS_PATTERN + i;
+        return result;
     }
+
 
     // -- For clause list
 
@@ -108,10 +111,6 @@ public class CoverageAliasRegistry {
          coverageMappings.put(coverageAlias, new Pair<> (coverageName, rasdamanCollectionName));
     }
 
-    public void remove(String coverageAlias) {
-        coverageMappings.remove(coverageAlias);
-    }
-
     /* Always get the first coverageName in the arrayList to create defaultRasql query
     * e.g: for c in (mr, rgb) ... then rgb can be used later to create another Rasql query for multipart
     * NOTE: due to coverage variable name (e.g: c) and axis iterator is same syntax (e.g: $px)
@@ -125,21 +124,7 @@ public class CoverageAliasRegistry {
 
         return coverageName;
     }
-    
-    /**
-     * Get rasdamanCollectionName by coverage's alias (e.g: for c in (test_mean_summer_airtemp))
-     * test_mean_summer_airtemp is coverageName, test_mean_sumer_airtemp_datetime is rasdamanCollectionName
-     * @param alias: coverage iterator (c)
-     * @return rasdamanCollectionName
-     */
-    public String getRasdamanCollectionNameByAlias(String alias) {
-        String rasdamanCollectionName = null;
-        if (coverageMappings.get(alias) != null) {
-            rasdamanCollectionName = coverageMappings.get(alias).snd;
-        }
-        return rasdamanCollectionName;
-    }
-    
+
     /**
      * Return the alias by a coverage name (e.g: for c in (test_mr, test_rgb))
      * 
@@ -175,33 +160,21 @@ public class CoverageAliasRegistry {
         return map;
     }
 
-    // -- Final steps
-
-    public LinkedHashMap<String, Pair<String, String>> getFinalCoverageAliasMappings(ReturnClauseHandler returnClauseHandler) throws PetascopeException {
-        LinkedHashMap<String, Pair<String, String>> result = new LinkedHashMap<>();
-        Queue<Handler> queue = new ArrayDeque<>();
-        queue.add(returnClauseHandler);
-
-        while (!queue.isEmpty()) {
-            Handler currentHandler = queue.remove();
-            if (currentHandler instanceof CoverageVariableNameHandler) {
-                // e.g. co or co_0
-                String coverageAlias = ((StringScalarHandler)(currentHandler.getFirstChild())).getValue();
-                Pair<String, String> forClauseListPair = this.forClauseListCoverageMappings.get(coverageAlias);
-                result.put(coverageAlias, forClauseListPair);
-            }
-
-
-            for (Handler childHandler : currentHandler.getChildren()) {
-                if (childHandler != null) {
-                    queue.add(childHandler);
-                }
-            }
-        }
-
-        return result;
-
+    /**
+     * If a coverage alias has an ancestor which is NOT scale expression -> add it to the set
+     */
+    public void addChildOfNonScaleNodesToSet(String coverageAlias) {
+        this.childOfNonScaleNodesSet.add(coverageAlias);
     }
+
+    /**
+     * If a coverage alias has an ancestor which is scale expression -> add it to the set
+     */
+    public void addInternalCoverageAliasForScaleNodesToSet(String coverageAlias) {
+        this.internalCoverageAliasForScaleNodesSet.add(coverageAlias);
+    }
+
+    // -- Final steps
 
     /**
      * Return the string representing this Map of coverage iterators and rasdaman collection names
@@ -212,14 +185,23 @@ public class CoverageAliasRegistry {
 
         List<String> list = new ArrayList<>();
         for (Map.Entry<String, Pair<String, String>> entry : this.coverageMappings.entrySet()) {
-            String coverageIterator = StringUtil.stripDollarSign(entry.getKey());
+            String coverageAlias = entry.getKey();
+            if (!this.internalCoverageAliasForScaleNodesSet.contains(coverageAlias)
+                    && !this.childOfNonScaleNodesSet.contains(coverageAlias)) {
+                // If a coverage alias A was replaced by a coverage alias A_0 for pyramid member and A is not used
+                // anywhere for non SCALE() expression -> remove A from FROM clause
+                continue;
+            }
+
+            coverageAlias = StringUtil.stripDollarSign(entry.getKey());
+
             List<String> tmpList = new ArrayList<>();
             Pair<String, String> pair = entry.getValue();
             String coverageId = pair.fst;
             String rasdamanCollectionName = pair.snd;
             // e.g: test_mean_summer_airtemp as c, not test_mean_summer_airtemp as $c
             if (pair.snd != null) {
-                tmpList.add(pair.snd + " " + AS + " " + coverageIterator);
+                tmpList.add(pair.snd + " " + AS + " " + coverageAlias);
             }
 
             // e.g: test_mean_summer_airtemp as c
@@ -229,10 +211,11 @@ public class CoverageAliasRegistry {
             }
 
             // Populate alias expressions to collection alias registry as well
-            if (this.collectionAliasRegistry.getAliasName(coverageIterator) == null && rasdamanCollectionName != null) {
-                this.collectionAliasRegistry.add(coverageIterator, coverageId, rasdamanCollectionName);
+            if (this.collectionAliasRegistry.getAliasName(coverageAlias) == null && rasdamanCollectionName != null) {
+                this.collectionAliasRegistry.add(coverageAlias, coverageId, rasdamanCollectionName);
             }
         }
+
 
         String result = "";
 

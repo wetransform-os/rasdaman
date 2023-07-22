@@ -10,8 +10,8 @@
         <gml:RectifiedGrid dimension="2" gml:id="test_mr-grid">
             <gml:limits>
                 <gml:GridEnvelope>
-                    <gml:low>0 0</gml:low>
-                    <gml:high>18 18</gml:high>
+                    <gml:low>0 16</gml:low>
+                    <gml:high>18 34</gml:high>
                 </gml:GridEnvelope>
             </gml:limits>
             <gml:axisLabels>i j</gml:axisLabels>
@@ -33,7 +33,7 @@
     <gml:coverageFunction>
         <gml:GridFunction>
             <gml:sequenceRule axisOrder="+2 +1">Linear</gml:sequenceRule>
-            <gml:startPoint>0 0</gml:startPoint>
+            <gml:startPoint>0 16</gml:startPoint>
         </gml:GridFunction>
     </gml:coverageFunction>
     <gmlcov:rangeType>

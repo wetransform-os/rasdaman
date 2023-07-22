@@ -62,7 +62,7 @@ module rasdaman {
                     try {
                         var gmlDocument = new rasdaman.common.ResponseDocument(data.data, rasdaman.common.ResponseDocumentType.XML);
                         var serializedResponse = self.serializedObjectFactory.getSerializedObject(gmlDocument);
-                        var capabilities = new wms.Capabilities(serializedResponse, gmlDocument.value);                       
+                        var capabilities = new wms.Capabilities(self.serializedObjectFactory, serializedResponse, gmlDocument.value);                       
 
                         var response = new rasdaman.common.Response<wms.Capabilities>(gmlDocument, capabilities);
                         result.resolve(response);

@@ -51,7 +51,8 @@ module wms {
         public numberOfLayers:String;
 
         // source is the JSON object parsed from gmlDocument (a full XML result of WMS GetCapabilities request)
-        public constructor(source:rasdaman.common.ISerializedObject, gmlDocument:string) {
+        public constructor(serializedObjectFactory:rasdaman.common.SerializedObjectFactory,
+                           source:rasdaman.common.ISerializedObject, gmlDocument:string) {
             this.gmlDocument = gmlDocument;
 
             rasdaman.common.ArgumentValidator.isNotNull(source, "source");       
@@ -104,7 +105,14 @@ module wms {
                     var title = obj.getChildAsSerializedObject("Title").getValueAsString();
                     var abstract = obj.getChildAsSerializedObject("Abstract").getValueAsString();
 
-                    var customizedMetadata = this.parseLayerCustomizedMetadata(obj);
+                    const startingElement = "<ows:AdditionalParameters";
+                    const endingElement = "</ows:AdditionalParameters>";
+                    let rasdamanAdditionalMetadataStr = abstract.substring(abstract.indexOf(startingElement), abstract.indexOf(endingElement) + endingElement.length).trim();
+
+                    var gmlDocument = new rasdaman.common.ResponseDocument(rasdamanAdditionalMetadataStr, rasdaman.common.ResponseDocumentType.XML);
+                    let addionalParametersSource = serializedObjectFactory.getSerializedObject(gmlDocument);
+
+                    var customizedMetadata = this.parseLayerCustomizedMetadata(addionalParametersSource);
 
                     if (customizedMetadata != null) {
                         if (customizedMetadata.hostname != null) {
@@ -166,11 +174,11 @@ module wms {
          * Parse layer's customized metadata (if any)
          */
         private parseLayerCustomizedMetadata(source:rasdaman.common.ISerializedObject) {
-            let childElement = "ows:AdditionalParameters";
+            let childElement = "ows:AdditionalParameter";
             let customizedMetadata:ows.CustomizedMetadata = null;
 
             if (source.doesElementExist(childElement)) {
-                customizedMetadata = new ows.CustomizedMetadata(source.getChildAsSerializedObject(childElement));
+                customizedMetadata = new ows.CustomizedMetadata(source);
             }
 
             return customizedMetadata;            

@@ -1,0 +1,1 @@
+SELECT encode(SORT c ALONG 0 AS i ASC BY c[i[0],39], "jpeg")   FROM test_grey AS c

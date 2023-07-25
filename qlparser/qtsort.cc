@@ -32,10 +32,10 @@ rasdaman GmbH.
 
 #include "relcatalogif/mdddimensiontype.hh"
 #include "relcatalogif/mdddomaintype.hh"
-
+#include "relcatalogif/structtype.hh"
 #include "mddmgr/mddobj.hh"
 #include "tilemgr/tile.hh"
-
+#include "catalogmgr/typeenum.hh"
 #include <tuple>
 #include <list>
 #include <iterator>
@@ -688,6 +688,19 @@ QtSort::concatenate(unsigned int dimension)
     return returnValue;
 }
 
+template <typename T>
+void QtSort::updateRanks(char* ranksArray){
+    auto it = slicesList.begin();
+    int i = 0;
+    T* temp = reinterpret_cast<T*>(ranksArray);
+    for (it; it != slicesList.end(); ++it)
+    {
+        // update rank in the relevant tuple for the slice
+        accessSliceRank(*it) = temp[i];
+        i++;
+    }
+}
+
 void QtSort::extractRanks(QtData *ranksOperand)
 {
     QtMDD *qtMDD = static_cast<QtMDD *>(ranksOperand);
@@ -713,18 +726,15 @@ void QtSort::extractRanks(QtData *ranksOperand)
     Tile *sourceTile = NULL;
     sourceTile = new Tile(tiles, qtMDD->getLoadDomain(), currentMDDObj);
 
-    // get the ranksOperand values
-    double *ranksArray = (double *)sourceTile->getContents();
 
-    // iterate over all slices in list, update the Ranks
-    auto it = slicesList.begin();
-    int i = 0;
-    for (it; it != slicesList.end(); ++it)
-    {
-        // update rank in the relevant tuple for the slice
-        accessSliceRank(*it) = (double)ranksArray[i];
-        i++;
-    }
+    const auto tileType = sourceTile->getType()->getType();
+    LDEBUG << "Tile Type " << tileType;
+    char *ranksArray = sourceTile->getContents();
+    if (tileType > NUMERICAL_TYPES_END)
+      throw r_Error("sort function does not support ranks of composite type");
+    MAKE_SWITCH_TYPEENUM(tileType, T,
+                         CODE(updateRanks<T>(ranksArray);),
+                         CODE(updateRanks<r_Char>(ranksArray);));
 }
 
 QtData *

@@ -53,7 +53,7 @@ class WCPSUtil(object):
 		print(query)
 		print(outputLoc)
 		data = urllib.parse.urlencode({"query": query}).encode('utf-8')
-		if(username is None or password is None):
+		if username != "" and password != "":
 			request = urllib.request.Request(serv_url, data=data, headers={'Authorization': self.basic_auth(username=username,  password=password)})
 		else:
 			request = urllib.request.Request(serv_url, data=data)

@@ -26,7 +26,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>2</number>
    </property>
    <widget class="QWidget" name="tab_Serv">
     <attribute name="title">
@@ -322,6 +322,21 @@
      </property>
      <property name="text">
       <string>Load Query</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="tab_CoveragesList">
+    <attribute name="title">
+     <string>Available coverages</string>
+    </attribute>
+    <widget class="QTableView" name="tableView">
+     <property name="geometry">
+      <rect>
+       <x>5</x>
+       <y>11</y>
+       <width>621</width>
+       <height>421</height>
+      </rect>
      </property>
     </widget>
    </widget>

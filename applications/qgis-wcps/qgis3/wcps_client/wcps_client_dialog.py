@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
+
+import urllib.request
+from base64 import b64encode
 from builtins import range
 import os, sys, pickle
 from glob import glob
@@ -9,16 +12,17 @@ from qgis.core import *
 from qgis.gui import *
 
 from PyQt5.QtWidgets import QProgressDialog, QDialog, QMessageBox, QFileDialog, QApplication, QPushButton
-from PyQt5.QtGui import QCursor
+from PyQt5.QtGui import QCursor, QStandardItemModel, QStandardItem
 from PyQt5.QtNetwork import QNetworkRequest, QNetworkAccessManager
 from PyQt5.QtCore import Qt, QFileInfo
 from PyQt5 import QtXml
+import xmltodict
 
 from .succesful_query_dialog import succesful_query_dialog
 from .wcps_client_dialog_base import Ui_WCPSClient
 from .qgsnewhttpconnectionbasedialog import qgsnewhttpconnectionbase
 from .display_txtdialog import display_txt
-
+import xml.etree.ElementTree as ET
 
 
 from .wcps_client_utilities import WCPSUtil
@@ -119,6 +123,10 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
         sel_url = config.srv_list['servers'][idx][1]
         return sel_serv, sel_url
 
+    def basic_auth(self, username, password):
+        token = b64encode(f"{username}:{password}".encode('utf-8')).decode("ascii")
+        return f'Basic {token}'
+
     # ---------------
     # check if the url exist and if we get a respond to a simple OWS request
     @mouse_busy
@@ -132,10 +140,94 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
         msg = "Your choice:    " + selected_serv + "\n"
         msg = msg + "URL:                   " + selected_url + "\n"
         self.textBrowser_Serv.setText(msg)
+
+        # Send GetCapabilities request to get the coverages list
+        capabilities_url = selected_url + "?service=WCS&request=GetCapabilities"
+        username, password = self.get_auth_credentials()
+
+        try:
+            if username != "" and password != "":
+                response = urllib.request.urlopen(urllib.request.Request(capabilities_url, headers={'Authorization': self.basic_auth(username=username, password=password)}))
+            else:
+                response = urllib.request.urlopen(urllib.request.Request(capabilities_url))
+
+            data = response.read()
+            if data is not None:
+                self.handleGetCapabilitiesResponse(data)
+            else:
+                warning_msg("Error retrieving coverages list: No data received.")
+        except Exception as e:
+            warning_msg("Error retrieving coverages list: " + str(e))
+
         if not self.tab_PC.isEnabled():
             self.tab_PC.setEnabled(True)
 
         QApplication.changeOverrideCursor(Qt.ArrowCursor)
+
+    def handleGetCapabilitiesResponse(self, data):
+        try:
+            if data is None:
+                warning_msg("Error retrieving coverages list: No data received.")
+                return
+
+            try:
+                dom = xmltodict.parse(data)
+                if 'wcs:Capabilities' in dom and 'wcs:Contents' in dom['wcs:Capabilities'] and 'wcs:CoverageSummary' in dom['wcs:Capabilities']['wcs:Contents']:
+                    coverages = dom['wcs:Capabilities']['wcs:Contents']['wcs:CoverageSummary']
+
+                    # Create a QStandardItemModel and set it as the model for the tableView
+                    model = QStandardItemModel(self.tableView)
+                    self.tableView.setModel(model)
+
+                    # Set the column headers for the tableView
+                    model.setHorizontalHeaderLabels(["Name", "Dim", "Axes", "BBox", "CRS", "Size"])
+
+                    # Add coverage information to the tableView
+                    for coverage in coverages:
+                        if 'wcs:CoverageId' in coverage:
+                            name = QStandardItem(coverage['wcs:CoverageId'])
+
+                            # Extracting values for dim, axes, bbox, crs, and size
+                            bbox = coverage.get('ows:BoundingBox', {})
+                            lower_corner = bbox.get('ows:LowerCorner', '') if isinstance(bbox, dict) else ''
+                            upper_corner = bbox.get('ows:UpperCorner', '') if isinstance(bbox, dict) else ''
+                            dim = bbox.get('@dimensions', '') if isinstance(bbox, dict) else ''
+                            crs = bbox.get('@crs', '') if isinstance(bbox, dict) else ''
+
+                            axes_param = next((param for param in coverage.get('ows:AdditionalParameters', {}).get('ows:AdditionalParameter', []) if param.get('ows:Name') == 'axisList'), None)
+                            axes = axes_param.get('ows:Value', '') if axes_param else ''
+
+                            size_in_bytes_param = next((param for param in coverage.get('ows:AdditionalParameters', {}).get('ows:AdditionalParameter', []) if param.get('ows:Name') == 'sizeInBytes'), None)
+                            size_in_bytes = size_in_bytes_param.get('ows:Value', '') if size_in_bytes_param else ''
+
+                            try:
+                                size_gb = f"{float(size_in_bytes) / 1e9:.2f} GB" if size_in_bytes else "Unknown"
+                            except ValueError:
+                                size_gb = "Unknown"  # Set a default value or error message for size if it's not a valid number
+
+                            model.appendRow([
+                                name,
+                                QStandardItem(dim),
+                                QStandardItem(axes),
+                                QStandardItem(f"{lower_corner} {upper_corner}"),
+                                QStandardItem(crs),
+                                QStandardItem(size_gb)
+                            ])
+
+                    self.tab_CoveragesList.setEnabled(True)
+
+                    # Resize the columns to fit the contents
+                    self.tableView.resizeColumnToContents(1)  # Dim column
+                    self.tableView.resizeColumnToContents(2)  # Axes column
+                    self.tableView.resizeColumnToContents(5)  # Size column
+
+                else:
+                    warning_msg("Error parsing XML: Unexpected XML structure.")
+            except Exception as e:
+                warning_msg("Error parsing XML: " + str(e))
+        except Exception as e:
+            warning_msg("Error processing coverages list: " + str(e))
+
 
     # modify a server entry
     def editServer(self):

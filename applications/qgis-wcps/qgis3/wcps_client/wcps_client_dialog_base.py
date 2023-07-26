@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from builtins import object
-from PyQt5.QtWidgets import QTabWidget, QWidget, QGroupBox, QLabel, QComboBox, QPushButton, QCheckBox
+from PyQt5.QtWidgets import QTabWidget, QWidget, QGroupBox, QLabel, QComboBox, QPushButton, QCheckBox, QListWidget, \
+    QTableView, QAbstractItemView
 from PyQt5.QtWidgets import QTextBrowser, QPlainTextEdit, QLineEdit, QToolButton, QApplication
 from PyQt5.QtCore import QRect, QMetaObject
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QStandardItemModel
 from qgis._gui import QgsAuthConfigSelect
 
 _fromUtf8 = lambda s: s
@@ -91,6 +92,22 @@ class Ui_WCPSClient(object):
         self.btnStore_Query = QPushButton(self.tab_PC)
         self.btnStore_Query.setGeometry(QRect(162, 420, 111, 28))
         self.btnStore_Query.setObjectName(_fromUtf8("btnSave_Result"))
+
+        self.tab_CoveragesList = QWidget()
+        self.tab_CoveragesList.setEnabled(False)
+        self.tab_CoveragesList.setGeometry(QRect(10, 10, 675, 518))
+        self.tab_CoveragesList.setObjectName(_fromUtf8("tab_CoveragesList"))
+        self.tableView = QTableView(self.tab_CoveragesList)
+        self.tableView.setGeometry(20, 20, 620, 450)
+        self.tableView.setObjectName(_fromUtf8("tableView"))
+        self.model = QStandardItemModel(self.tableView)
+        self.tableView.setModel(self.model)
+        self.model.setHorizontalHeaderLabels(["Name", "Dim", "Axes", "BBox", "CRS", "Size"])
+        self.tableView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tabWidget_WCPSClient.addTab(self.tab_CoveragesList, _fromUtf8(""))
+
+        self.tabWidget_WCPSClient.addTab(self.tab_CoveragesList, _fromUtf8(""))
+
         self.retranslateUi(WCPSClient)
         self.tabWidget_WCPSClient.setCurrentIndex(2)
 
@@ -127,3 +144,5 @@ class Ui_WCPSClient(object):
         self.tabWidget_WCPSClient.setTabText(self.tabWidget_WCPSClient.indexOf(self.tab_PC),
                                              QApplication.translate("WCPSClient", "WCPS query editor", None))
         self.btnStore_Query.setText(QApplication.translate("WCPSClient", "Store Query", None))
+        self.tabWidget_WCPSClient.setTabText(self.tabWidget_WCPSClient.indexOf(self.tab_CoveragesList),
+                                             QApplication.translate("WCPSClient", "Coverages List", None))

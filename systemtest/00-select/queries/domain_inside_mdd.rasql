@@ -1,0 +1,1 @@
+select encode(c[0:0, 0:39][0:0, 39:39], "text/csv") from test_grey as c

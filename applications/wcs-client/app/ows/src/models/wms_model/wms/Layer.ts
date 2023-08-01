@@ -66,7 +66,14 @@ module wms {
             this.title = title;
             this.abstract = abstract;
             this.customizedMetadata = customizedMetadata;
-            this.coverageExtent = new wms.CoverageExtent(name, westBoundLongitude, southBoundLatitude, eastBoundLongitude, northBoundLatitude, customizedMetadata.getSizeInBytes());
+
+            let sizeInBytes:number = 0;
+            if (customizedMetadata != null) {
+                sizeInBytes = customizedMetadata.getSizeInBytes();
+            }
+
+
+            this.coverageExtent = new wms.CoverageExtent(name, westBoundLongitude, southBoundLatitude, eastBoundLongitude, northBoundLatitude, sizeInBytes);
             this.crs = crs;
             this.minx = minx;
             this.miny = miny;

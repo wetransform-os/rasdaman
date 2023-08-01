@@ -212,11 +212,6 @@ void QtDomainOperation::optimizeLoad(QtTrimList *trimList, vector<r_Minterval> *
             {
                 domain = (static_cast<QtMintervalData *>(operand))->getMintervalData();
 
-                if (intervals != nullptr)
-                {
-                    intervals->push_back(domain);
-                }
-
                 auto trimFlags = std::unique_ptr<vector<bool>>(
                     new vector<bool>(*((static_cast<QtMintervalData *>(operand))->getTrimFlags())));
 
@@ -256,6 +251,16 @@ void QtDomainOperation::optimizeLoad(QtTrimList *trimList, vector<r_Minterval> *
                 for (size_t i = 0; i < newTrimList->size(); ++i)
                 {
                     trimList->push_back(newTrimList->at(i));
+                }
+
+                if (trimming)
+                {
+                    domain = (static_cast<QtMintervalData *>(operand))->getMintervalData();
+
+                    if (intervals != nullptr)
+                    {
+                        intervals->push_back(domain);
+                    }
                 }
             }
 
@@ -564,7 +569,6 @@ QtDomainOperation::evaluate(QtDataList *inputList)
             }
             vector<r_Minterval> *intervals;
             intervals = new vector<r_Minterval>();
-            intervals->push_back(domain);
 
             if (dynamicMintervalExpression)
             {
@@ -594,6 +598,8 @@ QtDomainOperation::evaluate(QtDataList *inputList)
                     input->optimizeLoad(trimList);
                 }
             }
+
+            intervals->push_back(domain);
 
             //  get operand data
             QtData *operand = input->evaluate(inputList);
@@ -625,28 +631,25 @@ QtDomainOperation::evaluate(QtDataList *inputList)
 
             if (currentMDDObj)
             {
-                r_Minterval currentDomain = currentMDDObj->getCurrentDomain();
-                for (std::vector<r_Minterval>::reverse_iterator it = intervals->rbegin(); it != intervals->rend(); ++it)
+                r_Minterval currentDomain = currentMDDObj->getDefinitionDomain();
+                for (std::vector<r_Minterval>::iterator it = intervals->begin(); it != intervals->end(); ++it)
                 {
-                    if (it == intervals->rbegin())
+                    if (!it->inside_of(currentDomain))
                     {
-                        if (!it->inside_of(currentDomain))
+                        if (!it->intersects_with(currentDomain))
                         {
-                            if (!it->intersects_with(currentDomain))
-                            {
-                                LERROR << "Subset domain " << *it << " does not intersect with the spatial domain of MDD" << currentDomain;
-                                parseInfo.setErrorNo(DOMAINDOESNOTINTERSECT);
-                                throw parseInfo;
-                            }
-                            else
-                            {
-                                LERROR << "Subset domain " << *it << " extends outside of the spatial domain of MDD" << currentDomain;
-                                parseInfo.setErrorNo(DOMAINOP_SUBSETOUTOFBOUNDS);
-                                throw parseInfo;
-                            }
+                            LERROR << "Subset domain " << *it << " does not intersect with the spatial domain of MDD" << currentDomain;
+                            parseInfo.setErrorNo(DOMAINDOESNOTINTERSECT);
+                            throw parseInfo;
+                        }
+                        else
+                        {
+                            LERROR << "Subset domain " << *it << " extends outside of the spatial domain of MDD" << currentDomain;
+                            parseInfo.setErrorNo(DOMAINOP_SUBSETOUTOFBOUNDS);
+                            throw parseInfo;
                         }
                     }
-                    else
+                    if (it != intervals->begin())
                     {
                         if (!it->inside_of(*(it - 1)))
                         {

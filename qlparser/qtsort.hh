@@ -216,6 +216,9 @@ private:
     /// prevent access to default constructor
     QtSort()
         : QtOperation(){};
+
+    template <typename T>
+    void updateRanks(char* ranksArray);
 };
 
 #include "qlparser/qtsort.icc"

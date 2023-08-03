@@ -1087,14 +1087,14 @@ terminal. Examples with ``curl`` follow.
 
   .. code-block:: shell
 
-    curl "http://ows.rasdaman.org/rasdaman/ows" --out test.png --data-urlencode \
+    curl "http://ows.rasdaman.org/rasdaman/ows" -o test.png --data-urlencode \
     'service=WCS&version=2.0.1&request=ProcessCoverages&query=\
     for c in (mean_summer_airtemp) return encode(c, "png")'
 
 - Upload files to be processed with ``decode()`` operator, see :ref:`here <positional_parameters_in_wcps>`.
 
-When the server requires basic authentication for a request, the rasdaman
-user credentials can be specified with the ``--user`` option, e.g.
+- When the server requires basic authentication for a request, the rasdaman
+  user credentials can be specified with the ``--user`` option, e.g.
 
   .. code-block:: shell
 

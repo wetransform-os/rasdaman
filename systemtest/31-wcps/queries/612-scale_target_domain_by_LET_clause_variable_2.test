@@ -1,0 +1,8 @@
+for c in (test_mr),
+    d in (test_mr)
+    
+let sub := [i(0:30)],
+    dst := imageCrsDomain(c),
+    x := avg(c) / 125
+
+return encode(scale(c, x), "jpeg")

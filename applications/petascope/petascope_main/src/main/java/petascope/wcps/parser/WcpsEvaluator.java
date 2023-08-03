@@ -61,7 +61,6 @@ import petascope.wcps.handler.RealNumberConstantHandler;
 import petascope.wcps.handler.WhereClauseHandler;
 import petascope.wcps.handler.BooleanConstantHandler;
 import petascope.wcps.handler.BinaryCoverageExpressionHandler;
-import petascope.wcps.handler.ExtendExpressionByImageCrsDomainHandler;
 import petascope.wcps.exception.processing.InvalidAxisNameException;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.apache.commons.lang3.StringUtils;
@@ -123,7 +122,6 @@ import petascope.wcps.handler.WKTMultiPolygonHandler;
 import petascope.wcps.handler.WKTPolygonHandler;
 import petascope.wcps.metadata.service.SortedAxisIteratorAliasRegistry;
 import petascope.wcps.metadata.service.UsingCondenseRegistry;
-
 import petascope.wcps.handler.TrimDimensionIntervalByImageCrsDomainElementHandler;
 
 
@@ -242,8 +240,6 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     CoverageConstantHandler coverageConstantHandler;
     @Autowired private
     ExtendExpressionHandler extendExpressionHandler;
-    @Autowired private
-    ExtendExpressionByImageCrsDomainHandler extendExpressionByDomainIntervalsHandler;
     @Autowired private
     RangeConstructorHandler rangeConstructorHandler;
     @Autowired private
@@ -876,10 +872,10 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     @Override
     public Handler visitCoverageExpressionOverlayLabel(@NotNull wcpsParser.CoverageExpressionOverlayLabelContext ctx) {
         // coverageExpression OVERLAY coverageExpression (e.g: c overlay d)
-        // invert the order of the operators since WCPS overlay order is the opposite of the one in rasql
-        Handler leftCoverageExpression = (Handler) visit(ctx.coverageExpression(1));
+        // in this case d is on top of c (this behavior is as same as in rasql / WMS GetMap layers parameter)
+        Handler leftCoverageExpression = visit(ctx.coverageExpression(0));
         String overlay = ctx.OVERLAY().getText();
-        Handler rightCoverageExpression = (Handler) visit(ctx.coverageExpression(0));
+        Handler rightCoverageExpression = visit(ctx.coverageExpression(1));
 
         Handler result = this.binaryCoverageExpressionHandler.create(leftCoverageExpression,
                                                                      this.stringScalarHandler.create(overlay),
@@ -988,8 +984,13 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     public Handler visitUnaryPowerExpressionLabel(@NotNull wcpsParser.UnaryPowerExpressionLabelContext ctx) {
         // POWER LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
         // e.g: pow(c, -0.5) or pow(c, avg(c))
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
-        Handler scalarExpressionHandler = (Handler) visit(ctx.numericalScalarExpression());
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        Handler scalarExpressionHandler = null;
+        if (ctx.numericalScalarExpression() != null) {
+            scalarExpressionHandler = visit(ctx.numericalScalarExpression());
+        } else {
+            scalarExpressionHandler = visit(ctx.coverageVariableName());
+        }
 
         Handler result = unaryPowerExpressionHandler.create(coverageExpressionHandler, scalarExpressionHandler);
         return result;
@@ -999,10 +1000,15 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     public Handler visitUnaryModExpressionLabel(@NotNull wcpsParser.UnaryModExpressionLabelContext ctx) {
         // MOD LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
         // e.g: pow(c, -0.5) or pow(c, avg(c))
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
-        Handler scalarExpr = (Handler) visit(ctx.numericalScalarExpression());
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        Handler scalarExpressionHandler = null;
+        if (ctx.numericalScalarExpression() != null) {
+            scalarExpressionHandler = visit(ctx.numericalScalarExpression());
+        } else {
+            scalarExpressionHandler = visit(ctx.coverageVariableName());
+        }
 
-        Handler result = unaryModPowerExpressionHandler.create(coverageExpressionHandler, scalarExpr);
+        Handler result = unaryModPowerExpressionHandler.create(coverageExpressionHandler, scalarExpressionHandler);
         return result;
     }
 
@@ -1010,7 +1016,7 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     public Handler visitNotUnaryBooleanExpressionLabel(@NotNull wcpsParser.NotUnaryBooleanExpressionLabelContext ctx) {
         // NOT LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
         // e.g: not(c)
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
 
         Handler result = unaryBooleanExpressionHandler.create(coverageExpressionHandler, null);
         return result;
@@ -1019,11 +1025,16 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     @Override
     public Handler visitBitUnaryBooleanExpressionLabel(@NotNull wcpsParser.BitUnaryBooleanExpressionLabelContext ctx) {
         // BIT LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
-        // e.g: big(c, 2)
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
-        Handler scalarExpression = (Handler) visit(ctx.numericalScalarExpression());
+        // e.g: bit(c, 2)
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        Handler scalarExpressionHandler = null;
+        if (ctx.numericalScalarExpression() != null) {
+            scalarExpressionHandler = visit(ctx.numericalScalarExpression());
+        } else {
+            scalarExpressionHandler = visit(ctx.coverageVariableName());
+        }
 
-        Handler result = unaryBooleanExpressionHandler.create(coverageExpressionHandler, scalarExpression);
+        Handler result = unaryBooleanExpressionHandler.create(coverageExpressionHandler, scalarExpressionHandler);
         return result;
     }
 
@@ -1399,7 +1410,12 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // extend($c, {intervalList})
         // e.g: extend(c[t(0)], {Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)}
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
+        Handler dimensionIntervalListHandler = null;
+        if (ctx.dimensionIntervalList() != null) {
+            dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
+        } else {
+            dimensionIntervalListHandler = visit(ctx.coverageVariableName());
+        }
 
         Handler result = this.extendExpressionHandler.create(coverageExpressionHandler, dimensionIntervalListHandler);
         return result;
@@ -1413,9 +1429,14 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: extend(c[t(0)], { imageCrsdomain(Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)) })
         // NOTE: imageCrsdomain() or domain() will return metadata value not Rasql
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler wcpsMetadataResult = visit(ctx.domainIntervals());
+        Handler wcpsMetadataResult = null;
+        if (ctx.domainIntervals() != null) {
+            wcpsMetadataResult = visit(ctx.domainIntervals());
+        } else {
+            wcpsMetadataResult = visit(ctx.coverageVariableName());
+        }
 
-        Handler result = this.extendExpressionByDomainIntervalsHandler.create(coverageExpressionHandler, wcpsMetadataResult);
+        Handler result = this.extendExpressionHandler.create(coverageExpressionHandler, wcpsMetadataResult);
         return result;
     }
     
@@ -1525,7 +1546,13 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: scale(c[t(0)], 2.5) with c is 3D coverage which means 2D output will be 
         // upscaled to 2.5 by each dimension (e.g: grid pixel is: 100 x 100 then the result is 100 * 100 * 2.5)
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler factorNumberHandler = visit(ctx.scalarExpression());
+        Handler factorNumberHandler = null;
+
+        if (ctx.scalarExpression() != null) {
+            factorNumberHandler = visit(ctx.scalarExpression());
+        } else {
+            factorNumberHandler = visit(ctx.coverageVariableName());
+        }
         
         Handler result = this.scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, factorNumberHandler,
                                                                             ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_FACTORS);
@@ -1544,7 +1571,13 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
 //            RIGHT_PARENTHESIS
         // e.g. scale(c, {Lat(0.5), Long(3)})
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler scaleFactorsListHandler = visit(ctx.scaleDimensionPointList());       
+        Handler scaleFactorsListHandler = null;
+
+        if (ctx.scaleDimensionPointList() != null) {
+            scaleFactorsListHandler = visit(ctx.scaleDimensionPointList());
+        } else {
+            scaleFactorsListHandler = visit(ctx.coverageVariableName());
+        }
         
         Handler result = this.scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleFactorsListHandler,
                                                                             ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_FACTORS);
@@ -1561,7 +1594,13 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: scale(c[t(0)], {Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)}
 
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
+        Handler dimensionIntervalListHandler = null;
+
+        if (ctx.dimensionIntervalList() != null) {
+            dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
+        } else {
+            dimensionIntervalListHandler = visit(ctx.coverageVariableName());
+        }
 
         Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, dimensionIntervalListHandler,
                                                                             ScaleExpressionByDimensionIntervalsHandler.ScaleType.DEFAULT_TYPE);
@@ -1577,7 +1616,14 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: scale(c[t(0)], { imageCrsdomain(Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)) })
         // NOTE: imageCrsdomain() or domain() will return metadata value not Rasql
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler domainIntervalsHandler = visit(ctx.domainIntervals());
+
+        Handler domainIntervalsHandler = null;
+
+        if (ctx.domainIntervals() != null) {
+            domainIntervalsHandler = visit(ctx.domainIntervals());
+        } else {
+            domainIntervalsHandler = visit(ctx.coverageVariableName());
+        }
 
         Handler handler = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, domainIntervalsHandler,
                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.DEFAULT_TYPE);

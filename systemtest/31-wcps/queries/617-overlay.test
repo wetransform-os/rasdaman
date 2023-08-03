@@ -1,0 +1,3 @@
+for c in (test_mean_summer_airtemp),
+    d in (test_mean_summer_airtemp_repeat)
+return encode(c overlay (unsigned char)(d + 150), "jpeg")

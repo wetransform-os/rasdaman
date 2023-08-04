@@ -445,10 +445,10 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                   | decodeCoverageExpression
                     #CoverageExpressionDecodeLabel
                   
-                  | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
+                  | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE ( dimensionIntervalList  | coverageVariableName )  RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionExtendLabel
-                  | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE domainIntervals RIGHT_BRACE
+                  | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE ( domainIntervals  | coverageVariableName )  RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionExtendByDomainIntervalsLabel
                   | unaryArithmeticExpression
@@ -484,22 +484,22 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
 		          | switchCaseExpression
                     #CoverageExpressionSwitchCaseLabel
 		          | SCALE LEFT_PARENTHESIS
-		                coverageExpression COMMA LEFT_BRACE domainIntervals RIGHT_BRACE
+		                coverageExpression COMMA LEFT_BRACE ( domainIntervals | coverageVariableName ) RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionScaleByImageCrsDomainLabel
 
                   | SCALE LEFT_PARENTHESIS
-                        coverageExpression COMMA LEFT_BRACE? scalarExpression RIGHT_BRACE?
+                        coverageExpression COMMA LEFT_BRACE? ( scalarExpression | coverageVariableName ) RIGHT_BRACE?
                     RIGHT_PARENTHESIS
                     #CoverageExpressionScaleByFactorLabel
 
                   | SCALE LEFT_PARENTHESIS
-                        coverageExpression COMMA LEFT_BRACE scaleDimensionPointList RIGHT_BRACE
+                        coverageExpression COMMA LEFT_BRACE ( scaleDimensionPointList | coverageVariableName ) RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionScaleByFactorListLabel
 
                   | SCALE LEFT_PARENTHESIS
-                        coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
+                        coverageExpression COMMA LEFT_BRACE ( dimensionIntervalList | coverageVariableName ) RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionScaleByDimensionIntervalsLabel
 
@@ -590,10 +590,10 @@ exponentialExpression: exponentialExpressionOperator LEFT_PARENTHESIS coverageEx
  * Query:
  *   for c in (mr) return encode( pow( c[i(100:110),j(100:110)], -0.5 ), "csv" )
 */
-unaryPowerExpression: POWER LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
+unaryPowerExpression: POWER LEFT_PARENTHESIS coverageExpression COMMA ( numericalScalarExpression | coverageVariableName ) RIGHT_PARENTHESIS
 #UnaryPowerExpressionLabel;
 
-unaryModExpression: MOD LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
+unaryModExpression: MOD LEFT_PARENTHESIS coverageExpression COMMA ( numericalScalarExpression | coverageVariableName ) RIGHT_PARENTHESIS
 #UnaryModExpressionLabel;
 
 /**
@@ -614,7 +614,7 @@ maxBinaryExpression: MAX LEFT_PARENTHESIS coverageExpression COMMA coverageExpre
  */
 unaryBooleanExpression: NOT LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
                         #NotUnaryBooleanExpressionLabel
-                      | BIT LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
+                      | BIT LEFT_PARENTHESIS coverageExpression COMMA ( numericalScalarExpression | coverageVariableName ) RIGHT_PARENTHESIS
                         #BitUnaryBooleanExpressionLabel;
 
 

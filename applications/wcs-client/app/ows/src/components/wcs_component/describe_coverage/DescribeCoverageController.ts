@@ -289,7 +289,7 @@ module rasdaman {
                             }                  
                         },
                         (...args:any[])=> {                            
-                            $scope.coverageDescription = null;
+                            $scope.coverageDescription = null ;
 
                             errorHandlingService.handleError(args);
                             $log.error(args);

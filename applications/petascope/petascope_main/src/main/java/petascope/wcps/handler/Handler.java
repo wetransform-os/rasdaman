@@ -311,7 +311,6 @@ public abstract class Handler {
                 || coverageExpressionHandler instanceof CrsTransformHandler
                 || coverageExpressionHandler instanceof CrsTransformShorthandHandler
                 || coverageExpressionHandler instanceof ExtendExpressionHandler
-                || coverageExpressionHandler instanceof ExtendExpressionByImageCrsDomainHandler
                 || coverageExpressionHandler instanceof CoverageConstantHandler
                 || coverageExpressionHandler instanceof CoverageConstructorHandler
                 || coverageExpressionHandler instanceof GeneralCondenserHandler

@@ -69,10 +69,9 @@ public class LetClauseHandler extends Handler {
         result.coverageAliasRegistry = coverageAliasRegistry;
         result.letClauseAliasCoverageExpressionHandlerRegistry = letClauseAliasCoverageExpressionHandlerRegistry;
 
-        // NOTE: this is used in case for example, let $add := $c + 300, $result := $add * 200
-        // then $result should be ($c + 300) * 200, and it is not $c + 300 * 200
-        Handler parenthesesWrapperHandler = ParenthesesCoverageExpressionHandler.create(coverageExpressionHandler);
-        result.setChildren(Arrays.asList(variableNameHandler, parenthesesWrapperHandler));
+        // NOTE: let $add := $c + 300, $result := $add * 200
+        // then return $result will be return $c + 300 * 200
+        result.setChildren(Arrays.asList(variableNameHandler, coverageExpressionHandler));
         
         return result;
     }

@@ -3388,7 +3388,7 @@ var rasdaman;
                         }
                         _this.errorHandlingService.handleError(args);
                         _this.$log.error(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                     });
                 }
                 else {
@@ -3405,7 +3405,7 @@ var rasdaman;
                         }
                         _this.errorHandlingService.handleError(args);
                         _this.$log.error(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                     });
                 }
             };
@@ -3427,7 +3427,7 @@ var rasdaman;
                     }
                     _this.errorHandlingService.handleError(args);
                     _this.$log.error(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             $scope.handleWhiteListAllCoverages = function () {
@@ -3448,7 +3448,7 @@ var rasdaman;
                     }
                     _this.errorHandlingService.handleError(args);
                     _this.$log.error(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             $rootScope.$on("renamedCoverageId", function (event, tupleObj) {
@@ -3572,7 +3572,8 @@ var rasdaman;
                     $scope.isServiceProviderOpen = false;
                     errorHandlingService.handleError(args);
                     $log.error(args);
-                })["finally"](function () {
+                })
+                    .finally(function () {
                     $scope.wcsStateInformation.serverCapabilities = $scope.capabilities;
                 });
             };
@@ -3775,7 +3776,8 @@ var rasdaman;
                     $scope.coverageDescription = null;
                     errorHandlingService.handleError(args);
                     $log.error(args);
-                })["finally"](function () {
+                })
+                    .finally(function () {
                     $scope.wcsStateInformation.selectedCoverageDescription = $scope.coverageDescription;
                 });
             };
@@ -3868,7 +3870,7 @@ var rasdaman;
                         }
                         _this.errorHandlingService.handleError(args);
                         _this.$log.error(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                         $scope.requestInProgress = false;
                     });
                 }
@@ -3925,7 +3927,7 @@ var rasdaman;
                         }
                         _this.errorHandlingService.handleError(args);
                         _this.$log.error(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                         $scope.requestInProgress = false;
                     });
                 }
@@ -4816,7 +4818,8 @@ var rasdaman;
                             errorHandlingService.handleError(args);
                             $log.error(args);
                             $scope.editorData.push(new rasdaman.NotificationWCPSResult(command, "Cannot execute the requested WCPS query, error '" + args[0].data + "'."));
-                        })["finally"](function () {
+                        })
+                            .finally(function () {
                             $scope.editorData[indexOfResults].finished = true;
                             $interval.cancel(waitingForResultsPromise);
                         });
@@ -5970,7 +5973,7 @@ var rasdaman;
             var requestUrl = this.settings.adminEndpoint + "/layer/style/remove" + "?" + request.toKVP();
             var requestHeaders = this.adminService.getAuthenticationHeaders();
             this.$http.get(requestUrl, {
-                headers: requestHeaders
+                headers: requestHeaders,
             }).then(function (data) {
                 try {
                     result.resolve("");
@@ -5992,7 +5995,7 @@ var rasdaman;
                 requestHeaders = this.credentialService.createRequestHeader(this.wcsSettings.wcsEndpoint, currentHeaders);
             }
             this.$http.get(requestUrl, {
-                headers: requestHeaders
+                headers: requestHeaders,
             }).then(function (response) {
                 try {
                     result.resolve(response.data);
@@ -6010,7 +6013,7 @@ var rasdaman;
             var requestUrl = this.wcsSettings.adminEndpoint + "/coverage/pyramid/create" + "?" + request.toKVP();
             var requestHeaders = this.adminService.getAuthenticationHeaders();
             this.$http.get(requestUrl, {
-                headers: requestHeaders
+                headers: requestHeaders,
             }).then(function (data) {
                 try {
                     result.resolve("");
@@ -6028,7 +6031,7 @@ var rasdaman;
             var requestUrl = this.wcsSettings.adminEndpoint + "/coverage/pyramid/add" + "?" + request.toKVP();
             var requestHeaders = this.adminService.getAuthenticationHeaders();
             this.$http.get(requestUrl, {
-                headers: requestHeaders
+                headers: requestHeaders,
             }).then(function (data) {
                 try {
                     result.resolve("");
@@ -6046,7 +6049,7 @@ var rasdaman;
             var requestUrl = this.wcsSettings.adminEndpoint + "/coverage/pyramid/remove" + "?" + request.toKVP();
             var requestHeaders = this.adminService.getAuthenticationHeaders();
             this.$http.get(requestUrl, {
-                headers: requestHeaders
+                headers: requestHeaders,
             }).then(function (data) {
                 try {
                     result.resolve("");
@@ -6295,7 +6298,7 @@ var rasdaman;
                         }
                         _this.errorHandlingService.handleError(args);
                         _this.$log.error(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                     });
                 }
                 else {
@@ -6312,7 +6315,7 @@ var rasdaman;
                         }
                         _this.errorHandlingService.handleError(args);
                         _this.$log.error(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                     });
                 }
             };
@@ -6333,7 +6336,7 @@ var rasdaman;
                     }
                     _this.errorHandlingService.handleError(args);
                     _this.$log.error(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             $scope.handleWhiteListAllLayers = function () {
@@ -6353,7 +6356,7 @@ var rasdaman;
                     }
                     _this.errorHandlingService.handleError(args);
                     _this.$log.error(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             $rootScope.$on("renamedCoverageId", function (event, tupleObj) {
@@ -6483,7 +6486,8 @@ var rasdaman;
                     $scope.isServiceProviderOpen = false;
                     errorHandlingService.handleError(args);
                     $log.error(args);
-                })["finally"](function () {
+                })
+                    .finally(function () {
                     $scope.wmsStateInformation.serverCapabilities = $scope.capabilities;
                 });
             };
@@ -6811,12 +6815,12 @@ var rasdaman;
                 }
                 var sufixSlider = "d";
                 var _loop_2 = function (j) {
-                    $("<div />", { "class": "containerSliders", id: "containerSlider" + j + sufixSlider })
+                    $("<div />", { class: "containerSliders", id: "containerSlider" + j + sufixSlider })
                         .appendTo($("#sliders"));
-                    $("<label />", { "class": "sliderLabel", id: "label" + j + sufixSlider })
+                    $("<label />", { class: "sliderLabel", id: "label" + j + sufixSlider })
                         .appendTo($("#containerSlider" + j + sufixSlider));
                     $("#label" + j + sufixSlider).text($scope.layer.layerDimensions[j].name + ':');
-                    $("<div />", { "class": "slider", id: "slider" + j + sufixSlider })
+                    $("<div />", { class: "slider", id: "slider" + j + sufixSlider })
                         .appendTo($("#containerSlider" + j + sufixSlider));
                     var sliderId = "#slider" + j + sufixSlider;
                     $(function () {
@@ -6903,7 +6907,7 @@ var rasdaman;
                         args[_i] = arguments[_i];
                     }
                     errorHandlingService.handleError(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             $scope.addPyramidMember = function () {
@@ -6930,7 +6934,7 @@ var rasdaman;
                         args[_i] = arguments[_i];
                     }
                     errorHandlingService.handleError(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             $scope.removePyramidMember = function (pyramidMemberCoverageId) {
@@ -6956,7 +6960,7 @@ var rasdaman;
                         args[_i] = arguments[_i];
                     }
                     errorHandlingService.handleError(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             function selectOptionsChange() {
@@ -7142,7 +7146,7 @@ var rasdaman;
                             args[_i] = arguments[_i];
                         }
                         errorHandlingService.handleError(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                     });
                 }
             };
@@ -7185,7 +7189,7 @@ var rasdaman;
                             args[_i] = arguments[_i];
                         }
                         errorHandlingService.handleError(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                     });
                 }
             };
@@ -7213,7 +7217,7 @@ var rasdaman;
                         args[_i] = arguments[_i];
                     }
                     errorHandlingService.handleError(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
         }
@@ -7317,7 +7321,7 @@ var rasdaman;
                         }
                         _this.errorHandlingService.handleError(args);
                         _this.$log.error(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                         $scope.requestInProgress = false;
                     });
                 }
@@ -7535,7 +7539,7 @@ var rasdaman;
                         args[_i] = arguments[_i];
                     }
                     errorHandlingService.handleError(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
         }
@@ -7614,7 +7618,7 @@ var rasdaman;
                         args[_i] = arguments[_i];
                     }
                     errorHandlingService.handleError(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             $scope.updateServiceProvider = function () {
@@ -7634,7 +7638,7 @@ var rasdaman;
                         args[_i] = arguments[_i];
                     }
                     errorHandlingService.handleError(args);
-                })["finally"](function () {
+                }).finally(function () {
                 });
             };
             $scope.logOut = function () {
@@ -7932,7 +7936,7 @@ var rasdaman;
                         }
                         _this.errorHandlingService.handleError(args);
                         _this.$log.error(args);
-                    })["finally"](function () {
+                    }).finally(function () {
                         $scope.requestInProgress = false;
                     });
                 }

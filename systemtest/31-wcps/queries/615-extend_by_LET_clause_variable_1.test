@@ -1,0 +1,10 @@
+for c in (test_mr),
+    d in (test_mr)
+    
+let sub := [i(0:30), j(0:30)],
+    dst := imageCrsDomain(c[sub]),
+    x := 3.2
+
+return encode(
+extend(c, {dst})
+, "jpeg")

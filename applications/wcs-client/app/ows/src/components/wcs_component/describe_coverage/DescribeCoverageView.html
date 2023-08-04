@@ -117,7 +117,7 @@
             </uib-accordion>
         </div>
        
-        <div class="row" ng-show="coverageDescription" style="margin-top: 20px; margin-bottom: -20px;">
+        <div class="row" ng-show="coverageDescription || coverageDescription === null" style="margin-top: 20px; margin-bottom: -20px;">
             <uib-accordion close-others="false">
                 <uib-accordion-group is-open="isCoverageDescriptionsDocumentOpen">
                     <uib-accordion-heading>
@@ -131,7 +131,7 @@
 
 
                     <!-- Select text file to update coverage's metadata, only show when one logged in with petascope admin user (!) -->
-                    <div class="row top15" ng-show="adminUserLoggedIn && coverageDescription && hasRole">
+                    <div class="row top15" ng-show="adminUserLoggedIn && (coverageDescription || coverageDescription === null) && hasRole">
                         <div>
                             <button type="button" class="btn btn-danger" style="float: right; margin-left: 3vw; display: none;" id="btnUpdateCoverageMetadata"
                                 ng-click="updateCoverageMetadata()">

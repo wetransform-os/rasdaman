@@ -84,7 +84,7 @@ QtInfo::QtInfo(QtVariable *newInput, const char *paramsStr)
         }
         else
         {
-            LERROR << "Error: QtInfo::QtInfo() - printtiles argument is not supported.";
+            LERROR << "printtiles argument is not supported.";
             throw r_Error(INFO_PRINTTILESNOTSUPPORTED);
         }
         if (printParam != NULL)
@@ -163,6 +163,11 @@ QtInfo::evaluate(QtDataList *inputList)
                         if (collType)
                         {
                             info << "\",\n \"setTypeName\": \"" << collType->getName();
+                            auto nulls = collType->getNullValues();
+                            if (nulls)
+                            {
+                                info << "\",\n \"nullValues\": \"" << nulls->toString();
+                            }
                         }
                         info << "\",\n \"mddTypeName\": \"" << dbObj->getMDDBaseType()->getTypeName();
 

@@ -467,17 +467,18 @@ class AbstractToCoverageConverter:
         :return:
         """
         for band in bands:
-            # List all attributes of object and evaluate them if they are defined with varible format (${...})
+            # List all attributes of object and evaluate them if they are defined with variable format (${...})
             attr_list = vars(band).items()
             for key_value in attr_list:
                 # e.g: "description"
                 key = key_value[0]
                 # e.g: "'${grib:marsClass}'"
                 value = key_value[1]
-                # evaluate this metadata variable by eval() on the slice_file (all files should have same metadata)
-                evaluated_value = self.sentence_evaluator.evaluate(value, self.evaluator_slice)
-                # after that, the band's metadata for the current attribute is evaluated
-                setattr(band, key, evaluated_value)
+                if isinstance(value, str):
+                    # evaluate this metadata variable by eval() on the slice_file (all files should have same metadata)
+                    evaluated_value = self.sentence_evaluator.evaluate(value, self.evaluator_slice)
+                    # after that, the band's metadata for the current attribute is evaluated
+                    setattr(band, key, evaluated_value)
 
     def _create_coverage_slices(self, coverage_crs, crs_axes, calculated_evaluator_slice=None, axis_resolutions=None):
         """

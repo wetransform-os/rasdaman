@@ -23,6 +23,7 @@ package org.rasdaman.domain.cis;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.Serializable;
+import java.util.Objects;
 import javax.persistence.*;
 import nu.xom.Attribute;
 import nu.xom.Element;
@@ -128,5 +129,10 @@ public class NilValue implements Serializable {
         NilValue other = (NilValue) obj;
         
         return this.value.equals(other.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
     }
 }

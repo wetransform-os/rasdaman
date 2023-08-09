@@ -121,9 +121,34 @@ def get_null_values(default_null_values):
     null_values = None
     if default_null_values is not None:
         null_values = []
-        for value in default_null_values:
-            values = str(value).strip().split(",")
-            values = [x.strip() for x in values]
-            null_values += values
+        for element in default_null_values:
+            if isinstance(element, list):
+                # e.g. [3, 6, "7:9"]
+                nested_null_values = []
+                for nested_value in element:
+                    nested_null_values += __parse_null_values_in_string_to_list(nested_value)
+
+                null_values.append(nested_null_values)
+            else:
+                # e.g. "30:60" or 30 or "30, 60, 70"
+                null_values += __parse_null_values_in_string_to_list(element)
 
     return null_values
+
+
+def __parse_null_values_in_string_to_list(input_str):
+    """
+    Given "30, 40, 50" returns [30, 40, 50]
+    :param str input_str:
+    :return: list
+    """
+    results = []
+    if isinstance(input_str, str) and "," in input_str:
+        # e.g. "30, 40, 50"
+        values = str(input_str).strip().split(",")
+        results = [x.strip() for x in values]
+    else:
+        # e.g. "30:60" or 30
+        results.append(input_str)
+
+    return results

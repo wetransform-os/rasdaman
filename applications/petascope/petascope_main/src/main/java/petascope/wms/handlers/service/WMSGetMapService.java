@@ -62,17 +62,13 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCPSException;
 import petascope.exceptions.WMSException;
-import petascope.util.CrsUtil;
-import petascope.util.ListUtil;
-import petascope.util.MIMEUtil;
+import petascope.util.*;
 import petascope.util.ras.RasUtil;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wms.exception.WMSInternalException;
 import petascope.core.gml.metadata.model.CoverageMetadata;
 import petascope.rasdaman.exceptions.RasdamanException;
-import petascope.util.CrsProjectionUtil;
-import petascope.util.JSONUtil;
 import petascope.wcps.encodeparameters.model.JsonExtraParams;
 import petascope.wcps.encodeparameters.model.NoData;
 import petascope.wcps.encodeparameters.service.SerializationEncodingService;
@@ -390,11 +386,27 @@ public class WMSGetMapService {
                 
                 if (nilValues.isEmpty()) {
                     if (wcpsCoverageMetadata.getNilValues().size() > 0) {
-                        if (wcpsCoverageMetadata.getNilValues().get(0).size() > 0) {
-                            String value = wcpsCoverageMetadata.getNilValues().get(0).get(0).getValue();
-                            nilValues.add(new NilValue(value));
+                        for (List<NilValue> nestedNilValues : wcpsCoverageMetadata.getNilValues()) {
+                            nilValues.addAll(nestedNilValues);
                         }
                     }
+
+                    // Then, filter any null values which cannot be used in rasql encode() : \"nodata\": [] parameter
+                    Set<NilValue> tmps = new LinkedHashSet<>();
+                    for (NilValue nilValue : nilValues) {
+                        String valueStr = nilValue.getValue();
+                        if (BigDecimalUtil.isNumber(valueStr)) {
+                            BigDecimal value = new BigDecimal(valueStr);
+
+                            // NOTE: WMS GetMap always return valid value betweens 0-255 for encoding()
+                            // so, if null values don't belong to this range values -> filter it
+                            if (value.compareTo(BigDecimal.ZERO) >= 0 && value.compareTo(new BigDecimal("255"))  <= 0) {
+                                tmps.add(nilValue);
+                            }
+                        }
+                    }
+
+                    nilValues = new ArrayList<>(tmps);
                 }
                 
                 List<Axis> xyAxes = wcpsCoverageMetadata.getXYAxes();

@@ -701,6 +701,7 @@ void doStuff()
             openTransaction(false);
 
             ExecuteQueryRes result;
+            LDEBUG << "query: " << query.get_query();
             auto status = instance.compat_executeQueryRpc(query.get_query(), result, false);
             if (status <= 2)
             {

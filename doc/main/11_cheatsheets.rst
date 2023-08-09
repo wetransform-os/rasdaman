@@ -299,75 +299,60 @@ Coverage operations
 
 - **Scale** is like extend but it resamples the current coverage values to:
 
-  - Fit the new domain: ::
+  - Fit a new domain: ::
 
       scale( covExpr, { axis1(lo:hi), axis2:crs(lo:hi), ... } )
-   
-  - Scale all axes by a factor (positive number; factor > 1 means scaling up; factor < 1 means scaling down): ::
 
-      scale( covExpr, number)
+    or the domain of another coverage: ::
 
-  - Scale different factors for different axes: ::
+      scale( covExpr, { imageCrsDomain( $anotherCoverage ) } )
 
-      scale( covExprs, { axi1(factor1), axis2(factor2), ... })
+  - Scale by a factor (factor > 1 for scaling up, 0 < factor < 1 for scaling down): ::
 
-  
+      scale( covExpr, number )
+
+  - Scale by custom factor per axis: ::
+
+      scale( covExprs, { axi1(factor1), axis2(factor2), ... } )
 
   Currently only nearest neighbour interpolation is supported for scaling.
 
-    .. code-block:: rasql
+- **Reproject** to a different CRS can be done with ``crsTransform``: ::
 
-        crsTransform( covExpr, { axisX:outputCRS, axisY:outputCRS }
-                               [ , { interpolation } ]
-                               [ , {axisLabelX:geoXResolution, axisLabelY:geoYResolution}   ]
-                               [ , {axisLabelX(lo:hi), axisLabelY(lo:hi)} or {domain(2D coverage)} ] 
-                    )
+    crsTransform( covExpr, { axisX:outputCRS, axisY:outputCRS }
+                           [ , { interpolation } ]
+                           [ , { axisLabelX:geoXRes, axisLabelY:geoYRes }   ]
+                           [ , { axisLabelX(lo:hi), axisLabelY(lo:hi)} |
+                               { domain(2Dcoverage) } ] 
+                )
 
-  For example, the query below reprojects a 2D coverage to ``EPSG:4326`` CRS with 
-  ``bilinear`` interpolation and target geo resolutions for ``Lat``
-  and ``Lon`` axes ``0.5`` and ``1 + the resolution of Lat axis in coverage $d`` respectively, and crops the result to 
-  the target geo domain ``[Lat(30.5:60.5), Lon(50.5:70.5)]``:
+  For example, the query below reprojects a 2D coverage to ``EPSG:4326`` CRS
+  with ``bilinear`` interpolation, target geo resolutions for ``Lat`` and
+  ``Lon`` axes ``0.5`` and ``1 + the resolution of Lat axis in coverage $d``
+  respectively, and crops the result to the target geo domain 
+  ``[Lat(30.5:60.5), Lon(50.5:70.5)]``: ::
 
-    .. code-block:: rasql
-
-        crsTransform($c, 
-                        {Lat:"http://localhost:8080/rasdaman/def/crs/EPSG/0/4326", 
-                         Lon:"http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" }, 
-                        {bilinear},
-                        {Lat:0.5, Lon:1 + domain($d, Lat).resolution},
-                        {Lat(30.5:60.5), Lon(50.5:70.5)}
-                    )
-    
+    crsTransform($c, 
+                 { Lat:"http://localhost:8080/rasdaman/def/crs/EPSG/0/4326", 
+                   Lon:"http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" }, 
+                 { bilinear },
+                 { Lat:0.5, Lon:1 + domain($d, Lat).resolution },
+                 { Lat(30.5:60.5), Lon(50.5:70.5) }
+                )
 
 .. _wcps-crstransform-shorthand:
  
-  Alternatively, a shorthand version can be used where the target CRS is
-  applies to both axes (instead of specifying it individually for each axis).
+  Alternatively, a shorthand version can be used where the target CRS is applies
+  to both axes (instead of specifying it individually for each axis). A similar
+  example as above but with shorthand CRS notation and target geo domain that
+  matches the domain of coverage `$d`: ::
 
-    .. code-block:: rasql
-
-        crsTransform( covExpr, "outputCRS", 
-                         [ , { interpolation } ]
-                         [ , {axisLabelX:geoXResolution, axisLabelY:geoYResolution}   ]
-                         [ , {axisLabelX(lo:hi), axisLabelY(lo:hi)} or {domain(2D coverage)} ] 
-                    )
-
-  A similar example as above with shorthand CRS notation, and target geo domain that
-  matches the domain of coverage `$d`:
-
-    .. code-block:: rasql
-
-        crsTransform($c, 
-                        "EPSG:4326", 
-                        {bilinear},
-                        {Lat:0.5,
-                         Lon:1 + domain($d, Lat).resolution},
-                        {domain($d)}
-                    )
-
-  Note that the shorthand notation is not compliant with the WCPS 1.0 standard, and is
-  an extension that rasdaman provides for convenience. Furthermore, the optional
-  parameters for specifying resolution and target domain are also non-standard.
+    crsTransform($c, 
+                 "EPSG:4326", 
+                 { bilinear },
+                 { Lat:0.5, Lon:1 + domain($d, Lat).resolution },
+                 { domain($d) }
+                )
 
   For supported interpolation methods see the options for 
   :ref:`resampleAlg parameter <sec-geo-projection-interpolation>`.
@@ -427,8 +412,9 @@ Coverage operations
 
     encode(covExpr, "image/jpeg")
 
-   WCPS supports ``application/gml+xml`` format corresponding to OGC WCS ``GetCoverage`` request.
-   Many further formats are supported, see :ref:`here <rasql-encode-function-data-format>` for details.
+   WCPS supports ``application/gml+xml`` corresponding to an OGC WCS
+   ``GetCoverage`` request. Many further formats are supported, see :ref:`here
+   <rasql-encode-function-data-format>` for details.
 
 
 Atomic types

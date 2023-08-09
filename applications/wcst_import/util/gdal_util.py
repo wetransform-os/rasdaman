@@ -316,6 +316,7 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
 
         number_of_bands = self.gdal_dataset.RasterCount
 
+        has_nested_null_elements_list = False
         for i in range(1, number_of_bands + 1):
             band = self.gdal_dataset.GetRasterBand(i)
 
@@ -327,6 +328,14 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
 
             if ConfigManager.default_null_values is not None:
                 nil_values = ConfigManager.default_null_values
+
+                if nil_values is not None and len(nil_values) > 0 and isinstance(nil_values[0], list):
+                    # e.g. "default_null_values": [ [3, 5, 6], [6], [8] ]
+                    number_of_null_elements = len(nil_values)
+                    if number_of_null_elements != number_of_bands:
+                        raise RuntimeException("Number of null values list elements specfied in \"default_null_values\" setting"
+                                               " do not match with number of GDAL bands. Given: {} and {} respectively.".format(number_of_null_elements, number_of_bands))
+                    has_nested_null_elements_list = True
             else:
                 # If not, then detects it from file's bands
                 nil_value = repr(band.GetNoDataValue()) if band.GetNoDataValue() is not None else ""
@@ -336,7 +345,12 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
             uom = band.GetUnitType() if band.GetUnitType() else ConfigManager.default_unit_of_measure
 
             # Add it to the list of fields
-            fields.append(GDALField(field_name, uom, nil_values))
+            if not has_nested_null_elements_list:
+                 # e.g. "default_null_values": [3, 5, 6] then 3 bands have the same list of null values
+                fields.append(GDALField(field_name, uom, nil_values))
+            else:
+                # e.g.  "default_null_values": [ [3], [5], ["7:8"] ] then band1 has null value 3 and so on
+                fields.append(GDALField(field_name, uom, nil_values[i - 1]))
 
         return fields
 

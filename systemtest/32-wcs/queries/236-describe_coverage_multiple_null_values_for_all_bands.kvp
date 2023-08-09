@@ -1,0 +1,1 @@
+SERVICE=WCS&VERSION=2.0.1&REQUEST=DescribeCoverage&COVERAGEID=test_wms_world_temperature_out_of_range_null_values_NEW

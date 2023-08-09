@@ -65,7 +65,8 @@ public class NoData {
                 try {
                     value = Double.valueOf(valueTmp);
                 } catch (Exception ex) {
-                    log.warn("Null value is not a numeric number. Given: " + value);
+                    // e.g. -9995:6000 is not valid in rasql encode: \"nodata\" parameter
+                    log.warn("Null value is not a numeric number. Given: " + valueTmp);
                 }
             }
 

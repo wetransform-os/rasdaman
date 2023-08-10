@@ -105,7 +105,7 @@ queries. The request format is as follows: ::
   http(s)://<endpoint url>?service=WCS&version=2.0.1&request=ProcessCoverages
                           &query=<wcps query>
 
-E.g, calculate the average on the subset from the previous GetCoverage example:
+e.g. calculate the average on the subset from the previous GetCoverage example:
 
   `http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=ProcessCoverages&query=for $c in (AvgLandTemp) return avg($c[Lon(-90.0:85.3), ansi("2014-10-01")]) <http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=ProcessCoverages&query=for $c in (AvgLandTemp) return avg($c[Lon(-90.0:85.3), ansi("2014-10-01")])>`__
 
@@ -146,11 +146,14 @@ reproject a coverage before retreiving it. For example ``AverageChlorophyllScale
 has native CRS EPSG:4326, and the following request will return the result in
 EPSG:3857:
 
-  `http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=unix("2015-01-01")&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857 <http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=unix("2015-01-01")&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857>`__
+  http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=unix("2015-01-01")&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857
 
 or change the CRS in which subset or scale coordinates are specified:
 
-  `http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=Lon(0,10000000)&subset=Lat(0,20000000)&subset=unix(%222015-01-01%22)&subsettingCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857 <http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=Lon(0,10000000)&subset=Lat(0,20000000)&subset=unix(%222015-01-01%22)&subsettingCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857>`__
+  http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=Lon(0,10000000)&subset=Lat(0,20000000)&subset=unix(%222015-01-01%22)&subsettingCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857
+  
+
+The CRS in ``subsettingCrs`` / ``outputCrs`` can be specified in :ref:`these notations <crs-notation>`.
 
 
 Interpolation
@@ -160,7 +163,7 @@ Reprojection (optionally with subsequent scaling) can be performed with various 
 enabled by the `Interpolation extension
 <https://portal.opengeospatial.org/files/12-049>`__:
 
-  http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=mean_summer_airtemp&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857&interpolation=http://www.opengis.net/def/interpolation/OGC/1/cubic
+  http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=mean_summer_airtemp&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857&interpolation=http://www.opengis.net/def/interpolation/OGC/1.0/cubic
 
 Rasdaman supports several interpolation methods as documented 
 :ref:`here <sec-geo-projection-interpolation>`.
@@ -277,7 +280,7 @@ Coverage operations
 - **Subsetting** allows to select a part of a coverage (or crop it to a smaller
   domain): ::
 
-    covExpr[ axis1(lo:hi), axis2(slice), axis3:crs(...), ... ]
+    covExpr[ axis1(lo:hi), axis2(slice), axis3:"crs"(...), ... ]
   
   1. ``axis1`` in the result is reduced to span from coordinate ``lo`` to ``hi``.
      Either or both ``lo`` and ``hi`` can be indicated as ``*``, corresponding to
@@ -286,7 +289,8 @@ Coverage operations
   2. ``axis2`` is restricted to the exact slice coordinate and removed from the
      result.
 
-  3. ``axis3`` is subsetted in coordinates specified in the given ``crs``. By
+  3. ``axis3`` is subsetted in coordinates specified in the given ``crs``; 
+     the CRS must be specified in one of :ref:`these formats <crs-notation>`. By
      default coordinates must be given in the native CRS of ``C``.
 
 - **Extend** is similar to subsetting but can be used to enlarge a coverage with 
@@ -315,7 +319,9 @@ Coverage operations
 
       scale( covExprs, { axi1(factor1), axis2(factor2), ... } )
 
-  Currently only nearest neighbour interpolation is supported for scaling.
+  Currently only nearest neighbour interpolation is supported for scaling.               
+
+    .. code-block:: rasql
 
 - **Reproject** to a different CRS can be done with ``crsTransform``: ::
 
@@ -325,6 +331,8 @@ Coverage operations
                            [ , { axisLabelX(lo:hi), axisLabelY(lo:hi)} |
                                { domain(2Dcoverage) } ] 
                 )
+                
+  where the ``outputCrs`` can be specified in :ref:`these formats <crs-notation>`.
 
   For example, the query below reprojects a 2D coverage to ``EPSG:4326`` CRS
   with ``bilinear`` interpolation, target geo resolutions for ``Lat`` and

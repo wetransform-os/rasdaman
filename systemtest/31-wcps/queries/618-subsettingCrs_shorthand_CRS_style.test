@@ -1,0 +1,2 @@
+for c in (test_world_temp) return encode(c[Lat:"EPSG:32632"(-1847521.66981:1792314.67477),
+  Long:"EPSG/0/32632"(3865803.85361:8095854.02939)], "png", "nodata=0")

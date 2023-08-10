@@ -1034,6 +1034,18 @@ There are two supported formats for interpolation parameter in WCS ``GetCoverage
 - Full URI, e.g. ``http://www.opengis.net/def/interpolation/OGC/1.0/bilinear``
 - Short hand format, e.g. ``bilinear``
 
+CRS notation
+------------
+
+.. _crs-notation:
+
+When a CRS is used in WCS / WCPS request for doing subsetting or projecting to an output CRS,
+these notations below are supported:
+
+- Full CRS URL, e.g. ``http://localhost:8080/rasdaman/def/crs/EPSG/0/4326`` (standardized format)
+- Shorthand CRS with authority, version and code, e.g. ``EPSG/0/4326``
+- Shorthand CRS with authority and code, e.g. ``EPSG:4326``
+
 
 OGC Web Coverage Processing Service (WCPS)
 ==========================================

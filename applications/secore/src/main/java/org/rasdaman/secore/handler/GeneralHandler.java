@@ -124,9 +124,23 @@ public class GeneralHandler extends AbstractHandler {
             throw new SecoreException(ExceptionCode.InvalidRequest, "Failed resolving request '" + request.toString() + "', check if version number is valid or crs definition exists first.");
         }
 
+        ResolveResponse ret = null;
+
         // NOTE: userdb can contain CRS definition (e.g. crs/OGC/0/CRS84) which contains sub-elements which needs to be resolved
         // Hence, it needs to invoke this method which will run a complicated XQuery to resolve every sub URL elements
-        ResolveResponse ret = resolveId(parseRequest(request).snd, versionTmp, versionNumber, request.getExpandDepth(), new ArrayList<Parameter>());
+        try {
+            ret = resolveId(parseRequest(request).snd, versionTmp, versionNumber, request.getExpandDepth(), new ArrayList<Parameter>());
+        } catch (Exception ex) {
+            if (!resultDefInUserDB.equals(EMPTY_XML)) {
+                // NOTE: if it failed to run full XQuery to query, then if the first XQuery returns something it is good to return it
+                // the case for the error below is: COSMO/0/101
+                log.warn("Failed to query database for request: " + parseRequest(request).snd  + ". Reason: " + ex.getMessage(), ex);
+                ret = new ResolveResponse(resultDefInUserDB);
+            } else {
+                throw ex;
+            }
+
+        }
 
         
         // check if the result is a parameterized CRS, and forward to the ParameterizedCrsHandler

@@ -21,14 +21,9 @@
  */
 package petascope.util.ras;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -92,16 +87,14 @@ public class TypeRegistry {
     }
 
     /**
-     * Create a struct type content, e.g: band0 float, band1 float, band2 short.
+     * Create a struct type content, e.g: red float, green float, blue short.
      */
-    private String generateStructStructure(List<String> bandBaseTypes) {
+    private String generateStructStructure(Map<String, String> bandBaseTypesMap) {
         List<String> bands = new ArrayList<>();
-        int i = 0;
-        for (String bandBaseType : bandBaseTypes) {
-            String band = ("band" + i) + " " + bandBaseType;
-            bands.add(band);
-            
-            i++;
+        for (Map.Entry<String, String> entry : bandBaseTypesMap.entrySet()) {
+            String bandName = entry.getKey();
+            String dataType = entry.getValue();
+            bands.add(bandName + " " + dataType);
         }
         
         String result = ListUtil.join(bands, ", ");
@@ -152,19 +145,33 @@ public class TypeRegistry {
     /**
      * @return the name of the created set (collection) type.
      */
-    public String createNewType(String collectionName, Integer dimNo, List<String> bandBaseTypes, List<List<NilValue>> nullValues) throws PetascopeException {
+    public String createNewType(String collectionName, Integer dimNo, Map<String, String> bandBaseTypesMap,
+                                List<List<NilValue>> nullValues) throws PetascopeException {
         log.debug("Creating new type for collection '" + collectionName + "' of dimension " + dimNo + 
-                  ", base types: " + bandBaseTypes.toString() + ", with null values: " + (!nullValues.isEmpty()) + ".");
+                  ", base types: " + bandBaseTypesMap.toString() + ", with null values: " + (!nullValues.isEmpty()) + ".");
         String cellName = collectionName + CELL_TYPE_SUFFIX;
         String marrayName = collectionName + ARRAY_TYPE_SUFFIX;
         String setName = collectionName + SET_TYPE_SUFFIX;
         
         final String EXIST_TYPE_ERROR_MESSAGE = "already exists";
+
+        if (structTypeDefinitions.get(cellName) != null) {
+            cellName = StringUtil.addDateTimeSuffix(cellName);
+        }
+
+        if (marrayTypeDefinitions.get(marrayName) != null) {
+            marrayName = StringUtil.addDateTimeSuffix(marrayName);
+        }
+
+        if (typeRegistry.get(setName) != null) {
+            setName = StringUtil.addDateTimeSuffix(setName);
+        }
         
-        if (bandBaseTypes.size() == 1) {
+        if (bandBaseTypesMap.size() == 1) {
+            Optional<String> dataType = bandBaseTypesMap.values().stream().findFirst();
             //simple types
             String queryMarray = QUERY_CREATE_MARRAY_TYPE.replace("$typeName", marrayName)
-                                 .replace("$typeStructure", bandBaseTypes.get(0))
+                                 .replace("$typeStructure", dataType.get())
                                  .replace("$dimensions", expandDimensions(dimNo));
             // create the marray type
             // e.g CREATE TYPE meris_lai_resolution_automatic AS float MDARRAY [D0,D1,D2]
@@ -180,7 +187,7 @@ public class TypeRegistry {
         } else {
             //struct types
             String queryStruct = QUERY_CREATE_STRUCT_TYPE.replace("$structTypeName", cellName)
-                                 .replace("$structStructure", generateStructStructure(bandBaseTypes));
+                                 .replace("$structStructure", generateStructStructure(bandBaseTypesMap));
             //create the struct type
             try {
                 RasUtil.executeRasqlQuery(queryStruct, ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS, true);

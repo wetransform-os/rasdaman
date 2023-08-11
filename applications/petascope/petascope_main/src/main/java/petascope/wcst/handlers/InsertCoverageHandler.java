@@ -224,6 +224,7 @@ public class InsertCoverageHandler {
         String username = ConfigManager.RASDAMAN_ADMIN_USER;
         String password = ConfigManager.RASDAMAN_ADMIN_PASS;
         
+        List<Field> rangeFields = coverage.getRangeType().getDataRecord().getFields();
 
         if (rangeSet.getChildElements(XMLSymbols.LABEL_DATABLOCK,
                 XMLSymbols.NAMESPACE_GML).size() != 0) {
@@ -233,7 +234,7 @@ public class InsertCoverageHandler {
 
             long start = System.currentTimeMillis();
             Pair<String, List<String>> collectionTypePair
-                    = TypeResolverUtil.guessCollectionType(collectionName, numberOfBands, numberOfDimensions, nullValues, pixelDataType);
+                    = TypeResolverUtil.guessCollectionType(collectionName, rangeFields, numberOfDimensions, nullValues, pixelDataType);
             rasCollectionType = collectionTypePair.fst;
             long end = System.currentTimeMillis();
             log.debug("Time for guessing collection type: " + String.valueOf(end - start) + " ms.");
@@ -283,10 +284,10 @@ public class InsertCoverageHandler {
             String mimetype = GMLCIS10ParserService.parseMimeType(rangeSet);
             //pass it to gdal to get the collection type
             if (pixelDataType != null) {
-                rasCollectionType = TypeResolverUtil.guessCollectionType(collectionName, numberOfBands, numberOfDimensions, nullValues, pixelDataType).fst;
+                rasCollectionType = TypeResolverUtil.guessCollectionType(collectionName, rangeFields, numberOfDimensions, nullValues, pixelDataType).fst;
             } else {
                 //read it from file
-                rasCollectionType = TypeResolverUtil.guessCollectionTypeFromFile(collectionName, tmpFile.getAbsolutePath(), numberOfDimensions, nullValues);
+                rasCollectionType = TypeResolverUtil.guessCollectionTypeFromFile(collectionName, tmpFile.getAbsolutePath(), numberOfDimensions, nullValues, rangeFields);
             }
             //insert it into rasdaman
             rasdamanCollectionCreator = new RasdamanDefaultCollectionCreator(collectionName, rasCollectionType);
@@ -325,12 +326,14 @@ public class InsertCoverageHandler {
         int numberOfDimensions = coverage.getNumberOfDimensions();
         int numberOfBands = coverage.getNumberOfBands();
         List<List<NilValue>> bandNullValues = coverage.getNilValues();
+
+        List<Field> rangeFields = coverage.getRangeType().getDataRecord().getFields();
         
         // e.g: Byte (all bands have same data type) or Float32,Int16 (each band has different data type)
         String pixelDataType = coverage.getPixelDataType();
         
         Pair<String, List<String>> collectionTypePair
-                    = TypeResolverUtil.guessCollectionType(coverageId, numberOfBands, numberOfDimensions, bandNullValues, pixelDataType);
+                    = TypeResolverUtil.guessCollectionType(coverageId, rangeFields, numberOfDimensions, bandNullValues, pixelDataType);
         String rasCollectionType = collectionTypePair.fst;
         coverage.getRasdamanRangeSet().setCollectionType(rasCollectionType);
         

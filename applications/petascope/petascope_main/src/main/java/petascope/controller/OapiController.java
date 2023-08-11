@@ -229,9 +229,9 @@ public class OapiController extends AbstractController {
         
         this.setBaseURL(httpServletRequest);
         
-        Map<String, String[]> kvpParameters = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
-        String[] inputSubsets = kvpParameters.get(SUBSET_PARAM);
-        String outputFormat = getValueByKeyAllowNull(kvpParameters, OUTPUT_FORMAT_PARAM);
+        Map<String, String[]> inputKVPMap = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
+        String[] inputSubsets = inputKVPMap.get(SUBSET_PARAM);
+        String outputFormat = getValueByKeyAllowNull(inputKVPMap, OUTPUT_FORMAT_PARAM);
         String acceptHeaderValue = httpServletRequest.getHeader(ACCEPT_HEADER_KEY);
         
         if (outputFormat == null && acceptHeaderValue != null) {
@@ -242,7 +242,8 @@ public class OapiController extends AbstractController {
         
         String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(inputSubsets);
         try {
-            Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, outputFormat);
+            // Internally it translates to WCS GetCoverage request
+            Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, outputFormat, inputKVPMap);
             this.writeResponseResult(response);
         } catch (Exception ex) {
             String errorMessage = "Error returning coverage data. Reason: " + ex.getMessage();
@@ -310,11 +311,11 @@ public class OapiController extends AbstractController {
         
         this.setBaseURL(httpServletRequest);
         
-        Map<String, String[]> kvpParameters = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
-        String[] inputSubsets = getValuesByKeyAllowNull(kvpParameters, SUBSET_PARAM);        
+        Map<String, String[]> inputKVPMap = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
+        String[] inputSubsets = getValuesByKeyAllowNull(inputKVPMap, SUBSET_PARAM);
         String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(inputSubsets);
         try {
-            Object rangeSet = oapiHandlersService.getCoverageRangeSetResult(coverageId, parsedSubsets);
+            Object rangeSet = oapiHandlersService.getCoverageRangeSetResult(coverageId, parsedSubsets, inputKVPMap);
             Response response = this.oapiResultService.getJsonResponse(rangeSet);
             this.writeResponseResult(response);
         } catch (Exception ex) {
@@ -360,7 +361,7 @@ public class OapiController extends AbstractController {
     private void setBaseURL(HttpServletRequest httpServletRequest) {
         if (StringUtils.isEmpty(BASE_URL)) {
             // petascope endpoint proxy is configured in petascope.properies
-            if (!PETASCOPE_ENDPOINT_URL.isEmpty()) {
+            if (StringUtils.isNotEmpty(PETASCOPE_ENDPOINT_URL)) {
                 BASE_URL = PETASCOPE_ENDPOINT_URL.replace(CONTEXT_PATH + "/" + OWS, CONTEXT_PATH + "/" + OAPI);
             } else {
                 BASE_URL = httpServletRequest.getRequestURL().toString().split("/" + OAPI)[0] + "/" + OAPI;
@@ -374,7 +375,7 @@ public class OapiController extends AbstractController {
     private String getSupportedMIMETypeForContentNegotiation(String acceptHeaderValue) throws PetascopeException {
         // e.g: image/tiff;application=geotiff;q=1.0,image/png;q=0.5, */*; q=0.1
         // if image/tiff is not supported, then check image/png
-        
+
         String[] values = acceptHeaderValue.split(",");
         for (String value : values) {
             // e.g: image/tiff;application=geotiff;q=1.0
@@ -387,6 +388,11 @@ public class OapiController extends AbstractController {
                     }
                 }
             }
+        }
+
+        if (acceptHeaderValue.contains("*/*")) {
+            // No content negotiation is selected, then later it is marked as the json CIS 1.1 output format
+            return null;
         }
         
         throw new PetascopeException(ExceptionCode.NoApplicableCode, 

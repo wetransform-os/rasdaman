@@ -177,7 +177,23 @@ public interface KVPSymbols {
     
     // NOTE: this key is used internally in petascope to let GetMap handler know which pyramid member (TileMatrix) it should process for a layer
     String KEY_WMTS_RASDAMAN_INTERNAL_FOR_GETMAP_REQUEST_PYRAMID_COVERAGE_ID = "KEY_WMTS_RASDAMAN_INTERNAL_FOR_GETMAP_REQUEST_PYRAMID_COVERAGE_ID";
-   
+
+    // OAPI
+    // e.g. scaleAxes=Lat(3) -> Lat axis is DOWNSCALED 3 times (not as in WCS GetCoverage it is UPSCALED)
+    String KEY_OAPI_GET_COVERAGE_SCALE_AXES = "scale-axes";
+    // e.g. scaleFactor=3 -> all axes are DOWNSCALED 3 times (not as in WCS GetCoverage it is UPSCALED)
+    String KEY_OAPI_GET_COVERAGE_SCALE_FACTOR = "scale-factor";
+    // e.g. scaleSize=Lat(30) -> axis Lat is scaled to 30 pixels
+    String KEY_OAPI_GET_COVERAGE_SCALE_SIZE = "scale-size";
+    // subsettingCRS
+    String KEY_OAPI_GET_COVERAGE_SUBSET_CRS = "subset-crs";
+    // outputCRS
+    String KEY_OAPI_GET_COVERAGE_OUTPUT_CRS = "crs";
+    // output format
+    String KEY_OAPI_GET_COVERAGE_OUTPUT_FORMAT = "f";
+    // rangesubset
+    String KEY_OAPI_GET_COVERAGE_RANGE_SUBSET = "range-subset";
+    String KEY_GDC_OAPI_GET_COVERAGE_RANGE_SUBSET = "properties";
     
 
     /**

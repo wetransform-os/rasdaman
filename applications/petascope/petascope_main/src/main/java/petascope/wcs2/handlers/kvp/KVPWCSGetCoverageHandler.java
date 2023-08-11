@@ -39,6 +39,9 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCSException;
 import petascope.core.KVPSymbols;
+
+import static petascope.controller.AbstractController.getValueByKey;
+import static petascope.controller.AbstractController.getValueByKeyAllowNull;
 import static petascope.core.KVPSymbols.KEY_CLIP;
 import static petascope.core.KVPSymbols.KEY_COVERAGEID;
 import static petascope.core.KVPSymbols.KEY_FORMAT;
@@ -141,7 +144,7 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
     public void validate(Map<String, String[]> kvpParameters) throws PetascopeException, SecoreException, WMSException {
         // GetCoverage can contain multiple coverageIds (e.g: coverageId=test_mr,test_irr_cube_2)
         // NOTE: in case of requests with multipart/related so the result is 1 DescribeCoverage in GML and 1 GetCoverage in requested format (e.g: tiff)                
-        if (kvpParameters.get(KVPSymbols.KEY_COVERAGEID) == null) {
+        if (getValueByKeyAllowNull(kvpParameters, KVPSymbols.KEY_COVERAGEID) == null) {
             throw new WCSException(ExceptionCode.InvalidRequest, "A GetCoverage request must specify at least one " + KVPSymbols.KEY_COVERAGEID + ".");
         }
         
@@ -156,7 +159,7 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
         // Validate before handling the request
         this.validate(kvpParameters);
         
-        String[] coverageIds = kvpParameters.get(KVPSymbols.KEY_COVERAGEID)[0].split(",");
+        String[] coverageIds = getValueByKey(kvpParameters, KVPSymbols.KEY_COVERAGEID).split(",");
         
         // Store the extra params from WCS which can be added to WCPS's one
         Map<String, String> extraOptions = new LinkedHashMap<>();
@@ -190,6 +193,7 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
                 rangeSubsets = kvpParameters.get(KVPSymbols.KEY_RANGESUBSET)[0];
             }
 
+            int totalOriginalRangeFields = wcpsCoverageMetadata.getRangeFields().size();
             // RangeSubset extension handlers
             if (rangeSubsets != null) {
                 kvpGetCoverageRangeSubsetService.handleRangeSubsets(wcpsCoverageMetadata, rangeSubsets.trim().split(","));
@@ -205,7 +209,7 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
 
             // e.g: test_mr covearge with only 1 band
             queryContent = kvpGetCoverageRangeSubsetService.generateRangeConstructorWCPS(wcpsCoverageMetadata,
-                    generateCoverageExpression, rangeSubsets);
+                    generateCoverageExpression, rangeSubsets, totalOriginalRangeFields);
 
             // Scale extension
             queryContent = kvpGetCoverageScalingService.handleScaleExtension(queryContent, kvpParameters);
@@ -217,7 +221,7 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
                 requestedMime = kvpParameters.get(KVPSymbols.KEY_FORMAT)[0];
             }
             
-            String outputType = this.getKVPValue(kvpParameters, KEY_OUTPUT_TYPE);
+            String outputType = getValueByKeyAllowNull(kvpParameters, KEY_OUTPUT_TYPE);
             if (outputType != null && outputType.equalsIgnoreCase(VALUE_GENERAL_GRID_COVERAGE)) {
                 extraOptions.put(KEY_OUTPUT_TYPE, VALUE_GENERAL_GRID_COVERAGE);
             }
@@ -252,9 +256,9 @@ public class KVPWCSGetCoverageHandler extends KVPWCSAbstractHandler {
             WcpsCoverageMetadata wcpsCoverageMetadata, List<AbstractSubsetDimension> subsetDimensions, String interpolationType) throws PetascopeException {
 
         // Crs Extension: Translate from the input CRS (subsettingCrs) to native CRS (XYAxes's Crs)
-        String subsettingCrs = AbstractController.getValueByKeyAllowNull(kvpParameters, KEY_SUBSETTING_CRS);
+        String subsettingCrs = getValueByKeyAllowNull(kvpParameters, KEY_SUBSETTING_CRS);
         // Translate from 2D geo-referenced coverage nativeCRS to outputCrs
-        String outputCrs = AbstractController.getValueByKeyAllowNull(kvpParameters, KEY_OUTPUT_CRS);
+        String outputCrs = getValueByKeyAllowNull(kvpParameters, KEY_OUTPUT_CRS);
         
         // Then validate if these CRSs are good
         try {

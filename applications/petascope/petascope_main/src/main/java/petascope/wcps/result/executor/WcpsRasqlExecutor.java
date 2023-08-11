@@ -226,8 +226,13 @@ public class WcpsRasqlExecutor implements WcpsExecutor<WcpsResult> {
                 // e.g: "01 01"
                 pixelValuesObjects.add(value);
             } else {
-                // e.g: 2.35353
-                pixelValuesObjects.add(new BigDecimal(value));
+                // e.g: 2.35353 or null from rasdaman JSON encoding value
+                if (value.equalsIgnoreCase("null")) {
+                    pixelValuesObjects.add(value);
+                } else {
+                    pixelValuesObjects.add(new BigDecimal(value));
+                }
+
             }
         }
         

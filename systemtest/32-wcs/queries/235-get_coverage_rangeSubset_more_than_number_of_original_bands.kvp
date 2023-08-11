@@ -1,0 +1,3 @@
+service=WCS&version=2.0.1&request=GetCoverage&coverageId=test_rgb&
+rangesubset=0,1,2,2,2,0,*,2
+&subset=i(0,0)&subset=j(0,2)

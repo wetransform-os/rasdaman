@@ -1,0 +1,195 @@
+{
+  "type" : "CoverageByDomainAndRangeType",
+  "id" : "test_rgb",
+  "envelope" : {
+    "type" : "EnvelopeByAxisType",
+    "srsName" : "http://localhost:8080/rasdaman/def/crs/OGC/0/Index2D",
+    "axisLabels" : [ "i", "j" ],
+    "axis" : [ {
+      "type" : "AxisExtentType",
+      "axisLabel" : "i",
+      "lowerBound" : 0,
+      "upperBound" : 0,
+      "uomLabel" : "GridSpacing"
+    }, {
+      "type" : "AxisExtentType",
+      "axisLabel" : "j",
+      "lowerBound" : 0,
+      "upperBound" : 0,
+      "uomLabel" : "GridSpacing"
+    } ]
+  },
+  "domainSet" : {
+    "type" : "DomainSetType",
+    "generalGrid" : {
+      "type" : "GeneralGridCoverageType",
+      "srsName" : "http://localhost:8080/rasdaman/def/crs/OGC/0/Index2D",
+      "axisLabels" : [ "i", "j" ],
+      "axis" : [ {
+        "type" : "RegularAxisType",
+        "axisLabel" : "i",
+        "lowerBound" : 0,
+        "upperBound" : 0,
+        "uomLabel" : "GridSpacing",
+        "resolution" : 1
+      }, {
+        "type" : "RegularAxisType",
+        "axisLabel" : "j",
+        "lowerBound" : 0,
+        "upperBound" : 0,
+        "uomLabel" : "GridSpacing",
+        "resolution" : -1
+      } ],
+      "gridLimits" : {
+        "type" : "GridLimitsType",
+        "srsName" : "http://www.opengis.net/def/crs/OGC/0/Index2D",
+        "axisLabels" : [ "i", "j" ],
+        "axis" : [ {
+          "type" : "IndexAxisType",
+          "axisLabel" : "i",
+          "lowerBound" : 0,
+          "upperBound" : 0
+        }, {
+          "type" : "IndexAxisType",
+          "axisLabel" : "j",
+          "lowerBound" : 343,
+          "upperBound" : 343
+        } ]
+      }
+    }
+  },
+  "rangeType" : {
+    "type" : "DataRecordType",
+    "field" : [ {
+      "type" : "QuantityType",
+      "name" : "red",
+      "description" : "",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "119"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    }, {
+      "type" : "QuantityType",
+      "name" : "green",
+      "description" : "",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "208"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    }, {
+      "type" : "QuantityType",
+      "name" : "blue",
+      "description" : "",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "248"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    }, {
+      "type" : "QuantityType",
+      "name" : "red0",
+      "description" : "",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "119"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    }, {
+      "type" : "QuantityType",
+      "name" : "green1",
+      "description" : "",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "208"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    }, {
+      "type" : "QuantityType",
+      "name" : "blue2",
+      "description" : "",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "248"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    }, {
+      "type" : "QuantityType",
+      "name" : "green3",
+      "description" : "",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "208"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    }, {
+      "type" : "QuantityType",
+      "name" : "blue4",
+      "description" : "",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "248"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    } ]
+  },
+  "metadata" : {
+    "resolution" : "1"
+  },
+  "rangeSet" : {
+    "type" : "RangeSetType",
+    "dataBlock" : {
+      "type" : "VDataBlockType",
+      "values" : [ "119 119 119 119 119 119 119 119" ]
+    }
+  }
+}

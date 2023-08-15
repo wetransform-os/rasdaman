@@ -235,8 +235,7 @@ Scalar operations
   | Select field from multiband  | ``.``                                             |
   | value                        |                                                   |
   +------------------------------+---------------------------------------------------+
-  | Create multiband value       | ``{ bandName: value; ..., bandName:               |
-  |                              | value }``                                         |
+  | Create multiband value       | ``{ bandName: value; ..., bandName:  value }``    |
   +------------------------------+---------------------------------------------------+
   | Type casting                 | ``(baseType) value``                              |
   |                              |                                                   |
@@ -331,7 +330,7 @@ Coverage operations
                            [ , { axisLabelX(lo:hi), axisLabelY(lo:hi)} |
                                { domain(2Dcoverage) } ] 
                 )
-                
+
   where the ``outputCrs`` can be specified in :ref:`these formats <crs-notation>`.
 
   For example, the query below reprojects a 2D coverage to ``EPSG:4326`` CRS
@@ -420,9 +419,9 @@ Coverage operations
 
     encode(covExpr, "image/jpeg")
 
-   WCPS supports ``application/gml+xml`` corresponding to an OGC WCS
-   ``GetCoverage`` request. Many further formats are supported, see :ref:`here
-   <rasql-encode-function-data-format>` for details.
+  WCPS supports ``application/gml+xml`` corresponding to an OGC WCS
+  ``GetCoverage`` request. Many further formats are supported, see :ref:`here
+  <rasql-encode-function-data-format>` for details.
 
 
 Atomic types

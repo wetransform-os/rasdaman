@@ -346,6 +346,8 @@ Ops::getBinaryOp(Ops::OpType op, const BaseType *resType, const BaseType *op1Typ
         case Ops::OP_DIV:
         case Ops::OP_INTDIV:
             return new OpDIVCDouble(resType, op1Type, op2Type, resOff, op1Off, op2Off);
+        case Ops::OP_ATAN2:
+            return new OpATAN2CDouble(resType, op1Type, op2Type, resOff, op1Off, op2Off);
         case Ops::OP_MOD:
             return new OpMODCLong(resType, op1Type, op2Type, resOff, op1Off, op2Off);
         case Ops::OP_MAX_BINARY:
@@ -1065,7 +1067,7 @@ const BaseType *Ops::getResultType(Ops::OpType op, const BaseType *op1, const Ba
     // +, *, div(), mod()
     // X op d -> d, X op f -> f, U1 op U2 -> max(U1,U2)+1
     auto minType = maxType == type1 ? type2 : type1;
-    if (op == OP_PLUS || op == OP_MULT || op == OP_MOD || op == OP_MINUS ||
+    if (op == OP_PLUS || op == OP_MULT || op == OP_MOD || op == OP_MINUS || op == OP_ATAN2 ||
         (op == OP_INTDIV && (isIntType(maxType) ||
                              (isComplexTypeInt(maxType) && (isIntType(minType) ||
                                                             isComplexTypeInt(minType))))))
@@ -1789,6 +1791,8 @@ void OpMODCULong::operator()(char *res, const char *op1, const char *op2)
 
     resType->makeFromCULong(res + resOff, &longRes);
 }
+
+
 
 OpMULTCULong::OpMULTCULong(const BaseType *newResType, const BaseType *newOp1Type,
                            const BaseType *newOp2Type, size_t newResOff,
@@ -2611,6 +2615,39 @@ void OpMODCDouble::operator()(char *res, const char *op1, const char *op2)
     {
         // Do not handle division by zero, return +-inf or nan as specified in IEEE 754
         doubleRes = std::remainder(doubleOp1, doubleOp2);
+    }
+
+    resType->makeFromCDouble(res + resOff, &doubleRes);
+}
+
+OpATAN2CDouble::OpATAN2CDouble(const BaseType *newResType, const BaseType *newOp1Type,
+                               const BaseType *newOp2Type, size_t newResOff,
+                               size_t newOp1Off, size_t newOp2Off)
+    : BinaryOp(newResType, newOp1Type, newOp2Type, newResOff,
+               newOp1Off, newOp2Off)
+{
+}
+
+void OpATAN2CDouble::operator()(char *res, const char *op1, const char *op2)
+{
+    double doubleOp1 = 0;
+    double doubleOp2 = 0;
+    double doubleRes = 0;
+
+    doubleOp1 = *(op1Type->convertToCDouble(op1 + op1Off, &doubleOp1));
+    doubleOp2 = *(op2Type->convertToCDouble(op2 + op2Off, &doubleOp2));
+
+    if (isNull(doubleOp1))
+    {
+        doubleRes = doubleOp1;
+    }
+    else if (isNull(doubleOp2))
+    {
+        doubleRes = doubleOp2;
+    }
+    else
+    {
+        doubleRes = std::atan2(doubleOp1, doubleOp2);
     }
 
     resType->makeFromCDouble(res + resOff, &doubleRes);

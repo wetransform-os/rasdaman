@@ -940,3 +940,50 @@ void QtMod::printAlgebraicExpression(ostream &s)
 
     s << ")";
 }
+
+const QtNode::QtNodeType QtAtan2::nodeType = QT_ATAN2;
+
+QtAtan2::QtAtan2(QtOperation *initInput1, QtOperation *initInput2)
+    : QtBinaryInduce(initInput1, initInput2, Ops::OP_ATAN2)
+{
+}
+
+bool QtAtan2::isCommutative() const
+{
+    return false;  // NOT commutative
+}
+
+void QtAtan2::printTree(int tab, ostream &s, QtChildType mode)
+{
+    s << SPACE_STR(static_cast<size_t>(tab)).c_str() << "QtAtan2 Object " << static_cast<int>(getNodeType()) << getEvaluationTime() << endl;
+
+    QtBinaryInduce::printTree(tab, s, mode);
+}
+
+void QtAtan2::printAlgebraicExpression(ostream &s)
+{
+    s << "(";
+
+    if (input1)
+    {
+        input1->printAlgebraicExpression(s);
+    }
+    else
+    {
+        s << "<nn>";
+    }
+
+    s << " arc2 ";
+
+    if (input2)
+    {
+        input2->printAlgebraicExpression(s);
+    }
+    else
+    {
+        s << "<nn>";
+    }
+
+    s << ")";
+}
+

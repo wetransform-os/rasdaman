@@ -3,3 +3,4 @@ composite_constants_struct.rasql
 
 # rasql.py prints nan, rasql prints -nan
 pow_neg_frac_arg.rasql
+

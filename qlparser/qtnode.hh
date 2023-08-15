@@ -120,6 +120,7 @@ public:
         QT_UNARY_INDUCE,
         QT_PROJECT,
         QT_CLIPPING,
+        QT_ATAN2,
 
         //**************
         QT_ABS,

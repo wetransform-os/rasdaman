@@ -321,6 +321,34 @@ private:
     static const QtNodeType nodeType;
 };
 
+//@ManMemo: Module: {\bf qlparser}
+
+/*@Doc:
+
+*/
+class QtAtan2 : public QtBinaryInduce
+{
+public:
+    /// constructor getting the two operands
+    QtAtan2(QtOperation *input1, QtOperation *input2);
+
+    /// prints the tree
+    virtual void printTree(int tab, std::ostream &s = std::cout, QtChildType mode = QT_ALL_NODES);
+
+    /// prints the algebraic expression
+    virtual void printAlgebraicExpression(std::ostream &s = std::cout);
+
+    /// method for identification of nodes
+    inline virtual QtNodeType getNodeType() const {return nodeType;}
+
+    /// returns FALSE saying that the operation IS NOT commutative
+    virtual bool isCommutative() const;
+
+private:
+    /// attribute for identification of nodes
+    static const QtNodeType nodeType;
+};
+
 #include "qlparser/qtbinaryinduce.icc"
 
 #endif

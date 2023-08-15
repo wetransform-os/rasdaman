@@ -258,7 +258,6 @@ QtUnaryInduce::computeUnaryOp(QtScalarData *operand, const BaseType *resultBaseT
     auto *nullValues = operand->getNullValues();
 
     // allocate memory for the result
-    LDEBUG << "Size:" << resultBaseType->getSize();
     char *resultBuffer = new char[resultBaseType->getSize()];
 
 #ifdef DEBUG
@@ -838,12 +837,10 @@ QtData *QtCast::evaluate(QtDataList *inputList)
             {
 
                 if(resultType == 0){
-                    LERROR <<  "operation is not supported on the given operand type.";
                     parseInfo.setErrorNo(STRINGSNOTSUPPORTED);
                     throw parseInfo;
                 }
                 auto *op = static_cast<QtScalarData *>(operand);
-                LDEBUG << "resultType:" << resultType;
                 returnValue = computeUnaryOp(op, resultType, Ops::OP_CAST_GENERAL);
             }
         }

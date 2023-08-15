@@ -162,6 +162,7 @@ public:
         OP_INTDIV,
         OP_DIV,
         OP_MOD,
+        OP_ATAN2,
         OP_MAX_BINARY,  // internal
         OP_MIN_BINARY,
         OP_OVERLAY,
@@ -1250,6 +1251,21 @@ class OpMODCULong : public BinaryOp
 public:
     /// constructor gets RasDaMan base type of result and operands.
     OpMODCULong(const BaseType *newResType, const BaseType *newOp1Type,
+                const BaseType *newOp2Type, size_t newResOff = 0,
+                size_t newOp1Off = 0, size_t newOp2Off = 0);
+    /*@ManMemo: operator to carry out operation on `op1` and
+                `op2` with result `res`. */
+    virtual void operator()(char *res, const char *op1,
+                            const char *op2);
+};
+
+
+
+class OpATAN2CDouble : public BinaryOp
+{
+public:
+    /// constructor gets RasDaMan base type of result and operands.
+    OpATAN2CDouble(const BaseType *newResType, const BaseType *newOp1Type,
                 const BaseType *newOp2Type, size_t newResOff = 0,
                 size_t newOp1Off = 0, size_t newOp2Off = 0);
     /*@ManMemo: operator to carry out operation on `op1` and

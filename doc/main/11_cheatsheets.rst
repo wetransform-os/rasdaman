@@ -302,11 +302,15 @@ Coverage operations
 
 - **Scale** is like extend but it resamples the current coverage values to:
 
-  - Fit a new domain: ::
+  - Fit a new *grid* domain: ::
 
-      scale( covExpr, { axis1(lo:hi), axis2:crs(lo:hi), ... } )
+      scale( covExpr, { axis1(lo:hi), axis2:"CRS:1"(lo:hi), ... } )
 
-    or the domain of another coverage: ::
+    Note that ``axis1`` in this case should have a grid native CRS, such as
+    Index1D, while ``axis2`` may be any type of axis; in all cases ``lo`` and
+    ``hi`` should be grid integer bounds.
+
+  - Fit the domain of another coverage: ::
 
       scale( covExpr, { imageCrsDomain( $anotherCoverage ) } )
 
@@ -318,9 +322,11 @@ Coverage operations
 
       scale( covExprs, { axi1(factor1), axis2(factor2), ... } )
 
-  Currently only nearest neighbour interpolation is supported for scaling.               
-
-    .. code-block:: rasql
+  Non-spatial axes which are omitted in the first and last variants will not be
+  scaled (details `here <wcps-optional-non-scaled-axes>`). If only one spatial
+  axis is specified, then the other spatial axis will be resampled so that the
+  original ratio is preserved(more details `here <wcps-auto-ratio-scaling>`).
+  Currently only nearest neighbour interpolation is supported for scaling.
 
 - **Reproject** to a different CRS can be done with ``crsTransform``: ::
 
@@ -349,7 +355,7 @@ Coverage operations
 
 .. _wcps-crstransform-shorthand:
  
-  Alternatively, a shorthand version can be used where the target CRS is applies
+  Alternatively, a shorthand version can be used where the target CRS is applied
   to both axes (instead of specifying it individually for each axis). A similar
   example as above but with shorthand CRS notation and target geo domain that
   matches the domain of coverage `$d`: ::
@@ -1108,7 +1114,7 @@ Various widgets are available, with the most commonly-used being:
 - ``diagram`` on csv encoded data, e.g. ``diagram(type=area,width=300)>>select encode(..., "csv") from ...``
 - ``text`` to visualize a text result, e.g. ``text>>select dbinfo(...) from ...``
 
-Without using a widget the result is downloaded.
+Without using a widget the result is downloaded:
 
 .. figure:: media/cheatsheets/rasql-web-console-example.png
    :align: center

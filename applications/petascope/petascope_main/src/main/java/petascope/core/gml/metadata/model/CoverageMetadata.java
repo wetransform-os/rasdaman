@@ -137,8 +137,20 @@ public class CoverageMetadata {
             return true;
         } else {
             if (this.axesMetadata != null && this.bandsMetadata != null && this.localMetadata != null) {
+                boolean isGlobalMetadataAttributesMapEmpty = true;
+
+                for (Map.Entry<String, String> entry : this.globalMetadataAttributesMap.entrySet()) {
+                    String key = entry.getKey();
+                    String value = entry.getValue();
+                    if (value != null && !value.trim().isEmpty()) {
+                        isGlobalMetadataAttributesMapEmpty = false;
+                        break;
+                    }
+                }
+
+
                 if (this.axesMetadata.getAxesAttributesMap().isEmpty() && this.bandsMetadata.getBandsAttributesMap().isEmpty()
-                    && this.localMetadata.getLocalMetadataChildList().isEmpty() && this.globalMetadataAttributesMap.isEmpty()) {
+                    && this.localMetadata.getLocalMetadataChildList().isEmpty() && isGlobalMetadataAttributesMapEmpty == true) {
                     return true;
                 }
             }

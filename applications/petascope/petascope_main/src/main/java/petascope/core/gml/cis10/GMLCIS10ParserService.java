@@ -57,6 +57,7 @@ import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCSException;
+import petascope.util.XMLUtil;
 import petascope.wcst.exceptions.WCSTInvalidNilValueException;
 import petascope.wcst.exceptions.WCSTLowHighDifferentSizes;
 import petascope.wcst.exceptions.WCSTMissingBoundedBy;
@@ -1083,10 +1084,46 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
 
             //the string representation of the node
             for (int i = 0; i < metadata.get(0).getChildCount(); i++) {
-                ret += metadata.get(0).getChild(i).toXML();
+                ret += metadata.get(0).getChild(i).toXML().trim();
             }
         }
-        return ret;
+
+        ret = ret.replace("<gmlcov:Extension>", "").replace("</gmlcov:Extension>", "");
+        String result = ret;
+
+        if (XMLUtil.isXmlString(result)) {
+
+            String firstElement = ret.substring(0, ret.indexOf(">"));
+            if (firstElement.contains(" ")) {
+                // NOTE: In this case, first element contains namespaces
+                // e.g. <nz-coremd:HazardAreaMetadata xmlns="http://inspire.ec.europa.eu/schemas/nz-core/4.0" ...
+                // then, add the needed namespaces if they don't exist yet
+                int indexOfFirstSpace = ret.indexOf(" ");
+                String firstPart = ret.substring(0, indexOfFirstSpace);
+                String rest = ret.substring(indexOfFirstSpace + 1);
+
+                List<String> neededNamespaces = Arrays.asList(
+                        "xmlns:gml=\"http://www.opengis.net/gml/3.2\"",
+                        "xmlns:gmlcov=\"http://www.opengis.net/gmlcov/1.0\"",
+                        "xmlns:xlink=\"http://www.w3.org/1999/xlink\"",
+                        "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+                );
+
+                List<String> namespacesToAdd = new ArrayList<>();
+
+                for (String namespace : neededNamespaces) {
+                    if (!rest.contains(namespace)) {
+                        namespacesToAdd.add(namespace);
+                    }
+                }
+
+                rest = ListUtil.join(namespacesToAdd, " ") + " " + rest;
+
+                result = firstPart + " " + rest.trim();
+            }
+        }
+
+        return result;
     }
 
     /**
@@ -1118,3 +1155,4 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
     private static final String TEMPLATE_RASDAMAN_STRUCTURE = "{" + TOKEN_STRUCTURE_CELL_VAL + "}";
 
 }
+

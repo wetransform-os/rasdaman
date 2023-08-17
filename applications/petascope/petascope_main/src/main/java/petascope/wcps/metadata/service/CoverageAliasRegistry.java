@@ -212,7 +212,7 @@ public class CoverageAliasRegistry {
 
             // Populate alias expressions to collection alias registry as well
             if (this.collectionAliasRegistry.getAliasName(coverageAlias) == null && rasdamanCollectionName != null) {
-                this.collectionAliasRegistry.add(coverageAlias, coverageId, rasdamanCollectionName);
+                this.collectionAliasRegistry.add(coverageAlias, rasdamanCollectionName, coverageId);
             }
         }
 

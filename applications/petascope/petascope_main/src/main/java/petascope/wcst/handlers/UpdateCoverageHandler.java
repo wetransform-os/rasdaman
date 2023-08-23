@@ -162,9 +162,9 @@ public class UpdateCoverageHandler {
         Coverage inputCoverage = gmlCISParserService.parseDocumentToCoverage(gmlInputCoverageDocument);
         inputCoverage.setId(currentCoverage.getId());
 
-	this.handleUpdateCoverageRequest(request, currentCoverage, inputCoverage, gmlInputCoverageDocument);
+        this.handleUpdateCoverageRequest(request, currentCoverage, inputCoverage, gmlInputCoverageDocument);
         
-	persistedCoverageService.createCoverageExtent(currentCoverage);
+    	persistedCoverageService.createCoverageExtent(currentCoverage);
         
         // Now, we can persist the updated current coverage from input slice
         persistedCoverageService.save(currentCoverage);

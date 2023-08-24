@@ -11,27 +11,28 @@ from glob import glob
 from qgis.core import *
 from qgis.gui import *
 
-from PyQt5.QtWidgets import QProgressDialog, QDialog, QMessageBox, QFileDialog, QApplication, QPushButton
+from PyQt5.QtWidgets import QProgressDialog, QDialog, QMessageBox, QFileDialog, QApplication, QPushButton, QInputDialog
 from PyQt5.QtGui import QCursor, QStandardItemModel, QStandardItem
 from PyQt5.QtNetwork import QNetworkRequest, QNetworkAccessManager
 from PyQt5.QtCore import Qt, QFileInfo
 from PyQt5 import QtXml
 import xmltodict
 
+from .CoveragesSelectionDialog import CoverageSelectionDialog
 from .succesful_query_dialog import succesful_query_dialog
 from .wcps_client_dialog_base import Ui_WCPSClient
 from .qgsnewhttpconnectionbasedialog import qgsnewhttpconnectionbase
 from .display_txtdialog import display_txt
 import xml.etree.ElementTree as ET
 
-
 from .wcps_client_utilities import WCPSUtil
-
 
 # global setttings and saved server list
 global config
 from . import config
+
 global mode
+
 
 # ---------------
 # running clock icon
@@ -70,9 +71,18 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
     global mode
     global selected_server
     global selected_server_url
+    global coverages
+    global filterCondition
+    global formatParameters
+    global selected_coverages
+    global variables
     saveQuerySignal = QtCore.pyqtSignal()
+    selected_coverages = []
+    variables = []
 
     def __init__(self, iface):
+        global formatParameters
+        global filterCondition
         """Constructor."""
         QDialog.__init__(self)
 
@@ -94,11 +104,14 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
         self.tabWidget_WCPSClient.setCurrentIndex(0)
         global mode
         mode = ""
+        formatParameters = ""
+        filterCondition = ""
         flags = Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint
         self.dlg = succesful_query_dialog(self, flags, toEdit=False, choice='')
         self.dlg.saveQuerySignal.connect(self.saveQuery)
         self.dlg.showQuerySignal.connect(self.showQuery)
         self.dlg.saveAndShowQuerySignal.connect(self.saveAndShowQuery)
+        self.ResultFormat.addItems(["none", "png", "jpg", "tiff", "netcdf", "json", "custom"])
 
     # ---------------
     # add a new server to the list
@@ -147,7 +160,8 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
 
         try:
             if username != "" and password != "":
-                response = urllib.request.urlopen(urllib.request.Request(capabilities_url, headers={'Authorization': self.basic_auth(username=username, password=password)}))
+                response = urllib.request.urlopen(urllib.request.Request(capabilities_url, headers={
+                    'Authorization': self.basic_auth(username=username, password=password)}))
             else:
                 response = urllib.request.urlopen(urllib.request.Request(capabilities_url))
 
@@ -165,6 +179,7 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
         QApplication.changeOverrideCursor(Qt.ArrowCursor)
 
     def handleGetCapabilitiesResponse(self, data):
+        global coverages
         try:
             if data is None:
                 warning_msg("Error retrieving coverages list: No data received.")
@@ -172,7 +187,8 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
 
             try:
                 dom = xmltodict.parse(data)
-                if 'wcs:Capabilities' in dom and 'wcs:Contents' in dom['wcs:Capabilities'] and 'wcs:CoverageSummary' in dom['wcs:Capabilities']['wcs:Contents']:
+                if 'wcs:Capabilities' in dom and 'wcs:Contents' in dom['wcs:Capabilities'] and 'wcs:CoverageSummary' in \
+                        dom['wcs:Capabilities']['wcs:Contents']:
                     coverages = dom['wcs:Capabilities']['wcs:Contents']['wcs:CoverageSummary']
 
                     # Create a QStandardItemModel and set it as the model for the tableView
@@ -194,10 +210,14 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
                             dim = bbox.get('@dimensions', '') if isinstance(bbox, dict) else ''
                             crs = bbox.get('@crs', '') if isinstance(bbox, dict) else ''
 
-                            axes_param = next((param for param in coverage.get('ows:AdditionalParameters', {}).get('ows:AdditionalParameter', []) if param.get('ows:Name') == 'axisList'), None)
+                            axes_param = next((param for param in coverage.get('ows:AdditionalParameters', {}).get(
+                                'ows:AdditionalParameter', []) if param.get('ows:Name') == 'axisList'), None)
                             axes = axes_param.get('ows:Value', '') if axes_param else ''
 
-                            size_in_bytes_param = next((param for param in coverage.get('ows:AdditionalParameters', {}).get('ows:AdditionalParameter', []) if param.get('ows:Name') == 'sizeInBytes'), None)
+                            size_in_bytes_param = next((param for param in
+                                                        coverage.get('ows:AdditionalParameters', {}).get(
+                                                            'ows:AdditionalParameter', []) if
+                                                        param.get('ows:Name') == 'sizeInBytes'), None)
                             size_in_bytes = size_in_bytes_param.get('ows:Value', '') if size_in_bytes_param else ''
 
                             try:
@@ -227,7 +247,6 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
                 warning_msg("Error parsing XML: " + str(e))
         except Exception as e:
             warning_msg("Error processing coverages list: " + str(e))
-
 
     # modify a server entry
     def editServer(self):
@@ -307,6 +326,7 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
         username = self.UserNameLine.text()
         password = self.PasswordLine.text()
         return username, password
+
     ## ====== End of Server section ======
     @mouse_busy
     def exeProcessCoverage(self):
@@ -348,7 +368,6 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
             datatype = mimetype.split('/')
             if datatype[0] == "image" or datatype[0] == "application":
                 self.dlg.show()
-                print(mode)
             else:
                 showData = open(outLoc, 'r')
                 dialogMessage = showData.read()
@@ -360,7 +379,6 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
             print(process_output['message'])
             myDisplay_txt.textBrowser_Disp.setText(process_output['message'])
             myDisplay_txt.show()
-
 
     ## ====== Add data to Map Canvas ======
     # read the the downloaded datasets, register them and show them in the QGis MapCanvas
@@ -404,7 +422,7 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
         global req_outputLoc
         global selected_serv
         global selected_url
-        #selected_serv, selected_url = self.get_serv_url()
+        # selected_serv, selected_url = self.get_serv_url()
 
         query = self.plainTextEdit_PC.toPlainText()
         self.get_outputLoc()
@@ -415,7 +433,6 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
 
         username, password = self.get_auth_credentials()
         self.myWCPS.ProcessCoverage(input_param, username, password)
-
 
     def showQuery(self):
         global req_outputLoc
@@ -434,3 +451,89 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
         self.get_outputLoc()
         self.showQuery()
 
+    def addDatacube(self):
+        global coverages
+        global selected_coverages
+        global variables
+        coverages_names = []
+        for coverage in coverages:
+            if 'wcs:CoverageId' in coverage:
+                coverages_names.append(coverage['wcs:CoverageId'])
+
+        dialog = CoverageSelectionDialog(coverages_names, self)
+        result = dialog.exec_()
+        if result == QDialog.Accepted:
+            selected_coverages_temp, itervar = dialog.getSelectedCoverages()
+            variables.append(itervar)
+            self.lstDatacubes.clear()
+            self.lstDatacubes.addItems(selected_coverages_temp)
+            selected_coverages.append(selected_coverages_temp)
+
+    def deleteDatacube(self):
+        global selected_coverages
+        selected_items = self.lstDatacubes.selectedItems()
+        if not selected_items:  # No items selected
+            return
+
+        for item in selected_items:
+            row = self.lstDatacubes.row(item)
+            self.lstDatacubes.takeItem(row)
+            selected_coverages[len(selected_coverages) - 1].remove(item.text())
+
+    def setFilterCondition(self):
+        global filterCondition
+        filterCondition = ""
+        filterCondition, ok = QInputDialog.getText(self, 'Set Filter Condition', 'Enter Filter Condition:', text="")
+
+    def setFormatParameters(self):
+        global formatParameters
+        formatParameters = ""
+        formatParameters, ok = QInputDialog.getText(self, 'Set Format Parameters', 'Enter Format Parameters:', text="")
+
+    def evaluateQuery(self):
+        global selected_coverages
+        global formatParameters
+        global filterCondition
+        global variables
+
+        # 1. Input Datacubes (the for clause)
+        for_clause = ""
+        if len(selected_coverages) == 1:
+            for_clause = f"for {variables[0]} in ({', '.join(selected_coverages[0])})\n"
+        else:
+            for_clause = f"for {variables[0]} in ({', '.join(selected_coverages[0])}),\n"
+        for i in range(1, len(selected_coverages)):
+            if i == len(selected_coverages) - 1:
+                for_clause += f"     {variables[i]} in ({', '.join(selected_coverages[i])})\n"
+            else:
+                for_clause += f"     {variables[i]} in ({', '.join(selected_coverages[i])}),\n"
+        # 2. Filter Datacubes (the where clause)
+        # Assuming filterCondition is a string or None
+        where_clause = ""
+        if filterCondition not in ["", None]:
+            where_clause = f"where {filterCondition}"
+
+        # 3. Result Expression (the return clause)
+        return_expr = self.ResultExpression.toPlainText()
+
+        # 4. Result Format
+        resultType = self.ResultFormat.currentText()
+        if resultType.lower() == 'none':
+            format_clause = ""
+        elif resultType.lower() == 'custom':
+            format_clause = f', "{self.CustomFormatLine.text()}"'
+        else:
+            format_clause = f", {resultType}"
+
+        # Append format parameters if any
+        if formatParameters not in ["", None]:
+            format_clause += f',  "{formatParameters}"'
+
+        # Construct the final query
+        if (resultType.lower() != 'none'):
+            query = f"{for_clause}{where_clause}\nreturn encode({return_expr}{format_clause})"
+        else:
+            query = f"{for_clause}{where_clause}\nreturn {return_expr}"
+
+        self.plainTextEdit_PC.setPlainText(query)
+        self.exeProcessCoverage()

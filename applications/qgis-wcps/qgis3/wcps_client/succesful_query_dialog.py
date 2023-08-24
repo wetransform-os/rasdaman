@@ -27,19 +27,18 @@ class succesful_query_dialog(QDialog,  QObject, Ui_succesful_query_base):
         self.setWindowTitle('WCPS Client') # +version())
 
     def SaveResult(self):
-
         self.saveQuerySignal.emit()
-
+        self.close()
 
 
     def ShowResult(self):
         self.showQuerySignal.emit()
-
+        self.close()
 
 
     def SaveAndShowResult(self):
         self.saveAndShowQuerySignal.emit()
-
+        self.close()
 
 
 

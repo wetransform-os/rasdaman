@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>675</width>
-    <height>518</height>
+    <width>671</width>
+    <height>509</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -22,7 +22,7 @@
      <x>10</x>
      <y>10</y>
      <width>641</width>
-     <height>471</height>
+     <height>491</height>
     </rect>
    </property>
    <property name="currentIndex">
@@ -322,6 +322,168 @@
      </property>
      <property name="text">
       <string>Load Query</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="VisualQueryEditor">
+    <attribute name="title">
+     <string>Visual Query Editor</string>
+    </attribute>
+    <widget class="QPushButton" name="btnAddDatacube">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>231</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Add datacube</string>
+     </property>
+    </widget>
+    <widget class="QListWidget" name="lstDatacubes">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>60</y>
+       <width>611</width>
+       <height>100</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="btnSetFilter">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>170</y>
+       <width>231</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Set filter condition</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_5">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>40</y>
+       <width>211</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Selected datacubes</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_6">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>200</y>
+       <width>241</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Result expression</string>
+     </property>
+    </widget>
+    <widget class="QPlainTextEdit" name="ResultExpression">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>220</y>
+       <width>611</width>
+       <height>87</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="ResultFormat">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>330</y>
+       <width>601</width>
+       <height>22</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_7">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>310</y>
+       <width>231</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Result format</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_8">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>350</y>
+       <width>55</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="CustomFormatLine">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>360</y>
+       <width>601</width>
+       <height>22</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="btnFormatParameters">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>390</y>
+       <width>231</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Format parameters</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="btnEvaluate">
+     <property name="geometry">
+      <rect>
+       <x>502</x>
+       <y>430</y>
+       <width>121</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Evaluate</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="btnDeleteDatacube">
+     <property name="geometry">
+      <rect>
+       <x>390</x>
+       <y>10</y>
+       <width>231</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Delete datacube</string>
      </property>
     </widget>
    </widget>

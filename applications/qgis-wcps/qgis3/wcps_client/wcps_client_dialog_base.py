@@ -18,6 +18,8 @@ class Ui_WCPSClient(object):
         self.tabWidget_WCPSClient = QTabWidget(WCPSClient)
         self.tabWidget_WCPSClient.setGeometry(QRect(10, 10, 675, 518))
         self.tabWidget_WCPSClient.setObjectName(_fromUtf8("tabWidget_WCPSClient"))
+
+
         self.tab_Serv = QWidget()
         self.tab_Serv.setGeometry(10, 10, 641, 471)
         self.tab_Serv.setObjectName(_fromUtf8("tab_Serv"))
@@ -69,6 +71,76 @@ class Ui_WCPSClient(object):
         self.PasswordLine.setGeometry(QRect(80, 60, 511, 22))
         self.PasswordLine.setObjectName(_fromUtf8("PasswordLine"))
         self.tabWidget_WCPSClient.addTab(self.tab_Serv, _fromUtf8(""))
+
+        # Visual Query Editor Tab
+        self.tab_VisualQuery = QWidget()
+        self.tab_VisualQuery.setObjectName(_fromUtf8("tab_VisualQuery"))
+
+        # Input Datacubes
+        self.btnAddDatacube = QPushButton(self.tab_VisualQuery)
+        self.btnAddDatacube.setGeometry(QRect(10, 10, 231, 28))
+        self.btnAddDatacube.setObjectName(_fromUtf8("btnAddDatacube"))
+
+        # Delete Datacubes
+        self.btnDeleteDatacube = QPushButton(self.tab_VisualQuery)
+        self.btnDeleteDatacube.setGeometry(QRect(390, 10, 231, 28))
+        self.btnDeleteDatacube.setObjectName(_fromUtf8("btnDeleteDatacube"))
+
+        # Label datacubes
+        self.label_5 = QLabel(self.tab_VisualQuery)
+        self.label_5.setGeometry(QRect(10, 40, 211, 16))
+        self.label_5.setObjectName(_fromUtf8("label_5"))
+
+        # List of Datacubes
+        self.lstDatacubes = QListWidget(self.tab_VisualQuery)
+        self.lstDatacubes.setGeometry(QRect(10, 60, 611, 100))
+        self.lstDatacubes.setObjectName(_fromUtf8("lstDatacubes"))
+
+        # Filter Datacubes
+        self.btnSetFilter = QPushButton(self.tab_VisualQuery)
+        self.btnSetFilter.setGeometry(QRect(10, 170, 231, 28))
+        self.btnSetFilter.setObjectName(_fromUtf8("btnSetFilter"))
+
+        # Label Result Expression
+        self.label_6 = QLabel(self.tab_VisualQuery)
+        self.label_6.setGeometry(QRect(10, 200, 241, 16))
+        self.label_6.setObjectName(_fromUtf8("label_6"))
+
+        # Result Expression
+        self.ResultExpression = QPlainTextEdit(self.tab_VisualQuery)
+        self.ResultExpression.setGeometry(QRect(10, 220, 611, 87))
+        self.ResultExpression.setObjectName(_fromUtf8("ResultExpression"))
+
+        # Label Result format
+        self.label_7 = QLabel(self.tab_VisualQuery)
+        self.label_7.setGeometry(QRect(10, 310, 231, 16))
+        self.label_7.setObjectName(_fromUtf8("label_7"))
+
+        # Result format
+        self.ResultFormat = QComboBox(self.tab_VisualQuery)
+        self.ResultFormat.setGeometry(QRect(10, 330, 601, 22))
+        self.ResultFormat.setObjectName(_fromUtf8("ResultFormat"))
+
+        # Format parameters
+        self.btnFormatParameters = QPushButton(self.tab_VisualQuery)
+        self.btnFormatParameters.setGeometry(QRect(10, 390, 231, 28))
+        self.btnFormatParameters.setObjectName(_fromUtf8("btnFormatParameters"))
+
+        # Custom format
+        self.CustomFormatLine = QLineEdit(self.tab_VisualQuery)
+        self.CustomFormatLine.setGeometry(QRect(10, 360, 601, 22))
+        self.CustomFormatLine.setObjectName(_fromUtf8("CustomFormatLine"))
+
+        #Evaluate Button
+        self.btnEvaluate = QPushButton(self.tab_VisualQuery)
+        self.btnEvaluate.setGeometry(QRect(502, 430, 121, 28))
+        self.btnEvaluate.setObjectName(_fromUtf8("btnEvaluate"))
+
+
+
+        # Add the Visual Query Editor tab to the tab widget
+        self.tabWidget_WCPSClient.addTab(self.tab_VisualQuery, _fromUtf8("Visual Query Editor"))
+
         self.tab_PC = QWidget()
         self.tab_PC.setEnabled(False)
         self.tab_PC.setGeometry(QRect(10, 10, 675, 518))
@@ -120,7 +192,11 @@ class Ui_WCPSClient(object):
         self.pushButton_PC.clicked.connect(WCPSClient.exeProcessCoverage)
         self.btnLoad_Query.clicked.connect(WCPSClient.loadQuery)
         self.btnStore_Query.clicked.connect(WCPSClient.storeQuery)
-
+        self.btnAddDatacube.clicked.connect(WCPSClient.addDatacube)
+        self.btnDeleteDatacube.clicked.connect(WCPSClient.deleteDatacube)
+        self.btnSetFilter.clicked.connect(WCPSClient.setFilterCondition)
+        self.btnFormatParameters.clicked.connect(WCPSClient.setFormatParameters)
+        self.btnEvaluate.clicked.connect(WCPSClient.evaluateQuery)
         QMetaObject.connectSlotsByName(WCPSClient)
 
     def retranslateUi(self, WCPSClient):
@@ -146,3 +222,18 @@ class Ui_WCPSClient(object):
         self.btnStore_Query.setText(QApplication.translate("WCPSClient", "Store Query", None))
         self.tabWidget_WCPSClient.setTabText(self.tabWidget_WCPSClient.indexOf(self.tab_CoveragesList),
                                              QApplication.translate("WCPSClient", "Coverages List", None))
+
+        self.tab_VisualQuery.setWindowTitle(QApplication.translate("WCPSClient", "Visual Query Editor", None))
+        self.btnAddDatacube.setText(QApplication.translate("WCPSClient", "Add datacube", None))
+        self.btnDeleteDatacube.setText(QApplication.translate("WCPSClient", "Delete datacube", None))
+        self.label_5.setText(QApplication.translate("WCPSClient", "Selected Datacubes", None))
+        self.btnSetFilter.setText(QApplication.translate("WCPSClient", "Set filter condition", None))
+        self.label_6.setText(QApplication.translate("WCPSClient", "Result expression", None))
+        self.label_7.setText(QApplication.translate("WCPSClient", "Result format", None))
+        self.CustomFormatLine.setText(QApplication.translate("WCPSClient", "Custom format", None))
+        self.btnFormatParameters.setText(QApplication.translate("WCPSClient", "Format parameters", None))
+        self.btnEvaluate.setText(QApplication.translate("WCPSClient", "Evaluate", None))
+
+
+
+

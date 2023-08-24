@@ -7,4 +7,9 @@ Vrasdaman ows
 p4
 aVhttps://ows.rasdaman.org/rasdaman/ows
 p5
+aa(lp6
+Vtest
+p7
+aVhttps://testbed19.rasdaman.com/rasdaman/ows
+p8
 aas.

@@ -1107,3 +1107,71 @@ Without using a widget the result is downloaded.
    :align: center
 
    Example of a 2D image result.
+
+WCPS QGIS Plugin
+----------------
+
+WCPS QGIS Plugin is a QGIS application plugin that allows you to conveniently integrate WCPS queries into QGIS.
+
+Server configuration.
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. figure:: media/cheatsheets/server_tab.jpg
+   :align: center
+
+To start working with the plugin, you need to add a server to which requests will be sent. To do this, click on the "New" button, after which this window will appear, where you will need to specify a link to the server and how it will be called in the plugin, then click the "OK" button.
+After adding the server data, select it from the available ones in the drop-down list.
+
+.. figure:: media/cheatsheets/server_tab.jpg
+   :align: center
+
+Also, if the server requires authorization to send requests, you can specify authorization data in the Username and Password fields.
+After choosing to specify all the necessary data, click the Connect button to connect to the server.
+
+After connecting to the server, a list of all available coverages will be available to you, you can find it in the Coverage List tab.
+
+.. figure:: media/cheatsheets/list_of_all_coverages.jpg
+   :align: center
+
+Query configuration.
+^^^^^^^^^^^^^^^^^^^^
+
+You can configure your query using the Visual Query Editor and WCPS query editor tabs.
+Let's look at the WCPS query editor tab first.
+
+.. figure:: media/cheatsheets/query_editor_tab.jpg
+   :align: center
+
+The query is entered in the large query input field, but you can also load the query text, if you have one, using the Load Query button. You can also save the query text you wrote using the Store Query button.
+To submit a request, click the Submit button. If the request is successful, you will see a window for choosing further actions with the result of the request.
+
+.. figure:: media/cheatsheets/result_of_evaluating_query.jpg
+   :align: center
+
+To save the query result click the Save result button, to show the file in QGIS click the Show result in QGIS layer button, to save and show the file in QGIS click the Save and show result in QGIS layer button. If you want to do nothing with the query result, click the Discard result button.
+
+Now let's talk about the Visual Query Editor tab.
+
+.. figure:: media/cheatsheets/visual_query_tab.jpg
+   :align: center
+
+To add datacubes over which you will iterate in the for part, click the Add datacube button. After clicking on it, select datacubes from the list of available ones and enter a variable with which you will iterate over this list.
+
+.. figure:: media/cheatsheets/add_coverages.jpg
+   :align: center
+
+To remove unnecessary datacubes from the list over which the variable will be iterated, select them in the Selected Datacubes list and click the Delete Datacube button.
+
+.. figure:: media/cheatsheets/coverage_delete.jpg
+   :align: center
+
+Note that if you want to add multiple variables for iteration, then you need to click on the Add datacubes button several times.
+You can also add filtering to your query by clicking the Set filter condition button and entering the necessary conditions in the window that opens, then clicking the OK button.
+To form the result, write an expression in the Result expression field, the expression that should be calculated as a result.
+To select the format in which the result will be encoded, select the required one in the drop-down list (if you do not want the result to be encoded, select none). To specify a custom format, select custom from the drop-down list and write it in the corresponding field.
+
+.. figure:: media/cheatsheets/coverage_delete.jpg
+   :align: center
+
+You can also specify the format parameters by clicking on the Format Parameters button and entering them in a special field in the window that opens.
+After specifying all the required data, click the Evaluate button to send the generated request. If the request is successful, you will see a window for choosing further actions with the results of the request, which was described above.

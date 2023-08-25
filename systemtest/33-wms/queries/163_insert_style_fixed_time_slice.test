@@ -1,0 +1,4 @@
+STYLEID=test&
+COVERAGEID=test_wms_time_series_combined&
+abstract=test&
+wcpsQueryFragment=($c[date("2001-01-01")] + $c[date("2003-01-01")]) / 2

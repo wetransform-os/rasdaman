@@ -117,7 +117,6 @@ public:
         OP_UFUNC_BEGIN,  // unary arithmetic functions
         OP_ABS,
         OP_SQRT,
-        OP_POW,
         OP_EXP,
         OP_LOG,
         OP_LN,
@@ -162,6 +161,7 @@ public:
         OP_INTDIV,
         OP_DIV,
         OP_MOD,
+        OP_POW,
         OP_ATAN2,
         OP_MAX_BINARY,  // internal
         OP_MIN_BINARY,
@@ -1510,6 +1510,24 @@ public:
     OpMODCLong(const BaseType *newResType, const BaseType *newOp1Type,
                const BaseType *newOp2Type, size_t newResOff = 0,
                size_t newOp1Off = 0, size_t newOp2Off = 0);
+    /*@ManMemo: operator to carry out operation on `op1` and
+                `op2` with result `res`. */
+    virtual void operator()(char *res, const char *op1,
+                            const char *op2);
+};
+
+//@ManMemo: Module: {\bf catalogif}.
+//@Doc: OP_MOD on C type #long# and #long#, result #long#.
+/**
+  * \ingroup Catalogmgrs
+  */
+class OpPOWCDouble : public BinaryOp
+{
+public:
+    /// constructor gets RasDaMan base type of result and operands.
+    OpPOWCDouble(const BaseType *newResType, const BaseType *newOp1Type,
+                 const BaseType *newOp2Type, size_t newResOff = 0,
+                 size_t newOp1Off = 0, size_t newOp2Off = 0);
     /*@ManMemo: operator to carry out operation on `op1` and
                 `op2` with result `res`. */
     virtual void operator()(char *res, const char *op1,

@@ -173,8 +173,6 @@ UnaryOp *Ops::getUnaryOp(Ops::OpType op, const BaseType *resType, const BaseType
         {
         case Ops::OP_SQRT:
             return new OpSQRTCDouble(resType, opType, resOff, opOff);
-        case Ops::OP_POW:
-            return new OpPOWCDouble(resType, opType, resOff, opOff);
         case Ops::OP_EXP:
             return new OpEXPCDouble(resType, opType, resOff, opOff);
         case Ops::OP_LOG:
@@ -224,7 +222,6 @@ Ops::getBinaryOp(Ops::OpType op, const BaseType *resType, const BaseType *op1Typ
     const auto type1 = op1Type->getType();
     const auto type2 = op2Type->getType();
     const auto typeRes = resType->getType();
-
 // if this flag is set, optimized operation execution for Char
 // is turned off.
 #ifndef NO_OPT_OPS
@@ -315,6 +312,8 @@ Ops::getBinaryOp(Ops::OpType op, const BaseType *resType, const BaseType *op1Typ
             return new OpDIVCLong(resType, op1Type, op2Type, resOff, op1Off, op2Off);
         case Ops::OP_MOD:
             return new OpMODCLong(resType, op1Type, op2Type, resOff, op1Off, op2Off);
+        case Ops::OP_POW:
+            return new OpPOWCDouble(resType, op1Type, op2Type, resOff, op1Off, op2Off);
         case Ops::OP_MAX_BINARY:
             return new OpMAX_BINARYCLong(resType, op1Type, op2Type, resOff, op1Off, op2Off, nullAsIdentity);
         case Ops::OP_MIN_BINARY:
@@ -350,6 +349,8 @@ Ops::getBinaryOp(Ops::OpType op, const BaseType *resType, const BaseType *op1Typ
             return new OpATAN2CDouble(resType, op1Type, op2Type, resOff, op1Off, op2Off);
         case Ops::OP_MOD:
             return new OpMODCLong(resType, op1Type, op2Type, resOff, op1Off, op2Off);
+        case Ops::OP_POW:
+            return new OpPOWCDouble(resType, op1Type, op2Type, resOff, op1Off, op2Off);
         case Ops::OP_MAX_BINARY:
             return new OpMAX_BINARYCDouble(resType, op1Type, op2Type, resOff, op1Off, op2Off, nullAsIdentity);
         case Ops::OP_MIN_BINARY:
@@ -557,7 +558,7 @@ Ops::getBinaryOp(Ops::OpType op, const BaseType *resType, const BaseType *op1Typ
         }
     }
     // result is Struct, two or one operands are structs
-    // ops: -, +, max, min, /, *, intdiv, mod, is, and, or, overlay, bit, xor
+    // ops: -, +, max, min, /, *, intdiv, mod, is, and, or, overlay, bit, xor, pow
     if (typeRes == STRUCT)
     {
         if (type1 == STRUCT && type2 == STRUCT)
@@ -1096,7 +1097,7 @@ const BaseType *Ops::getResultType(Ops::OpType op, const BaseType *op1, const Ba
 
     // / or div on floating point
     // X op d -> d, X op f -> f, U1 op U2 -> max(U1,U2)+1
-    if (op == OP_DIV || op == OP_INTDIV)
+    if (op == OP_DIV || op == OP_INTDIV || op == OP_POW)
     {
         if (maxType == FLOAT && (minType == LONG || minType == ULONG))
             // long/ulong may overflow float, so return double
@@ -1190,11 +1191,6 @@ void Ops::execUnaryConstOp(Ops::OpType op, const BaseType *resType,
         throw r_Error(UNARY_SCALARTYPENOTSUPPORTED);
     }
 
-    // set exponent for pow operations
-    if (op == Ops::OP_POW)
-    {
-        ((OpPOWCDouble *)myOp)->setExponent(param);
-    }
     try
     {
         (*myOp)(res, op1);
@@ -1792,8 +1788,6 @@ void OpMODCULong::operator()(char *res, const char *op1, const char *op2)
     resType->makeFromCULong(res + resOff, &longRes);
 }
 
-
-
 OpMULTCULong::OpMULTCULong(const BaseType *newResType, const BaseType *newOp1Type,
                            const BaseType *newOp2Type, size_t newResOff,
                            size_t newOp1Off, size_t newOp2Off, bool nullAsIdentity)
@@ -2252,6 +2246,7 @@ void OpMODCLong::operator()(char *res, const char *op1, const char *op2)
     resType->makeFromCLong(res + resOff, &longRes);
 }
 
+
 OpMULTCLong::OpMULTCLong(const BaseType *newResType, const BaseType *newOp1Type,
                          const BaseType *newOp2Type, size_t newResOff,
                          size_t newOp1Off, size_t newOp2Off, bool nullAsIdentity)
@@ -2648,6 +2643,40 @@ void OpATAN2CDouble::operator()(char *res, const char *op1, const char *op2)
     else
     {
         doubleRes = std::atan2(doubleOp1, doubleOp2);
+    }
+
+    resType->makeFromCDouble(res + resOff, &doubleRes);
+}
+
+OpPOWCDouble::OpPOWCDouble(const BaseType *newResType, const BaseType *newOp1Type,
+                           const BaseType *newOp2Type, size_t newResOff,
+                           size_t newOp1Off, size_t newOp2Off)
+    : BinaryOp(newResType, newOp1Type, newOp2Type, newResOff,
+               newOp1Off, newOp2Off)
+{
+}
+
+void OpPOWCDouble::operator()(char *res, const char *op1, const char *op2)
+{
+    double doubleOp1 = 0;
+    double doubleOp2 = 0;
+    double doubleRes = 0;
+
+    doubleOp1 = *(op1Type->convertToCDouble(op1 + op1Off, &doubleOp1));
+    doubleOp2 = *(op2Type->convertToCDouble(op2 + op2Off, &doubleOp2));
+
+    if (isNull(doubleOp1))
+    {
+        doubleRes = doubleOp1;
+    }
+    else if (isNull(doubleOp2))
+    {
+        doubleRes = doubleOp2;
+    }
+    else
+    {
+        // Do not handle division by zero, return +-inf or nan as specified in IEEE 754
+        doubleRes = std::pow(doubleOp1, doubleOp2);
     }
 
     resType->makeFromCDouble(res + resOff, &doubleRes);
@@ -4590,13 +4619,6 @@ void OpUnaryStruct::operator()(char *result, const char *op)
             delete[] elemOps;
             throw;
         }
-    }
-}
-void OpUnaryStruct::setExponent(double newExponent)
-{
-    for (size_t i = 0; i < numElems; i++)
-    {
-        (static_cast<OpPOWCDouble *>(elemOps[i]))->setExponent(newExponent);
     }
 }
 //--------------------------------------------

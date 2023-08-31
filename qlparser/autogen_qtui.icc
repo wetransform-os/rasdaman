@@ -36,10 +36,6 @@ inline QtNode::QtNodeType QtSqrt::getNodeType() const
 {
     return nodeType;
 }
-inline QtNode::QtNodeType QtPow::getNodeType() const
-{
-    return nodeType;
-}
 inline QtNode::QtNodeType QtExp::getNodeType() const
 {
     return nodeType;

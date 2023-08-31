@@ -3205,51 +3205,7 @@ inductionExp: SQRT LRPAR generalExp RRPAR
 	  FREESTACK($1)
 	  FREESTACK($2)
 	  FREESTACK($4)
- 	}
-	| POW LRPAR generalExp COMMA intLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, (double) $5.svalue );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POW LRPAR generalExp COMMA floatLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, $5.value );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POWER LRPAR generalExp COMMA intLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, (double) $5.svalue );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POWER LRPAR generalExp COMMA floatLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, $5.value );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
+    }
 	| ABS LRPAR generalExp RRPAR
 	{
 	  $$ = new QtAbs( $3 );
@@ -3615,6 +3571,31 @@ inductionExp: SQRT LRPAR generalExp RRPAR
       FREESTACK($4);
       FREESTACK($6);
 	}
+    | POW LRPAR generalExp COMMA generalExp RRPAR
+    {
+      $$ = new QtPowU  ( $3, $5 );
+      LDEBUG << "right";
+      $$->setParseInfo( *($1.info) );
+      parseQueryTree->removeDynamicObject( $3 );
+      parseQueryTree->removeDynamicObject( $5 );
+      parseQueryTree->addDynamicObject( $$ );
+      FREESTACK($1);
+      FREESTACK($2);
+      FREESTACK($4);
+      FREESTACK($6);
+    }
+    | POWER LRPAR generalExp COMMA generalExp RRPAR
+    {
+      $$ = new QtPowU  ( $3, $5 );
+      $$->setParseInfo( *($1.info) );
+      parseQueryTree->removeDynamicObject( $3 );
+      parseQueryTree->removeDynamicObject( $5 );
+      parseQueryTree->addDynamicObject( $$ );
+      FREESTACK($1);
+      FREESTACK($2);
+      FREESTACK($4);
+      FREESTACK($6);
+    }
     | ATAN2 LRPAR generalExp COMMA generalExp RRPAR
     {
       $$ = new QtAtan2  ( $3, $5 );

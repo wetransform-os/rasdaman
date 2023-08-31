@@ -61,6 +61,7 @@ const QtNode::QtNodeType QtNode::QtInheritance[][2] =
         {QT_BINARY_INDUCE, QT_DIV},
         {QT_BINARY_INDUCE, QT_INTDIV},
         {QT_BINARY_INDUCE, QT_MOD},
+        {QT_BINARY_INDUCE, QT_POW},
         {QT_BINARY_INDUCE, QT_EQUAL},
         {QT_BINARY_INDUCE, QT_IS},
         {QT_BINARY_INDUCE, QT_LESS},

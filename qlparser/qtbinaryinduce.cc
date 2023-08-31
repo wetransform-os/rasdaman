@@ -395,7 +395,6 @@ QtBinaryInduce::computeBinaryOp(QtScalarData *operand1, QtScalarData *operand2, 
 
     // allocate memory for the result
     char *resultBuffer = new char[resultBaseType->getSize()];
-
     BinaryOp *myOp = Ops::getBinaryOp(opType, resultBaseType,
                                       operand1->getValueType(), operand2->getValueType());
     if (myOp)
@@ -941,6 +940,54 @@ void QtMod::printAlgebraicExpression(ostream &s)
     s << ")";
 }
 
+
+const QtNode::QtNodeType QtPowU::nodeType = QT_POW;
+
+QtPowU::QtPowU(QtOperation *initInput1, QtOperation *initInput2)
+    : QtBinaryInduce(initInput1, initInput2, Ops::OP_POW)
+{
+    LDEBUG << "right";
+}
+
+bool QtPowU::isCommutative() const
+{
+    return false;  // NOT commutative
+}
+
+void QtPowU::printTree(int tab, ostream &s, QtChildType mode)
+{
+    s << SPACE_STR(static_cast<size_t>(tab)).c_str() << "QtMod Object " << static_cast<int>(getNodeType()) << getEvaluationTime() << endl;
+
+    QtBinaryInduce::printTree(tab, s, mode);
+}
+
+void QtPowU::printAlgebraicExpression(ostream &s)
+{
+    s << "(";
+
+    if (input1)
+    {
+        input1->printAlgebraicExpression(s);
+    }
+    else
+    {
+        s << "<nn>";
+    }
+
+    s << " mod ";
+
+    if (input2)
+    {
+        input2->printAlgebraicExpression(s);
+    }
+    else
+    {
+        s << "<nn>";
+    }
+
+    s << ")";
+}
+
 const QtNode::QtNodeType QtAtan2::nodeType = QT_ATAN2;
 
 QtAtan2::QtAtan2(QtOperation *initInput1, QtOperation *initInput2)
@@ -973,7 +1020,7 @@ void QtAtan2::printAlgebraicExpression(ostream &s)
         s << "<nn>";
     }
 
-    s << " arc2 ";
+    s << " atan2 ";
 
     if (input2)
     {

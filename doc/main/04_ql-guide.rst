@@ -2651,7 +2651,7 @@ pow, power
 
         pow( base, exp )
 
-    where *base* is an MDD or scalar and *exp* is a floating point number.
+    where *base* and is an MDD or scalar, and *exp* is likewise an MDD or scalar.
 
 =, <, >, <=, >=, !=
     For two MDD values (or evaluated MDD expressions), compare for each
@@ -2732,14 +2732,15 @@ bit(mdd, pos)
 
 Arithmetic, trigonometric, and exponential functions
     The following advanced arithmetic functions are available with the
-    obvious meaning, each of them accepting an MDD object: ::
+    obvious meaning, each of them accepting an MDD object (except ``arctan2``
+    which expects two floating-point operands of the same type): ::
 
         abs()
         sqrt()
         exp() log() ln()
         sin() cos() tan()
         sinh() cosh() tanh()
-        arcsin() arccos() arctan()
+        arcsin() arccos() arctan() arctan2()
         ceil() floor() round()
 
     **Exceptions**
@@ -3797,12 +3798,22 @@ unnecessary check for division by zero. Integer division is supported with the
 Note: operand types are not commutative, the second operand must be a float or
 double scalar.
 
+    +-----------+----------------+------------------------+
+    | first     | second         | result                 |
+    +===========+================+========================+
+    | c,o,s,us,f| c, o, s, us, f | f                      |
+    +-----------+----------------+------------------------+
+    | ul,l,d    | f, d           | d                      |
+    +-----------+----------------+------------------------+
+
+**arctan2**
+
     +-----------+------------+------------------------+
     | first     | second     | result                 |
     +===========+============+========================+
-    | c,o,s,us,f| f, d       | f                      |
+    | f         | f          | f                      |
     +-----------+------------+------------------------+
-    | ul,l,d    | f, d       | d                      |
+    | d         | d          | d                      |
     +-----------+------------+------------------------+
 
 **<, >, <=, >=, =, !=**
@@ -5241,8 +5252,8 @@ Select
 
 The select statement allows for the retrieval from array collections.
 The result is a set (collection) of items whose structure is defined in
-the select clause. Result items can be arrays, atomic values, or
-structs. In the where clause, a condition can be expressed which acts as
+the select clause. Result items can be arrays or scalar values.
+In the where clause, a condition can be expressed which acts as
 a filter for the result set. A single query can address several
 collections.
 
@@ -5272,12 +5283,6 @@ This query, on the other hand, delivers a set of integers: ::
 
     select count_cells( mr[120:160, 55:75] > 250 )
     from mr
-
-Finally, this query delivers a set of **struct**\ s, each one with an
-integer and a 2-D array component: ::
-
-    select struct { max_cells( a ), a }
-    from mr as a
 
 .. _sec-insert:
 
@@ -6810,8 +6815,7 @@ This appendix presents the list of all tokens that CANNOT be used as variable na
       - ceil
       - floor
       - round
-      -
-
+      - arctan2
 
 
 .. [2]

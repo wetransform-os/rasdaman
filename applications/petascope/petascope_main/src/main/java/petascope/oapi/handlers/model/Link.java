@@ -51,6 +51,8 @@ public class Link {
     
     private String rel = "self";
     private String href;
+    private String type = null;
+    private String title = null;
 
     public Link(String href) {
         this.href = href;
@@ -61,6 +63,13 @@ public class Link {
         this.href = href;
     }
 
+    public Link(String rel, String href, String type, String title) {
+        this.rel = rel;
+        this.href = href;
+        this.type = type;
+        this.title = title;
+    }
+
     public String getRel() {
         return rel;
     }
@@ -68,7 +77,14 @@ public class Link {
     public String getHref() {
         return href;
     }
-    
+
+    public String getType() {
+        return this.type;
+    }
+    public String getTitle() {
+        return this.title;
+    }
+
     public static Link getSelfLink(String urlPrefix) {
         Link selfLink = new Link(urlPrefix);
         return selfLink;

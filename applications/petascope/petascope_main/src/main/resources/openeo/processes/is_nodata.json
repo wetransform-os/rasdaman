@@ -1,0 +1,79 @@
+{
+    "id": "is_nodata",
+    "summary": "Value is not a no-data (null) value",
+    "description": "Checks which elements of `x` are nodata (null) values (*`x IS NULL`*).\n\nThe operand can be a scalar number or a datacube.\n\n\nThe result is a scalar number if the operand is scalar, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type   | result type   |\n|----------------|---------------|\n| X              | bool          |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "True where `x` is null, false otherwise.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": null
+            },
+            "returns": true
+        },
+        {
+            "arguments": {
+                "x": 1.0
+            },
+            "returns": false
+        },
+        {
+            "arguments": {
+                "x": [
+                    1.0,
+                    "NaN",
+                    null
+                ]
+            },
+            "returns": [
+                false,
+                false,
+                true
+            ]
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        }
+    ],
+    "wcps": "<x> IS NULL",
+    "categories": [
+        "Logical"
+    ]
+}

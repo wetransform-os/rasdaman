@@ -30,8 +30,11 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import java.util.List;
 
-@JsonPropertyOrder({"id", "title", "description", "extent", "CRS", "domainSet", "rangeType", "links"})
+@JsonPropertyOrder({"stacVersion", "type", "id", "title", "description", "extent", "CRS", "domainSet", "rangeType", "links"})
 public class Collection {
+
+    private String stacVersion = "1.0.0";
+    private String type = "Collection";
     private String id;
     private String title;
     private String description;
@@ -56,6 +59,15 @@ public class Collection {
 
     public void setLinks(List<Link> links) {
         this.links = links;
+    }
+
+    @JsonProperty("stac_version")
+    public String getStacVersion() {
+        return stacVersion;
+    }
+
+    public String getType() {
+        return type;
     }
 
     public String getId() {

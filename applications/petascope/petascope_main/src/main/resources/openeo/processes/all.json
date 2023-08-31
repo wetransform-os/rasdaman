@@ -1,0 +1,64 @@
+{
+    "id": "all",
+    "summary": "Checks if all elements are true",
+    "description": "Checks if all elements are true in a datacube `x` (*`all(x)`*).\n\nThe operand must be a datacube.\n\n\nThe result is a scalar number. Operand elements which are null are ignored while computing the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type   | result type   |\n|----------------|---------------|\n| bool           | bool          |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "A datacube.",
+            "schema": {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        }
+    ],
+    "returns": {
+        "description": "The computed Checks if all elements are true of `x`; null elements are ignored.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": [
+                    true,
+                    null,
+                    true
+                ]
+            },
+            "returns": true
+        },
+        {
+            "arguments": {
+                "x": [
+                    true,
+                    null,
+                    false
+                ]
+            },
+            "returns": false
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/11_cheatsheets.html#scalar-operations",
+            "title": "Documentation on operations resulting in scalar values in rasdaman"
+        }
+    ],
+    "wcps": "all(<x>)",
+    "categories": [
+        "Aggregation"
+    ]
+}

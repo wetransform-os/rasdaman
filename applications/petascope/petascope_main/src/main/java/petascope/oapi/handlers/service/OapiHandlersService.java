@@ -33,11 +33,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import petascope.core.KVPSymbols;
+import petascope.core.Pair;
+import petascope.core.gml.GMLGetCapabilitiesBuilder;
 import petascope.core.json.cis11.JSONCoreCIS11;
 import petascope.core.json.cis11.JSONCoreCIS11Builder;
 import petascope.core.json.cis11.model.rangeset.DataBlock;
 import petascope.core.json.cis11.model.rangeset.RangeSet;
 import petascope.core.response.Response;
+import petascope.exceptions.PetascopeException;
 import petascope.oapi.handlers.model.Bbox;
 import petascope.oapi.handlers.model.Collection;
 import petascope.oapi.handlers.model.Collections;
@@ -51,12 +54,15 @@ import static petascope.controller.AbstractController.getValueByKeyAllowNull;
 import static petascope.core.KVPSymbols.*;
 import static petascope.util.MIMEUtil.MIME_JSON;
 import petascope.util.TimeUtil;
+import petascope.util.ras.RasUtil;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
 import petascope.wcps.result.executor.WcpsRasqlExecutor;
 import petascope.wcs2.handlers.kvp.KVPWCSGetCoverageHandler;
 import petascope.wcs2.handlers.kvp.KVPWCSProcessCoverageHandler;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * Class to return the objects for OAPI requests
@@ -83,6 +89,13 @@ public class OapiHandlersService {
     private CoverageRepositoryService coverageRepositoryService;
     @Autowired
     private WcpsRasqlExecutor wcpsRasqlExecutor;
+
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+
+    @Autowired
+    private GMLGetCapabilitiesBuilder gmlGetCapabilitiesBuilder;
+
     
     /**
      *  https://oapi.rasdaman.org/rasdaman/oapi (7.3.1. API landing page), see: Landing Page Response Schema
@@ -132,6 +145,7 @@ public class OapiHandlersService {
 
         return new Collections(collections, Arrays.asList(dataLink));
     }
+
     
     /**
      * NOTE: it also allows to filter the coverages by temporal (datetime parameter) and spatial (bbox parameter) 

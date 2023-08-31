@@ -1,0 +1,53 @@
+{
+    "id": "filter_spatial",
+    "summary": "Spatial filtering of raster data cubes with a geometry",
+    "description": "Limits the datacube `x` to the specified WKT geometry.\n\nAlternatively, use ``filter_bbox()`` to filter by bounding box.",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "A datacube.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "wkt",
+            "description": "A WKT string specifying the geometry to be clipped from `x`; the areas outside of the geometry are set to null.",
+            "schema": {
+                "type": "string"
+            }
+        }
+    ],
+    "returns": {
+        "description": "A raster data cube restricted to the specified WKT geometry.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [],
+    "links": [],
+    "wcps": "clip(<x>, <wkt>)",
+    "categories": [
+        "Subsetting"
+    ]
+}

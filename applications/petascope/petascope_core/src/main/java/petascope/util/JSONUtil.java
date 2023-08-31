@@ -28,7 +28,19 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+import com.networknt.schema.JsonSchema;
+import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.SpecVersion;
+import com.networknt.schema.ValidationMessage;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.LoggerFactory;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 
@@ -37,6 +49,9 @@ import petascope.exceptions.PetascopeException;
  * @author <a href="mailto:bphamhuu@jacobs-university.net">Bang Pham Huu</a>
  */
 public class JSONUtil {
+
+
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(JSONUtil.class);
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
     
@@ -49,9 +64,20 @@ public class JSONUtil {
     }
     
     /**
+     * Serialize an object to JSON string with indentation (human readable) and with null as well
+     */
+    public static String serializeObjectToJSONStringWithNull(Object obj) throws PetascopeException {
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        String result = serializeObjectToString(obj);
+        
+        return result;
+    }    
+    
+    /**
      * Serialize an object to JSON string with indentation (human readable)
      */
     public static String serializeObjectToJSONString(Object obj) throws PetascopeException {
+        objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
         String result = serializeObjectToString(obj);
@@ -134,6 +160,24 @@ public class JSONUtil {
             return false;
         }
     }
+
+    public static void validate(String json, String schemaURL, SpecVersion.VersionFlag versionFlag) throws IOException, PetascopeException {
+        JsonSchemaFactory factory = JsonSchemaFactory.getInstance(versionFlag);
+        InputStream inputStream = new URL(schemaURL).openStream();
+        JsonSchema jsonSchema = factory.getSchema(inputStream);
+        JsonNode jsonNode = objectMapper.readTree(json);
+        Set<ValidationMessage> errors = jsonSchema.validate(jsonNode);
+        if (!errors.isEmpty()) {
+            List<String> errorMessages = new ArrayList<>();
+
+            for (ValidationMessage validationMessage : errors) {
+                String errorMessage = validationMessage.getMessage();
+                errorMessages.add(errorMessage);
+            }
+            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                    "JSON string is not valid from JSON schema at: " + schemaURL + ". Given errors: " + ListUtil.join(errorMessages, "\n"));
+        }
+    }
     
     /**
      * Clone an input object by serializing it to JSON string and deserializing it back to a new object
@@ -152,6 +196,54 @@ public class JSONUtil {
             throw new PetascopeException(ExceptionCode.InternalComponentError, "Cannot clone object. Reason: " + ex.getMessage());
         }
         
+        return result;
+    }
+
+    /**
+     * Given a JSON string, returns the JsonNode content of a property
+     * e.g. extract the content of the "process_graph" of the JSON example on
+     * https://openeo.org/documentation/1.0/developers/api/reference.html#tag/User-Defined-Processes/operation/store-custom-process
+     */
+    public static JsonNode getJsonNodeByPropertyName(String json, String propertyName) throws PetascopeException {
+        JsonNode result = null;
+        try {
+            JsonNode rootNode = objectMapper.readTree(json);
+            result = rootNode.findPath(propertyName);
+            if (result == null) {
+                throw new PetascopeException(ExceptionCode.InvalidRequest, "JSON string does not contain the property: " + propertyName);
+            }
+        } catch (JsonProcessingException ex) {
+            throw new PetascopeException(ExceptionCode.InternalComponentError,
+                    "Cannot parse JSON string to extract the content of property name: " + propertyName + ". Reason: " + ex.getMessage());
+        }
+
+        return result;
+    }
+
+    /**
+     * Given a JSON string, returns a parsed JsonNode object.
+     */
+    public static JsonNode getJsonNode(String json) throws PetascopeException {
+        try {
+            return objectMapper.readTree(json);
+        } catch (JsonProcessingException ex) {
+            throw new PetascopeException(ExceptionCode.InternalComponentError,
+                    "Cannot parse JSON string. Reason: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Given a JSON string, then pretty print it to a better string
+     */
+    public static String prettyPrint(String json) throws PetascopeException {
+        String result = null;
+        try {
+            result = objectMapper.readTree(json).toPrettyString();
+        } catch (JsonProcessingException ex) {
+            throw new PetascopeException(ExceptionCode.InternalComponentError,
+                    "Cannot pretty print the input json string. Reason: " + ex.getMessage());
+        }
+
         return result;
     }
     

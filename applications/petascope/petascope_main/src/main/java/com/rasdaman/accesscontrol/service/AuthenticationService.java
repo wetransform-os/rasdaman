@@ -29,11 +29,12 @@ import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListMap;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.rasdaman.config.ConfigManager;
 import petascope.controller.AuthenticationController;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,13 @@ public class AuthenticationService {
 
     public static final String BASIC_AUTHENTICATION_HEADER = "Authorization";
     public static final String BASIC_HEADER = "Basic";
+
+    // openEO style https://openeo.org/documentation/1.0/developers/api/reference.html#tag/Account-Management/operation/authenticate-basic
+    public static final String BEARER_BASIC_AUTHENTICATION_TOKEN = "Bearer basic//";
+
+    // Stored the credentials of valid authenticated user
+    // token -> (username, password)
+    private static final Map<String, Pair<String, String>> basicCredentialsAccessTokensMap = new ConcurrentSkipListMap<>();
     
     /**
      * Parse header to get username and password encoded in Base64 for basic authentication header
@@ -74,6 +82,18 @@ public class AuthenticationService {
             // decoded username:password
             final String[] values = credentials.split(":", 2);
             result = new Pair<>(values[0].trim(), values[1].trim());
+        }
+
+        if (authorization != null && result == null) {
+            // Then, check if it may contain openEO basic authentication access headers
+            // in this format: Authorization: Bearer basic//TOKEN
+            if (authorization.startsWith(BEARER_BASIC_AUTHENTICATION_TOKEN)) {
+                // uuid
+                String accessToken = authorization.split(BEARER_BASIC_AUTHENTICATION_TOKEN)[1];
+
+                // access token is valid -> returns the stored username / password in cache
+                result = AuthenticationService.getStoredCredentialsByBasicHeaderAccessToken(accessToken);
+            }
         }
         
         return result;
@@ -123,4 +143,49 @@ public class AuthenticationService {
         return inputStream;
     }
     
+    // -------------- openEO API
+
+    /**
+     * Check if given basic header authentication token is valid, then return the stored credentials
+     */
+    public static Pair<String, String> getStoredCredentialsByBasicHeaderAccessToken(String token) throws PetascopeException {
+        if (!basicCredentialsAccessTokensMap.containsKey(token)) {
+            throw new PetascopeException(ExceptionCode.InvalidRequest, "Basic authentication access token does not exist in the registry. Hint: try to create a new access token via the dedicated endpoint.");
+        };
+
+        Pair<String, String> credentialsPair = basicCredentialsAccessTokensMap.get(token);
+        return credentialsPair;
+    }
+
+    /**
+     * Generate basic authentication access token from the valid credentials
+     */
+    public static String generateBasicCredentialsAccessToken(String username, String password) {
+        // remove the old existing access token
+        removeBasicCredentialsAccessToken(username);
+
+        String accessToken = java.util.UUID.randomUUID().toString();
+        basicCredentialsAccessTokensMap.put(accessToken, new Pair<String, String> (username, password));
+
+        return accessToken;
+    }
+
+    /**
+    * In case, user is removed or password's user is changed -> existing access token is removed
+     */
+    public static void removeBasicCredentialsAccessToken(String username) {
+        String token = "";
+        for (Map.Entry<String, Pair<String, String>> entry : basicCredentialsAccessTokensMap.entrySet()) {
+            token = entry.getKey();
+            String existingUsername = entry.getValue().fst;
+            if (existingUsername.equals(username)) {
+                break;
+            }
+        }
+
+        if (!token.isEmpty()) {
+            basicCredentialsAccessTokensMap.remove(username);
+        }
+    }
+
 }

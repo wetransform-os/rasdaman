@@ -53,6 +53,13 @@ public class OapiResultService {
         String objectRepresentation = JSONUtil.serializeObjectToJSONString(object);
         return new Response(Arrays.asList(objectRepresentation.getBytes()), MIME_JSON);
     }
+
+    /**
+     * The input is already a JSON string, it just adds the header to return as json
+     */
+    public Response getJsonResponseFromString(String json) {
+        return new Response(Arrays.asList(json.getBytes()), MIME_JSON);
+    }
     
     /**
      * Return the error result in JSON format

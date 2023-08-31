@@ -33,6 +33,7 @@ import javax.persistence.Table;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import org.rasdaman.config.ConfigManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -478,6 +479,20 @@ public class EnvelopeByAxis implements Serializable {
         i++;
         
         return results;
+    }
+    
+    @JsonIgnore
+    /**
+     * Return the sorted list of axisExtents by grid axis order (stored in rasdaman
+     */
+    public List<AxisExtent> getAxisExtentsByGridOrder() {
+        TreeMap<Integer, AxisExtent> map = new TreeMap<>();
+        
+        for (AxisExtent axisExtent : this.axisExtents) {
+            map.put(axisExtent.getGridAxisOrder(), axisExtent);
+        }
+        
+        return new ArrayList<>(map.values());
     }
     
 }

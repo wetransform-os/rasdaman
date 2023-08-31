@@ -1,0 +1,97 @@
+{
+    "id": "subset_band",
+    "summary": "Select a band by name or index",
+    "description": "Extract the band by name or (0-based) index from `x` (*`x.y`*).\n\nThe operand can be a scalar number or a datacube.\n\n\nThe result is a scalar number if the operand is scalar, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe result is single-band, with same type and nullset as the selected band in `x`.",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "A multiband operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "y",
+            "description": "The band name or index.",
+            "schema": [
+                {
+                    "type": [
+                        "integer"
+                    ]
+                },
+                {
+                    "type": "string",
+                    "subtype": "band-name"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "Null where `x` is null, otherwise the extracted band scalar or datacube.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": {
+                    "red": 1,
+                    "green": 2,
+                    "blue": 3
+                },
+                "y": "green"
+            },
+            "returns": 2
+        },
+        {
+            "arguments": {
+                "x": {
+                    "red": 1,
+                    "green": 2,
+                    "blue": 3
+                },
+                "y": 1
+            },
+            "returns": 2
+        },
+        {
+            "arguments": {
+                "x": "DatacubeSentinel2",
+                "y": "B04"
+            },
+            "returns": "DatacubeB04"
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#struct-component-selection",
+            "title": "Struct component selection in rasdaman"
+        }
+    ],
+    "wcps": "<x>.<y>",
+    "categories": [
+        "Subsetting"
+    ]
+}

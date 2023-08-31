@@ -35,7 +35,7 @@ public class PetascopeException extends Exception {
     private String exceptionText;
     private boolean isSoap = false;
 
-    private PetascopeException() {
+    public PetascopeException() {
     }
 
     /**

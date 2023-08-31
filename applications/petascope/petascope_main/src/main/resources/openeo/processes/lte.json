@@ -1,0 +1,97 @@
+{
+    "id": "lte",
+    "summary": "Less than or equal comparison",
+    "description": "Compares whether `x` is less than or equal `y` (*`x <= y`*).\n\nEach operand can be a scalar number, or a datacube. If both operands are datacubes, they must have matching domain sets.\n\n\nThe result is a scalar number if both operands are scalars, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element types of the operands:\n\n```\n| first operand type   | second operand type   | result type   |\n|----------------------|-----------------------|---------------|\n| X                    | Y                     | bool          |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The first operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "y",
+            "description": "The second operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "null where `x` or `y` is null, true where `x` is less than or equal `y`, false otherwise.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": 5,
+                "y": 2.5
+            },
+            "returns": false
+        },
+        {
+            "arguments": {
+                "x": 5,
+                "y": "DatacubeA"
+            },
+            "returns": "DatacubeB"
+        },
+        {
+            "arguments": {
+                "x": "DatacubeA",
+                "y": "DatacubeB"
+            },
+            "returns": "DatacubeC"
+        },
+        {
+            "arguments": {
+                "x": 5,
+                "y": null
+            },
+            "returns": null
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        }
+    ],
+    "wcps": "<x> <= <y>",
+    "categories": [
+        "Comparison"
+    ]
+}

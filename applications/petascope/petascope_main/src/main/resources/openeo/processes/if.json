@@ -1,0 +1,152 @@
+{
+    "id": "if",
+    "summary": "If-Then-Else conditional",
+    "description": "Where `x` elements are `true`, returns `accept` elements, otherwise returns `reject` elements.\n\n\nThe result is a scalar number if all parameters are scalars, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\n\nThe `accept` and `reject` parameters must be of the same element type, while `x` must be of type boolean; all datacube parameters must have matching domains.",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "Scalar or datacube condition operand of type boolean.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "accept",
+            "description": "A value that is returned where elements of `x` are `true`.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "reject",
+            "description": "A value that is returned where elements of `x` are not `true`; defaults to null.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ],
+            "default": null,
+            "optional": true
+        }
+    ],
+    "returns": {
+        "description": "Either the `accept` or `reject` elements depending on the condition.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": true,
+                "accept": 1,
+                "reject": 3
+            },
+            "returns": 1
+        },
+        {
+            "arguments": {
+                "x": [
+                    true,
+                    false
+                ],
+                "accept": [
+                    1,
+                    2
+                ],
+                "reject": [
+                    3,
+                    4
+                ]
+            },
+            "returns": [
+                1,
+                4
+            ]
+        },
+        {
+            "arguments": {
+                "x": [
+                    true,
+                    false
+                ],
+                "accept": [
+                    1,
+                    2
+                ],
+                "reject": 0
+            },
+            "returns": [
+                1,
+                0
+            ]
+        },
+        {
+            "arguments": {
+                "x": false,
+                "accept": [
+                    1,
+                    2
+                ],
+                "reject": 0
+            },
+            "returns": [
+                0,
+                0
+            ]
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/stable/05_geo-services-guide.html#case-distinction",
+            "title": "Case Distinction in rasdaman WCPS"
+        }
+    ],
+    "wcps": "switch case <x> return <accept> default return <reject>",
+    "categories": [
+        "Logical"
+    ]
+}

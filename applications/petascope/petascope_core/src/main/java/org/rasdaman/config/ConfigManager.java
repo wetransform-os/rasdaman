@@ -107,7 +107,19 @@ public class ConfigManager {
     // context path for OAPI endpoint (e.g: localhost:8080/rasdaman/oapi)
     public static final String OAPI = "oapi";
 
-    // For community this endpoint always return fasle, it is used to check that if petascope is running from wsclient
+    // context path for openEO endpoint (e.g: localhost:8080/rasdaman/openeo)
+    public static final String OPENEO = "openeo";
+
+    // context path for openEO endpoint (e.g: localhost:8080/rasdaman/credentials)
+    public static final String CREDENTIALS = "credentials";
+
+    // openEO https://openeo.org/documentation/1.0/developers/api/reference.html#tag/Account-Management/operation/authenticate-basic
+    public static final String CREDENTIALS_BASIC = CREDENTIALS + "/basic";
+
+    public static final String OPENEO_CREDENTIALS_BASIC = OPENEO + "/" + CREDENTIALS + "/basic";
+
+
+    // Check if petascope has enabled authentication in petascope.properties
     public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION = "authisactive";
     public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH = ADMIN + "/authisactive";
 

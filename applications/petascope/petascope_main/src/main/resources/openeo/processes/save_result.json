@@ -1,0 +1,66 @@
+{
+    "id": "save_result",
+    "summary": "Save processed data",
+    "description": "Encodes `x` in the given file `format`; the encoding can be optionally customized with format `options`.",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "A datacube to be encoded in the target data format.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "format",
+            "description": "The data format to encode the datacube to. It must be one of the values that the server reports as supported output file formats, which usually correspond to the short GDAL/OGR codes. This parameter is *case insensitive*.",
+            "schema": {
+                "type": "string",
+                "subtype": "output-format"
+            }
+        },
+        {
+            "name": "options",
+            "description": "The file format parameters to be used to create the file(s). Must correspond to the parameters that the server reports as supported parameters for the chosen `format`. The parameter names and valid values usually correspond to the GDAL/OGR format options.",
+            "schema": {
+                "type": "object",
+                "subtype": "output-format-options"
+            },
+            "default": {},
+            "optional": true
+        }
+    ],
+    "returns": {
+        "description": "The datacube encoded to the target data format, as a 1-dimensional byte datacube.",
+        "schema": {
+            "type": "object",
+            "subtype": "datacube"
+        }
+    },
+    "examples": [],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/11_cheatsheets.html#coverage-operationsData format in rasdaman",
+            "title": "Coverage operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "Format options in rasdaman",
+            "title": "https://doc.rasdaman.org/04_ql-guide.html#rasql-encode-function-data-format"
+        }
+    ],
+    "wcps": "encode(<x>, \"<format>\"<if(options)>, \"<options>\"<endif>)",
+    "categories": [
+        "Data exchange"
+    ]
+}

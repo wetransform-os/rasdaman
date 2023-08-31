@@ -23,6 +23,7 @@ package petascope.util;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -35,6 +36,8 @@ import java.util.jar.JarInputStream;
 import org.apache.commons.io.filefilter.FileFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 
@@ -44,6 +47,9 @@ import petascope.exceptions.PetascopeException;
  * @author <a href="mailto:d.misev@jacobs-university.de">Dimitar Misev</a>
  */
 public class IOUtil {
+
+    private static final PathMatchingResourcePatternResolver resourcePatternResolver
+                                = new PathMatchingResourcePatternResolver(IOUtil.class.getClassLoader());
 
     private static final Logger log = LoggerFactory.getLogger(IOUtil.class);      
 
@@ -259,6 +265,17 @@ public class IOUtil {
         } catch (Exception ex) {
             throw new PetascopeException(ExceptionCode.IOConnectionError, "Cannot create folder '" + dirPath + "'. Reason: " + ex.getMessage(), ex);
         }
+    }
+
+    /**
+     * Find files in resources folder by a path pattern.
+     * e.g. to find all JSON files under petascope_main/src/main/resources/openeo/processes/
+     * then, pathPattern = openeo/processes/*.json
+     */
+    public static Resource[] getResourcesByPattern(String pathPattern) throws IOException {
+        Resource[] results = resourcePatternResolver.getResources("classpath:/" + pathPattern);
+        return results;
+
     }
 
     public static final String TIFF_MIMETYPE = "tif";

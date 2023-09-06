@@ -21,18 +21,21 @@
  */
 package petascope.wcps.handler;
 
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCPSException;
+import petascope.util.CrsUtil;
+import petascope.wcps.metadata.model.Axis;
+import petascope.wcps.metadata.service.WMSSubsetDimensionsRegistry;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.DimensionIntervalList;
+import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
+
 
 /**
 Handler for this expression:
@@ -46,6 +49,8 @@ public class ShorthandSubsetHandler extends Handler {
     
     @Autowired
     private SubsetExpressionHandler subsetExpressionHandler;
+    @Autowired
+    private WMSSubsetDimensionsRegistry wmsSubsetDimensionsRegistry;
 
     
     public ShorthandSubsetHandler() {
@@ -56,6 +61,7 @@ public class ShorthandSubsetHandler extends Handler {
         ShorthandSubsetHandler result = new ShorthandSubsetHandler();
         result.setChildren(Arrays.asList(coverageExpressionHandler, dimensionIntervalListHandler));
         result.subsetExpressionHandler = subsetExpressionHandler;
+        result.wmsSubsetDimensionsRegistry = wmsSubsetDimensionsRegistry;
         
         return result;
     }
@@ -95,10 +101,81 @@ public class ShorthandSubsetHandler extends Handler {
 
 
         if (!isCurrentNodeRemoved) {
+            if (coverageExpressionResult.getMetadata() != null) {
+                this.addWMSSubsetsIfPossible(coverageExpressionResult, dimensionIntervalList);
+            }
             coverageExpressionResult = subsetExpressionHandler.handle(coverageExpressionResult, dimensionIntervalList);
         }
 
         return coverageExpressionResult;
+
+    }
+
+
+    /**
+     * If this is the last subsetting node in the query tree branch and the query is generated for WMS style,
+     * then it should check which parameters coming from WMS GetMap request should be added to the list of subsettings
+     * in the DimensionIntervalList object
+     */
+    private void addWMSSubsetsIfPossible(WcpsResult coverageExpressionResult, DimensionIntervalList dimensionIntervalList) {
+        boolean shouldAdd = false;
+
+        String layerName = coverageExpressionResult.getMetadata().getCoverageName();
+        List<WcpsSubsetDimension> wmsLayerSubsetDimensions = this.wmsSubsetDimensionsRegistry.getSubsetDimensions(layerName);
+        if (wmsLayerSubsetDimensions == null) {
+            // this node is not created for WMS style
+            return;
+        } else {
+            // Check if this node is the last (parent of all subsetting nodes)
+            Handler parentNode = this.getParent();
+            while (parentNode != null) {
+                if (parentNode instanceof ShorthandSubsetHandler) {
+                    // this node: c[ansi("2015-08-09":"2018-08-09")]  is a child node of
+                    // another Subset handler node (covExpr)[ansi("2015-08-09")]
+                    // e.g. ( c[ansi("2015-08-09":"2018-08-09")] ) [ansi("2015-08-09")]
+                    return;
+                }
+
+                parentNode = parentNode.getParent();
+            }
+
+            shouldAdd = true;
+        }
+
+        if (shouldAdd) {
+            List<WcpsSubsetDimension> currentSubsetDimensions = dimensionIntervalList.getIntervals();
+            List<WcpsSubsetDimension> newSubsetDimensions = new ArrayList<>(currentSubsetDimensions);
+
+            for (WcpsSubsetDimension wmsSubsetDimension : wmsLayerSubsetDimensions) {
+                boolean subsetExist = false;
+                String wmsSubsetDimensionAxisLabel = wmsSubsetDimension.getAxisName();
+
+                for (WcpsSubsetDimension currentSubsetDimension : currentSubsetDimensions) {
+                    String currentSubsetDimensionAxisLabel = currentSubsetDimension.getAxisName();
+
+                    if (CrsUtil.axisLabelsMatch(currentSubsetDimensionAxisLabel, wmsSubsetDimensionAxisLabel)) {
+                        subsetExist = true;
+                        break;
+                    }
+                }
+
+                if (subsetExist == false) {
+
+                    for (Axis axis : coverageExpressionResult.getMetadata().getAxes()) {
+                        if (CrsUtil.axisLabelsMatch(wmsSubsetDimension.getAxisName(), axis.getLabel())) {
+                            // Add the subsetting coming from WMS GetMap request parameters as well as it doesn't exist in the style subsetting fragment
+                            // e.g. $c[ansi("2015-06-07")] and forecast=50 from GetMap request, then the result is
+                            // $c[ansi("2015-06-07"), forecast(50)]
+                            newSubsetDimensions.add(wmsSubsetDimension);
+                            break;
+                        }
+                    }
+
+                }
+            }
+
+            dimensionIntervalList.setIntervals(newSubsetDimensions);
+        }
 
     }
 

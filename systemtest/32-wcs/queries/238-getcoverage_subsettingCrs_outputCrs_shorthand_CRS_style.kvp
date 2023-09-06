@@ -1,0 +1,1 @@
+service=WCS&version=2.0.1&request=GetCoverage&coverageId=test_world_temp&subset=Lat(30,30.5)&subset=Long(40.5,40.6)&subsettingCrs=EPSG/0/4269&outputCrs=EPSG:3857

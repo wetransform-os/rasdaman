@@ -162,9 +162,9 @@ public class UpdateCoverageHandler {
         Coverage inputCoverage = gmlCISParserService.parseDocumentToCoverage(gmlInputCoverageDocument);
         inputCoverage.setId(currentCoverage.getId());
 
-	this.handleUpdateCoverageRequest(request, currentCoverage, inputCoverage, gmlInputCoverageDocument);
+        this.handleUpdateCoverageRequest(request, currentCoverage, inputCoverage, gmlInputCoverageDocument);
         
-	persistedCoverageService.createCoverageExtent(currentCoverage);
+    	persistedCoverageService.createCoverageExtent(currentCoverage);
         
         // Now, we can persist the updated current coverage from input slice
         persistedCoverageService.save(currentCoverage);
@@ -620,7 +620,6 @@ public class UpdateCoverageHandler {
      * Computes the offset in coefficients for a domain extensions of the
      * coverage.
      *
-     * @param currentDom the current domain of the coverage
      * @param subset the subset with which the coverage is extended
      * @return the coefficient corresponding to the first slice of the subset
      * @throws PetascopeException
@@ -912,9 +911,6 @@ public class UpdateCoverageHandler {
     /**
      * Using the geo axis Order -> grid domains map then parse it to update the
      * grid lowerBound, upperBound of current index axes of persisted coverage
-     *
-     * @param coverage
-     * @param pixelIndices
      */
     private void updateGridDomains(Coverage currentCoverage, Map<Integer, String> pixelIndices, Pair<String, Integer> expandedAxisDimensionPair) {
 
@@ -977,7 +973,9 @@ public class UpdateCoverageHandler {
     private String getReplacementValuesFromTupleList(Coverage coverage, Element rangeSet, String pixelDataType) throws PetascopeException {
         Element dataBlock = GMLCIS10ParserService.parseDataBlock(rangeSet);
         String collectionName = coverage.getCoverageId();
-        Pair<String, List<String>> collectionType = TypeResolverUtil.guessCollectionType(collectionName, coverage.getNumberOfBands(), coverage.getNumberOfDimensions(),
+        Pair<String, List<String>> collectionType = TypeResolverUtil.guessCollectionType(collectionName,
+                                                                        coverage.getRangeType().getDataRecord().getFields(),
+                                                                        coverage.getNumberOfDimensions(),
                 coverage.getNilValues(), pixelDataType);
 
         // Only support GeneralGridCoverage now

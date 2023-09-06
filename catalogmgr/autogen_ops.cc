@@ -81,34 +81,6 @@ void OpSQRTCDouble::operator()(char *res, const char *op)
     resType->makeFromCDouble(res + resOff, &convRes);
 }
 
-OpPOWCDouble::OpPOWCDouble(
-    const BaseType *newResType,
-    const BaseType *newOpType,
-    size_t newResOff,
-    size_t newOpOff)
-    : UnaryOp(newResType, newOpType, newResOff, newOpOff) {}
-
-void OpPOWCDouble::operator()(char *res, const char *op)
-{
-    double convOp = *(opType->convertToCDouble(op + opOff, &convOp));
-    double convRes;
-
-    if (isNull(convOp))
-    {
-        convRes = convOp;
-    }
-    else
-    {
-        convRes = pow(convOp, exponent);
-    }
-    resType->makeFromCDouble(res + resOff, &convRes);
-}
-
-void OpPOWCDouble::setExponent(double newExponent)
-{
-    exponent = newExponent;
-}
-
 OpEXPCDouble::OpEXPCDouble(
     const BaseType *newResType,
     const BaseType *newOpType,

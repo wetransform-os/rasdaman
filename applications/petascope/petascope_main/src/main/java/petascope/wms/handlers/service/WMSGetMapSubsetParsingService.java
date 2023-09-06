@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import petascope.core.KVPSymbols;
 import static petascope.core.KVPSymbols.VALUE_WMS_DIMENSION_MIN_MAX_SEPARATE_CHARACTER;
 import petascope.core.service.CrsComputerService;
+import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.util.CrsUtil;
@@ -81,10 +82,28 @@ public class WMSGetMapSubsetParsingService {
                     WcpsSubsetDimension subsetDimension = null;
 
                     if (!geoLowerBound.equalsIgnoreCase(geoUpperBound)) {
+                        if (parsedSubset.getLowerLimit().compareTo(axis.getOriginalGeoBounds().getLowerLimit()) < 0
+                            || parsedSubset.getLowerLimit().compareTo(axis.getOriginalGeoBounds().getUpperLimit()) > 0) {
+                            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                                "Trimming lower bound: " + dimSubset + " for axis: " + axis.getLabel() + " is out of axis's extent: " + axis.getGeoBoundsRepresentation());
+                        }
+
+                        if (parsedSubset.getUpperLimit().compareTo(axis.getOriginalGeoBounds().getLowerLimit()) < 0
+                            || parsedSubset.getUpperLimit().compareTo(axis.getOriginalGeoBounds().getUpperLimit()) > 0) {
+                            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                                "Trimming upper bound: " + dimSubset + " for axis: " + axis.getLabel() + " is out of axis's extent: " + axis.getGeoBoundsRepresentation());
+                        }
+
                         subsetDimension = new WcpsTrimSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(),
                                                                     geoLowerBound,
                                                                     geoUpperBound);
                     } else {
+                        if (parsedSubset.getLowerLimit().compareTo(axis.getOriginalGeoBounds().getLowerLimit()) < 0
+                            || parsedSubset.getLowerLimit().compareTo(axis.getOriginalGeoBounds().getUpperLimit()) > 0) {
+                            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                                "Slicing bound: " + dimSubset + " for axis: " + axis.getLabel() + " is out of axis's extent: " + axis.getGeoBoundsRepresentation());
+                        }
+
                         subsetDimension = new WcpsSliceSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(),
                                                                         geoLowerBound);
                     }

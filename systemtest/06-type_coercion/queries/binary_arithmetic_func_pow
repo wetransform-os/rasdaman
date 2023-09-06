@@ -1,1 +1,1 @@
-select pow(first, 2.0)
+select pow(first, second)

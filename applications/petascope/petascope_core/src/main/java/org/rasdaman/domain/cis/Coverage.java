@@ -321,8 +321,8 @@ public abstract class Coverage implements Serializable {
 
         for (Field field : fields) {
             Quantity quantity = field.getQuantity();
-            
-            if (!quantity.getNilValues().isEmpty()) {
+
+            if (quantity.getNilValues() != null && !quantity.getNilValues().isEmpty()) {
                 results.add(quantity.getNilValues());
             }
         }

@@ -202,12 +202,6 @@ QtUnaryInduce::computeUnaryMDDOp(QtMDD *operand, const BaseType *resultBaseType,
 
     if (tileIt != allTiles->end())
     {
-        // set exponent for pow operations
-        if (operation == Ops::OP_POW)
-        {
-            (static_cast<OpPOWCDouble *>(myOp.get()))->setExponent(param);
-        }
-
         // and iterate over them
         try
         {
@@ -258,7 +252,6 @@ QtUnaryInduce::computeUnaryOp(QtScalarData *operand, const BaseType *resultBaseT
     auto *nullValues = operand->getNullValues();
 
     // allocate memory for the result
-    LDEBUG << "Size:" << resultBaseType->getSize();
     char *resultBuffer = new char[resultBaseType->getSize()];
 
 #ifdef DEBUG
@@ -275,12 +268,6 @@ QtUnaryInduce::computeUnaryOp(QtScalarData *operand, const BaseType *resultBaseT
             // operand type is the same as result type
             myOp = Ops::getUnaryOp(operation, resultBaseType, resultBaseType, 0, operandOffset);
             myOp->setNullValues(nullValues);
-            // set exponent for pow operations
-            if (operation == Ops::OP_POW)
-            {
-                (static_cast<OpPOWCDouble *>(myOp))->setExponent(param);
-            }
-
             (*myOp)(resultBuffer, operand->getValueBuffer());
         }
         else
@@ -288,18 +275,6 @@ QtUnaryInduce::computeUnaryOp(QtScalarData *operand, const BaseType *resultBaseT
             {
                 myOp = Ops::getUnaryOp(operation, resultBaseType, operand->getValueType(), 0, operandOffset);
                 myOp->setNullValues(nullValues);
-                // set exponent for pow operations
-                if (operation == Ops::OP_POW)
-                {
-                    if (resultBaseType->getType() == STRUCT)
-                    {
-                        (static_cast<OpUnaryStruct *>(myOp))->setExponent(param);
-                    }
-                    else
-                    {
-                        (static_cast<OpPOWCDouble *>(myOp))->setExponent(param);
-                    }
-                }
                 (*myOp)(resultBuffer, operand->getValueBuffer());
             }
             catch (int err)
@@ -843,7 +818,6 @@ QtData *QtCast::evaluate(QtDataList *inputList)
                     throw parseInfo;
                 }
                 auto *op = static_cast<QtScalarData *>(operand);
-                LDEBUG << "resultType:" << resultType;
                 returnValue = computeUnaryOp(op, resultType, Ops::OP_CAST_GENERAL);
             }
         }

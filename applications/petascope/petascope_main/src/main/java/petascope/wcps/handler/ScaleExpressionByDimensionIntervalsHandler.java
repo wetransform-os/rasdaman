@@ -48,9 +48,7 @@ import static petascope.util.CrsUtil.GRID_CRS;
 import static petascope.wcps.handler.AbstractOperatorHandler.checkOperandIsCoverage;
 
 import petascope.util.StringUtil;
-import petascope.wcps.exception.processing.Coverage0DMetadataNullException;
-import petascope.wcps.exception.processing.IncompatibleAxesNumberException;
-import petascope.wcps.exception.processing.InvalidScaleExtentException;
+import petascope.wcps.exception.processing.*;
 import petascope.wcps.handler.service.ScaleHandlerService;
 import petascope.wcps.metadata.model.*;
 import petascope.wcps.metadata.service.*;
@@ -96,6 +94,8 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
     @Autowired
     private CoverageAliasRegistry coverageAliasRegistry;
     @Autowired
+    private CollectionAliasRegistry collectionAliasRegistry;
+    @Autowired
     private AxisIteratorAliasRegistry axisIteratorAliasRegistry;
     @Autowired
     private StringScalarHandler stringScalarHandler;
@@ -108,6 +108,8 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
     private HttpServletRequest httpServletRequest;
     @Autowired
     private CoordinateTranslationService coordinateTranslationService;
+    @Autowired
+    private WMSSubsetDimensionsRegistry wmsSubsetDimensionsRegistry;
 
 
     @Autowired
@@ -141,6 +143,8 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         result.wcpsCoverageMetadataTranslatorService = this.wcpsCoverageMetadataTranslatorService;
         
         result.coverageAliasRegistry = coverageAliasRegistry;
+        result.collectionAliasRegistry = collectionAliasRegistry;
+
         result.axisIteratorAliasRegistry = axisIteratorAliasRegistry;
         result.stringScalarHandler = stringScalarHandler;
 
@@ -151,6 +155,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
         result.httpServletRequest = httpServletRequest;
         result.coordinateTranslationService = coordinateTranslationService;
         result.scaleHandlerService = scaleHandlerService;
+        result.wmsSubsetDimensionsRegistry = wmsSubsetDimensionsRegistry;
 
 
         this.injectedServicesRegistries = Arrays.asList(
@@ -160,6 +165,7 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
                 rasqlTranslationService,
                 wcpsCoverageMetadataTranslatorService,
                 coverageAliasRegistry,
+                collectionAliasRegistry,
                 axisIteratorAliasRegistry,
                 stringScalarHandler,
                 letClauseAliasRegistry,
@@ -167,7 +173,8 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
                 wcpsCoverageMetadataTranslator,
                 httpServletRequest,
                 coordinateTranslationService,
-                scaleHandlerService
+                scaleHandlerService,
+                wmsSubsetDimensionsRegistry
 
         );
         result.injectedServicesRegistries = injectedServicesRegistries;

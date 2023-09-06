@@ -54,6 +54,10 @@ public class DimensionIntervalList extends ParameterResult {
         this.intervals = intervals;
     }
 
+    public void setIntervals(List<WcpsSubsetDimension> intervals) {
+        this.intervals = intervals;
+    }
+
     /**
      * Returns a mutable list of the trim intervals
      *

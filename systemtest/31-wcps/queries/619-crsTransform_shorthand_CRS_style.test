@@ -1,0 +1,1 @@
+for c in (test_world_temp) return encode(crsTransform(c, {Lat:"EPSG/0/4269", Long:"EPSG:4269"}) , "png", "nodata=0")

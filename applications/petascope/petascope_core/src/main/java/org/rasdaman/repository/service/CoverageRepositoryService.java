@@ -497,7 +497,7 @@ public class CoverageRepositoryService {
             
             log.debug("Time to read all base local coverages from database is: " + String.valueOf(end - start) + " ms.");
         }
-        
+
         List<Pair<Coverage, Boolean>> coverages = new ArrayList<>(localCoveragesCacheMap.values());
 
         long end = System.currentTimeMillis();
@@ -557,7 +557,7 @@ public class CoverageRepositoryService {
      * Create a coverage's extent by cached coverage's metadata
      * (EnvelopeByAxis). The XY axes' BoundingBox is reprojected to EPSG:4326.
      */
-    public void createCoverageExtent(Coverage coverage) throws PetascopeException, SecoreException {
+    public void createCoverageExtent(Coverage coverage) throws PetascopeException {
         Wgs84BoundingBox wgs84BoundingBox = null;
         String coverageId = coverage.getCoverageId();
 
@@ -592,6 +592,11 @@ public class CoverageRepositoryService {
                 } else {
                     // coverage in different CRS than EPSG:4326
                     String sourceCRSWKT = CrsUtil.getWKT(bbox.getGeoXYCrs());
+                    if (sourceCRSWKT == null) {
+                        // e.g. Index2D CRS
+                        return;
+                    }
+
                     int gridWidth = (int)(indexAxisX.getUpperBound() - indexAxisX.getLowerBound() + 1);
                     int gridHigh = (int)(indexAxisY.getUpperBound() - indexAxisY.getLowerBound() + 1);
                     GeoTransform sourceGeoTransform = new GeoTransform(sourceCRSWKT, geoAxisX.getLowerBoundNumber(), geoAxisY.getUpperBoundNumber(), 
@@ -727,6 +732,9 @@ public class CoverageRepositoryService {
         
         List<IndexAxis> indexAxes = ((GeneralGridDomainSet) coverage.getDomainSet()).getGeneralGrid().getGridLimits().getIndexAxes();
         this.updateGridBoundsForAxisExtents(coverage.getEnvelope().getEnvelopeByAxis(), indexAxes);
+
+        // NOTE: Recalculate the wgs84 bbox if it should be when updating the coverage (!)
+        this.createCoverageExtent(coverage);
         
         long start = System.currentTimeMillis();
         // then it can save (insert/update) the coverage to database

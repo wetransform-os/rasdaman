@@ -116,22 +116,32 @@ public class GeneralHandler extends AbstractHandler {
         // NOTE: check if requested ID is in userdb first (e.g: def/crs/AUTO/1.3/42001?lon=10)
         String resultDefInUserDB = SecoreUtil.existsDefInUserDB(url, versionNumber);
         this.validateCRSDefRequiredParameters(resultDefInUserDB, request.getParams());
-        
-        ResolveResponse ret = new ResolveResponse(resultDefInUserDB);
-        
-        String versionTmp = versionNumber;
 
-        // If versionNumber does not exist in userdb, then it should be from GML dictionaries.
-        if (resultDefInUserDB.equals(Constants.EMPTY_XML)) {
-            
-            versionTmp = DbSecoreVersion.getLatestEPSGVersionIfVersionZero(url, versionNumber);
-            
-            if (!DbManager.collectionExistByVersionNumber(versionTmp)) {
-                throw new SecoreException(ExceptionCode.InvalidRequest, "Failed resolving request '" + request.toString() + "', check if version number is valid or crs definition exists first.");
-            }
-            
-            ret = resolveId(parseRequest(request).snd, versionTmp, versionNumber, request.getExpandDepth(), new ArrayList<Parameter>());            
+        String versionTmp = DbSecoreVersion.getLatestEPSGVersionIfVersionZero(url, versionNumber);
+
+        if (resultDefInUserDB.equals(EMPTY_XML) && !DbManager.collectionExistByVersionNumber(versionTmp)) {
+            // here request doesn't exist in userdb, so the requesting version must match with the existing GML versions
+            throw new SecoreException(ExceptionCode.InvalidRequest, "Failed resolving request '" + request.toString() + "', check if version number is valid or crs definition exists first.");
         }
+
+        ResolveResponse ret = null;
+
+        // NOTE: userdb can contain CRS definition (e.g. crs/OGC/0/CRS84) which contains sub-elements which needs to be resolved
+        // Hence, it needs to invoke this method which will run a complicated XQuery to resolve every sub URL elements
+        try {
+            ret = resolveId(parseRequest(request).snd, versionTmp, versionNumber, request.getExpandDepth(), new ArrayList<Parameter>());
+        } catch (Exception ex) {
+            if (!resultDefInUserDB.equals(EMPTY_XML)) {
+                // NOTE: if it failed to run full XQuery to query, then if the first XQuery returns something it is good to return it
+                // the case for the error below is: COSMO/0/101
+                log.warn("Failed to query database for request: " + parseRequest(request).snd  + ". Reason: " + ex.getMessage(), ex);
+                ret = new ResolveResponse(resultDefInUserDB);
+            } else {
+                throw ex;
+            }
+
+        }
+
         
         // check if the result is a parameterized CRS, and forward to the ParameterizedCrsHandler
         if (ParameterizedCrsHandler.isParameterizedCrsDefinition(ret.getData())) {

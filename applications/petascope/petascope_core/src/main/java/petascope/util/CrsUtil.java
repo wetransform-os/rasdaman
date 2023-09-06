@@ -58,6 +58,8 @@ import nu.xom.ParsingException;
 import nu.xom.ValidityException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
 import org.gdal.osr.SpatialReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,8 +77,10 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
 import petascope.core.CrsDefinition;
+import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.exceptions.SecoreException;
 import petascope.core.AxisTypes;
 import petascope.core.XMLSymbols;
@@ -160,6 +164,9 @@ public class CrsUtil {
     
     private static final String REGEX = "localhost(:[0-9]+)?/def";
     private static final Pattern localhostPattern = Pattern.compile(REGEX, Pattern.CASE_INSENSITIVE);
+
+    // e.g. EPSG/0/4326
+    private static final Pattern authorityCodeWithVersionPattern = Pattern.compile("^\\w+/([0-9]*[.])?[0-9]+/[0-9]+$");
     
 
     /* CACHES: avoid EPSG db and SECORE redundant access */
@@ -397,6 +404,11 @@ public class CrsUtil {
         return result;
     }
 
+    public static final String getEPSGFullURL(String version, String code) throws PetascopeException {
+        String result = CrsUtil.getDefaultResolverUri() + "/crs/EPSG/" + version + "/" + code;
+        return result;
+    }
+
     /**
      * WCS GetCapabilities must contain list of EPSG CRSs as it is required in
      * OGC CRS Extension
@@ -519,10 +531,25 @@ public class CrsUtil {
             return CrsUri.getCachedDefinition(givenCrsUri);
         }
 
+        if (isAuthorityCode(givenCrsUri)) {
+            // e.g. 32632
+            String code = getCode(givenCrsUri);
+            givenCrsUri = getEPSGFullUriByCode(code);
+        } else if (isAuthorityCodeWithVersion(givenCrsUri)) {
+            // e.g. EPSG/0/4326
+            String[] tmps = givenCrsUri.split("/");
+            // e.g. 0
+            String version = tmps[1];
+            // e.g. 32632
+            String code = tmps[2];
+            givenCrsUri = getEPSGFullURL(version, code);
+        }
+
         // Check if the URI syntax is valid
         if (!CrsUri.isValid(givenCrsUri)) {
             throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + givenCrsUri + "' definition seems not valid.");
         }
+
 
         // Need to parse the XML
         String datumOrigin = ""; // for TemporalCRSs
@@ -1241,6 +1268,10 @@ public class CrsUtil {
         
         if (isAuthorityCode(crs)) {
             return crs;
+        } else if (isAuthorityCodeWithVersion(crs)) {
+            // e.g. EPSG/0/4326
+            Triple<String, String, String> triple = CrsUri.getAuthorityVersionCodeTriple(crs);
+            return triple.getLeft() + ":" + triple.getRight();
         }
         
         String prefix = "/crs/";
@@ -1394,6 +1425,15 @@ public class CrsUtil {
      */
     public static boolean isAuthorityCode(String input) {
         return input.contains(":") && !input.contains("/");
+    }
+
+    /**
+     * Check if a given string is authorityCodeWithVersion, e.g. EPSG/0/4326
+     *
+     */
+    public static boolean isAuthorityCodeWithVersion(String input) {
+        Matcher matcher = authorityCodeWithVersionPattern.matcher(input);
+        return matcher.find();
     }
     
     /**
@@ -2130,6 +2170,20 @@ public class CrsUtil {
             String codeName = getCode(crsUri);
             String authorityCode = authorityName + ":" + codeName;
             return authorityCode;
+        }
+
+        /**
+         * e.g. EPSG/0/4326 -> Pair(0, 4326)
+         *
+         */
+        public static Triple<String, String, String> getAuthorityVersionCodeTriple(String crs) throws PetascopeException {
+            if (!isAuthorityCodeWithVersion(crs)) {
+                throw new PetascopeException(ExceptionCode.InvalidCRS, "Given CRS: " + crs + " is not authority/version/code pattern.");
+            }
+
+            String[] tmps = crs.split("/");
+            ImmutableTriple<String, String, String> result = new ImmutableTriple<>(tmps[0], tmps[1], tmps[2]);
+            return result;
         }
         
 

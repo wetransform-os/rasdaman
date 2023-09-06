@@ -174,7 +174,7 @@ public class WcpsCoverageMetadataGeneralService {
         BigDecimal xMin = null, yMin = null, xMax = null, yMax = null;
 
         // Target CRS is the nativeCrs
-        String nativeCRS = subsettingCrsX;
+        String nativeCRS = CrsUtil.getAuthorityEPSGCodeOrWKT(subsettingCrsX);
 
         for (Subset subset : subsets) {
             if (CrsUtil.axisLabelsMatch(xAxisName, subset.getAxisName())) {
@@ -200,6 +200,9 @@ public class WcpsCoverageMetadataGeneralService {
                 }
             }
         }
+
+        subsettingCrsX = CrsUtil.getAuthorityEPSGCodeOrWKT(subsettingCrsX);
+        subsettingCrsY = CrsUtil.getAuthorityEPSGCodeOrWKT(subsettingCrsY);
 
         if (!subsettingCrsX.equals(subsettingCrsY)) {
             // In this case, only 1 X/Y axis is provided, the other one is not specified and is derived implicility

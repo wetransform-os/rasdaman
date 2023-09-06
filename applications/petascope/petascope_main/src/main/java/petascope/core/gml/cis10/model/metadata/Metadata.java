@@ -68,6 +68,7 @@ public class Metadata implements ISerializeToXMElement {
             
             if (XMLUtil.hasXMLNameSpaceAtRootElement(metadata)) {
                 // metadata has its own namspaces, e.g: INSPIRE, don't add rasdaman:covMetadata wrapper element
+                metadata = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + metadata;
                 covMetadateElement = XMLUtil.parseXmlFragment(metadata);
             } else {
                 // metadata doesn't have its own namespaces (metadata from wcst_import), then it needs to add rasdaman:covMetadata wrapper element

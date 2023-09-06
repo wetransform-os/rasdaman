@@ -369,6 +369,8 @@ int string_yyinput( char* buf, int max_size )
 "/"                                      { SETTOKEN( DIV, commandToken, DIV ) }
 "div"                                    { SETTOKEN( INTDIV, commandToken, INTDIV ) }
 "mod"                                    { SETTOKEN( MOD, commandToken, MOD ) }
+"atan2"                                   { SETTOKEN( ATAN2, commandToken, ATAN2 ) }
+"arctan2"                                { SETTOKEN( ATAN2, commandToken, ATAN2 ) }
 "="                                      { SETTOKEN( EQUAL, commandToken, EQUAL ) }
 "<"                                      { SETTOKEN( LESS, commandToken, LESS ) }
 ">"                                      { SETTOKEN( GREATER, commandToken, GREATER ) }

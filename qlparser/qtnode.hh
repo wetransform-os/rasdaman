@@ -94,6 +94,7 @@ public:
         QT_DIV,
         QT_INTDIV,
         QT_MOD,
+        QT_POW,
         QT_OR,
         QT_AND,
         QT_XOR,
@@ -120,6 +121,7 @@ public:
         QT_UNARY_INDUCE,
         QT_PROJECT,
         QT_CLIPPING,
+        QT_ATAN2,
 
         //**************
         QT_ABS,
@@ -188,7 +190,6 @@ public:
         QT_RANGE_CONSTRUCTOR,
         QT_CASEOP,
         QT_INFO,
-        QT_POW,
         QT_CONSTRUCT_COMPLEX,
         QT_CREATE_CELL_TYPE,
         QT_CREATE_MDD_TYPE,

@@ -287,6 +287,15 @@ public abstract class Axis<T> {
     }
 
     /**
+     * e.g. time = "2015-07-08":"2019-08-09"
+     *
+     */
+    public String getGeoBoundsRepresentation() throws PetascopeException {
+        String result = this.getLowerGeoBoundRepresentation() + ":" + this.getUpperGeoBoundRepresentation();
+        return result;
+    }
+
+    /**
      * Check if axis is X, Y geoferenced axis (e.g: Lat, Long, E, N,...) and it
      * is not gridCRS (CRS:1) or IndexNDCRS
      *

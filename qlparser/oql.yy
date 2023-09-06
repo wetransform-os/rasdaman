@@ -286,7 +286,7 @@ struct QtUpdateSpecElement
 %token <commandToken>    SELECT FROM WHERE AS RESTRICT TO EXTEND BY PROJECT AT DIMENSION ALL SOME
                          COUNTCELLS ADDCELLS AVGCELLS MINCELLS MAXCELLS VAR_POP VAR_SAMP STDDEV_POP STDDEV_SAMP SDOM OVER USING LO HI UPDATE
                          SET ASSIGN MARRAY MDARRAY CONDENSE IN DOT COMMA IS NOT AND OR XOR PLUS MINUS MAX_BINARY MIN_BINARY MULT
-                         DIV INTDIV MOD EQUAL LESS GREATER LESSEQUAL GREATEREQUAL NOTEQUAL COLON SEMICOLON LEPAR
+                         DIV INTDIV MOD ATAN2 EQUAL LESS GREATER LESSEQUAL GREATEREQUAL NOTEQUAL COLON SEMICOLON LEPAR
                          REPAR LRPAR RRPAR LCPAR RCPAR INSERT INTO VALUES DELETE DROP CREATE COLLECTION TYPE
                          MDDPARAM OID SHIFT CLIP CURTAIN CORRIDOR POLYGON LINESTRING MULTIPOLYGON MULTILINESTRING RANGE SCALE SQRT ABS EXP
                          LOGFN LN SIN COS TAN SINH COSH TANH ARCSIN ASIN SUBSPACE DISCRETE COORDINATES
@@ -312,7 +312,7 @@ struct QtUpdateSpecElement
 %left EQUAL LESS GREATER LESSEQUAL GREATEREQUAL NOTEQUAL
 %left PLUS MINUS
 %left MAX_BINARY MIN_BINARY
-%left MULT DIV INTDIV MOD
+%left MULT DIV INTDIV MOD ATAN2
 %left UNARYOP BIT
 %left DOT LEPAR SDOM
 %left COMMA
@@ -3273,51 +3273,7 @@ inductionExp: SQRT LRPAR generalExp RRPAR
 	  FREESTACK($1)
 	  FREESTACK($2)
 	  FREESTACK($4)
- 	}
-	| POW LRPAR generalExp COMMA intLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, (double) $5.svalue );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POW LRPAR generalExp COMMA floatLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, $5.value );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POWER LRPAR generalExp COMMA intLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, (double) $5.svalue );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POWER LRPAR generalExp COMMA floatLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, $5.value );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
+    }
 	| ABS LRPAR generalExp RRPAR
 	{
 	  $$ = new QtAbs( $3 );
@@ -3683,6 +3639,43 @@ inductionExp: SQRT LRPAR generalExp RRPAR
       FREESTACK($4);
       FREESTACK($6);
 	}
+    | POW LRPAR generalExp COMMA generalExp RRPAR
+    {
+      $$ = new QtPowU  ( $3, $5 );
+      LDEBUG << "right";
+      $$->setParseInfo( *($1.info) );
+      parseQueryTree->removeDynamicObject( $3 );
+      parseQueryTree->removeDynamicObject( $5 );
+      parseQueryTree->addDynamicObject( $$ );
+      FREESTACK($1);
+      FREESTACK($2);
+      FREESTACK($4);
+      FREESTACK($6);
+    }
+    | POWER LRPAR generalExp COMMA generalExp RRPAR
+    {
+      $$ = new QtPowU  ( $3, $5 );
+      $$->setParseInfo( *($1.info) );
+      parseQueryTree->removeDynamicObject( $3 );
+      parseQueryTree->removeDynamicObject( $5 );
+      parseQueryTree->addDynamicObject( $$ );
+      FREESTACK($1);
+      FREESTACK($2);
+      FREESTACK($4);
+      FREESTACK($6);
+    }
+    | ATAN2 LRPAR generalExp COMMA generalExp RRPAR
+    {
+      $$ = new QtAtan2  ( $3, $5 );
+      $$->setParseInfo( *($1.info) );
+      parseQueryTree->removeDynamicObject( $3 );
+      parseQueryTree->removeDynamicObject( $5 );
+      parseQueryTree->addDynamicObject( $$ );
+      FREESTACK($1);
+      FREESTACK($2);
+      FREESTACK($4);
+      FREESTACK($6);
+    }
     | generalExp EQUAL generalExp
 	{
 	  $$ = new QtEqual( $1, $3 );

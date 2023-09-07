@@ -113,7 +113,12 @@ import_coverage()
   log_file="/tmp/$COVERAGE_ID.log"
   logn "  importing coverage $COVERAGE_ID (detail output in $log_file)... "
   rm -f "$log_file"
-  "$WCST_IMPORT" "$RECIPE_FILE" > "$log_file" 2>&1
+  if [ -f "$log_file" ]; then
+    # cannot redirect to this log file
+    "$WCST_IMPORT" "$RECIPE_FILE"
+  else
+    "$WCST_IMPORT" "$RECIPE_FILE" > "$log_file" 2>&1
+  fi
   check $?
 
   rm -f "$RECIPE_FILE"

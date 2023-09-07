@@ -26,7 +26,7 @@ alphanumeric data maintained as relational tables or object-oriented
 semantic nets.
 
 This guide is specific for *rasdaman community*; for *rasdaman
-enterprise* (`what's the difference? <https://rasdaman.org/wiki/Features>`_)
+enterprise* (`what's the difference? <https://rasdaman.org/trac/wiki/Features>`_)
 contact `rasdaman GmbH <https://rasdaman.com>`_.
 
 Audience
@@ -783,7 +783,7 @@ Change into the newly cloned directory: ::
     $ cd rasdaman
 
 Optionally, select a tagged stable release. To activate a `particular
-tagged version <https://rasdaman.org/wiki/Versions>`_ use its name
+tagged version <https://rasdaman.org/trac/wiki/Versions>`_ use its name
 prefixed with a "v", e.g: ::
 
     $ git checkout v9.8.1

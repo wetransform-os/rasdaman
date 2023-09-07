@@ -7,17 +7,17 @@
     "axis" : [ {
       "type" : "RegularAxisType",
       "axisLabel" : "Lat",
-      "lowerBound" : -44.47499999999999,
-      "upperBound" : -8.974999999999987,
+      "lowerBound" : 30,
+      "upperBound" : 40,
       "uomLabel" : "degree",
-      "resolution" : -0.5
+      "resolution" : -10
     }, {
       "type" : "RegularAxisType",
       "axisLabel" : "Lon",
-      "lowerBound" : 111.975,
-      "upperBound" : 156.475,
+      "lowerBound" : 50,
+      "upperBound" : 60,
       "uomLabel" : "degree",
-      "resolution" : 0.5
+      "resolution" : 10
     } ],
     "gridLimits" : {
       "type" : "GridLimitsType",
@@ -26,13 +26,13 @@
       "axis" : [ {
         "type" : "IndexAxisType",
         "axisLabel" : "i",
-        "lowerBound" : 0,
-        "upperBound" : 70
+        "lowerBound" : 5,
+        "upperBound" : 5
       }, {
         "type" : "IndexAxisType",
         "axisLabel" : "j",
-        "lowerBound" : 0,
-        "upperBound" : 88
+        "lowerBound" : 23,
+        "upperBound" : 23
       } ]
     }
   }

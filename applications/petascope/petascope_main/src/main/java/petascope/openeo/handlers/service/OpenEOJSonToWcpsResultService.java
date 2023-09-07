@@ -173,6 +173,7 @@ public class OpenEOJSonToWcpsResultService {
     private Map<String, ParameterValue> parseArgumentsMap(JsonNode processNode, String username) throws PetascopeException, IOException {
         Map<String, ParameterValue> results = new LinkedHashMap<>();
         
+        String processId = processNode.get("process_id").asText();
         JsonNode argumentsJsonNode = processNode.get("arguments");
         Iterator<Map.Entry<String, JsonNode>> fields = argumentsJsonNode.fields();
         while (fields.hasNext()) {
@@ -276,6 +277,10 @@ public class OpenEOJSonToWcpsResultService {
                     String height = getOptionalText(argValueNode, "height");
                     String crs = getOptionalText(argValueNode, "crs");
                     scalarValue = new ParameterBoundingBox(west, east, south, north, base, height, crs);
+                } else if (processId.equals("save_result") && parameterName.equals("options")) {
+                    scalarValue = argValueNode.toString().replaceAll("\"", "\\\\\"");
+                } else {
+                    scalarValue = argValueNode;
                 }
             }
 
@@ -619,8 +624,7 @@ public class OpenEOJSonToWcpsResultService {
         
         return "scale(" + data + ", " + target + ")";
     }
-
-
+    
 
     // ------ step 5
 

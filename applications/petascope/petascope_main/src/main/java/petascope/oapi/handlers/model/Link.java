@@ -24,7 +24,7 @@ package petascope.oapi.handlers.model;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
-import static petascope.controller.OapiController.COLLECTION;
+
 import static petascope.controller.OapiController.COLLECTIONS;
 import static petascope.controller.OapiController.COVERAGE;
 import static petascope.controller.OapiController.COVERAGE_DOMAIN_SET;

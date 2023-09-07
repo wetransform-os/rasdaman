@@ -1,0 +1,81 @@
+{
+  "type" : "CoverageByDomainAndRangeType",
+  "id" : "test_mean_summer_airtemp",
+  "envelope" : {
+    "type" : "EnvelopeByAxisType",
+    "srsName" : "http://localhost:8080/rasdaman/def/crs/EPSG/0/4326",
+    "axisLabels" : [ "Lat", "Lon" ],
+    "axis" : [ {
+      "type" : "AxisExtentType",
+      "axisLabel" : "Lat",
+      "lowerBound" : -44.474999999999987,
+      "upperBound" : -8.974999999999987,
+      "uomLabel" : "degree"
+    }, {
+      "type" : "AxisExtentType",
+      "axisLabel" : "Lon",
+      "lowerBound" : 111.975,
+      "upperBound" : 156.475,
+      "uomLabel" : "degree"
+    } ]
+  },
+  "domainSet" : {
+    "type" : "DomainSetType",
+    "generalGrid" : {
+      "type" : "GeneralGridCoverageType",
+      "srsName" : "http://localhost:8080/rasdaman/def/crs/EPSG/0/4326",
+      "axisLabels" : [ "Lat", "Lon" ],
+      "axis" : [ {
+        "type" : "RegularAxisType",
+        "axisLabel" : "Lat",
+        "lowerBound" : -44.474999999999987,
+        "upperBound" : -8.974999999999987,
+        "uomLabel" : "degree",
+        "resolution" : -11.83333333333333333333333333333333333333333333333334
+      }, {
+        "type" : "RegularAxisType",
+        "axisLabel" : "Lon",
+        "lowerBound" : 111.975,
+        "upperBound" : 156.475,
+        "uomLabel" : "degree",
+        "resolution" : 0.5
+      } ],
+      "gridLimits" : {
+        "type" : "GridLimitsType",
+        "srsName" : "http://www.opengis.net/def/crs/OGC/0/Index2D",
+        "axisLabels" : [ "i", "j" ],
+        "axis" : [ {
+          "type" : "IndexAxisType",
+          "axisLabel" : "i",
+          "lowerBound" : 0,
+          "upperBound" : 2
+        }, {
+          "type" : "IndexAxisType",
+          "axisLabel" : "j",
+          "lowerBound" : 0,
+          "upperBound" : 88
+        } ]
+      }
+    }
+  },
+  "rangeType" : {
+    "type" : "DataRecordType",
+    "field" : [ {
+      "type" : "QuantityType",
+      "name" : "Gray",
+      "description" : "",
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      },
+      "definition" : "ogcType:unsignedByte"
+    } ]
+  },
+  "rangeSet" : {
+    "type" : "RangeSetType",
+    "dataBlock" : {
+      "type" : "VDataBlockType",
+      "values" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 48, 0, 90, 50, 0, 103, 54, 0, 102, 57, 0, 111, 58, 0, 108, 60, 0, 104, 61, 0, 102, 62, 0, 102, 64, 0, 100, 69, 0, 97, 73, 0, 98, 76, 0, 98, 76, 0, 98, 79, 0, 99, 81, 0, 100, 84, 0, 101, 86, 0, 102, 77, 0, 99, 2, 0, 94, 0, 0, 89, 0, 0, 83, 0, 0, 79, 0, 0, 77, 0, 0, 77, 0, 0, 78, 0, 0, 79, 0, 0, 79, 0, 0, 75, 0, 0, 69, 0, 0, 59, 0, 0, 50, 0, 0, 42, 0, 0, 35, 0, 0, 25, 0, 0, 21, 0, 0, 23, 114, 0, 27, 118, 0, 34, 120, 0, 42, 122, 0, 49, 125, 0, 52, 129, 0, 53, 133, 0, 53, 132, 0, 57, 136, 0, 61, 134, 0, 66, 128, 0, 73, 119, 0, 84, 118, 0, 90, 135, 0, 97, 155, 0, 103, 170, 0, 111, 180, 0, 117, 183, 0, 120, 183, 0, 124, 185, 0, 127, 188, 0, 127, 189, 0, 115, 183, 0, 98, 178, 0, 97, 180, 0, 108, 183, 0, 119, 186, 0, 120, 187, 0, 117, 185, 0, 101, 182, 0, 17, 177, 0, 0, 169, 0, 0, 160, 0, 0, 154, 0, 0, 150, 0, 0, 150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }
+}

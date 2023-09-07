@@ -24,6 +24,9 @@ package petascope.core;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.math.BigDecimal;
+
+import petascope.exceptions.ExceptionCode;
+import petascope.exceptions.PetascopeException;
 import petascope.util.StringUtil;
 
 /**
@@ -140,7 +143,12 @@ public class BoundingBox {
      */
     public static BoundingBox parse(String representation) {
         String[] values = StringUtil.stripQuotes(representation).split(",");
-        return new BoundingBox(new BigDecimal(values[0]), new BigDecimal(values[1]), new BigDecimal(values[2]), new BigDecimal(values[3]), values[4]);
+        String crs = null;
+        if (values.length == 5) {
+            crs = values[4];
+        }
+
+        return new BoundingBox(new BigDecimal(values[0]), new BigDecimal(values[1]), new BigDecimal(values[2]), new BigDecimal(values[3]), crs);
     }
     
     /**
@@ -162,6 +170,68 @@ public class BoundingBox {
         
         return matchX || matchY;
         
+    }
+
+    /**
+     * Given input min and max values, then get the intersection with the current xmin:xmax bounds
+     */
+    public Pair<BigDecimal, BigDecimal> getIntersectionByXAxis(BigDecimal inputXMin, BigDecimal inputXMax) throws PetascopeException {
+
+        BigDecimal selectedXmin = null, selectedXMax = null;
+
+        if (inputXMin.compareTo(this.xmin) <= 0) {
+            selectedXmin = this.xmin;
+        }
+        if (inputXMax.compareTo(this.xmax) >= 0) {
+            selectedXMax = this.xmax;
+        }
+
+        if (inputXMin.compareTo(this.xmin) >= 0 && inputXMin.compareTo(this.xmax) <= 0) {
+            selectedXmin = inputXMin;
+        }
+        if (inputXMax.compareTo(this.xmin) >= 0 && inputXMax.compareTo(this.xmax) <= 0) {
+            selectedXMax = inputXMax;
+        }
+
+        if (selectedXmin == null || selectedXMax == null) {
+            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                    "Subset on X axis with geo bounds: " + inputXMin.toPlainString() + ":" + inputXMax.toPlainString()
+                    + " does not intersect with the axis X's geo extent: " + this.xmin.toPlainString() + ":" + this.xmax.toPlainString());
+        }
+
+        Pair<BigDecimal, BigDecimal> result = new Pair<>(selectedXmin, selectedXMax);
+        return result;
+    }
+
+    /**
+     * Given input min and max values, then get the intersection with the current ymin:ymax bounds
+     */
+    public Pair<BigDecimal, BigDecimal> getIntersectionByYAxis(BigDecimal inputYMin, BigDecimal inputYMax) throws PetascopeException {
+
+        BigDecimal selectedYmin = null, selectedYMax = null;
+
+        if (inputYMin.compareTo(this.ymin) <= 0) {
+            selectedYmin = this.ymin;
+        }
+        if (inputYMax.compareTo(this.ymax) >= 0) {
+            selectedYMax = this.ymax;
+        }
+
+        if (inputYMin.compareTo(this.ymin) >= 0 && inputYMin.compareTo(this.ymax) <= 0) {
+            selectedYmin = inputYMin;
+        }
+        if (inputYMax.compareTo(this.ymin) >= 0 && inputYMax.compareTo(this.ymax) <= 0) {
+            selectedYMax = inputYMax;
+        }
+
+        if (selectedYmin == null || selectedYMax == null) {
+            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                    "Subset on Y axis with geo bounds: " + inputYMin.toPlainString() + ":" + inputYMax.toPlainString()
+                    + " does not intersect with the axis Y's geo extent: " + this.ymin.toPlainString() + ":" + this.ymax.toPlainString());
+        }
+
+        Pair<BigDecimal, BigDecimal> result = new Pair<>(selectedYmin, selectedYMax);
+        return result;
     }
 
     /**

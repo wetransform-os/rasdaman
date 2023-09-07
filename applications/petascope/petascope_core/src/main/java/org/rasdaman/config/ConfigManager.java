@@ -110,6 +110,8 @@ public class ConfigManager {
     // context path for openEO endpoint (e.g: localhost:8080/rasdaman/openeo)
     public static final String OPENEO = "openeo";
 
+    public static final String GDC = "gdc";
+
     // context path for openEO endpoint (e.g: localhost:8080/rasdaman/credentials)
     public static final String CREDENTIALS = "credentials";
 
@@ -117,7 +119,9 @@ public class ConfigManager {
     public static final String CREDENTIALS_BASIC = CREDENTIALS + "/basic";
 
     public static final String OPENEO_CREDENTIALS_BASIC = OPENEO + "/" + CREDENTIALS + "/basic";
+    public static final String GDC_CREDENTIALS_BASIC = GDC + "/" + CREDENTIALS + "/basic";
 
+    // -- rasdaman enterprise begin
 
     // Check if petascope has enabled authentication in petascope.properties
     public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION = "authisactive";

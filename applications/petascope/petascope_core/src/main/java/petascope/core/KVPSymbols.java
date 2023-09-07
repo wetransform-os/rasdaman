@@ -179,6 +179,14 @@ public interface KVPSymbols {
     String KEY_WMTS_RASDAMAN_INTERNAL_FOR_GETMAP_REQUEST_PYRAMID_COVERAGE_ID = "KEY_WMTS_RASDAMAN_INTERNAL_FOR_GETMAP_REQUEST_PYRAMID_COVERAGE_ID";
 
     // OAPI
+
+    // GetCapabilities with coverages filter (7.4.1. Collections)
+    String KEY_OAPI_BBOX = "bbox";
+    String KEY_OAPI_DATETIME = "datetime";
+    String KEY_OAPI_BBOX_CRS = "bbox-crs";
+
+    String KEY_OAPI_SUBSET = "subset";
+
     // e.g. scaleAxes=Lat(3) -> Lat axis is DOWNSCALED 3 times (not as in WCS GetCoverage it is UPSCALED)
     String KEY_OAPI_GET_COVERAGE_SCALE_AXES = "scale-axes";
     // e.g. scaleFactor=3 -> all axes are DOWNSCALED 3 times (not as in WCS GetCoverage it is UPSCALED)

@@ -26,23 +26,20 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.commons.lang3.StringUtils;
-import static org.rasdaman.config.ConfigManager.CONTEXT_PATH;
-import static org.rasdaman.config.ConfigManager.OAPI;
-import static org.rasdaman.config.ConfigManager.OWS;
-import static org.rasdaman.config.ConfigManager.PETASCOPE_ENDPOINT_URL;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import static petascope.controller.AbstractController.getValueByKeyAllowNull;
-import static petascope.controller.AbstractController.getValuesByKeyAllowNull;
-import static petascope.core.KVPSymbols.ACCEPT_HEADER_KEY;
+
+import static org.rasdaman.config.ConfigManager.*;
+
 import petascope.core.json.cis11.model.metadata.Metadata;
 import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
@@ -53,7 +50,10 @@ import petascope.oapi.handlers.model.Collection;
 import petascope.oapi.handlers.service.OapiHandlersService;
 import petascope.oapi.handlers.service.OapiResultService;
 import petascope.oapi.handlers.service.OapiSubsetParsingService;
+import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
+
+import static petascope.core.KVPSymbols.*;
 import static petascope.util.MIMEUtil.MIME_JSON;
 
 /**
@@ -80,10 +80,9 @@ public class OapiController extends AbstractController {
     public static final String WCPS = "wcps";
     public static final String WCPS_CONTEXT_PATH = OAPI + "/" + WCPS;
     public static final String COLLECTIONS = "collections";
-    public static final String COLLECTIONS_CONTEXT_PATH = OAPI + "/" + COLLECTIONS;
-    
-    public static final String COLLECTION = "collection";
-    
+    // so it can match with /rasdaman/openeo/collections or /rasdaman/oapi/collections
+    public static final String COLLECTIONS_CONTEXT_PATH = "/{symbolicName:" + GDC + "|" + OPENEO + "|" + OAPI + "}/" + COLLECTIONS;
+
     public static final String COVERAGE_ID = "{coverageId}";
     public static final String COVERAGE_ID_CONTEXT_PATH = COLLECTIONS_CONTEXT_PATH + "/" + COVERAGE_ID;
     
@@ -99,17 +98,7 @@ public class OapiController extends AbstractController {
     public static final String COVERAGE_RANGE_SET_CONTEXT_PATH = COVERAGE_CONTEXT_PATH + "/" + COVERAGE_RANGE_SET;
     public static final String COVERAGE_METADATA = "metadata";
     public static final String COVERAGE_METADATA_CONTEXT_PATH = COVERAGE_CONTEXT_PATH + "/" + COVERAGE_METADATA;
-    
-    public static final String QUERY_PARAM = "q";
-    
-    // GetCapabilities with coverages filter (7.4.1. Collections)
-    public static final String BBOX_PARAM = "bbox";    
-    public static final String DATETIME_PARAM = "datetime";
-    
-    // GetCoverage with subset and output format
-    public static final String SUBSET_PARAM = "subset";
-    public static final String OUTPUT_FORMAT_PARAM = "f";
-    
+
 
     public OapiController() {
         
@@ -145,10 +134,10 @@ public class OapiController extends AbstractController {
         this.setBaseURL(httpServletRequest);
         
         Map<String, String[]> kvpParameters = this.parsePostRequestToKVPMap(httpServletRequest);
-        String query = getValueByKeyAllowNull(kvpParameters, QUERY_PARAM);
+        String query = getValueByKeyAllowNull(kvpParameters, KEY_QUERY_SHORT_HAND);
         
         if (query == null) {
-            String errorMessage = "Query parameter '" + QUERY_PARAM.toUpperCase() + "' is missing.";
+            String errorMessage = "Query parameter '" + KEY_QUERY_SHORT_HAND.toUpperCase() + "' is missing.";
             Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.BAD_REQUEST.value());
             this.writeResponseResult(response);
         } else {
@@ -178,8 +167,8 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COLLECTIONS_CONTEXT_PATH)
     public void getCollections(HttpServletRequest request,
-                                         @RequestParam(value = "bbox", required = false) String bbox,
-                                         @RequestParam(value = "datetime", required = false) String datetime,
+                                         @RequestParam(value = KEY_OAPI_BBOX, required = false) String bbox,
+                                         @RequestParam(value = KEY_OAPI_DATETIME, required = false) String datetime,
                                          HttpServletRequest httpServletRequest) throws PetascopeException, SecoreException, WMSException, IOException {
         this.setBaseURL(httpServletRequest);
         
@@ -224,15 +213,19 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COVERAGE_CONTEXT_PATH, method = RequestMethod.GET)
     public void getCoverageObject(@PathVariable String coverageId,
-                                            HttpServletRequest httpServletRequest)
-            throws PetascopeException, SecoreException, WMSException, JsonProcessingException, Exception {
+                                  HttpServletRequest httpServletRequest)
+            throws Exception {
         
         this.setBaseURL(httpServletRequest);
-        
         Map<String, String[]> inputKVPMap = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
-        String[] inputSubsets = inputKVPMap.get(SUBSET_PARAM);
-        String outputFormat = getValueByKeyAllowNull(inputKVPMap, OUTPUT_FORMAT_PARAM);
+        String[] inputSubsets = inputKVPMap.get(KEY_OAPI_SUBSET);
+        String outputFormat = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_GET_COVERAGE_OUTPUT_FORMAT);
         String acceptHeaderValue = httpServletRequest.getHeader(ACCEPT_HEADER_KEY);
+
+        // bbox and datetime are required parameters for subsetting at https://docs.ogc.org/DRAFTS/19-087.html#bbox-parameter-domainset-subset-requirements
+        String bbox = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX);
+        String datetime = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_DATETIME);
+        String bboxCRS = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX_CRS);
         
         if (outputFormat == null && acceptHeaderValue != null) {
             // content negotiation if *f* parameter is missing from the request
@@ -240,7 +233,7 @@ public class OapiController extends AbstractController {
             outputFormat = this.getSupportedMIMETypeForContentNegotiation(acceptHeaderValue);
         }
         
-        String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(inputSubsets);
+        String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(coverageId, bbox, bboxCRS, datetime, inputSubsets);
         try {
             // Internally it translates to WCS GetCoverage request
             Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, outputFormat, inputKVPMap);
@@ -260,13 +253,29 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COVERAGE_DOMAIN_SET_CONTEXT_PATH, method = RequestMethod.GET)
     public void getDomainSet(@PathVariable String coverageId,
-                                       HttpServletRequest httpServletRequest) throws PetascopeException, IOException {
+                                       HttpServletRequest httpServletRequest) throws PetascopeException {
         
         this.setBaseURL(httpServletRequest);
-        
+
+        Map<String, String[]> inputKVPMap = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
+
+        // bbox and datetime are required parameters for subsetting at https://docs.ogc.org/DRAFTS/19-087.html#bbox-parameter-domainset-subset-requirements
+        String bbox = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX);
+        String datetime = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_DATETIME);
+        String bboxCRS = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX_CRS);
+
+        String[] inputSubsets = inputKVPMap.get(KEY_OAPI_SUBSET);
+        String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(coverageId, bbox, bboxCRS, datetime, inputSubsets);
+
         try {
-            Object domainSet = oapiHandlersService.getJSONCoreCIS11Result(coverageId).getDomainSet();
-            Response response = this.oapiResultService.getJsonResponse(domainSet);
+            Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, null, inputKVPMap);
+            String json = new String(response.getDatas().get(0));
+            JsonNode jsonNode = JSONUtil.getJsonNode(json);
+
+            // Extract the content of "domainSet" JSON node and return to client
+            String domainSetJsonStr = jsonNode.get("domainSet").toPrettyString();
+            response.setDatas(Arrays.asList(domainSetJsonStr.getBytes()));
+
             this.writeResponseResult(response);
         } catch (Exception ex) {
             String errorMessage = "Error returning coverage's domainset. Reason: " + ex.getMessage();
@@ -283,7 +292,7 @@ public class OapiController extends AbstractController {
      *
      */
     @RequestMapping(path = COVERAGE_RANGE_TYPE_CONTEXT_PATH)
-    public void getRangeType(@PathVariable String coverageId, HttpServletRequest httpServletRequest) throws PetascopeException, IOException {
+    public void getRangeType(@PathVariable String coverageId, HttpServletRequest httpServletRequest) throws PetascopeException {
         
         this.setBaseURL(httpServletRequest);
         
@@ -306,14 +315,19 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COVERAGE_RANGE_SET_CONTEXT_PATH, method = RequestMethod.GET)
     public void getRangeSet(@PathVariable String coverageId,
-                                      HttpServletRequest httpServletRequest)
-            throws Exception {
+                            HttpServletRequest httpServletRequest) throws Exception {
         
         this.setBaseURL(httpServletRequest);
         
         Map<String, String[]> inputKVPMap = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
-        String[] inputSubsets = getValuesByKeyAllowNull(inputKVPMap, SUBSET_PARAM);
-        String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(inputSubsets);
+
+        // bbox and datetime are required parameters for subsetting at https://docs.ogc.org/DRAFTS/19-087.html#bbox-parameter-domainset-subset-requirements
+        String bbox = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX);
+        String datetime = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_DATETIME);
+        String bboxCRS = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX_CRS);
+
+        String[] inputSubsets = getValuesByKeyAllowNull(inputKVPMap, KEY_OAPI_SUBSET);
+        String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(coverageId, bbox, bboxCRS, datetime, inputSubsets);
         try {
             Object rangeSet = oapiHandlersService.getCoverageRangeSetResult(coverageId, parsedSubsets, inputKVPMap);
             Response response = this.oapiResultService.getJsonResponse(rangeSet);

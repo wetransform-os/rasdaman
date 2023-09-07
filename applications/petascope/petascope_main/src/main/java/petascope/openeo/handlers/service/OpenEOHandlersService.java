@@ -26,6 +26,8 @@ import org.rasdaman.config.ConfigManager;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
+import petascope.gdc.handlers.model.Conformance;
+import petascope.gdc.handlers.model.LandingPage;
 import petascope.openeo.handlers.model.EndpointsCapability;
 import petascope.openeo.handlers.model.FileFormatsCapability;
 import petascope.openeo.handlers.model.ProcessesCapability;
@@ -35,8 +37,6 @@ import java.io.IOException;
 
 import static org.rasdaman.config.ConfigManager.OPENEO;
 import static org.rasdaman.config.ConfigManager.OWS;
-import static petascope.controller.OpenEOController.WELLKNOWN_CONTEXT_PATH;
-import static petascope.openeo.handlers.model.EndpointsCapability.CAPABILITIES_WELLKNOWN_CONTEXT_PATH;
 
 @Service
 public class OpenEOHandlersService {
@@ -47,6 +47,16 @@ public class OpenEOHandlersService {
         String endpoint = getOpenEOEndpoint();
         WellknownCapability wellknown = new WellknownCapability(endpoint);
         return wellknown;
+    }
+
+    public LandingPage getGDCLandingPage(String urlPrefix) {
+        LandingPage gdcLandingPage = new LandingPage(urlPrefix);
+        return gdcLandingPage;
+    }
+
+    public Conformance getGDCConformanceResult() {
+        Conformance conformance = new Conformance();
+        return conformance;
     }
 
     public EndpointsCapability getEndpointsCapability() {

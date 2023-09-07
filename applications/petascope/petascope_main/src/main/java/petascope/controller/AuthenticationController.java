@@ -60,7 +60,7 @@ public class AuthenticationController extends AbstractController {
     @Autowired
     private AuthenticationService authenticationService;
 
-    @RequestMapping(value = { CREDENTIALS_BASIC, OPENEO_CREDENTIALS_BASIC })
+    @RequestMapping(value = { CREDENTIALS_BASIC, OPENEO_CREDENTIALS_BASIC, GDC_CREDENTIALS_BASIC })
     /**
      * 7. Return an access token for the valid credentials
      * see https://openeo.org/documentation/1.0/developers/api/reference.html#tag/Account-Management/operation/authenticate-basic

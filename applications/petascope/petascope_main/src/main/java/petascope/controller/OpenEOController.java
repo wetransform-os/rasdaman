@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.networknt.schema.SpecVersion;
 import com.rasdaman.accesscontrol.service.AuthenticationService;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.rasdaman.domain.openeo.ProcessGraph;
 import org.rasdaman.repository.service.ProcessGraphRepositoryService;
 import org.slf4j.LoggerFactory;
@@ -78,28 +79,83 @@ public class OpenEOController extends AbstractController {
     @Autowired
     private OpenEOJSonToWcpsResultService openEOJSonToWcpsResultService;
 
-    public static final String WELLKNOWN_CONTEXT_PATH = OPENEO + "/.well-known/openeo";
-    private static final String FILE_FORMATS_CONTEXT_PATH = OPENEO + "/file_formats";
+    // --- GDC endpoints
 
-    private static final String COLLECTIONS_CONTEXT_PATH = OPENEO + "/collections";
-    private static final String PROCESSES_CONTEXT_PATH = OPENEO +  "/processes";
+    public static final String GDC_CONFORMANCE = GDC + "/conformance";
+    public static final String OAPI_CONFORMANCE = OAPI + "/conformance";
 
-    // --- Process graphs
+    public static final String GDC_WELLKNOWN_CONTEXT_PATH = GDC + "/.well-known/openeo";
+    private static final String GDC_FILE_FORMATS_CONTEXT_PATH = GDC + "/file_formats";
 
-    private static final String PROCESS_GRAPHS_CONTEXT_PATH = OPENEO +  "/process_graphs";
-    private static final String RESULT = OPENEO + "/result";
-    private static final String VALIDATION = OPENEO + "/validation";
+    private static final String GDC_PROCESSES_CONTEXT_PATH = GDC +  "/processes";
+
+    private static final String GDC_PROCESS_GRAPHS_CONTEXT_PATH = GDC +  "/process_graphs";
+    private static final String GDC_RESULT = OPENEO + "/result";
+
+
+    // --- openEO endpoints
+
+    public static final String OPENEO_WELLKNOWN_CONTEXT_PATH = OPENEO + "/.well-known/openeo";
+    private static final String OPENEO_FILE_FORMATS_CONTEXT_PATH = OPENEO + "/file_formats";
+
+    private static final String OPENEO_PROCESSES_CONTEXT_PATH = OPENEO +  "/processes";
+
+    private static final String OPENEO_PROCESS_GRAPHS_CONTEXT_PATH = OPENEO +  "/process_graphs";
+    private static final String OPENEO_RESULT = OPENEO + "/result";
 
     // No need basic authentication to access these endpoints
-    public static final List<String> NO_NEED_AUTHENTICATION_ENDPOINTS = Arrays.asList(CREDENTIALS_BASIC,
+    public static final List<String> NO_NEED_AUTHENTICATION_ENDPOINTS = Arrays.asList(
+                                                        GDC,
                                                         OPENEO,
-                                                        WELLKNOWN_CONTEXT_PATH,
-                                                        FILE_FORMATS_CONTEXT_PATH,
-                                                        PROCESSES_CONTEXT_PATH);
+
+                                                    GDC_CONFORMANCE,
+                                                    OAPI_CONFORMANCE,
+                                                    GDC_WELLKNOWN_CONTEXT_PATH,
+                                                    GDC_FILE_FORMATS_CONTEXT_PATH,
+                                                    GDC_PROCESSES_CONTEXT_PATH,
+
+                                                    OPENEO_WELLKNOWN_CONTEXT_PATH,
+                                                    OPENEO_FILE_FORMATS_CONTEXT_PATH,
+                                                    OPENEO_PROCESSES_CONTEXT_PATH);
 
     public OpenEOController() {
         
     }
+
+    // --- 1. Special endpoint for GDC endpoint
+    /**
+     * Return landing page of /rasdaman/gdc
+     */
+    @RequestMapping(value = GDC)
+    public void getGDCLandingPage(HttpServletRequest httpServletRequest) throws PetascopeException {
+        String gdcURLPrefix = this.getGDCBaseURL(httpServletRequest);
+
+        try {
+            Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getGDCLandingPage(gdcURLPrefix));
+            this.writeResponseResult(response);
+        } catch (Exception ex) {
+            String errorMessage = "Error returning result for GDC landing page. Reason: " + ex.getMessage();
+            log.error(errorMessage, ex);
+            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
+            this.writeResponseResult(response);
+        }
+    }
+
+    @RequestMapping(path = { GDC_CONFORMANCE, OAPI_CONFORMANCE })
+    public void getConformanceResult(HttpServletRequest httpServletRequest) throws PetascopeException {
+        String gdcURLPrefix = this.getGDCBaseURL(httpServletRequest);
+
+        try {
+            Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getGDCConformanceResult());
+            this.writeResponseResult(response);
+        } catch (Exception ex) {
+            String errorMessage = "Error returning result for GDC conformance page. Reason: " + ex.getMessage();
+            log.error(errorMessage, ex);
+            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
+            this.writeResponseResult(response);
+        }
+    }
+
 
     // NOTE: the list of endpoints below come from https://openeo.org/documentation/1.0/developers/backends/getting-started.html
     // Some available service endpoints which implemented openEO: https://hub.openeo.org/
@@ -111,7 +167,7 @@ public class OpenEOController extends AbstractController {
      * 1. List well-known documents
      *    e.g. https://openeo.eurac.edu/.well-known/openeo
      */
-    @RequestMapping(path = WELLKNOWN_CONTEXT_PATH)
+    @RequestMapping(path = { OPENEO_WELLKNOWN_CONTEXT_PATH, GDC_WELLKNOWN_CONTEXT_PATH })
     public void getWellknownDocument(HttpServletRequest httpServletRequest) throws PetascopeException, JsonProcessingException, IOException {
         try {
             Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getWellknownCapability());
@@ -128,7 +184,7 @@ public class OpenEOController extends AbstractController {
      * 2. List the list of supported endpoints (Capabilities)
      * e.g. https://openeo.eodc.eu/openeo/1.1.0/
      */
-    @RequestMapping(path = OPENEO)
+    @RequestMapping(value = OPENEO)
     public void getCapabilities(HttpServletRequest httpServletRequest) throws PetascopeException {
         try {
             Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getEndpointsCapability());
@@ -145,7 +201,7 @@ public class OpenEOController extends AbstractController {
      * 3. List the list of supported input / output files formats
      *  e.g. https://openeo.eodc.eu/openeo/1.1.0/file_formats
      */
-    @RequestMapping(path = FILE_FORMATS_CONTEXT_PATH)
+    @RequestMapping(path = { OPENEO_FILE_FORMATS_CONTEXT_PATH, GDC_FILE_FORMATS_CONTEXT_PATH })
     public void getFileFormats(HttpServletRequest httpServletRequest) throws PetascopeException, JsonProcessingException, IOException {
         try {
             Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getFileFormatsCapability());
@@ -160,50 +216,10 @@ public class OpenEOController extends AbstractController {
 
 
     /**
-     * 4. List the available collections
-     * e.g. https://openeo.eodc.eu/openeo/1.1.0/collections
-     */
-    @RequestMapping(path = COLLECTIONS_CONTEXT_PATH)
-    public void getCollections(HttpServletRequest httpServletRequest,
-                               @RequestParam(value = "bbox", required = false) String bbox,
-                               @RequestParam(value = "datetime", required = false) String datetime) throws PetascopeException, JsonProcessingException, IOException {
-        String openEOEndpoint = openEOHandlersService.getOpenEOEndpoint();
-        try {
-            Response response = this.oapiResultService.getJsonResponse(oapiHandlersService.getCollectionsResult(openEOEndpoint, bbox, datetime));
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning for list collections. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
-    }
-
-    /**
-     * 5. Get the description of a specific coverage
-     * e.g. https://openeo.eodc.eu/openeo/1.1.0/collections/SENTINEL1_GRD
-     */
-    @RequestMapping(path = COLLECTIONS_CONTEXT_PATH + "/{coverageId}")
-    public void getCoverageInformation(@PathVariable String coverageId, HttpServletRequest httpServletRequest) throws PetascopeException, JsonProcessingException, IOException {
-        String openEOEndpoint = openEOHandlersService.getOpenEOEndpoint();
-        try {
-            Collection collection = oapiHandlersService.getCollectionInformationResult(coverageId, openEOEndpoint);
-            Response response = this.oapiResultService.getJsonResponse(collection);
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning coverage information. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
-    }
-
-
-    /**
      * 6. List the list of pre-defined processes from JSON files
      * https://openeo.eodc.eu/openeo/1.1.0/processes
      */
-    @RequestMapping(path = PROCESSES_CONTEXT_PATH)
+    @RequestMapping(path = { OPENEO_PROCESSES_CONTEXT_PATH, GDC_PROCESSES_CONTEXT_PATH })
     public void getProcesses(HttpServletRequest httpServletRequest) throws PetascopeException {
         try {
             Response response = this.oapiResultService.getJsonResponseFromString(this.openEOHandlersService.getJSONProcessesCapability());
@@ -220,7 +236,7 @@ public class OpenEOController extends AbstractController {
     // https://openeo.org/documentation/1.0/developers/api/reference.html#tag/User-Defined-Processes
 
     // 1. Create (insert / update) a new process graph to database
-    @PutMapping(path = PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}")
+    @PutMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}" })
     public void createProcessGraph(@PathVariable String processGraphId, HttpServletRequest httpServletRequest) throws Exception {
         try {
             Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
@@ -248,7 +264,7 @@ public class OpenEOController extends AbstractController {
     }
 
     // 2. Delete an existing process graph to database
-    @RequestMapping(path = PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}", method = RequestMethod.DELETE)
+    @RequestMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}" }, method = RequestMethod.DELETE)
     public void deleteProcessGraph(@PathVariable String processGraphId, HttpServletRequest httpServletRequest) throws PetascopeException {
         try {
             Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
@@ -267,7 +283,7 @@ public class OpenEOController extends AbstractController {
     }
 
     // 3. List an existing process graph from database
-    @RequestMapping(path = PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}", method = RequestMethod.GET)
+    @RequestMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}" }, method = RequestMethod.GET)
     public void listProcessGraph(@PathVariable String processGraphId, HttpServletRequest httpServletRequest) throws PetascopeException {
         try {
             Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
@@ -289,7 +305,7 @@ public class OpenEOController extends AbstractController {
     }
 
     // 4. List all process graphs from database created by the authenticated user
-    @RequestMapping(path = PROCESS_GRAPHS_CONTEXT_PATH, method = RequestMethod.GET)
+    @RequestMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH, GDC_PROCESS_GRAPHS_CONTEXT_PATH }, method = RequestMethod.GET)
     public void listAllProcessGraphs(HttpServletRequest httpServletRequest) throws PetascopeException {
         Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
         if (credentials == null) {
@@ -311,7 +327,7 @@ public class OpenEOController extends AbstractController {
     }
 
     // 5. Receive a submitted POST JSON process and generates WCPS query accordingly and returns a result
-    @PostMapping(path = RESULT)
+    @PostMapping(path = { OPENEO_RESULT, GDC_RESULT })
     public void processJSONToGetResult(HttpServletRequest httpServletRequest) throws Exception {
         try {
             Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
@@ -332,6 +348,21 @@ public class OpenEOController extends AbstractController {
             Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
             this.writeResponseResult(response);
         }
+    }
+
+    /**
+     * get the base URL
+     */
+    private String getGDCBaseURL(HttpServletRequest httpServletRequest) {
+        // petascope endpoint proxy is configured in petascope.properies
+        if (StringUtils.isNotEmpty(PETASCOPE_ENDPOINT_URL)) {
+            String result = PETASCOPE_ENDPOINT_URL.replace(CONTEXT_PATH + "/" + OWS, CONTEXT_PATH + "/" + GDC);
+            return result;
+        } else {
+            String result = httpServletRequest.getRequestURL().toString().split("/" + GDC)[0] + "/" + GDC;
+            return result;
+        }
+
     }
 
 

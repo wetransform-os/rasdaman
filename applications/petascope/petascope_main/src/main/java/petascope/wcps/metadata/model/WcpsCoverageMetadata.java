@@ -507,6 +507,16 @@ public class WcpsCoverageMetadata {
         return nonXYAxes;
     }
 
+    @JsonIgnore
+    public Axis getTimeAxis() {
+        for (Axis axis : this.axes) {
+            if (CrsUtil.isTimeAxis(axis.getAxisType())) {
+                return axis;
+            }
+        }
+        return null;
+    }
+
     /**
      * Get the geo-reference CRS which is used for X, Y axes only
      *
@@ -558,6 +568,18 @@ public class WcpsCoverageMetadata {
         if (this.getXYAxesOrder() != null) {
             return true;
         }
+        return false;
+    }
+
+    @JsonIgnore
+    public boolean hasTimeAxis() {
+        boolean exists = false;
+        for (Axis axis : this.axes) {
+            if (CrsUtil.isTimeAxis(axis.getAxisType())) {
+                return true;
+            }
+        }
+
         return false;
     }
 

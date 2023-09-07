@@ -46,9 +46,7 @@ import petascope.oapi.handlers.model.Collection;
 import petascope.oapi.handlers.model.Collections;
 import petascope.oapi.handlers.model.LandingPage;
 import petascope.oapi.handlers.model.Link;
-import petascope.util.BigDecimalUtil;
-import petascope.util.ListUtil;
-import petascope.util.MIMEUtil;
+import petascope.util.*;
 
 import static petascope.controller.AbstractController.getValueByKeyAllowNull;
 import static petascope.core.KVPSymbols.*;
@@ -251,6 +249,10 @@ public class OapiHandlersService {
         // -- CRS section
 
         String subsettingCrs = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_GET_COVERAGE_SUBSET_CRS);
+        if (subsettingCrs == null) {
+            // Then, try if bbox-crs exists (in this case bbox parameter (spatial subsets) is specified with this input CRS)
+            subsettingCrs = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX_CRS);
+        }
         if (subsettingCrs != null) {
             kvpParams.put(KEY_SUBSETTING_CRS, new String[] {subsettingCrs});
         }
@@ -289,7 +291,31 @@ public class OapiHandlersService {
         }
 
         if (scaleSizeValue != null) {
-            kvpParams.put(KEY_SCALESIZE, new String[] {scaleSizeValue});
+            List<String> scaleSizeAxes = new ArrayList<>();
+            List<String> inputAxisLabels = new ArrayList<>();
+            String[] parts = scaleSizeValue.split(",");
+            for (String part : parts) {
+                scaleSizeAxes.add(part);
+                inputAxisLabels.add(part.substring(0, part.indexOf("(")));
+            }
+
+            WcpsCoverageMetadata metadata = wcpsCoverageMetadataTranslator.translate(coverageId);
+            for (Axis axis : metadata.getAxes()) {
+                boolean exists = false;
+                for (String axisLabel : inputAxisLabels) {
+                    if (CrsUtil.axisLabelsMatch(axis.getLabel(), axisLabel)) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (exists == false) {
+                    // NOTE: If axis is not specified in scale-size parameter, then the grid domain is not changed!
+                    scaleSizeAxes.add(axis.getLabel() + "(" + axis.getTotalNumberOfGridPixels() + ")");
+                }
+            }
+
+            kvpParams.put(KEY_SCALESIZE, new String[] {ListUtil.join(scaleSizeAxes, ",")});
         }
 
         // All Key parameters must be lowercase for getting values in WCS handlers (!)

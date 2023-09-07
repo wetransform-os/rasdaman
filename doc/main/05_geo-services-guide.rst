@@ -746,8 +746,8 @@ Inserting a new coverage into the server's WCS offerings is done using the
     |             |comma-separated concatenated data types, (eg:    |the datatype can be indicated through this parameter.     |        |
     |             |"Float32,Int32,Float32")                         |Default: Byte.                                            |        |
     +-------------+-------------------------------------------------+----------------------------------------------------------+--------+
-    |TILING       |rasdaman tiling clause, see                      |Indicates the array tiling to be applied during insertion |No      |
-    |             |`wiki:Tiling <http://rasdaman.org/wiki/Tiling>`__|                                                          |        |
+    |TILING       |rasdaman tiling clause, see Tiling               |Indicates the array tiling to be applied during insertion |No      |
+    |             |`wiki <http://rasdaman.org/trac/wiki/Tiling>`__  |                                                          |        |
     +-------------+-------------------------------------------------+----------------------------------------------------------+--------+
 
 The response of a successful coverage request is the coverage id of the newly
@@ -5374,8 +5374,7 @@ are forwarded by petascope to the client.
    for being visible as coverages.
 
 For further internal documentation on petascope see
-`Developer introduction to petascope and its metadata database 
-<http://rasdaman.org/wiki/PetascopeDevGuide>`__.
+:ref:`petascope-dev-guide`.
 
 .. _petascope-startup-shutdown:
 

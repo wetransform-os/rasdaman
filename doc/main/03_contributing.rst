@@ -16,7 +16,7 @@ few suggestions:
 
 * **Get feedback from other people**
 
-    This is what the `Mailing Lists <http://rasdaman.org/wiki/MailingLists>`_ and
+    This is what the `Mailing Lists <http://rasdaman.org/trac/wiki/MailingLists>`_ and
     this Trac project management system are for. It is always a good idea to talk
     to other devs on the mailing lists before submitting changes.
 
@@ -26,18 +26,18 @@ few suggestions:
     issue, accept the ticket. After you have finished, close the ticket, and add
     information about the changeset in the comment field. Provide also progress
     information when you make relevant changes as described in the
-    `UseOfTickets <http://rasdaman.org/wiki/UseOfTickets>`_ page
+    `UseOfTickets <http://rasdaman.org/trac/wiki/UseOfTickets>`_ page
 
 * **Write tests**
 
-    Please write tests for any new functionality. See `RasdamanTestSuites
-    <http://rasdaman.org/wiki/RasdamanTestSuites>`_ for instructions. We ask you
-    for your understanding that patches are likely to get rejected if they do
-    not contain adequate additions to the *systemtest*.
+    Please write tests for any new functionality.
+    See :ref:`systemtest-adding-tests` for instructions. We ask you for your
+    understanding that patches are likely to get rejected if they do not
+    contain adequate additions to the *systemtest*.
 
 * **Stick to the Coding Standards**
 
-    The `rasdaman code guide <http://rasdaman.org/wiki/CodeGuide>`_ is mandatory
+    The :ref:`rasdaman code guide <code-guide>` is mandatory
     for all code. We ask you for your understanding that patches are likely to
     get rejected if they do not adhere to this guide.
 
@@ -84,9 +84,9 @@ following details are provided to help in this respect.
    for.
 
 5. Upload your patch file (or a ``.tar.gz`` archive in case of several files)
-   using `Patch Manager <http://rasdaman.org/patchmanager>`_ to the default
+   using `Patch Manager <http://rasdaman.org/trac/patchmanager>`_ to the default
    ``master`` branch. You will have to accept the `Contributor Agreement 
-   <http://rasdaman.org/wiki/ContributorAgreement>`_. Without your stated 
+   <http://rasdaman.org/trac/wiki/ContributorAgreement>`_. Without your stated 
    consent we unfortunately cannot accept it, due to legal reasons.
 
 6. If your patch is a [FIX], reupload it again by selecting the ``release_X.Y`` 
@@ -391,9 +391,9 @@ Git resources
 
 Further tips:
 
-* `Cleaning local history <http://rasdaman.org/wiki/GitCleanLocalHistory>`_
-* `Dealing with rejected patches <http://rasdaman.org/wiki/GitRejectedPatch>`_
-* `Git bundles <http://rasdaman.org/wiki/GitCreateBundle>`_
+* `Cleaning local history <http://rasdaman.org/trac/wiki/GitCleanLocalHistory>`_
+* `Dealing with rejected patches <http://rasdaman.org/trac/wiki/GitRejectedPatch>`_
+* `Git bundles <http://rasdaman.org/trac/wiki/GitCreateBundle>`_
 * ...
 
 
@@ -546,7 +546,7 @@ want to add this patch to ticket\_1460)
     $ git am -3 0001-ticket-1450-fix-some-issues.patch
     # The patch is not applied, some conflict shows here
 
-2. Please follow our `git conflict resolution guide <http://rasdaman.org/wiki/GitRejectedPatch>`_,
+2. Please follow our `git conflict resolution guide <http://rasdaman.org/trac/wiki/GitRejectedPatch>`_,
    or Steps 3 to 7 of `this resolving merge conflicts guide
    <https://help.github.com/articles/resolving-a-merge-conflict-using-the-command-line/#competing-line-change-merge-conflicts>`_.
 3. Once resolved, mark as such: ::
@@ -2554,6 +2554,8 @@ Implementation file for the class ``PackableString``:
 **************
 Geo services
 **************
+
+.. _petascope-dev-guide:
 
 Petascope Developer's Documentation
 ===================================

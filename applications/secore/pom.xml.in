@@ -117,11 +117,6 @@
             <artifactId>spring-boot-starter-log4j</artifactId>
             <version>1.2.5.RELEASE</version>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <optional>true</optional>
-        </dependency>        
         <!-- for log4j.rolling.TimeBasedRollingPolicy in petascope.properties -->
         <dependency>
             <groupId>log4j</groupId>
@@ -131,7 +126,7 @@
         <dependency>
             <groupId>org.basex</groupId>
             <artifactId>basex</artifactId>
-            <version>8.6.7</version>
+            <version>9.7.3</version>
         </dependency>
         <dependency>
             <groupId>xmlunit</groupId>

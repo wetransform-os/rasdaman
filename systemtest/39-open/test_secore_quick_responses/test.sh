@@ -36,7 +36,9 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 prepare_output_dir
 
-N=$(nproc)
+processes=$(nproc)
+N=$((processes / 2))
+
 log "Test SECORE response time with $N concurrent queries..."
 for i in $(seq $N); do
    log "  sending request $i..."

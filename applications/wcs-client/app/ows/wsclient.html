@@ -29,9 +29,9 @@
                         </uib-tabset>
                     </uib-tab>
                     <!-- Admin content -->  
-                    <uib-tab index="2" heading="Admin">
+                    <uib-tab index="2" heading="Admin" ng-show="{{ displayAdminTab }}">
                         <uib-tabset justified="true">
-                                <div ng-controller="rasdaman.AdminMainController">                                     
+                                <div ng-controller="rasdaman.AdminMainController">
                                 <uib-tabset justified="true">                                        
                                     <uib-tab ng-repeat="tab in tabs" heading="{{tab.heading}}" active="tab.active"
                                         ng-show="!tab.disabled">                                                                                                              

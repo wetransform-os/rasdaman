@@ -58,6 +58,8 @@ module rasdaman {
                         if (url != null) {
                             errorMesssage += " Given URL: " + url;
                         }
+
+                        this.notificationService.error(errorMesssage);
                     } else {
                         this.notificationService.error("The request failed with HTTP code:" + errorInformation.status + "(" + errorInformation.statusText + ")");
                     }                

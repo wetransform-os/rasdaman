@@ -88,16 +88,7 @@ module rasdaman {
             // To init the Globe on this canvas           
             let canvasId = "wcsCanvasGetCapabilities";
 
-            // When petascope admin user logged in, show the blacklist / whitelist buttons
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean) => {
-                if (newValue) {
-                    // Admin logged in
-                    $scope.adminUserLoggedIn = true;
-                } else {
-                    // Admin logged out
-                    $scope.adminUserLoggedIn = false;
-                }
-            });
+            $scope.hasBlackWhiteListeCoverageRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_BLACKWHITELIST_COV);
 
             // NOTE: not all coverages could be loaded as geo-referenced, only possible coverages will have checkboxes nearby coveargeId
             $scope.initCheckboxesForCoverageIds = () => {
@@ -370,12 +361,15 @@ module rasdaman {
      
             // When insertCoverage is called sucessfully, it should reload the new capabilities
             // NOTE: using $broadcast in WCSMainController and $on here will not make this method invoked when loading web page
-            $rootScope.$watch("wcsReloadServerCapabilities", (obj:any) => {
-                if (obj == true) {
+            $rootScope.$watch("wcsReloadServerCapabilities", (obj:any) => {                
+
+                console.log(obj);
+
+                if (obj == true) {                    
                     $scope.getServerCapabilities();
 
                     // NOTE: Mark as false to trigger the event when admin user logged out and log in again
-                    $rootScope.wcsReloadServerCapabilities = null;
+                    // $rootScope.wcsReloadServerCapabilities = null;
                 }
             });
 
@@ -465,6 +459,8 @@ module rasdaman {
                             $rootScope.$broadcast("wcsReloadServerCapabilitiesDone", true);
 
                             $rootScope.wcsServerCapabilities = response;
+
+                            $rootScope.wcsReloadServerCapabilities = null;
                         },
                         (...args:any[])=> {
                             //Error handler

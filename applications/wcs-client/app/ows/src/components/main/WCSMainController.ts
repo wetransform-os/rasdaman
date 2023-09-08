@@ -38,30 +38,9 @@ module rasdaman {
         public constructor(private $scope:WCSMainControllerScope, $rootScope:angular.IRootScopeService, $state:any, adminService:rasdaman.AdminService) {
             
             this.initializeTabs($scope);        
-            
-            $rootScope.wcsReloadServerCapabilities = null;
 
-            // NOTE: When petascope admin user logged in, then show Insert and Delete Coverage tabs in WCS tab
-            $rootScope.$watch("adminStateInformation.loggedIn", (obj:any) => {
-                if ($rootScope.adminStateInformation.loggedIn == true) {
-
-                    let roles = $rootScope.adminStateInformation.roles;
-                    
-                    // petascope admin logged in
-                    if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WCS_INSERT_COV)) {
-                        $scope.wcsInsertCoverageTab.disabled = false;
-                    }
-                    if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WCS_DELETE_COV)) {
-                        $scope.wcsDeleteCoverageTab.disabled = false;
-                    }
-                } else {
-                    // petascope admin logged out
-                    $scope.wcsInsertCoverageTab.disabled = true;
-                    $scope.wcsDeleteCoverageTab.disabled = true;
-                }
-
-                $rootScope.wcsReloadServerCapabilities = true;
-            });
+            $scope.wcsInsertCoverageTab.disabled = !AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_INSERT_COV);
+            $scope.wcsDeleteCoverageTab.disabled = !AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_DELETE_COV);;
 
             $scope.tabs = [$scope.wcsGetCapabilitiesTab, $scope.wcsDescribeCoverageTab, $scope.wcsGetCoverageTab, $scope.wcsProcessCoverageTab, $scope.wcsDeleteCoverageTab, $scope.wcsInsertCoverageTab];
 

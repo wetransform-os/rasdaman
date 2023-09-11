@@ -349,7 +349,13 @@ public class CrsUtil {
     
     public static void handleSecoreController(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException, org.rasdaman.secore.util.SecoreException {
         org.rasdaman.secore.controller.SecoreController controller = new org.rasdaman.secore.controller.SecoreController();
-        controller.handleRequest(req, resp);
+        try {
+            controller.handleRequest(req, resp);
+        } catch (ExceptionInInitializerError ex) {
+            // NOTE: in case secore internal is not running and one still tries to request it at localhost -> throws more detailed exception
+            throw new org.rasdaman.secore.util.SecoreException(org.rasdaman.secore.util.ExceptionCode.InvalidRequest,
+                    "Internal SECORE is not running. Current value for: " + ConfigManager.KEY_SECORE_URLS + " setting in petascope properties file is: " +  ListUtil.join(ConfigManager.SECORE_URLS, ","));
+        }
     }
 
     // Interface (unuseful now)

@@ -158,6 +158,7 @@ public class CrsUtil {
     public static final String WGS84_EPSG_CODE = "4326";
     // Used only for WMS
     public static final String WMS_WGS84_CRS = "CRS:84";
+    public static final String OGC_WGS84_CRS = "OGC:CRS84";
 
     // e.g: <identifier>http://localhost:8080/def/crs/EPSG/0/4326</identifier>
     public static final String SECORE_IDENTIFIER_PATTERN = "<identifier>(.+?)</identifier>";
@@ -354,7 +355,7 @@ public class CrsUtil {
         } catch (ExceptionInInitializerError ex) {
             // NOTE: in case secore internal is not running and one still tries to request it at localhost -> throws more detailed exception
             throw new org.rasdaman.secore.util.SecoreException(org.rasdaman.secore.util.ExceptionCode.InvalidRequest,
-                    "Internal SECORE is not running. Current value for: " + ConfigManager.KEY_SECORE_URLS + " setting in petascope properties file is: " +  ListUtil.join(ConfigManager.SECORE_URLS, ","));
+                    "Internal SECORE is not running. Current value for: " + ConfigManager.KEY_SECORE_URLS + " setting in petascope properties file is: " + ListUtil.join(ConfigManager.SECORE_URLS, ","));
         }
     }
 
@@ -1310,9 +1311,14 @@ public class CrsUtil {
         
         // e.g. EPSG:4326 or COSMO:101
         String authorityCode = getAuthorityCode(crs);
-        if (authorityCode.contains(EPSG_AUTH)) {
+        if (authorityCode.contains(EPSG_AUTH) || authorityCode.contains(OGC_AUTH)) {
             // e.g. EPSG:4326 -> 4326
-            int epsgCode = Integer.valueOf(authorityCode.split(":")[1]);
+            int epsgCode = 4326;
+            if (!authorityCode.equals(OGC_WGS84_CRS)) {
+                // OGC:CRS84 is just as same as EPSG:4326
+                epsgCode = Integer.valueOf(authorityCode.split(":")[1]);
+            }
+
             spatialReference.ImportFromEPSG(epsgCode);
             wkt = spatialReference.ExportToWkt();
         } else if (authorityCode.contains(COSMO_101_AUTHORITY_CODE)) {
@@ -1351,7 +1357,7 @@ public class CrsUtil {
         // e.g. EPSG:4326 or COSMO:101
         String authorityCode = getAuthorityCode(crs);
         String result = null;
-        if (authorityCode.contains(EPSG_AUTH)) {
+        if (authorityCode.contains(EPSG_AUTH) || authorityCode.contains(OGC_AUTH)) {
             result = authorityCode;
         } else if (authorityCode.contains(COSMO_AUTH)) {
             result = getWKTCOSMO101CRS();

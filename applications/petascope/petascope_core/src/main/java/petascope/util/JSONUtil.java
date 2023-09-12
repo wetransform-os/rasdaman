@@ -49,6 +49,16 @@ public class JSONUtil {
     }
     
     /**
+     * Serialize an object to JSON string with indentation (human readable) and with null as well
+     */
+    public static String serializeObjectToJSONStringWithNull(Object obj) throws PetascopeException {
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        String result = serializeObjectToString(obj);
+        
+        return result;
+    }    
+    
+    /**
      * Serialize an object to JSON string with indentation (human readable)
      */
     public static String serializeObjectToJSONString(Object obj) throws PetascopeException {

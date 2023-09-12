@@ -1,0 +1,1 @@
+service=WCS&version=2.0.1&request=GetCoverage&format=image/jpeg&coverageId=test_worldmap_EPSG_4326&clip=POLYGON((102 -36, 139 -6, 167 -46))&subsettingCrs=http://localhost:8080/rasdaman/def/crs/OGC/0/CRS84

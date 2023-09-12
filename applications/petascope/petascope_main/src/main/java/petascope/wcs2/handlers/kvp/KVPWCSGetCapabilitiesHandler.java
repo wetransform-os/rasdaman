@@ -96,7 +96,6 @@ public class KVPWCSGetCapabilitiesHandler extends KVPWCSAbstractHandler {
                         && !value.equals(KVPSymbols.VALUE_SECTIONS_SERVICE_IDENTIFICATION)
                         && !value.equals(KVPSymbols.VALUE_SECTIONS_SERVICE_PROVIDER)
                         && !value.equals(KVPSymbols.VALUE_SECTIONS_OPERATIONS_METADATA)
-                        && !value.equals(KVPSymbols.VALUE_SECTIONS_CONTENTS)
                         && !value.equals(KVPSymbols.VALUE_SECTIONS_LANGUAGES)) {
                     throw new WCSException(ExceptionCode.InvalidRequest, "Parameter's value received: " + sections[0] + " does not conform with protocol syntax.");
 

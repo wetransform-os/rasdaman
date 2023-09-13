@@ -48,6 +48,8 @@ module rasdaman {
             private loginService: rasdaman.LoginService ) {
 
             this.initializeViews($scope);
+
+            $scope.selectedView = $scope.login;
             
             // After user logged in then it has more roles
             this.$rootScope.userLoggedInRoles = [];

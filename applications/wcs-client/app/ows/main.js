@@ -5204,6 +5204,7 @@ var rasdaman;
             this.$window = $window;
             this.loginService = loginService;
             this.initializeViews($scope);
+            $scope.selectedView = $scope.login;
             this.$rootScope.userLoggedInRoles = [];
             $rootScope.homeLoggedIn = null;
             $rootScope.usernameLoggedIn = "";

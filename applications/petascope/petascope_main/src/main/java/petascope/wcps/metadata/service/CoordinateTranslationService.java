@@ -255,7 +255,7 @@ public class CoordinateTranslationService {
         ParsedSubset<Long> parsedGridSubset;
         if (axis instanceof RegularAxis) {
             parsedGridSubset = this.geoToGridForRegularAxis(parsedGeoSubset, axis.getGeoBounds().getLowerLimit(),
-                                                            axis.getGeoBounds().getUpperLimit(), axis.getResolution(), axis.getGridBounds().getLowerLimit());
+                                                            axis.getGeoBounds().getUpperLimit(), axis.getResolution(), axis.getGridBounds().getLowerLimit(), axis.getGridBounds().getUpperLimit());
         } else {
             parsedGridSubset = this.geoToGridForIrregularAxes(subsetDimension, parsedGeoSubset, axis.getResolution(), axis.getGridBounds().getLowerLimit(), 
                                                             axis.getGridBounds().getUpperLimit(), axis.getGeoBounds().getLowerLimit(), (IrregularAxis)axis);
@@ -276,7 +276,7 @@ public class CoordinateTranslationService {
      * @return the pair of grid coordinates corresponding to the given geo subset.
      */
     public ParsedSubset<Long> geoToGridForRegularAxis(ParsedSubset<BigDecimal> numericSubset, BigDecimal geoDomainMin,
-        BigDecimal geoDomainMax, BigDecimal resolution, BigDecimal gridDomainMin) {
+        BigDecimal geoDomainMax, BigDecimal resolution, BigDecimal gridDomainMin, BigDecimal gridDomainMax) {
         boolean zeroIsMin = resolution.compareTo(BigDecimal.ZERO) > 0;
         
         BigDecimal lowerBound = numericSubset.getLowerLimit();
@@ -287,17 +287,31 @@ public class CoordinateTranslationService {
             upperBound = numericSubset.getSlicingCoordinate();
         }
 
+        boolean isSlicing = false;
+        if (lowerBound.equals(upperBound)) {
+            isSlicing = true;
+        }
+
         BigDecimal returnLowerLimit, returnUpperLimit;
         if (zeroIsMin) {
             // closed interval on the lower limit, open on the upper limit - use floor and ceil - 1 repsectively
             // e.g: Long(0:20) -> c[0:50]
             BigDecimal lowerLimit = BigDecimalUtil.divide(lowerBound.subtract(geoDomainMin), resolution);
-            lowerLimit = CrsComputerService.shiftToNearestGridPointWCPS(lowerLimit);
+            if (!isSlicing) {
+                lowerLimit = CrsComputerService.shiftToNearestGridPointWCPS(lowerLimit);
+            }
             returnLowerLimit = lowerLimit.setScale(0, RoundingMode.FLOOR).add(gridDomainMin);
             
-            BigDecimal upperLimit = BigDecimalUtil.divide(upperBound.subtract(geoDomainMin), resolution);            
-            upperLimit = CrsComputerService.shiftToNearestGridPointWCPS(upperLimit);
-            returnUpperLimit = upperLimit.setScale(0, RoundingMode.CEILING).subtract(BigDecimal.ONE).add(gridDomainMin);
+            BigDecimal upperLimit = BigDecimalUtil.divide(upperBound.subtract(geoDomainMin), resolution);
+            if (!isSlicing) {
+                upperLimit = CrsComputerService.shiftToNearestGridPointWCPS(upperLimit);
+            }
+
+            if (upperLimit.equals(lowerLimit)) {
+                returnUpperLimit = upperLimit.add(gridDomainMin);
+            } else {
+                returnUpperLimit = upperLimit.setScale(0, RoundingMode.CEILING).subtract(BigDecimal.ONE).add(gridDomainMin);
+            }
 
         } else {
             // Linear negative axis (eg northing of georeferenced images)
@@ -308,22 +322,39 @@ public class CoordinateTranslationService {
             // geo:  80  60  40  20  0
             // user subset 58: count how many resolution-sized interval are between 80 and 58 (1.1), and floor it to get 1
             BigDecimal lowerLimit = BigDecimalUtil.divide(upperBound.subtract(geoDomainMax), resolution);
-            lowerLimit = CrsComputerService.shiftToNearestGridPointWCPS(lowerLimit);
+            if (!isSlicing) {
+                lowerLimit = CrsComputerService.shiftToNearestGridPointWCPS(lowerLimit);
+            }
             returnLowerLimit = lowerLimit.setScale(0, RoundingMode.FLOOR).add(gridDomainMin);
             
             BigDecimal upperLimit = BigDecimalUtil.divide(lowerBound.subtract(geoDomainMax), resolution);
-            upperLimit = CrsComputerService.shiftToNearestGridPointWCPS(upperLimit);
-            returnUpperLimit = upperLimit.setScale(0, RoundingMode.CEILING).subtract(BigDecimal.ONE).add(gridDomainMin);
+            if (!isSlicing) {
+                upperLimit = CrsComputerService.shiftToNearestGridPointWCPS(upperLimit);
+            }
+
+            if (upperLimit.equals(lowerLimit)) {
+                returnUpperLimit = upperLimit.add(gridDomainMin);
+            } else {
+                returnUpperLimit = upperLimit.setScale(0, RoundingMode.CEILING).subtract(BigDecimal.ONE).add(gridDomainMin);
+            }
+
         }
         
-        //because we use ceil - 1, when values are close (less than 1 resolution dif), the upper will be pushed below the lower            
-        if (returnUpperLimit.add(BigDecimal.ONE).equals(returnLowerLimit)) {
-            if (returnUpperLimit.compareTo(gridDomainMin) < 0) {
-                returnUpperLimit = gridDomainMin;
+        if (returnLowerLimit.compareTo(gridDomainMin.subtract(BigDecimal.ONE)) == 0) {
+            returnLowerLimit = gridDomainMin;
+        }
+        if (returnUpperLimit.compareTo(gridDomainMin.subtract(BigDecimal.ONE)) == 0) {
+            returnUpperLimit = gridDomainMin;
+        }
+
+        if (gridDomainMax != null) {
+            if (returnLowerLimit.compareTo(gridDomainMax.add(BigDecimal.ONE)) == 0) {
+                returnLowerLimit = gridDomainMax;
             }
-            returnLowerLimit = returnUpperLimit;
-            
-        }            
+            if (returnUpperLimit.compareTo(gridDomainMax.add(BigDecimal.ONE)) == 0) {
+                returnUpperLimit = gridDomainMax;
+            }
+        }
         
         return new ParsedSubset(returnLowerLimit.longValue(), returnUpperLimit.longValue());
     }

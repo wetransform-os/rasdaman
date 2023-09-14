@@ -1,0 +1,78 @@
+{
+    "config": {
+        "service_url": "PETASCOPE_URL",
+        "mock": false,
+        "automated": true,
+        "track_files": false,
+        "blocking": false,
+        "subset_correction": false,
+        "skip": true
+    },
+    "input": {
+        "coverage_id": "test_wms_regular_time_axis_96_days",
+        "paths": [
+            "*.tif"
+        ]
+    },
+    "recipe": {
+        "name": "general_coverage",
+        "options": {
+            "band_names": [
+                "soil_moisture",
+                "soil_moisture_quality_indicator"
+            ],
+            "wms_import": true,
+            "scale_levels": [
+            ],
+            "import_order": "ascending",
+            "coverage": {
+                "crs": "OGC/0/AnsiDate?axis-label='time'@EPSG/0/4326",
+                "metadata": {
+                    "type": "xml",
+                    "global": {
+                        "Title": "This is the mosaico_STRIPMAP 96 days cycle mosaic."
+                    }
+                },
+                "slicer": {
+                    "type": "gdal",
+                    "bands": [
+                        {
+                            "floats": "${gdal:metadata:SPACESUR_FLOAT}",
+                            "identifier": "soil_moisture",
+                            "name": "SOIL_MOISTURE_MAP",
+                            "uomCode": "m3/m3",
+                            "warp_corrected": "${gdal:metadata:SPACESUR_WARP}"
+                        },
+                        {
+                            "identifier": "soil_moisture_quality_indicator",
+                            "name": "SOIL_MOISTURE_MAP_QA_INDICATOR",
+                            "uomCode": "QA"
+                        }
+                    ],
+                    "axes": {
+                        "time": {
+                            "statements": "import datetime as dt",
+                            "min": "((dt.datetime.strptime(regex_extract('${file:name}', '(.*)_warped.tif', 1),'%Y%m%d') + dt.timedelta(days=48.0)).strftime(\"%Y-%m-%d\"))",
+                            "crsOrder": 0,
+                            "type": "ansidate",
+                            "resolution": 96,
+                            "dataBound": false
+                        },
+                        "long": {
+                            "min": "${gdal:minX}",
+                            "max": "${gdal:maxX}",
+                            "crsOrder": 2,
+                            "resolution": "${gdal:resolutionX}"
+                        },
+                        "lat": {
+                            "min": "${gdal:minY}",
+                            "max": "${gdal:maxY}",
+                            "crsOrder": 1,
+                            "resolution": "${gdal:resolutionY}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

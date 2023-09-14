@@ -36,14 +36,7 @@ import org.slf4j.LoggerFactory;
 import static petascope.core.KVPSymbols.WCS_SERVICE;
 import static petascope.core.KVPSymbols.WMS_SERVICE;
 import petascope.core.Templates;
-import petascope.exceptions.ExceptionCode;
-import petascope.exceptions.ExceptionReport;
-import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
-import petascope.exceptions.WCSException;
-import petascope.exceptions.WCPSException;
-import petascope.exceptions.WMSException;
-import petascope.exceptions.WMTSException;
+import petascope.exceptions.*;
 import petascope.rasdaman.exceptions.RasdamanException;
 
 /**
@@ -113,18 +106,29 @@ public class ExceptionUtil {
         }
 
         httpServletResponse.setContentType(MIMEUtil.MIME_XML);
-        httpServletResponse.setHeader("Content-disposition", "inline; filename=error.xml");  
+        httpServletResponse.setHeader("Content-disposition", "inline; filename=error.xml");
 
-        ExceptionReport exceptionReport = ExceptionUtil.exceptionToReportString(ex, version);        
-        if (ex instanceof PetascopeException && ((PetascopeException)ex).isSoap()) {
-            exceptionReport = ExceptionUtil.exceptionToReportStringSOAP(ex);
-        }
-        
-        httpServletResponse.setStatus(exceptionReport.getHttpCode());
-        try {
-            IOUtils.write(exceptionReport.getExceptionText(), outputStream);
-        } catch (IOException tmpEx) {
-            throw new RuntimeException("Cannot write exception report to output stream. Reason: " + tmpEx.getMessage());
+
+        if (ex instanceof WarningException) {
+            try {
+                IOUtils.write(((WarningException) ex).getXMLString(), outputStream);
+            } catch (IOException tmpEx) {
+                throw new RuntimeException("Cannot write petascope warning message to output stream. Reason: " + ex.getMessage());
+            }
+        } else {
+
+            ExceptionReport exceptionReport = ExceptionUtil.exceptionToReportString(ex, version);
+            if (ex instanceof PetascopeException && ((PetascopeException) ex).isSoap()) {
+                exceptionReport = ExceptionUtil.exceptionToReportStringSOAP(ex);
+            }
+
+            httpServletResponse.setStatus(exceptionReport.getHttpCode());
+            try {
+                IOUtils.write(exceptionReport.getExceptionText(), outputStream);
+            } catch (IOException tmpEx) {
+                throw new RuntimeException("Cannot write exception report to output stream. Reason: " + tmpEx.getMessage());
+            }
+
         }
         IOUtils.closeQuietly(outputStream);
     }

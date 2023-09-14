@@ -1033,7 +1033,7 @@ public class WcpsCoverageMetadataGeneralService {
             BigDecimal resolution = ((RegularAxis) axis).getResolution();
             // Lat(0:20) -> c[0:50]
             translatedSubset = coordinateTranslationService.geoToGridForRegularAxis(parsedSubset, geoDomainMin,
-                    geoDomainMax, resolution, gridDomainMin);
+                                                                                    geoDomainMax, resolution, gridDomainMin, gridDomainMax);
         } else {
             IrregularAxis irregularAxis = (IrregularAxis)axis;
             
@@ -1368,7 +1368,7 @@ public class WcpsCoverageMetadataGeneralService {
                 String secondAxisName = secondAxis.getLabel();
                 String secondAxisType = secondAxis.getAxisType();
                 
-                if ( !(CrsUtil.isIndexCrs(firstAxis.getNativeCrsUri()) 
+                if ( !(CrsUtil.isIndexCrs(firstAxis.getNativeCrsUri())
                     || CrsUtil.isIndexCrs(secondAxis.getNativeCrsUri())) ) {
                     if (!firstAxisType.equals(secondAxisType)) {
                         String errorMessage = "Axis type is different, given first coverage's axis with name '" + firstAxisName + "', type '" + firstAxisType 

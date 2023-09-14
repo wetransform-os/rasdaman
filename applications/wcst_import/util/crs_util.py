@@ -213,7 +213,7 @@ class CRSUtil:
             else:
                 # e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326
                 result = ConfigManager.crs_resolver + "/crs/" + tmps[0] + "/0/" + tmps[1]
-        elif "/" in crs and "http://" not in crs:
+        elif "/" in crs and "http://" not in crs and "https://" not in crs:
             # e.g. OGC/0/AnsiDate
             result = ConfigManager.crs_resolver + "/crs/" + crs
 

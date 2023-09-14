@@ -51,15 +51,6 @@ module rasdaman {
             return Object.keys(this.credentialsDict).length > 0;            
         }
 
-        // Create header to send with HTTP request
-        public createRequestHeader(petascopeEndPoint:string, headers:{}):{} {            
-
-            var authorizationObj = this.getAuthorizationHeader(petascopeEndPoint);
-            headers = (<any>Object).assign(authorizationObj, headers);
-
-            return headers;
-        }
-
         // Return the stored credentials
         public getAuthorizationHeader(petascopeEndPoint:string) {
             var result = {};
@@ -85,15 +76,7 @@ module rasdaman {
             return result;
         }
 
-        // Create a basic authentication header from username and password
-        public createBasicAuthenticationHeaderByHeader(headers:{}, username:string, password:string):{} { 
-            var tempHeaders = this.getEncodedBasicAuthencationString(username, password);            
-            headers = (<any>Object).assign(tempHeaders, headers);
-
-            return headers;
-        }
-
-        // Create a basic authentication header from username and password
+        // // Create a basic authentication header from username and password
         public createBasicAuthenticationHeader(username:string, password:string):{} {
             var headers = {};
             headers["Authorization"] = this.getEncodedBasicAuthencationString(username, password);

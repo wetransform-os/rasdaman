@@ -85,17 +85,7 @@ module rasdaman {
             $scope.display = true;
             $scope.showAllFootprints = {isChecked: false};
 
-            // When petascope admin user logged in, show the blacklist / whitelist buttons
-            $rootScope.$on("adminStateInformation.loggedIn", (event, newValue:boolean) => {
-                if (newValue) {
-                    // Admin logged in
-                    $scope.adminUserLoggedIn = true;
-                } else {
-                    // Admin logged out
-                    $scope.adminUserLoggedIn = false;
-                }
-
-            });
+            $scope.hasBlackWhiteListeLayerRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_BLACKWHITELIST_LAYER);
 
             // From the WMS's EX_GeographicBoundingBox
             // NOTE: not like WCS, all layers can be display on the globe as they are geo-referenced.            
@@ -386,7 +376,7 @@ module rasdaman {
                     $scope.getServerCapabilities();
 
                     // NOTE: Mark as null, so when it is set to true in some places, this watch will be invoked
-                    $rootScope.wmsReloadServerCapabilities = null;
+                    // $rootScope.wmsReloadServerCapabilities = null;
                 }
             });  
             
@@ -446,6 +436,8 @@ module rasdaman {
                             
                             // NOTE: loaded and $broadcast to be used with $on in other controllers, such as: WMS CreateLayer controller
                             $rootScope.$broadcast("wmsReloadServerCapabilitiesDone", true);
+
+                            $rootScope.wmsReloadServerCapabilities = null;
                         },
                         (...args:any[]) => {
                             //Error handler
@@ -478,8 +470,6 @@ module rasdaman {
         isServiceIdentificationOpen:boolean;
         isServiceProviderOpen:boolean;
         isCapabilitiesDocumentOpen:boolean;
-
-        adminUserLoggedIn:boolean;
 
         generatedGETURL:string;
 

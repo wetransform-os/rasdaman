@@ -58,6 +58,8 @@ module rasdaman {
             $scope.IRREGULAR_AXIS = "irregular";
             $scope.NOT_AVALIABLE = "N/A";
 
+            $scope.hasRoleUpdateCoverage = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_UPDATE_COV);
+
             // default hide the div containing the Globe
             $scope.hideWebWorldWindGlobe = true;
 
@@ -120,19 +122,6 @@ module rasdaman {
                 if (getCoverageId) {
                     $scope.selectedCoverageId = getCoverageId;
                     $scope.describeCoverage();
-                }
-            });
-
-            // When petascope admin user logged in, show the update coverage's metadata feature
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean)=> {
-                if (newValue) {
-                    // Admin logged in
-                    $scope.adminUserLoggedIn = true;
-
-                    $scope.hasRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WCS_UPDATE_COV);
-                } else {
-                    // Admin logged out
-                    $scope.adminUserLoggedIn = false;
                 }
             });
 
@@ -305,8 +294,6 @@ module rasdaman {
         // Not show the globe when coverage cannot reproject to EPSG:4326
         isCoverageDescriptionsDocumentOpen:boolean;
         hideWebWorldWindGlobe:boolean;
-
-        hasRole:boolean;
 
         coverageDescription:wcs.CoverageDescription;
         rawCoverageDescription:string;

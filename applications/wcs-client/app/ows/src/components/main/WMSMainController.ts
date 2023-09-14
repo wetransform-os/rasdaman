@@ -38,30 +38,8 @@ module rasdaman {
 
             this.initializeTabs($scope);
 
-            $rootScope.wmsReloadServerCapabilities = null;
-
-            // NOTE: When petascope admin user logged in, then show Delete Layer tab in WMS tab
-            $rootScope.$watch("adminStateInformation.loggedIn", (obj:any) => {
-                if (obj == true) {
-
-                    let roles = $rootScope.adminStateInformation.roles;
-                    
-                    // petascope admin logged in
-                    if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WMS_DELETE_LAYER)) {
-                        $scope.wmsDeleteLayerTab.disabled = false;                        
-                    }
-                    if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WMS_INSERT_LAYER)) {
-                        $scope.wmsCreateLayerTab.disabled = false;
-                    }                    
-                } else {
-                    // petascope admin logged out
-                    $scope.wmsDeleteLayerTab.disabled = true;
-                    $scope.wmsCreateLayerTab.disabled = true;
-                }
-
-                $rootScope.wmsReloadServerCapabilities = true;
-            });
-     
+            $scope.wmsDeleteLayerTab.disabled = !AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_DELETE_LAYER);
+            $scope.wmsCreateLayerTab.disabled = !AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_INSERT_LAYER);;
            
             $scope.tabs = [$scope.wmsGetCapabilitiesTab, $scope.wmsDescribeLayerTab, $scope.wmsDeleteLayerTab, $scope.wmsCreateLayerTab];
                         

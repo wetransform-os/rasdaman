@@ -500,12 +500,22 @@ public class CrsTransformHandler extends Handler {
         // 2. If the WKT is returned, then it needs to be enquoted e.g. "CRS[\"GeodeticCRS\": ...]"
         String sourceCRSParam = getEscapedAuthorityEPSGCodeOrWKT(sourceCRS);
         String targetCRSParam = getEscapedAuthorityEPSGCodeOrWKT(outputCRS);
-        
+
         if (interpolationType == null) {
             interpolationType = DEFAULT_INTERPOLATION_TYPE;
         }
         
-        if (geoXYResolutionPair == null) {        
+        if (geoXYResolutionPair == null) {
+
+            if ((sourceCRSParam.equalsIgnoreCase(CrsUtil.EPSG_4326_AUTHORITY_CODE) && targetCRSParam.equalsIgnoreCase(CrsUtil.OGC_WGS84_CRS))
+                    || (sourceCRSParam.equalsIgnoreCase(CrsUtil.OGC_WGS84_CRS) && targetCRSParam.equalsIgnoreCase(CrsUtil.EPSG_4326_AUTHORITY_CODE))
+                    || sourceCRSParam.equals(targetCRSParam)) {
+                // As EPSG:4326 and WGS84 are the same CRS, no point to add project() to collection expression
+                String rasql = coverageExpression.getRasql();
+                return rasql;
+            }
+
+
             outputStr = TEMPLATE.replace("$COVERAGE_EXPRESSION", covRasql).replace("$BOUNDING_BOX", sourceBBoxRepresentation)
                                 .replace("$SOURCE_CRS", sourceCRSParam).replace("$TARGET_CRS", targetCRSParam)
                                 .replace("$INTERPOLATION_TYPE", interpolationType);

@@ -119,11 +119,6 @@ module rasdaman {
                         },
 
                         // Admin
-                        'admin_login@services': {
-                            url: "admin_login",
-                            templateUrl: 'ows/src/components/admin_component/login/AdminLoginView.html',
-                            controller: rasdaman.AdminLoginController
-                        }, 
                         'admin_ows_metadata_management@services': {
                             url: "admin_ows_metadata_management",
                             templateUrl: 'ows/src/components/admin_component/ows_metadata_management/AdminOWSMetadataManagementView.html',
@@ -176,9 +171,10 @@ module rasdaman {
             "luegg.directives",
             "nvd3"])
         .config(AngularConfig)        
-        // NOTE: remember to add these types in app/ows/src/components/_component.ts or here will have error not found type
+        // NOTE: remember to add these types in app/ows/src/components/_component.ts or in here it will have error not found type
         .service("rasdaman.common.SerializedObjectFactory", rasdaman.common.SerializedObjectFactory)
         .service("rasdaman.CredentialService", rasdaman.CredentialService)
+        .service("rasdaman.LoginService", rasdaman.LoginService)
         .service("rasdaman.WCSService", rasdaman.WCSService)
         .service("rasdaman.WCSSettingsService", rasdaman.WCSSettingsService)
         .service("rasdaman.WMSService", rasdaman.WMSService)

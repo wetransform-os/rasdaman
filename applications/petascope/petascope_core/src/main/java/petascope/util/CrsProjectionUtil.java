@@ -618,6 +618,7 @@ public class CrsProjectionUtil {
             authorityCRSCode = CrsUtil.getAuthorityCode(crs);
         }
         return (authorityCRSCode.startsWith(CrsUtil.EPSG_AUTH)
+                || authorityCRSCode.startsWith(CrsUtil.OGC_AUTH)
                 || authorityCRSCode.equals(COSMO_101_AUTHORITY_CODE));
     }
 

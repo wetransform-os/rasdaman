@@ -94,7 +94,7 @@
         </div>
 
         <!-- For user not yet logged in, he can click on Login button to show Login form to authenticate as a different rasdaman user -->
-        <div ng-show="authenticationEnabled == true && homeLoggedIn == false" ng-cloak="" style="position: absolute;right: 8%; margin-top: 4%;">
+        <div ng-show="homeLoggedIn == false" ng-cloak="" style="position: absolute;right: 8%; margin-top: 4%;">
                         
             <input style="margin-top: 10px; font-size: 20px; color: orange; color: white;" 
                 type="button" class="btn btn-success" value="Log in" title="Log in with credentials of a rasdaman user" ng-click="homeLogInEvent()"/>

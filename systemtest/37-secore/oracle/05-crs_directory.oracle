@@ -22,4 +22,5 @@
  <identifier>http://localhost:8080/def/crs/OGC/0/Index3D</identifier>
  <identifier>http://localhost:8080/def/crs/OGC/0/Index4D</identifier>
  <identifier>http://localhost:8080/def/crs/OGC/0/Index5D</identifier>
+ <identifier>http://localhost:8080/def/crs/OGC/0/CRS84</identifier> 
 </identifiers>

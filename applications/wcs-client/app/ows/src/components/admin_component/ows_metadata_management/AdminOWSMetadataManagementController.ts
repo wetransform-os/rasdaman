@@ -66,7 +66,7 @@ module rasdaman {
                 if (obj != null) {
                     $scope.getServerCapabilities();
 
-                    $scope.hasRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_UPDATE_SRV);
+                    $scope.hasRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_UPDATE_SRV);
                 }
             });
 
@@ -126,13 +126,7 @@ module rasdaman {
                     }).finally(function () {                        
                 });
             }
-            
-            // Logout, just show the loggin form in WSClient and hide other admin tabs
-            $scope.logOut = (...args: any[])=> {
-                // clear logged out in local storage
-                adminService.persitLoggedOut();
-                $rootScope.adminStateInformation.loggedIn = false;
-            }           
+        
         }
     }
 

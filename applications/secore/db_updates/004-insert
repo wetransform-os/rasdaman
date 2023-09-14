@@ -1,0 +1,24 @@
+<GeodeticCRS xmlns="http://www.opengis.net/gml/3.2" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:epsg="urn:x-ogp:spec:schema-xsd:EPSG:0.11:dataset" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd      http://www.w3.org/1999/xlink http://schemas.opengis.net/xlink/1.0.0/xlinks.xsd     urn:x-ogp:spec:schema-xsd:EPSG:0.11:dataset ../../../EPSG.xsd" gml:id="ogc-crs-OGC-CRS84">
+  <metaDataProperty>
+    <epsg:CommonMetaData>
+      <epsg:type>geographic 2D</epsg:type>
+      <epsg:informationSource>B.3 in OGC 06-042.</epsg:informationSource>
+      <epsg:revisionDate>2004-01-20</epsg:revisionDate>
+      <epsg:show>true</epsg:show>
+      <epsg:isDeprecated>false</epsg:isDeprecated>
+    </epsg:CommonMetaData>
+  </metaDataProperty>
+  <metaDataProperty>
+    <epsg:CRSMetaData>
+      <epsg:projectionConversion xlink:href="http://www.opengis.net/def/coordinateOperation/EPSG/0/15593"/>
+      <epsg:sourceGeographicCRS xlink:href="http://www.opengis.net/def/crs/EPSG/0/4979"/>
+    </epsg:CRSMetaData>
+  </metaDataProperty>
+  <identifier codeSpace="http://www.opengis.net/">http://www.opengis.net/def/crs/OGC/0/CRS84</identifier>
+  <name codeSpace="http://urn.opengis.net/">http://www.opengis.net/def/crs/OGC/0/CRS84</name>
+  <name>WGS 84 longitude-latitude</name>
+  <domainOfValidity xlink:href="http://www.opengis.net/def/area/EPSG/0/1262"/>
+  <scope>Horizontal component of 3D system. .</scope>
+  <ellipsoidalCS xlink:href="https://www.opengis.net/def/cs/EPSG/9.4.2/6424"/>
+  <geodeticDatum xlink:href="http://www.opengis.net/def/datum/EPSG/0/6326"/>
+</GeodeticCRS>

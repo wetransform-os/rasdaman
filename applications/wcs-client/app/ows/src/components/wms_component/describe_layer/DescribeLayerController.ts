@@ -157,24 +157,12 @@ module rasdaman {
                 }
             });
 
-            // When petascope admin user logged in, show insert/update/delete styles and insert/delete pyramid members features
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean) => {
-                if (newValue) {
-                    // Admin logged in
-                    $scope.adminUserLoggedIn = true;
+            $scope.hasInsertStyleRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_INSERT_STYLE);
+            $scope.hasUpdateStyleRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_UPDATE_STYLE);
+            $scope.hasDeleteStyleRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_DELETE_STYLE);
 
-                    $scope.hasInsertStyleRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WMS_INSERT_STYLE);
-                    $scope.hasUpdateStyleRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WMS_UPDATE_STYLE);
-                    $scope.hasDeleteStyleRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WMS_DELETE_STYLE);
-
-                    $scope.hasInsertCoverageRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WCS_INSERT_COV);
-                    $scope.hasDeleteCoverageRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WCS_DELETE_COV);
-                } else {
-                    // Admin logged out
-                    $scope.adminUserLoggedIn = false;
-                }
-            });
-
+            $scope.hasInsertCoverageRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_INSERT_COV);
+            $scope.hasDeleteCoverageRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_DELETE_COV);            
 
             // --------------------------- Local events handler ---------------------------
            

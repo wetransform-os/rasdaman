@@ -155,7 +155,7 @@
                             <tr>
                                 <th colspan=15%>Style Name</th>
                                 <th colspan=40% style="width: 40%;">Abstract</th>
-                                <th colspan=45% style="width: 45%;" ng-show="adminStateInformation.loggedIn">Operations</th>
+                                <th colspan=45% style="width: 45%;" ng-show="hasDeleteStyleRole">Operations</th>
                             </tr>
                             <tr>
                                 <td colspan=100%><input st-search="name" class="form-control"
@@ -193,8 +193,8 @@
                                 <td colspan=10%><a href='{{getMapRequestURL}}{{style.name}}' target="_blank"
                                      title="Open a new tab in web browser to show the GetMap request result.">GetMap request</a></td>
                                 </td>
-                                <td colspan=10% ng-show="adminStateInformation.loggedIn">                                    
-                                     <button ng-show="adminStateInformation.loggedIn && hasDeleteStyleRole" class="btn btn-danger" ng-click="deleteStyle(style.name)">Delete</button>
+                                <td colspan=10% ng-show="hasDeleteStyleRole">                                    
+                                    <button class="btn btn-danger" ng-click="deleteStyle(style.name)">Delete</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -273,7 +273,7 @@
                             </div>
 
                             <!-- Legend image for style -->
-                            <div class="form-group" ng-show="adminStateInformation.loggedIn && hasInsertStyleRole" >
+                            <div class="form-group" ng-show="hasInsertStyleRole" >
                                 <label class="control-label col-sm-2">Style legend graphic:</label>                                
                                 <div class="col-sm-4">
                                     <label class="btn btn-success">
@@ -292,12 +292,12 @@
 
                             <br/>
 
-                            <div class="form-group" ng-show="adminStateInformation.loggedIn">        
+                            <div class="form-group" ng-show="hasInsertStyleRole || hasUpdateStyleRole">        
                                 <div class="col-sm-offset-2 col-sm-1">
-                                    <button ng-show="adminStateInformation.loggedIn && hasInsertStyleRole" class="btn btn-primary" type="button" ng-click="insertStyle()">Insert Style</button>
+                                    <button ng-show="hasInsertStyleRole" class="btn btn-primary" type="button" ng-click="insertStyle()">Insert Style</button>
                                 </div>
                                 <div class="col-sm-offset-4">
-                                    <button ng-show="adminStateInformation.loggedIn && hasUpdateStyleRole" class="btn btn-warning" type="button" ng-click="updateStyle()">Update Style</button>
+                                    <button ng-show="hasUpdateStyleRole" class="btn btn-warning" type="button" ng-click="updateStyle()">Update Style</button>
                                 </div>
                             </div>
                         </form>
@@ -324,7 +324,7 @@
                             <tr>
                                 <th colspan=40% style="width: 40%;">Pyramid member</th>
                                 <th colspan=40% style="width: 35%;">Scale factors</th>
-                                <th colspan=20% style="width: 25%;">Operations</th>
+                                <th colspan=20% style="width: 25%;" ng-show="hasDeleteCoverageRole">Operations</th>
                             </tr>                            
 
                         </thead>
@@ -333,7 +333,7 @@
                                 <td colspan=40%>{{member.coverageId}}</td>
                                 <td colspan=40%>{{member.scaleFactors}}</td>
                                 <td colspan=20%>                                    
-                                     <button ng-show="adminStateInformation.loggedIn && hasDeleteCoverageRole" class="btn btn-danger" 
+                                     <button ng-show="hasDeleteCoverageRole" class="btn btn-danger" 
                                             ng-click="removePyramidMember(member.coverageId)" 
                                             title="Remove pyramid member: {{member.coverageId}} from the pyramid of the layer: {{layer.name}}.&#010;Coverage: {{member.coverageId}} still exists afterwards.">Remove</button>
                                 </td>                           
@@ -348,7 +348,7 @@
                         </tfoot>
                     </table>
 
-                    <uib-tabset ng-show="adminStateInformation.loggedIn && hasInsertCoverageRole">
+                    <uib-tabset ng-show="hasInsertCoverageRole">
 
                         <!--  coverage pyramid create existing member to layer's pyramid -->
                         <uib-tab heading="Create pyramid member" active="active" >

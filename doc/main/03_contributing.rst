@@ -158,8 +158,10 @@ Make changes
 
   - ... but it should be fairly clear from looking at the docs sources
 
-- Create a review request with `arc diff` before pushing changes.
+- Make sure text lines are at most around 80 columns wide (exceptions are links
+  and tables); try to reformat code sections as well to fit within this width.
 
+- Create a review request with `arc diff` before pushing changes.
 
 
 Quick intro to reStructuredText

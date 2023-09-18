@@ -25,6 +25,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.core.BoundingBox;
@@ -100,6 +102,8 @@ public class WMSGetMapSubsetTranslatingService {
             + ", " + WIDTH + ", " + HEIGHT + ", " + RESAMPLE_ALG + ", " + ERR_THRESHOLD + " )";
     
     public static final String COLLECTION_ALIAS_PREFIX = "c";
+
+    private static Logger log = LoggerFactory.getLogger(WMSGetMapSubsetTranslatingService.class);
     
     /**
      * Return a list of WCPS subsets from input subsets parameter of GetMap request
@@ -280,6 +284,7 @@ public class WMSGetMapSubsetTranslatingService {
                 extendX = extendLowerBoundX + ":" + extendUpperBoundX;
                 
                 if (scaleUpperBoundX < 0) {
+                    log.warn("Calculated scaling upper bound X is less than 0. Hint: Make sure that the coverage: " + wmsLayer.getLayerName() + " was imported correctly for axis type: X. Given: " + scaleUpperBoundX);
                     invalidQuery = true;
                 }
             }
@@ -318,6 +323,11 @@ public class WMSGetMapSubsetTranslatingService {
                 extendY = extendLowerBoundY + ":" + extendUpperBoundY;
                 
                 if (scaleUpperBoundY < 0) {
+                    // NOTE: This can happen when importing netCDF coverage and the lat axis has coordinates from south to north
+                    // hence, the axis resolution is not negative but positive.
+                    // In this case, lat axis needs to be flipped by cdo tool before importing to rasdaman.
+                    log.warn("Calculated scaling upper bound Y is less than 0. " +
+                            "Hint: Make sure that the coverage: " + wmsLayer.getLayerName() + " was imported correctly for axis type: Y. Given: " + scaleUpperBoundY);
                     invalidQuery = true;
                 }
             }

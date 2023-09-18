@@ -1065,6 +1065,25 @@ Simple example to setup a web page with a map from a WMS server using Leaflet:
         <div id="map" style="width: 100%; height: 100%;"> </div>
       </body>
     </html>
+    
+`ArcGIS <https://www.esri.com/en-us/arcgis/products/arcgis-online/overview>`__
+------------------------------------------------------------------------------
+
+`ArcGIS Online
+<https://www.esri.com/en-us/arcgis/products/arcgis-online/overview>`__ does not
+directly allow accessing 3rd party services, however such a service can be
+connected into some existing ArcGIS Server instance. In the following, the
+`ArcGIS Online documentation
+<https://doc.arcgis.com/en/arcgis-online/manage-data/add-item-from-url.htm>`__
+is cited.
+
+OGC WMS or WMTS layers can be added to ArcGIS Online `to maps
+<https://doc.arcgis.com/en/arcgis-online/reference/ogc.htm#ESRI_SECTION1_CE375065C52946C783C460BE1618B721>`__
+in Map Viewer or Map Viewer Classic `to scenes
+<https://doc.arcgis.com/en/arcgis-online/create-maps/add-layers-to-scene.htm>`__
+in Scene Viewer, and `as items
+<https://doc.arcgis.com/en/arcgis-online/manage-data/add-item-from-url.htm>`__
+to ArcGIS. 
 
 `QGIS <https://docs.qgis.org/3.4/en/docs/user_manual/working_with_ogc/ogc_client_support.html#wms-wmts-client>`__
 -----------------------------------------------------------------------------------------------------------------

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ows:ExceptionReport version="2.1.0"
+<ows:ExceptionReport version="2.0.1"
     xsi:schemaLocation="http://www.opengis.net/ows/2.0 http://schemas.opengis.net/ows/2.0/owsExceptionReport.xsd"
     xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink">
     <ows:Exception exceptionCode="RasdamanRequestFailed" >
-        <ows:ExceptionText>Error querying rasdaman with rasql 'Select sdom(clip( c,  curtain( projection(2, 0), LINESTRING(-127450 0,-127440 39,-127450 0,-127445 19,-127430 31,-127445 31) ) )) FROM test_eobstest AS c'. Reason: Exception: The result is no interval.</ows:ExceptionText>
+        <ows:ExceptionText>Error querying rasdaman with rasql 'Select sdom(clip( c,  curtain( projection(2, 0), LINESTRING(-127450 0,-127440 39,-127450 0,-127445 20,-127430 32,-127445 32) ) ))  FROM test_eobstest AS c'. Reason: Exception: The result is no interval.</ows:ExceptionText>
     </ows:Exception>
 </ows:ExceptionReport>

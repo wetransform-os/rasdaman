@@ -40,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import static org.rasdaman.config.ConfigManager.*;
 
+import petascope.core.KVPSymbols;
 import petascope.core.json.cis11.model.metadata.Metadata;
 import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
@@ -232,11 +233,25 @@ public class OapiController extends AbstractController {
             // then select the supported MIME type from left to right
             outputFormat = this.getSupportedMIMETypeForContentNegotiation(acceptHeaderValue);
         }
+
+        boolean outputGeneralGridCoverageInJSON = false;
+
+        if (outputFormat == null) {
+            // this request will change the output format in WCPS encode handler
+            this.injectedHttpServletRequest.setAttribute(KEY_INTERNAL_OAPI_GET_COVERAGE, KEY_INTERNAL_OAPI_GET_COVERAGE);
+        } else {
+            // e.g. f=image/png
+            this.injectedHttpServletRequest.setAttribute(KEY_INTERNAL_OAPI_GET_COVERAGE, outputFormat);
+            if (outputFormat.equals(MIME_JSON)) {
+                outputGeneralGridCoverageInJSON = true;
+            }
+
+        }
         
         String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(coverageId, bbox, bboxCRS, datetime, inputSubsets);
         try {
             // Internally it translates to WCS GetCoverage request
-            Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, outputFormat, inputKVPMap);
+            Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, outputFormat, inputKVPMap, outputGeneralGridCoverageInJSON);
             this.writeResponseResult(response);
         } catch (Exception ex) {
             String errorMessage = "Error returning coverage data. Reason: " + ex.getMessage();
@@ -267,8 +282,11 @@ public class OapiController extends AbstractController {
         String[] inputSubsets = inputKVPMap.get(KEY_OAPI_SUBSET);
         String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(coverageId, bbox, bboxCRS, datetime, inputSubsets);
 
+        // this request should not run the rasql query
+        this.injectedHttpServletRequest.setAttribute(KEY_INTERNAL_WCPS_NOT_RUN_RASQL_QUERY, true);
+
         try {
-            Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, null, inputKVPMap);
+            Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, null, inputKVPMap, true);
             String json = new String(response.getDatas().get(0));
             JsonNode jsonNode = JSONUtil.getJsonNode(json);
 

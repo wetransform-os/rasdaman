@@ -33,6 +33,7 @@ import static petascope.core.KVPSymbols.KEY_VERSION;
 import static petascope.core.KVPSymbols.VALUE_GENERAL_GRID_COVERAGE;
 
 import petascope.controller.AbstractController;
+import petascope.core.KVPSymbols;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCSException;
@@ -53,7 +54,7 @@ public abstract class KVPWCSAbstractHandler implements IKVPHandler {
      */
     public static void validateParameters(Map<String, String[]> kvpParameters, Set<String> validParameters) throws WCSException {
         for (String key : kvpParameters.keySet()) {
-            if (!validParameters.contains(key.toLowerCase())) {
+            if (!key.startsWith(KVPSymbols.KEY_INTERNAL_PREFIX) && !validParameters.contains(key.toLowerCase())) {
                 throw new WCSException(ExceptionCode.InvalidRequest, "Parameter '" + key + "' is not valid in request.");
             }
         }
@@ -71,7 +72,7 @@ public abstract class KVPWCSAbstractHandler implements IKVPHandler {
         }
 
         for (String key : kvpParameters.keySet()) {
-            if (!validParameters.contains(key.toLowerCase())) {
+            if (!key.startsWith(KVPSymbols.KEY_INTERNAL_PREFIX) && !validParameters.contains(key.toLowerCase())) {
                 throw new PetascopeException(ExceptionCode.InvalidRequest, "Parameter '" + key + "' is not valid in request.");
             }
         }

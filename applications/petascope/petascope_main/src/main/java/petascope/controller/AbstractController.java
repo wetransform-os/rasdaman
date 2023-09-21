@@ -959,6 +959,17 @@ public abstract class AbstractController {
             }
         }
     }
+
+    /**
+     * Copy any rasdaman INTERNAL KVPs from source map to target map
+     */
+    public static void copyInternalKeyValueParams(Map<String, String[]> sourceKVPMap, Map<String, String[]> targetKVPMap) {
+        for (Map.Entry<String, String[]> entry : sourceKVPMap.entrySet()) {
+            if (entry.getKey().startsWith(KVPSymbols.KEY_INTERNAL_PREFIX)) {
+                targetKVPMap.put(entry.getKey(), entry.getValue());
+            }
+        }
+    }
     
     
     

@@ -1,2 +1,2 @@
 collections/test_eobstest/coverage?subset=Lat(3513549.8435,3513549.8435),Long(4462779.63173,4462779.63173),t(%221950-01-01%22)
-&subset-crs=http://localhost:8080/def/crs/EPSG/0/3857
+&subset-crs=http://localhost:8080/def/crs/EPSG/0/3857&f=application/json

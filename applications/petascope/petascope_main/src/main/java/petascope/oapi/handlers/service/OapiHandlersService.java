@@ -215,7 +215,8 @@ public class OapiHandlersService {
      * 
      * e.g: https://oapi.rasdaman.org/rasdaman/oapi/collections/S2_FALSE_COLOR_84/coverage?subset=Lat(51.9:52.1),Long(-4.1:-3.9),ansi("2018-11-14")&f=gml
      */
-    public Response getCoverageSubsetResult(String coverageId, String[] subsets, String outputFormat, Map<String, String[]> inputKVPMap) throws Exception {
+    public Response getCoverageSubsetResult(String coverageId, String[] subsets, String outputFormat, Map<String, String[]> inputKVPMap,
+                                            boolean outputGeneralGridCoverageInJSON) throws Exception {
         Map<String, String[]> kvpParams = new HashMap<>();
         
         String[] service = {WCS_SERVICE};
@@ -242,7 +243,13 @@ public class OapiHandlersService {
             kvpParams.put(KEY_FORMAT, format);
         } else {
             // NOTE: default is JSON in CIS 1.1 if output format is not specified
-            kvpParams.put(KEY_FORMAT, new String[] { MIME_JSON });
+            outputFormat= MIME_JSON;
+            kvpParams.put(KEY_FORMAT, new String[] { outputFormat });
+        }
+
+        // NOTE: depend on which endpoint and if user provided the output format (f parameter) or not
+        // then, if the output is JSON -> CIS 1.1 output format
+        if (outputGeneralGridCoverageInJSON && outputFormat.equals(MIME_JSON)) {
             kvpParams.put(KEY_OUTPUT_TYPE, new String[] { VALUE_GENERAL_GRID_COVERAGE });
         }
 
@@ -328,7 +335,7 @@ public class OapiHandlersService {
     }
 
     public RangeSet getCoverageRangeSetResult(String coverageId, String[] subsets, Map<String, String[]> inputKVPMap) throws Exception {
-        Response response = getCoverageSubsetResult(coverageId, subsets, MIMEUtil.MIME_JSON, inputKVPMap);
+        Response response = getCoverageSubsetResult(coverageId, subsets, MIMEUtil.MIME_JSON, inputKVPMap, false);
         byte[] bytes = null;
         if (!response.getDatas().isEmpty()) {
             bytes = response.getDatas().get(0);

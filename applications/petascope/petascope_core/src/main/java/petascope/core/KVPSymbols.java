@@ -100,12 +100,19 @@ public interface KVPSymbols {
 
     // e.g. wcst_import with importing file non-local, then it has this file parameter in the request
     String KEY_UPLOADED_FILE = "file";
+
+    String KEY_INTERNAL_PREFIX = "INTERNAL";
     
     // used internally in petascope only
-    String KEY_INTERNAL_UPLOADED_FILE_PATH = "INTERNAL_uploadedFilePath";
+    String KEY_INTERNAL_UPLOADED_FILE_PATH = KEY_INTERNAL_PREFIX + "_uploadedFilePath";
     
-    // used internall in petascope only
-    String KEY_INTERNAL_WCPS_FROM_WCS_GET_COVERAGE = "INTERNAL_WCPS_FROM_WCS_GETCOVERAGE";
+    // used internally in petascope only
+    String KEY_INTERNAL_WCPS_FROM_WCS_GET_COVERAGE = KEY_INTERNAL_PREFIX + "_WCPS_FROM_WCS_GETCOVERAGE";
+
+    // then WCPS will not run the generated rasql query
+    String KEY_INTERNAL_WCPS_NOT_RUN_RASQL_QUERY = KEY_INTERNAL_PREFIX + "_WCPS_NOT_RUN_RASQL_QUERY";
+    // This request is /oapi/coverageId/coverage to get a coverage -> output format is based on the input coverage data dimensions and type
+    String KEY_INTERNAL_OAPI_GET_COVERAGE = KEY_INTERNAL_PREFIX + "_GET_COVERAGE";
     
     // WCPS
     String VALUE_PROCESS_COVERAGES = "ProcessCoverages";

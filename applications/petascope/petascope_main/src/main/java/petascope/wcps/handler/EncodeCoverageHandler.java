@@ -30,7 +30,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.core.KVPSymbols;
 import petascope.exceptions.PetascopeException;
+import petascope.util.ras.TypeResolverUtil;
 import petascope.wcps.parameters.model.netcdf.NetCDFExtraParams;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.result.WcpsResult;
@@ -43,6 +45,8 @@ import petascope.wcps.exception.processing.InvalidJsonDeserializationException;
 import petascope.wcps.exception.processing.InvalidNumberOfNodataValuesException;
 import petascope.wcps.metadata.model.RangeField;
 import petascope.wcps.parameters.netcdf.service.NetCDFParametersService;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * Class to translate a WCPS expression with encode() *
@@ -73,6 +77,8 @@ public class EncodeCoverageHandler extends Handler {
     private SerializationEncodingService serializationEncodingService;
     @Autowired
     private NetCDFParametersService netCDFParametersFactory;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
     
     public EncodeCoverageHandler() {
         
@@ -82,6 +88,7 @@ public class EncodeCoverageHandler extends Handler {
         EncodeCoverageHandler result = new EncodeCoverageHandler();
         result.serializationEncodingService = this.serializationEncodingService;
         result.netCDFParametersFactory = this.netCDFParametersFactory;
+        result.httpServletRequest = this.httpServletRequest;
         result.setChildren(Arrays.asList(coverageExpressionHandler, formatTypeStringScalarHandler, extraParamsStringScalarHandler));
         
         return result;
@@ -97,9 +104,6 @@ public class EncodeCoverageHandler extends Handler {
     }
 
     private WcpsResult handle(WcpsResult coverageExpression, String format, String extraParams, boolean widthCoordinates) throws PetascopeException {
-        // get the mime-type before modifying the rasqlFormat
-        String mimeType = MIMEUtil.getMimeType(format);
-        
         boolean isGML = false;
         
         // NOTE: must use JP2OpenJPEG to encode with geo-reference metadata for JPEG2000 (JP2)
@@ -110,6 +114,18 @@ public class EncodeCoverageHandler extends Handler {
             // to add in the tupleLists element of output in application/gml+xml            
             format = MIMEUtil.ENCODE_JSON;
             isGML = true;
+        }
+
+        if (this.httpServletRequest.getAttribute(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE) != null
+            && this.httpServletRequest.getAttribute(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE).equals(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE)) {
+            // NOTE: in this case this is /oapi/coverageId/coverage, hence the output format is influenced by petascope
+            format = this.getOutputFormatBasedOnOAPIGetCoverageRequest(coverageExpression.getMetadata());
+        }
+
+        // get the mime-type before modifying the rasqlFormat
+        String mimeType = MIMEUtil.getMimeType(format);
+        if (isGML) {
+            mimeType = MIMEUtil.MIME_GML;
         }
 
         // NOTE: we have 2 cases for extra params:
@@ -283,6 +299,40 @@ public class EncodeCoverageHandler extends Handler {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Only used for /oapi/coverageId/coverage request, based on the output's dimension and data types
+     1D: JSON
+     2D 1, 3, or 4 char bands: PNG
+     2D otherwise: TIFF
+     else: NetCDF
+     */
+    private String getOutputFormatBasedOnOAPIGetCoverageRequest(WcpsCoverageMetadata metadata) {
+        String result = MIMEUtil.MIME_NETCDF;
+        if (metadata.getAxes().size() == 1) {
+            return MIMEUtil.MIME_JSON;
+        } else if (metadata.getAxes().size() == 2) {
+            // PNG or TIFF
+
+            if (metadata.getRangeFields().size() < 4) {
+                boolean returnPNG = true;
+                for (RangeField rangeField : metadata.getRangeFields()) {
+                    if (!rangeField.getDataType().equals(TypeResolverUtil.R_Char)) {
+                        returnPNG = false;
+                        break;
+                    }
+                }
+
+                if (returnPNG) {
+                    return MIMEUtil.MIME_PNG;
+                }
+            }
+
+            return MIMEUtil.MIME_TIFF;
+        }
+
+        return result;
     }
 
     public static final String NO_DATA = "nodata";

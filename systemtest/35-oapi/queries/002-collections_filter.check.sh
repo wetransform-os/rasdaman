@@ -38,6 +38,5 @@ jq ".collections | map(select(.id | startswith(\"test_\")))"  "$out"  > "$nout"
 jq ".collections | map(select(.id | startswith(\"test_\")))"  "$oracle"  > "$noracle"
 
 
-
 diff -b "$nout" "$noracle" > /dev/null 2>&1
 exit $?

@@ -44,8 +44,7 @@ from master.request.wcst import WCSTException
 from osgeo import gdal
 from config_manager import ConfigManager
 
-from ArgumentsParser import parse_arguments
-from util.log import log_to_file
+from arguments_parser import parse_arguments
 from util.import_util import check_required_libraries
 
 # Enable GDAL/OGR exceptions
@@ -232,11 +231,10 @@ def main():
     except Exception as ex:
         # log error message to console
         error_message = "Failed to import data. Reason: " + str(ex)
-        log.error(error_message)
 
         # log stack trace to log file (coverage_id.log)
         error_message += "\nStack trace: " + traceback.format_exc()
-        log_to_file(error_message)
+        log.error(error_message)
         exit_error()
 
 

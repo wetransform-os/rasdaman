@@ -59,8 +59,6 @@ class ConfigManager:
     # input file name of wcst_import.sh
     ingredient_file_name = ""
 
-    log_file = ""
-
     user = ""
     passwd = ""
 

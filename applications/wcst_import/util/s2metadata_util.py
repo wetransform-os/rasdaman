@@ -28,7 +28,7 @@ from util.file_util import FileUtil
 from util.gdal_field import GDALField
 from decimal import Decimal
 import json
-from util.log import log, log_to_file, prepend_time
+from util.log import log, prepend_time
 from util.import_util import decode_res
 from util.time_util import timeout, execute_with_retry_on_timeout
 from util.type_util import NoPublicConstructor

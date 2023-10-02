@@ -448,6 +448,10 @@ public class PyramidService {
                         BigDecimal secondValue = sourceScaleFactors.get(i);
                         BigDecimal thirdValue = inputScaleFactors.get(i);
 
+                        if (secondValue.equals(firstValue) && secondValue.equals(thirdValue)) {
+                            continue;
+                        }
+
                         if (!(secondValue.compareTo(firstValue) > 0 && secondValue.compareTo(thirdValue) < 0)) {
                             selected = false;
                             break;

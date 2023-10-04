@@ -23,7 +23,6 @@ package org.rasdaman.secore.controller;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.ServletException;
@@ -70,7 +69,8 @@ public class SecoreController {
 
     private static final Logger log = LoggerFactory.getLogger(SecoreController.class);
 
-    private static final String CONTENT_TYPE = "text/xml; charset=utf-8";
+    private static final String DEFAULT_CONTENT_TYPE_XML = "text/xml; charset=utf-8";
+    private static final String CONTENT_TYPE_GML = "application/gml+xml";
     /**
      * cached the request and the result of the request
      */
@@ -141,7 +141,13 @@ public class SecoreController {
         }
 
         OutputStream os = resp.getOutputStream();
-        resp.setContentType(CONTENT_TYPE);
+        String requestAcceptHeaderValue = req.getHeader("Accept");
+        if (requestAcceptHeaderValue != null && requestAcceptHeaderValue.contains(CONTENT_TYPE_GML)) {
+            resp.setContentType(CONTENT_TYPE_GML);
+        } else {
+            resp.setContentType(DEFAULT_CONTENT_TYPE_XML);
+        }
+                
         IOUtils.write(bytesArray, os);
     }
 

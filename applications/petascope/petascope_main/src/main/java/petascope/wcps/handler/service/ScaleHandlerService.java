@@ -175,6 +175,14 @@ public class ScaleHandlerService {
                     this.wcpsCoverageMetadataService.updateGeoResolutionByGridBound(axis);
                 }
             }
+
+            if (ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
+                // NOTE: OGC CITE tests requires that all axes after scaling has grid domain starting at 0
+                // e.g. SCALEEXTENT=Lat(10:20),Lon(100:200) then the grid bound of Lat should be(0:10)
+                BigDecimal gridLowerBound = axis.getGridBounds().getLowerLimit();
+                BigDecimal gridUpperBound = axis.getGridBounds().getUpperLimit();
+                axis.setGridBounds(new NumericTrimming(BigDecimal.ZERO, gridUpperBound.subtract(gridLowerBound)));
+            }
         }
 
         // Revert the direct positions for irregular axes to the ones before applying scaling intervals
@@ -409,13 +417,6 @@ public class ScaleHandlerService {
 
             String scaledLowerBound = String.valueOf(BigDecimalUtil.multiple(axis.getGridBounds().getLowerLimit(), scaleFactor).longValue());
             String scaledUpperBound = String.valueOf(BigDecimalUtil.multiple(axis.getGridBounds().getUpperLimit(), scaleFactor).longValue());
-
-            Long totalScaledPixels = BigDecimalUtil.multiple(axis.getGridBounds().getUpperLimit(), scaleFactor).longValue()
-                                    - BigDecimalUtil.multiple(axis.getGridBounds().getLowerLimit(), scaleFactor).longValue()  + 1L;
-            if (axis instanceof IrregularAxis && (totalScaledPixels > axis.getTotalNumberOfGridPixels())) {
-                throw new WCPSException(ExceptionCode.NoApplicableCode,
-                        "Cannot scale up on irregular axis '" + axisLabel + "', only scale down is supported.");
-            }
 
             wcpsSubsetDimensions.add(new WcpsTrimSubsetDimension(axisLabel, GRID_CRS, scaledLowerBound, scaledUpperBound));
         }

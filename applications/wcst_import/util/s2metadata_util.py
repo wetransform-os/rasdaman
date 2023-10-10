@@ -21,19 +21,17 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  *
 """
-from config_manager import ConfigManager
+import os
+import re
+import subprocess
+from subprocess import CalledProcessError
+from decimal import Decimal
+
 from master.error.runtime_exception import RuntimeException
 from util.crs_util import CRSUtil
-from util.file_util import FileUtil
 from util.gdal_field import GDALField
-from decimal import Decimal
-import json
-from util.log import log, prepend_time
-from util.import_util import decode_res
-from util.time_util import timeout, execute_with_retry_on_timeout
+from util.log import log
 from util.type_util import NoPublicConstructor
-import re
-import os
 
 _IS_S2_DATA_PATTERN = re.compile(".*/GRANULE/.*/(IMG_DATA/R..m/|QI_DATA/).*jp2")
 _dataset_cache = {}
@@ -49,6 +47,7 @@ class S2MetadataUtil(metaclass=NoPublicConstructor):
     @classmethod
     def get(cls, file_path):
         global _dataset_cache
+        # /vsis3/eodata/Sentinel-2/MSI/L2A/2023/09/13/S2A_MSIL2A_20230913T165921_N0509_R069_T27XVJ_20230913T233356.SAFE/GRANULE/L2A_T27XVJ_A042966_20230913T165915/IMG_DATA/R60m/T27XVJ_20230913T165921_B02_60m.jp2
         filepath = str(file_path)
         if "IMG_DATA" in filepath:
             components = filepath.split("IMG_DATA")
@@ -56,7 +55,24 @@ class S2MetadataUtil(metaclass=NoPublicConstructor):
             components = filepath.split("QI_DATA")
         else:
             return None
+        # components[0]: /vsis3/eodata/Sentinel-2/MSI/L2A/2023/09/13/S2A_MSIL2A_20230913T165921_N0509_R069_T27XVJ_20230913T233356.SAFE/GRANULE/L2A_T27XVJ_A042966_20230913T165915/
+        # components[1]: /R60m/T27XVJ_20230913T165921_B02_60m.jp2
+        # mtd_path: /vsis3/eodata/Sentinel-2/MSI/L2A/2023/09/13/S2A_MSIL2A_20230913T165921_N0509_R069_T27XVJ_20230913T233356.SAFE/GRANULE/L2A_T27XVJ_A042966_20230913T165915/MTD_TL.xml
         mtd_path = components[0] + "MTD_TL.xml"
+        is_vsis3 = mtd_path.startswith("/vsis3/")
+        if is_vsis3:
+            mtd_path = mtd_path.replace("/vsis3", "s3:/")
+            local_mtd_prefix = components[0].split("/")[-2]
+            local_mtd_path = f"/tmp/rasdaman_wcst_import/{local_mtd_prefix}_MTD_TL.xml"
+            if not os.path.exists(local_mtd_path):
+                cmd = ["s3cmd", "get", mtd_path, local_mtd_path]
+                try:
+                    subprocess.check_output(cmd, encoding='UTF-8')
+                except CalledProcessError as e:
+                    log.warn(f'Failed downloading {mtd_path} with s3cmd, reason: {e.output}')
+                    return None
+            mtd_path = local_mtd_path
+
         # get the resolution
         res = components[1].split(".")[0].split("_")[-1]
         cache_path = mtd_path + res

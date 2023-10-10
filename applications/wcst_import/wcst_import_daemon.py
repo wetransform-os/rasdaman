@@ -28,7 +28,7 @@ import time
 
 from daemon import Daemon
 import wcst_import as wi
-from ArgumentsParser import parse_arguments
+from arguments_parser import parse_arguments
 
 DAEMON_ACTION_ARGN = 2
 WATCH_INTERVAL_ARGN = 3

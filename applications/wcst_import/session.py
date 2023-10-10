@@ -86,8 +86,6 @@ class Session:
         ConfigManager.resumer_dir_path = self.resumer_dir_path \
                                         if self.resumer_dir_path[-1] == "/" else self.resumer_dir_path + "/"
         ConfigManager.ingredient_file_name = self.ingredient_file_name
-        # e.g test_mr.log file
-        ConfigManager.log_file = ConfigManager.resumer_dir_path + "/" + self.coverage_id + ".log"
 
         metadata_url = ""
         if "inspire" in inp:

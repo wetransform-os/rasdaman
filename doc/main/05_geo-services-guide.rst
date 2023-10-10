@@ -746,8 +746,8 @@ Inserting a new coverage into the server's WCS offerings is done using the
     |             |comma-separated concatenated data types, (eg:    |the datatype can be indicated through this parameter.     |        |
     |             |"Float32,Int32,Float32")                         |Default: Byte.                                            |        |
     +-------------+-------------------------------------------------+----------------------------------------------------------+--------+
-    |TILING       |rasdaman tiling clause, see Tiling               |Indicates the array tiling to be applied during insertion |No      |
-    |             |`wiki <http://rasdaman.org/trac/wiki/Tiling>`__  |                                                          |        |
+    |TILING       |rasdaman tiling clause, see                      |Indicates the array tiling to be applied during insertion |No      |
+    |             |:ref:`storage-layout`                            |                                                          |        |
     +-------------+-------------------------------------------------+----------------------------------------------------------+--------+
 
 The response of a successful coverage request is the coverage id of the newly
@@ -1825,8 +1825,6 @@ is in format ``0xRRGGBB``, e.g. ``0x0000FF`` for blue color:
      - ``BGCOLOR`` does not work together with range constructor defined in a 
        WMS style via rasql / WCPS fragments.
      - ``BGCOLOR`` is ignored when ``transparent=true``.
-      
-        
 
 .. _wms-interpolation:
 
@@ -1872,7 +1870,7 @@ value equals to a random number for all WMS `GetMap` requests. For example:
 
 
 In petascope, this ``random`` parameter is stripped when petascope
-receives a **W*S** request containing this parameter, hence, if the request is already processed,
+receives a ``W*S`` request containing this parameter, hence, if the request is already processed,
 the result stored in the cache will be returned as usual.
 
 
@@ -3428,7 +3426,10 @@ bounds and resolution corresponding to each file.
   by reading the ``MTD_TL.xml`` file present in the SAFE container that
   contains the file to be imported. This can be much faster compared to reading
   the metadata from JPEG 2000 files with GDAL. Note that this only works with
-  file paths on the filesystem in extracted SAFE directories.
+  file paths on the filesystem in extracted SAFE directories, or with SAFE
+  directories on S3 object storage. In the latter case, wcst_import will try to
+  use s3cmd to retrieve the ``MTD_TL.xml`` locally first in
+  ``/tmp/rasdaman_wcst_import/``; these temporary files need to be manually removed.
 
 * ``pixelIsPoint`` - Only valid if ``type`` is ``netcdf`` or ``grib``.
   In some cases, by convention in the input files, the coordinates 
@@ -5269,25 +5270,6 @@ specified value can be one of: ``-1`` (no limit, cache all files),
 ``0`` (fully disable caching), ``N`` (clear the cache whenever it has
 more than ``N`` datasets, ``N`` should be greater than 0). The
 default value is ``-1`` if this option is not specified.
-
-.. _wcst_import-logging:
-
-Logging and error handling
---------------------------
-
-wcst_import outputs log messages to the console, as well as to a log file if the user  
-that executed wcst_import has write permissions to it.
-The log file name is created from settings ``resumer_dir_path`` and ``coverage_id``
-in the ingredients file in format ``resumer_dir_path/coverage_id.json``.
-If ``resumer_dir_path`` is not set in the ingredients file, by default the log file will
-be written in the folder containing the imported ingredients file with file name
-``coverage_id.json``.
-
-Errors that occur while wcst_import is running are handled in the following way:
-
-- The error message is written in the terminal console;
-- The error message and the full stack trace are written to the log file.
-
 
 
 Data export

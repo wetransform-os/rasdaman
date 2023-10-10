@@ -28,7 +28,7 @@ from util.file_util import FileUtil
 from util.gdal_field import GDALField
 from decimal import Decimal
 import json
-from util.log import log, log_to_file, prepend_time
+from util.log import log, prepend_time
 from util.import_util import decode_res
 from util.time_util import timeout, execute_with_retry_on_timeout
 from util.s2metadata_util import S2MetadataUtil
@@ -543,7 +543,6 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
             except Exception as ex:
                 error_message = "Failed to open GDAL file '{}'. Reason: {}".format(file_path, str(ex))
                 log.warn(error_message)
-                log_to_file(error_message)
 
                 # Cannot open file by gdal, try with next file
                 if session.skip_file_that_fail_to_open():

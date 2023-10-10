@@ -246,19 +246,11 @@ class Importer:
         """
         Insert the slices of the coverage
         """
-        is_loggable = True
         is_ingest_file = True
         file_name = ""
 
-        log_file = None
-
-        try:
-            log_file = open(ConfigManager.log_file, "a+")
-            log_file.write("\n-------------------------------------------------------------------------------------")
-            log_file.write(prepend_time("Ingesting coverage '{}'...".format(self.coverage.coverage_id)))
-        except Exception as e:
-            is_loggable = False
-            log.warn("\nCannot create log file for this ingestion process, only log to console.")
+        log.info("\n-------------------------------------------------------------------------------------")
+        log.info(prepend_time("Ingesting coverage '{}'...".format(self.coverage.coverage_id)))
 
         add_pyramid_members = False
 
@@ -272,7 +264,7 @@ class Importer:
                     file_size_in_mb = 0
                     try:
                         file_size_in_mb = round((float)(os.path.getsize(file_path)) / (1000*1000), 2)
-                    except:
+                    except Exception as ex:
                         file_name = file_path
                         pass
                     start_time = time.time()
@@ -291,7 +283,7 @@ class Importer:
                         Importer.processed_files_count += 1
                         index = "{}/{}".format(str(Importer.processed_files_count), str(self.session.total_files_to_import))
 
-                    self._log_file_ingestion(index, file_name, start_time, grid_domains, file_size_in_mb, is_loggable, log_file)
+                    self._log_ingestion(index, file_name, start_time, grid_domains, file_size_in_mb)
 
                     if add_pyramid_members is False \
                             and (self.session is not None and self.session.import_overviews_only is False):
@@ -310,7 +302,7 @@ class Importer:
                 if hasattr(self.coverage.slices[i].data_provider, "file"):
                     imported_file = self.coverage.slices[i].data_provider.file
                     if self.session is not None:
-                        if self.session.blocking == True:
+                        if self.session.blocking is True:
                             self.session.imported_files.append(imported_file)
                         else:
                             # import file by file with blocking: false
@@ -318,24 +310,21 @@ class Importer:
             except Exception as e:
                 if self.session.skip_file_in_any_cases():
                     log.warn("Skipped slice: " + str(self.coverage.slices[i]) + ". Error message: " + str(e))
-                    if is_loggable and is_ingest_file:
-                        log_file.write("\nSkipped file: " + file_name + ".")
-                        log_file.write("\nReason: " + str(e))
+                    if is_ingest_file:
+                        log.warn("\nSkipped file: " + file_name + ".")
+                        log.warn("\nReason: " + str(e))
                 else:
-                    if is_loggable and is_ingest_file:
-                        log_file.write("\nError file: " + file_name + ".")
-                        log_file.write("\nReason: " + str(e))
-                        log_file.write("\nResult: failed.")
-                        log_file.close()
+                    if is_ingest_file:
+                        log.error("\nError file: " + file_name + ".")
+                        log.error("\nReason: " + str(e))
+                        log.error("\nResult: failed.")
 
                     raise e
             self.processed += 1
 
-        if is_loggable:
-            log_file.write("\nResult: success.")
-            log_file.close()
+        log.info("\nResult: success.")
     
-    def _log_file_ingestion(self, index, file_name, start_time, grid_domains, file_size_in_mb, is_loggable, log_file):
+    def _log_ingestion(self, index, file_name, start_time, grid_domains, file_size_in_mb):
         end_time = time.time()
         time_to_ingest = round(end_time - start_time, 2)
         if time_to_ingest < 0.0000001:
@@ -358,9 +347,7 @@ class Importer:
         log_text = prepend_time(log_text)
         # write to console
         log.info(log_text)
-        if is_loggable:
-            # write to log file
-            log_file.write(log_text)
+
         
     def _initialize_coverage(self):
         """

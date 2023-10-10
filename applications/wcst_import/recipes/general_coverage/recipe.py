@@ -42,7 +42,7 @@ from session import Session
 from util.crs_util import CRSUtil
 from util.gdal_validator import GDALValidator
 from util.import_util import import_netcdf4
-from util.log import log, log_to_file
+from util.log import log
 from util.netcdf4_util import netcdf4_open
 from util.s2metadata_util import S2MetadataUtil
 from util.string_util import escape_metadata_dict, is_band_name_valid, BAND_NAME_PATTERN
@@ -803,12 +803,11 @@ class Recipe(BaseRecipe):
                 break
             except Exception as e:
                 error_message = "Failed to open netCDF4 data set from input file '{}'. Reason: {}".format(input_file, e)
-                log.warn(error_message)
-                log_to_file(error_message)
 
                 if self.session.skip_file_that_fail_to_open():
                     continue
                 else:
+                    log.error(error_message)
                     raise e
 
         if number_of_dimensions is None and ConfigManager.blocking is True:

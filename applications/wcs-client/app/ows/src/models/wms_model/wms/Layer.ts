@@ -174,7 +174,7 @@ module wms {
 
                         // push all the possible values into the array of elements as Strings because it will be used after
                         // NOTE: here I also used the assumption that all the dates are in ISO format
-                        for(var i = minElementAsDate; i <= maxElementAsDate; i.setMilliseconds(i.getMilliseconds() + stepAsNumber)) {
+                        for (let i = minElementAsDate; i <= maxElementAsDate; i = new Date(i.getTime() + stepAsNumber)) {
                             dim.array.push(i.toISOString());
                         }
                     }

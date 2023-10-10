@@ -5702,7 +5702,7 @@ var wms;
                         stepAsNumber *= 86400000;
                         var minElementAsDate = new Date(minElementAsString);
                         var maxElementAsDate = new Date(maxElementAsString);
-                        for (var i = minElementAsDate; i <= maxElementAsDate; i.setMilliseconds(i.getMilliseconds() + stepAsNumber)) {
+                        for (var i = minElementAsDate; i <= maxElementAsDate; i = new Date(i.getTime() + stepAsNumber)) {
                             dim.array.push(i.toISOString());
                         }
                     }

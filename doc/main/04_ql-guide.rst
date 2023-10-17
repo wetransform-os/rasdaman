@@ -6451,8 +6451,7 @@ they are in double quotes to distinguish them from the grammar parentheses
               :| `createSetTypeExp`
     createCollExp : create collection
                   : `namedCollection` `typeName`
-    createCellTypeExp : create type `typeName`
-                      : a" `cellTypeExp`
+    createCellTypeExp : create type `typeName` `cellTypeExp`
     cellTypeExp : "(" `attributeName` `typeName`
                 :     [ , `attributeName` `typeName` ]... ")"
     createMarrayTypeExp : create type `typeName`

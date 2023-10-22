@@ -23,15 +23,10 @@ package petascope.wcps.handler;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
+import org.rasdaman.domain.wms.Dimension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -242,6 +237,18 @@ public class ScaleExpressionByDimensionIntervalsHandler extends Handler {
                                                                                        secondChildHandlerResult);
             }
 
+            Map<String, Integer> numberOfExistencesMap = new LinkedHashMap<>();
+
+            // Validate that there are no duplicated target scaling axis labels, e.g. SCALESIZE=Lat(10)&SCALESIZE=Lat(10)
+            for (WcpsSubsetDimension subsetDimension : dimensionIntervalList.getIntervals()) {
+                String scalingByAxisLabel = subsetDimension.getAxisName();
+                Integer counts = numberOfExistencesMap.get(scalingByAxisLabel);
+                if (counts == null) {
+                    numberOfExistencesMap.put(scalingByAxisLabel, 1);
+                } else {
+                    throw new PetascopeException(ExceptionCode.InvalidRequest, "Duplicated axis in target scaling domain. Given: " + scalingByAxisLabel);
+                }
+            }
 
             coverageExpressionResult = this.handle(coverageExpressionResult, dimensionIntervalList, true, null,
                                                     serviceRegistries);

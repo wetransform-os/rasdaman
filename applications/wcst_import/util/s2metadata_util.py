@@ -75,6 +75,8 @@ class S2MetadataUtil(metaclass=NoPublicConstructor):
 
         # get the resolution
         res = components[1].split(".")[0].split("_")[-1]
+        if res == "B00":
+            res = "60m"
         cache_path = mtd_path + res
         if cache_path not in _dataset_cache:
             ret = cls._create(filepath, mtd_path, res)

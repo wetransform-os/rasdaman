@@ -139,8 +139,12 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
         // get response
         String mimeType = null;
 
-        List<String> wcpsQueries = this.getWcpsQueries(inputWcpsQuery);
-        boolean multipart = wcpsQueries.size() > 1;
+        List<String> wcpsQueries;
+        try {
+            wcpsQueries = this.getWcpsQueries(inputWcpsQuery);
+        } catch (Exception ex) {
+            throw new PetascopeException(ExceptionCode.SyntaxError, "Input WCPS query has error to parse components. Reason: " + ex.getMessage());
+        }
 
         List<String> finalRasqlQueries = new ArrayList<>();
         WcpsResult wcpsResult = null;

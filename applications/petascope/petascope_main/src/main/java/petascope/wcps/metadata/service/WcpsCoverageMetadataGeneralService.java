@@ -773,7 +773,7 @@ public class WcpsCoverageMetadataGeneralService {
             // Apply subset from grid domain to geo domain
             unAppliedNumericSubset = (NumericTrimming) axis.getGridBounds();
             unTranslatedNumericSubset = (NumericTrimming) axis.getGeoBounds();
-            this.translateTrimmingGridToGeoSubset(axis, subsetDimension, numericSubset, unAppliedNumericSubset, unTranslatedNumericSubset);
+            this.translateTrimmingGridToGeoSubset(checkGridBound, axis, subsetDimension, numericSubset, unAppliedNumericSubset, unTranslatedNumericSubset);
             
             axis.setTranslatedGridToGeoBounds(true);
         }
@@ -859,7 +859,7 @@ public class WcpsCoverageMetadataGeneralService {
      * Apply the trimming subset on the unAppliedNumericSubset (grid bound) and
      * calculate this bound to unTranslatedNumericSubset (geo bound)
      */
-    private void translateTrimmingGridToGeoSubset(Axis axis, WcpsSubsetDimension subsetDimension, Subset numericSubset,
+    private void translateTrimmingGridToGeoSubset(boolean checkGridBound, Axis axis, WcpsSubsetDimension subsetDimension, Subset numericSubset,
             NumericTrimming unAppliedNumericSubset,
             NumericTrimming unTranslatedNumericSubset) {
         BigDecimal geoDomainMin = ((NumericTrimming) axis.getGeoBounds()).getLowerLimit();
@@ -875,7 +875,7 @@ public class WcpsCoverageMetadataGeneralService {
 
         ParsedSubset<BigDecimal> parsedSubset = new ParsedSubset<>(lowerLimit, upperLimit);
         // store the translated grid bounds from the subsets
-        ParsedSubset<BigDecimal> translatedSubset = translateGridToGeoCoordinates(parsedSubset, axis,
+        ParsedSubset<BigDecimal> translatedSubset = translateGridToGeoCoordinates(checkGridBound, parsedSubset, axis,
                 geoDomainMin, gridDomainMin, gridDomainMax);
 
         // Set the correct translated grid parsed subset to axis
@@ -926,7 +926,7 @@ public class WcpsCoverageMetadataGeneralService {
         if (geoToGrid) {
             this.translateSlicingGeoToGridSubset(axis, subsetDimension, numericSubset);
         } else {
-            this.translateSlicingGridToGeoSubset(axis, numericSubset);
+            this.translateSlicingGridToGeoSubset(checkGridBound, axis, numericSubset);
         }
     }
 
@@ -982,7 +982,7 @@ public class WcpsCoverageMetadataGeneralService {
      * @param axis
      * @param subset
      */
-    private void translateSlicingGridToGeoSubset(Axis axis, Subset subset) {
+    private void translateSlicingGridToGeoSubset(boolean checkGridBound, Axis axis, Subset subset) {
 
         BigDecimal bound = ((NumericSlicing) subset.getNumericSubset()).getBound();
         ParsedSubset<BigDecimal> parsedSubset = new ParsedSubset<>(bound, bound);
@@ -1012,7 +1012,7 @@ public class WcpsCoverageMetadataGeneralService {
         axis.setGridBounds(numericSlicingBound);
 
         // store the translated grid bounds from the subsets
-        ParsedSubset<BigDecimal> translatedSubset = this.translateGridToGeoCoordinates(parsedSubset, axis,
+        ParsedSubset<BigDecimal> translatedSubset = this.translateGridToGeoCoordinates(checkGridBound, parsedSubset, axis,
                 geoDomainMin, gridDomainMin, gridDomainMax);
         // Set the correct translated grid parsed subset to axis
         numericSlicingBound = new NumericSlicing(translatedSubset.getLowerLimit());
@@ -1162,7 +1162,7 @@ public class WcpsCoverageMetadataGeneralService {
      * @return
      * @throws PetascopeException
      */
-    private ParsedSubset<BigDecimal> translateGridToGeoCoordinates(ParsedSubset<BigDecimal> parsedSubset,
+    private ParsedSubset<BigDecimal> translateGridToGeoCoordinates(boolean checkGridBound, ParsedSubset<BigDecimal> parsedSubset,
             Axis axis, BigDecimal geoDomainMin, BigDecimal gridDomainMin,
             BigDecimal gridDomainMax) {
         ParsedSubset<BigDecimal> translatedSubset;
@@ -1182,18 +1182,27 @@ public class WcpsCoverageMetadataGeneralService {
             
             int lowerCoefficientIndex = parsedSubset.getLowerLimit().intValue() - irregularAxis.getOriginalGridBounds().getLowerLimit().intValue();
             int upperCoefficientIndex = parsedSubset.getUpperLimit().intValue() - irregularAxis.getOriginalGridBounds().getLowerLimit().intValue();
-            BigDecimal lowerCoefficient = irregularAxis.getDirectPositions().get(lowerCoefficientIndex);
-            BigDecimal upperCoefficient = irregularAxis.getDirectPositions().get(upperCoefficientIndex);
-            
-            // Calculate the distance from this coefficient for CRS:1(GRID_INDEX) to coefficient zero.
-            // (NOTE: coefficient zero can be in random position, not only the first element in list of directPositions)
-            lowerCoefficient = ((IrregularAxis) axis).getLowestCoefficientValue().abs().add(lowerCoefficient);
-            upperCoefficient = ((IrregularAxis) axis).getLowestCoefficientValue().abs().add(upperCoefficient);
-            
-            BigDecimal geoLowerBound = lowerCoefficient.add(axis.getOriginalOrigin());
-            BigDecimal geoUpperBound = upperCoefficient.add(axis.getOriginalOrigin());
 
-            translatedSubset = new ParsedSubset<>(geoLowerBound, geoUpperBound);
+            if (!checkGridBound && upperCoefficientIndex > irregularAxis.getDirectPositions().size() - 1) {
+                // NOTE: in this case it is about scaling UP on irregular axis which is not supported
+                // Hence, just return lower and upper limits
+                // @TODO: This needs to be fixed properly when SCALING UP on irregular axis is supported
+                translatedSubset = new ParsedSubset<>(irregularAxis.getGeoBounds().getLowerLimit(),
+                                                    irregularAxis.getGeoBounds().getUpperLimit());
+            } else {
+                BigDecimal lowerCoefficient = irregularAxis.getDirectPositions().get(lowerCoefficientIndex);
+                BigDecimal upperCoefficient = irregularAxis.getDirectPositions().get(upperCoefficientIndex);
+
+                // Calculate the distance from this coefficient for CRS:1(GRID_INDEX) to coefficient zero.
+                // (NOTE: coefficient zero can be in random position, not only the first element in list of directPositions)
+                lowerCoefficient = ((IrregularAxis) axis).getLowestCoefficientValue().abs().add(lowerCoefficient);
+                upperCoefficient = ((IrregularAxis) axis).getLowestCoefficientValue().abs().add(upperCoefficient);
+
+                BigDecimal geoLowerBound = lowerCoefficient.add(axis.getOriginalOrigin());
+                BigDecimal geoUpperBound = upperCoefficient.add(axis.getOriginalOrigin());
+
+                translatedSubset = new ParsedSubset<>(geoLowerBound, geoUpperBound);
+            }
         }
         return translatedSubset;
     }

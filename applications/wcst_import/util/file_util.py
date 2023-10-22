@@ -120,7 +120,6 @@ class FileUtil:
                 # Throws the original source of exception(!)
                 raise Exception(sys.exc_info()[1]).with_traceback(sys.exc_info()[2])
 
-
     @staticmethod
     def strip_root_url(input_file):
         """
@@ -128,7 +127,6 @@ class FileUtil:
         :param str input_file: input file path
         """
         return input_file.replace(ConfigManager.root_url, "")
-
 
     @staticmethod
     def check_dir_writable(input_dir):
@@ -189,6 +187,7 @@ class FileUtil:
         elif not os.access(path, os.W_OK):
             raise Exception(
                 'File "' + path + '" exists, but user "' + getpass.getuser() + '" has no permissions to write to it.')
+
 
 class TmpFile:
     def __init__(self):

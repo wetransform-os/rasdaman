@@ -321,7 +321,7 @@ send WCS requests, for example: ::
     http://localhost:8080/rasdaman/ows?service=WCS&version=2.0.1&request=GetCapabilities
 
 See `example queries
-<http://rasdaman.org/browser/systemtest/testcases_services/test_wcs/queries>`__
+<https://rasdaman.org/trac/browser/systemtest/32-wcs/queries>`__
 in the WCS systemtest which send KVP (key value pairs) GET request and XML POST
 request to Petascope.
 
@@ -1059,8 +1059,8 @@ General
 -------
 
 WCPS requests can be submitted in both
-abstract syntax (`example <http://rasdaman.org/browser/systemtest/testcases_services/test_wcps/queries/233-extra_params_merge_new_metadata.test>`__)
-and in XML (`example <http://rasdaman.org/browser/systemtest/testcases_services/test_wcps/queries/245-test_enqoute_cdata_greate_less_character.xml>`__).
+abstract syntax (`example <https://rasdaman.org/trac/browser/systemtest/31-wcps/queries/233-extra_params_merge_new_metadata.test>`__)
+and in XML (`example <https://rasdaman.org/trac/browser/systemtest/31-wcps/queries/245-test_enqoute_cdata_greate_less_character.xml>`__).
 
 For example, using the WCS GET/KVP protocol binding, a WCPS request can be sent
 through the following ``ProcessCoverages`` request: ::
@@ -1881,7 +1881,7 @@ Petascope allows to import a 3D+ coverage as a WMS layer. To this end, the
 ingredients file used for ``wcst_import`` must contain ``wms_import": true``. 
 For 3D+ coverages this works with recipes *regular_time_series*,
 *irregular_time_series*, and *general_coverage*.
-`This example <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/wms_3d_time_series_irregular/ingest.template.json>`__
+`This example <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/143-wms_3d_time_series_irregular/ingest.template.json>`__
 shows how to define an *irregular_time_series* 3D coverage from 2D TIFF files.
 
 Once the coverage is created, ``GetMap`` requests can use the additional
@@ -1929,8 +1929,8 @@ delivered.
 
 Examples:
 
-- Multiple values on `time axis of a 3D coverage <http://rasdaman.org/browser/systemtest/testcases_services/test_wms/queries/29-get_map_on_3d_time_series_irregular_time_specified.test>`__
-- Multiple values on `time and dim_pressure axes of a 4d coverage <http://rasdaman.org/browser/systemtest/testcases_services/test_wms/queries/31-get_map_on_4d_coverage_dim_pressure_and_time_irregular_specified.test>`__
+- Multiple values on `time axis of a 3D coverage <https://rasdaman.org/trac/browser/systemtest/33-wms/queries/029-get_map_on_3d_time_series_irregular_time_specified.test>`__
+- Multiple values on `time and dim_pressure axes of a 4d coverage <https://rasdaman.org/trac/browser/systemtest/33-wms/queries/031-get_map_on_4d_coverage_dim_pressure_and_time_irregular_specified.test>`__
 
 .. _get-legend-graphic:
 
@@ -2523,7 +2523,7 @@ up-to-date as new data become available is supported for a large variety of data
 formats and file/directory organizations.
 
 The systemtest contains 
-`many examples <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata>`__
+`many examples <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata>`__
 for importing different types of data. Note that the ``ingest.template.json`` are template files
 which cannot be directly imported, as several variables need to be set first.
 
@@ -2569,8 +2569,8 @@ The workflow behind is depicted approximately on :numref:`wcst_import_workflow`.
    Data importing process with ``wcst_import.sh``
 
 An ingredients file showing all possible options (across all recipes) can be found `here
-<http://rasdaman.org/browser/applications/wcst_import/ingredients/possible_ingredients.json>`__ 
-in the `same directory <http://rasdaman.org/browser/applications/wcst_import/ingredients>`__
+<https://rasdaman.org/trac/browser/applications/wcst_import/ingredients/possible_ingredients.json>`__ 
+in the `same directory <https://rasdaman.org/trac/browser/applications/wcst_import/ingredients>`__
 there are several examples of different recipes.
 
 .. _data-import-recipes:
@@ -2588,7 +2588,7 @@ The following recipes are provided in the rasdaman repository:
   * :ref:`Sentinel 2 <data-import-recipe-sentinel2>`
 
 For each one of these there is an ingredients example under the
-`ingredients/ <http://rasdaman.org/browser/applications/wcst_import/ingredients>`__
+`ingredients/ <hhttps://rasdaman.org/trac/browser/applications/wcst_import/ingredients>`__
 directory, together with an example for the available parameters
 Further on each recipe type is described in turn, starting with the common
 options shared by all recipes.
@@ -3363,7 +3363,7 @@ petascope) the maximum size is 2GB (`source
   with 256 color entries is supported. 
 
   A path to an explicit Color Palette Table file can be specified, see `example file
-  <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/055-wcps_color_palette_rasql_ready_encoded_png/color_palette_table_rasql_READY.cpt>`__;
+  <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/055-wcps_color_palette_rasql_ready_encoded_png/color_palette_table_rasql_READY.cpt>`__;
   such a file can be referenced in the ingredients file with, e.g.,
   ``"colorPaletteTable": "PATH/TO/table.cpt"``.
 
@@ -3521,7 +3521,7 @@ bounds and resolution corresponding to each file.
     For example, let's consider a netCDF file that has a ``time`` dimension with attribute
     ``units: "days since 1970-01-01 00:00:00"``. All stored values of the ``time`` axis 
     must be converted to datetime based on the lower bound value (``"1970-01-01"``) as an origin.
-    See this `ingredients file <https://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/132-wcs_scientfic_null_value_with_trailing_zero/ingest.template.json#L42>`__
+    See this `ingredients file <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/132-wcs_scientfic_null_value_with_trailing_zero/ingest.template.json#L42>`__
     for a full example.
 
     .. hidden-code-block:: json
@@ -3570,7 +3570,7 @@ Examples
 
 The examples below illustrate importing data in different formats with the
 ``general_coverage`` recipe; many more can be found in the rasdaman
-`test suite <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/>`__.
+`test suite <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata>`__.
 
 * Commented example for importing GRIB data (only the ``recipe`` section is 
   shown for brevity):
@@ -3684,7 +3684,7 @@ The examples below illustrate importing data in different formats with the
     }
 
 - Example for importing NetCDF data (full ingredients file `here 
-  <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/072-wcps_irregular_time_nc/ingest.template.json>`__):
+  <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/072-wcps_irregular_time_nc/ingest.template.json>`__):
 
   .. hidden-code-block:: json
 
@@ -3793,7 +3793,7 @@ The examples below illustrate importing data in different formats with the
 
 * Example for importing TIFF data with the ``gdal`` driver 
   (full ingredients file `here 
-  <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/134-wcs_slice_group_size_7days/ingest.template.json>`__):
+  <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/134-wcs_slice_group_size_7days/ingest.template.json>`__):
 
   .. hidden-code-block:: json
 

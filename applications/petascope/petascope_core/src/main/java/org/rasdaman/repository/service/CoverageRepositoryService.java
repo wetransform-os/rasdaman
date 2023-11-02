@@ -339,6 +339,10 @@ public class CoverageRepositoryService {
      */
     public long calculateCoverageSizeInBytes(Coverage coverage) throws PetascopeException {
         long result = 0;
+
+        if (coverage.getRasdamanRangeSet() == null || coverage.getRasdamanRangeSet().getCollectionType() == null) {
+            return result;
+        }
         
         String setType = coverage.getRasdamanRangeSet().getCollectionType();
         if (setType != null) {

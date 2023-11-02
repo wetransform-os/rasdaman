@@ -110,8 +110,11 @@ public class WcpsCoverageMetadataTranslator {
         // parse extra metadata of coverage to map
         String extraMetadata = coverage.getMetadata();
         List<List<NilValue>> nilValues = coverage.getNilValues();
-        
-        String rasdamanCollectionName = coverage.getRasdamanRangeSet().getCollectionName();
+
+        String rasdamanCollectionName = null;
+        if (coverage.getRasdamanRangeSet() != null) {
+            rasdamanCollectionName = coverage.getRasdamanRangeSet().getCollectionName();
+        }
         
         List<String> axisCrsUris = new ArrayList<>();
         for (Axis axis : axes) {
@@ -124,7 +127,11 @@ public class WcpsCoverageMetadataTranslator {
                                                         coverage.getCoverageType(), axes, crsUri, 
                                                         rangeFields, nilValues, extraMetadata, originalAxes);
 
-	    wcpsCoverageMetadata.setDecodedFilePath(coverage.getRasdamanRangeSet().getDecodeExpression());
+
+        if (coverage.getRasdamanRangeSet() != null) {
+            wcpsCoverageMetadata.setDecodedFilePath(coverage.getRasdamanRangeSet().getDecodeExpression());
+        }
+
         return wcpsCoverageMetadata;
     }
 

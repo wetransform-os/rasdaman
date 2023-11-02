@@ -304,6 +304,16 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
         }
         
         List<WcpsSubsetDimension> nonXYSubsetDimensions = new ArrayList<>();
+        List<Axis> nonXYAxes = metadata.getNonXYAxes();
+        for (Axis nonXYAxis : nonXYAxes) {
+            for (WcpsSubsetDimension subset : wcpsSubsetDimensions) {
+                if (CrsUtil.axisLabelsMatch(nonXYAxis.getLabel(), subset.getAxisName())) {
+                    nonXYSubsetDimensions.add(subset);
+                    break;
+                }
+            }
+        }
+
         WcpsCoverageMetadata updateMetadata = this.wcpsCoverageMetadataTranslator.createForDownscaledLevelByGeoXYSubsets(metadata, geoSubsetX, geoSubsetY,
                                                                                               wmsExpectedXYGridDomainsPair.fst, wmsExpectedXYGridDomainsPair.snd, nonXYSubsetDimensions);
         return updateMetadata;

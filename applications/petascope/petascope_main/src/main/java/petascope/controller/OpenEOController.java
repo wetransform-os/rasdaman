@@ -22,8 +22,6 @@
 package petascope.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.networknt.schema.SpecVersion;
 import com.rasdaman.accesscontrol.service.AuthenticationService;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -47,12 +45,11 @@ import petascope.util.JSONUtil;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static org.rasdaman.config.ConfigManager.*;
+import static petascope.core.KVPSymbols.KEY_OPENEO_PROCESS_GRAPH_ID;
+import static petascope.core.KVPSymbols.KEY_OPENEO_PROCESS_GRAPH_JSON_CONTENT;
 import static petascope.util.MIMEUtil.MIME_JSON;
 
 /**
@@ -127,33 +124,41 @@ public class OpenEOController extends AbstractController {
      * Return landing page of /rasdaman/gdc
      */
     @RequestMapping(value = GDC)
-    public void getGDCLandingPage(HttpServletRequest httpServletRequest) throws PetascopeException {
+    public void getGDCLandingPage(HttpServletRequest httpServletRequest) throws Exception {
         String gdcURLPrefix = this.getGDCBaseURL(httpServletRequest);
 
-        try {
-            Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getGDCLandingPage(gdcURLPrefix));
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning result for GDC landing page. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getGDCLandingPage(gdcURLPrefix));
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for GDC landing page. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
     @RequestMapping(path = { GDC_CONFORMANCE, OAPI_CONFORMANCE })
-    public void getConformanceResult(HttpServletRequest httpServletRequest) throws PetascopeException {
-        String gdcURLPrefix = this.getGDCBaseURL(httpServletRequest);
+    public void getConformanceResult(HttpServletRequest httpServletRequest) throws Exception {
+        RequestHandlerInterface requestHandlerInterface = () -> {
 
-        try {
-            Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getGDCConformanceResult());
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning result for GDC conformance page. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+            try {
+                Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getGDCConformanceResult());
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for GDC conformance page. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
 
@@ -168,16 +173,22 @@ public class OpenEOController extends AbstractController {
      *    e.g. https://openeo.eurac.edu/.well-known/openeo
      */
     @RequestMapping(path = { OPENEO_WELLKNOWN_CONTEXT_PATH, GDC_WELLKNOWN_CONTEXT_PATH })
-    public void getWellknownDocument(HttpServletRequest httpServletRequest) throws PetascopeException, JsonProcessingException, IOException {
-        try {
-            Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getWellknownCapability());
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning result for returning well-known result. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+    public void getWellknownDocument(HttpServletRequest httpServletRequest) throws Exception {
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getWellknownCapability());
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for returning well-known result. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
     /**
@@ -185,16 +196,22 @@ public class OpenEOController extends AbstractController {
      * e.g. https://openeo.eodc.eu/openeo/1.1.0/
      */
     @RequestMapping(value = OPENEO)
-    public void getCapabilities(HttpServletRequest httpServletRequest) throws PetascopeException {
-        try {
-            Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getEndpointsCapability());
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning result for listing openEO endpoints. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+    public void getCapabilities(HttpServletRequest httpServletRequest) throws Exception {
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getEndpointsCapability());
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for listing openEO endpoints. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
     /**
@@ -202,16 +219,22 @@ public class OpenEOController extends AbstractController {
      *  e.g. https://openeo.eodc.eu/openeo/1.1.0/file_formats
      */
     @RequestMapping(path = { OPENEO_FILE_FORMATS_CONTEXT_PATH, GDC_FILE_FORMATS_CONTEXT_PATH })
-    public void getFileFormats(HttpServletRequest httpServletRequest) throws PetascopeException, JsonProcessingException, IOException {
-        try {
-            Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getFileFormatsCapability());
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning result for listing file formats. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+    public void getFileFormats(HttpServletRequest httpServletRequest) throws Exception {
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Response response = this.oapiResultService.getJsonResponse(this.openEOHandlersService.getFileFormatsCapability());
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for listing file formats. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
 
@@ -220,134 +243,178 @@ public class OpenEOController extends AbstractController {
      * https://openeo.eodc.eu/openeo/1.1.0/processes
      */
     @RequestMapping(path = { OPENEO_PROCESSES_CONTEXT_PATH, GDC_PROCESSES_CONTEXT_PATH })
-    public void getProcesses(HttpServletRequest httpServletRequest) throws PetascopeException {
-        try {
-            Response response = this.oapiResultService.getJsonResponseFromString(this.openEOHandlersService.getJSONProcessesCapability());
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning result for listing processes. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+    public void getProcesses(HttpServletRequest httpServletRequest) throws Exception {
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Response response = this.oapiResultService.getJsonResponseFromString(this.openEOHandlersService.getJSONProcessesCapability());
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for listing processes. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
+
     }
 
     // -------- Process Graphs
     // https://openeo.org/documentation/1.0/developers/api/reference.html#tag/User-Defined-Processes
 
     // 1. Create (insert / update) a new process graph to database
-    @PutMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}" })
+    @PutMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{" + KEY_OPENEO_PROCESS_GRAPH_ID + "}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{" + KEY_OPENEO_PROCESS_GRAPH_ID + "}" })
     public void createProcessGraph(@PathVariable String processGraphId, HttpServletRequest httpServletRequest) throws Exception {
-        try {
-            Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
-            if (credentials == null) {
-                throw new PetascopeException(ExceptionCode.InvalidRequest, "Endpoint requires user credentials in basic authentication header.");
+
+        Map<String, String[]> kvpParameters = new LinkedHashMap<>();
+        kvpParameters.put(KEY_OPENEO_PROCESS_GRAPH_ID, new String[] { processGraphId });
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
+                if (credentials == null) {
+                    throw new PetascopeException(ExceptionCode.Unauthorized, "Endpoint requires user credentials in basic authentication header.");
+                }
+
+                // parse payload from PUT method
+                String inputJsonContent = IOUtils.toString(httpServletRequest.getReader());
+                if (!JSONUtil.isJsonValid(inputJsonContent)) {
+                    throw new PetascopeException(ExceptionCode.InvalidRequest, "Process graph content to create is not valid JSON string format.");
+                }
+
+                kvpParameters.put(KEY_OPENEO_PROCESS_GRAPH_JSON_CONTENT, new String[] { inputJsonContent });
+
+                String username = credentials.fst;
+
+                ProcessGraph processGraph = new ProcessGraph(processGraphId, username, inputJsonContent);
+                this.processGraphRepositoryService.save(processGraph);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for storing process graph: " + processGraphId + ". Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
             }
 
+        };
 
-            // parse payload from PUT method
-            String jsonContent = IOUtils.toString(httpServletRequest.getReader());
-            if (!JSONUtil.isJsonValid(jsonContent)) {
-                throw new PetascopeException(ExceptionCode.InvalidRequest, "Process graph content to create is not valid JSON string format.");
-            }
-
-            String username = credentials.fst;
-
-            ProcessGraph processGraph = new ProcessGraph(processGraphId, username, jsonContent);
-            this.processGraphRepositoryService.save(processGraph);
-        }  catch (Exception ex) {
-            String errorMessage = "Error returning result for storing process graph: " + processGraphId + ". Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+        super.handleRequest(kvpParameters, requestHandlerInterface);
     }
 
     // 2. Delete an existing process graph to database
-    @RequestMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}" }, method = RequestMethod.DELETE)
-    public void deleteProcessGraph(@PathVariable String processGraphId, HttpServletRequest httpServletRequest) throws PetascopeException {
-        try {
-            Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
-            if (credentials == null) {
-                throw new PetascopeException(ExceptionCode.InvalidRequest, "Endpoint requires user credentials in basic authentication header.");
+    @RequestMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{" + KEY_OPENEO_PROCESS_GRAPH_ID + "}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{" + KEY_OPENEO_PROCESS_GRAPH_ID + "}" }, method = RequestMethod.DELETE)
+    public void deleteProcessGraph(@PathVariable String processGraphId, HttpServletRequest httpServletRequest) throws Exception {
+        Map<String, String[]> kvpParameters = new LinkedHashMap<>();
+        kvpParameters.put(KEY_OPENEO_PROCESS_GRAPH_ID, new String[] { processGraphId });
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
+                if (credentials == null) {
+                    throw new PetascopeException(ExceptionCode.Unauthorized, "Endpoint requires user credentials in basic authentication header.");
+                }
+
+                this.processGraphRepositoryService.delete(processGraphId);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for deleting process graph: " + processGraphId + ". Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
             }
 
+        };
 
-            this.processGraphRepositoryService.delete(processGraphId);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning result for deleting process graph: " + processGraphId + ". Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+        super.handleRequest(kvpParameters, requestHandlerInterface);
     }
 
     // 3. List an existing process graph from database
-    @RequestMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{processGraphId}" }, method = RequestMethod.GET)
-    public void listProcessGraph(@PathVariable String processGraphId, HttpServletRequest httpServletRequest) throws PetascopeException {
-        try {
-            Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
-            if (credentials == null) {
-                throw new PetascopeException(ExceptionCode.InvalidRequest, "Endpoint requires user credentials in basic authentication header.");
+    @RequestMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH + "/{" + KEY_OPENEO_PROCESS_GRAPH_ID + "}", GDC_PROCESS_GRAPHS_CONTEXT_PATH + "/{" + KEY_OPENEO_PROCESS_GRAPH_ID + "}" }, method = RequestMethod.GET)
+    public void listProcessGraph(@PathVariable String processGraphId, HttpServletRequest httpServletRequest) throws Exception {
+        Map<String, String[]> kvpParameters = new LinkedHashMap<>();
+        kvpParameters.put(KEY_OPENEO_PROCESS_GRAPH_ID, new String[] { processGraphId });
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
+                if (credentials == null) {
+                    throw new PetascopeException(ExceptionCode.Unauthorized, "Endpoint requires user credentials in basic authentication header.");
+                }
+
+                String username = credentials.fst;
+                ProcessGraph processGraph = this.processGraphRepositoryService.getProcessGraph(username, processGraphId);
+                String jsonContent = processGraph.getContent();
+                Response response = this.oapiResultService.getJsonResponseFromString(jsonContent);
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for listing content of process graph: " + processGraphId + ". Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
             }
 
-            String username = credentials.fst;
-            ProcessGraph processGraph = this.processGraphRepositoryService.getProcessGraph(username, processGraphId);
-            String jsonContent = processGraph.getContent();
-            Response response = this.oapiResultService.getJsonResponseFromString(jsonContent);
-            this.writeResponseResult(response);
-        }  catch (Exception ex) {
-            String errorMessage = "Error returning result for listing content of process graph: " + processGraphId + ". Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+        };
+
+        super.handleRequest(kvpParameters, requestHandlerInterface);
     }
 
     // 4. List all process graphs from database created by the authenticated user
     @RequestMapping(path = { OPENEO_PROCESS_GRAPHS_CONTEXT_PATH, GDC_PROCESS_GRAPHS_CONTEXT_PATH }, method = RequestMethod.GET)
-    public void listAllProcessGraphs(HttpServletRequest httpServletRequest) throws PetascopeException {
-        Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
-        if (credentials == null) {
-            throw new PetascopeException(ExceptionCode.InvalidRequest, "Endpoint requires user credentials in basic authentication header.");
-        }
-        String username = credentials.fst;
+    public void listAllProcessGraphs(HttpServletRequest httpServletRequest) throws Exception {
+        RequestHandlerInterface requestHandlerInterface = () -> {
 
-        Set<ProcessGraph> processGraphs = this.processGraphRepositoryService.getAllCachedProcessGraphsByUsername(username);
-        ProcessGraphsCapability processGraphsCapability = new ProcessGraphsCapability();        ;
-        try {
-            Response response = this.oapiResultService.getJsonResponseFromString(processGraphsCapability.getJSONResult(processGraphs));
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning result for listing all process graphs. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+            Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
+            if (credentials == null) {
+                throw new PetascopeException(ExceptionCode.Unauthorized, "Endpoint requires user credentials in basic authentication header.");
+            }
+            String username = credentials.fst;
+
+            Set<ProcessGraph> processGraphs = this.processGraphRepositoryService.getAllCachedProcessGraphsByUsername(username);
+            ProcessGraphsCapability processGraphsCapability = new ProcessGraphsCapability();
+
+            try {
+                Response response = this.oapiResultService.getJsonResponseFromString(processGraphsCapability.getJSONResult(processGraphs));
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for listing all process graphs. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
     // 5. Receive a submitted POST JSON process and generates WCPS query accordingly and returns a result
     @PostMapping(path = { OPENEO_RESULT, GDC_RESULT })
     public void processJSONToGetResult(HttpServletRequest httpServletRequest) throws Exception {
-        try {
-            Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
-            if (credentials == null) {
-                throw new PetascopeException(ExceptionCode.InvalidRequest, "Endpoint requires user credentials in basic authentication header.");
+        Map<String, String[]> kvpParameters = new LinkedHashMap<>();
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Pair<String, String> credentials = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
+                if (credentials == null) {
+                    throw new PetascopeException(ExceptionCode.Unauthorized, "Endpoint requires user credentials in basic authentication header.");
+                }
+
+                String username = credentials.fst;
+                // parse payload from POST method
+                String inputJsonContent = IOUtils.toString(httpServletRequest.getReader());
+                kvpParameters.put(KEY_OPENEO_PROCESS_GRAPH_JSON_CONTENT, new String[] { inputJsonContent });
+
+                Response response = this.openEOJSonToWcpsResultService.handle(inputJsonContent, username);
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning result for processing result. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
             }
 
+        };
 
-            String username = credentials.fst;
-            // parse payload from POST method
-            String jsonContent = IOUtils.toString(httpServletRequest.getReader());
-
-            Response response = this.openEOJSonToWcpsResultService.handle(jsonContent, username);
-            this.writeResponseResult(response);
-        }  catch (Exception ex) {
-            String errorMessage = "Error returning result for processing result. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+        super.handleRequest(kvpParameters, requestHandlerInterface);
     }
 
     /**

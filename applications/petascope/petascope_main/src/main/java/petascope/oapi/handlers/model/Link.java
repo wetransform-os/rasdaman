@@ -41,6 +41,7 @@ public class Link {
     
     public static final String DATA_REL = "data";
     public static final String PROCESSING_REL = "processing";
+    public static final String CONFORMANCE = "conformance";
     public static final String REL_SELF = "self";
     
     private static final String COVERAGE_REL = "http://www.opengis.net/def/rel/ogc/1.0/coverage";
@@ -99,7 +100,12 @@ public class Link {
         Link link = new Link(PROCESSING_REL, urlPrefix + "/" + WCPS);
         return link;
     }
-    
+
+    public static Link getConformanceLink(String urlPrefix) {
+        Link link = new Link(CONFORMANCE, urlPrefix + "/" + CONFORMANCE);
+        return link;
+    }
+
     public static Link getDomainLink(String urlPrefix, String coverageId) {
         return new Link(StringUtils.EMPTY, urlPrefix + "/" + COLLECTIONS + "/" + coverageId + "/" + COVERAGE + "/" + COVERAGE_DOMAIN_SET);
     }
@@ -107,6 +113,7 @@ public class Link {
     public static Link getRangeTypeLink(String urlPrefix, String coverageId) {
         return new Link(StringUtils.EMPTY, urlPrefix + "/" + COLLECTIONS + "/" + coverageId + "/" + COVERAGE + "/" + COVERAGE_RANGE_TYPE);
     }
+
     
     /**
      * e.g: return https://oapi.rasdaman.org/rasdaman/oapi/collections/S2_FALSE_COLOR_84

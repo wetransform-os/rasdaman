@@ -34,6 +34,7 @@ import petascope.oapi.handlers.model.HttpErrorResponse;
 import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
 import static petascope.util.MIMEUtil.MIME_JSON;
+import static petascope.util.MIMEUtil.MIME_TEXT;
 
 /**
  * Class to return the response entity for OAPI requests
@@ -69,5 +70,16 @@ public class OapiResultService {
         String objectRepresentation = JSONUtil.serializeObjectToJSONString(httpErrorResponse);
         return new Response(Arrays.asList(objectRepresentation.getBytes()), MIME_JSON, HttpStatus.OK.value());
     }
+
+    public Response getErrorResponse(Exception ex, String errorMessage) throws PetascopeException {
+        int httpErrorCode = HttpStatus.INTERNAL_SERVER_ERROR.value();
+        if (ex instanceof PetascopeException) {
+            httpErrorCode = ((PetascopeException)ex).getExceptionCode().getHttpErrorCode();
+        }
+        log.error(errorMessage, ex);
+        Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_TEXT, httpErrorCode);
+        return response;
+    }
     
 }
+

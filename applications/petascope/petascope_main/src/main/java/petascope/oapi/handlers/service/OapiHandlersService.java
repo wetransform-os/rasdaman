@@ -40,7 +40,6 @@ import petascope.core.json.cis11.JSONCoreCIS11Builder;
 import petascope.core.json.cis11.model.rangeset.DataBlock;
 import petascope.core.json.cis11.model.rangeset.RangeSet;
 import petascope.core.response.Response;
-import petascope.exceptions.PetascopeException;
 import petascope.oapi.handlers.model.Bbox;
 import petascope.oapi.handlers.model.Collection;
 import petascope.oapi.handlers.model.Collections;
@@ -51,8 +50,7 @@ import petascope.util.*;
 import static petascope.controller.AbstractController.getValueByKeyAllowNull;
 import static petascope.core.KVPSymbols.*;
 import static petascope.util.MIMEUtil.MIME_JSON;
-import petascope.util.TimeUtil;
-import petascope.util.ras.RasUtil;
+
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
@@ -105,8 +103,9 @@ public class OapiHandlersService {
         Link selfLink = Link.getSelfLink(urlPrefix);
         Link dataLink = Link.getDataLink(urlPrefix);
         Link wcpsLink = Link.getProcessLink(urlPrefix);
+        Link conformanceLink = Link.getConformanceLink(urlPrefix);
         
-        List<Link> links = Arrays.asList(selfLink, dataLink, wcpsLink);
+        List<Link> links = Arrays.asList(selfLink, dataLink, wcpsLink, conformanceLink);
         
         return new LandingPage(title, description, links);
     }

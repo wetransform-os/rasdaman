@@ -209,6 +209,10 @@ public interface KVPSymbols {
     // rangesubset
     String KEY_OAPI_GET_COVERAGE_RANGE_SUBSET = "range-subset";
     String KEY_GDC_OAPI_GET_COVERAGE_RANGE_SUBSET = "properties";
+
+    // OpenEO
+    String KEY_OPENEO_PROCESS_GRAPH_ID = "processGraphId";
+    String KEY_OPENEO_PROCESS_GRAPH_JSON_CONTENT = "processGraphJsonContent";
     
 
     /**

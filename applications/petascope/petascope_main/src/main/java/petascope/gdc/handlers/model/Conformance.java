@@ -33,20 +33,31 @@ import java.util.List;
 
 public class Conformance {
 
+    // encoding conformance classes, NOTE: see https://docs.ogc.org/DRAFTS/19-087.html#_summary_of_conformance_uris
     public static final List<String> conformsTo = Arrays.asList(
-                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/req/geodata-coverage",
-                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/req/coverage-subset",
-                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/req/coverage-scaling",
-                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/req/coverage-rangesubset",
-                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/req/domainset-subset",
+                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/core",
+                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/scaling",
+                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/subsetting",
+                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/fieldselection",
 
-                // encoding conformance classes, NOTE: see https://docs.ogc.org/DRAFTS/19-087.html#_summary_of_conformance_uris
                 "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/png",
                 "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/jpegxl",
                 "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/geotiff",
                 "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/netcdf",
                 "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/cisjson",
-                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/jpeg2000"
+                "http://www.opengis.net/spec/ogcapi-coverages-1/1.0/conf/jpeg2000",
+
+                "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
+                "http://www.opengis.net/spec/ogcapi-common-2/1.0/conf/collections",
+
+                "http://www.opengis.net/spec/ogcapi-common-1/1.0/req/core",
+                "http://www.opengis.net/spec/ogcapi-common-1/1.0/req/landing-page",
+                "http://www.opengis.net/spec/ogcapi-common-1/1.0/req/json",
+                "http://www.opengis.net/spec/ogcapi-common-2/1.0/req/collections",
+                "http://www.opengis.net/spec/ogcapi-common-2/1.0/req/simple-query",
+                "http://www.opengis.net/spec/ogcapi_common-2/1.0/req/json"
+
+
             );
 
     public Conformance() {
@@ -61,3 +72,4 @@ public class Conformance {
 
 
 }
+

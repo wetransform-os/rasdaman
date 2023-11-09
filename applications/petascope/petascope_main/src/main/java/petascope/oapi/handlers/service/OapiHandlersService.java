@@ -307,17 +307,10 @@ public class OapiHandlersService {
 
             WcpsCoverageMetadata metadata = wcpsCoverageMetadataTranslator.translate(coverageId);
             for (Axis axis : metadata.getAxes()) {
-                boolean exists = false;
                 for (String axisLabel : inputAxisLabels) {
                     if (CrsUtil.axisLabelsMatch(axis.getLabel(), axisLabel)) {
-                        exists = true;
                         break;
                     }
-                }
-
-                if (exists == false) {
-                    // NOTE: If axis is not specified in scale-size parameter, then the grid domain is not changed!
-                    scaleSizeAxes.add(axis.getLabel() + "(" + axis.getTotalNumberOfGridPixels() + ")");
                 }
             }
 

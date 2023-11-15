@@ -20,7 +20,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_awi_axes_band_local_metadata_override-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_awi_axes_band_local_metadata_override-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>0 0 0</gml:low>

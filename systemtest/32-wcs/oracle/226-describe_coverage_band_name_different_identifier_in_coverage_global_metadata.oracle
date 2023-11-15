@@ -118,7 +118,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_wcs_band_name_different_identifier_in_coverage_global_metadata-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_wcs_band_name_different_identifier_in_coverage_global_metadata-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>0 0 0</gml:low>

@@ -97,6 +97,27 @@ module rasdaman {
             return result.promise;
         }
 
+        public getCoverageDescriptionCis11(requestUrl:string):angular.IPromise<any> {
+            var result = this.$q.defer();
+            var self = this;
+
+            let requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
+
+            this.$http.get(requestUrl, {
+                headers: requestHeaders
+                }).then(function (data:any) {
+                    try {                       
+                        result.resolve(data.data);
+                    } catch (err) {
+                        result.reject(err);
+                    }
+                }, function (error) {
+                    result.reject(error);
+                });
+
+            return result.promise;
+        }
+
         // Store these keys values to be reused in result.html page
         public storeKVPParametersToLocalStorage(petascopeEndPoint:string, keysValuesStr:string) {
            
@@ -116,7 +137,10 @@ module rasdaman {
             var result = this.$q.defer();
             // Build the request URL
             var requestUrl = this.wcsSettingsService.wcsEndpoint + "?" + request.toKVP();
+
             var url = this.wcsSettingsService.defaultContextPath + "/ows/result.html";
+            // TESTING !!! (NOTE: rarely need to enable to test (!))
+            // var url = "http://localhost:8000/ows/result.html";
                         
             this.storeKVPParametersToLocalStorage(this.wcsSettingsService.wcsEndpoint, request.toKVP());            
             window.open(url, '_blank');            

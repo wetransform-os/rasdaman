@@ -7,7 +7,7 @@
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
-        <gmlrgrid:ReferenceableGridByVectors dimension="6" gmlrgrid:id="test_wcs_deep_rain_reversed_irregular_axis_coefficients-grid">
+        <gmlrgrid:ReferenceableGridByVectors dimension="6" gml:id="test_wcs_deep_rain_reversed_irregular_axis_coefficients-grid">
             <gml:limits>
                 <gml:GridEnvelope>
                     <gml:low>0 0 2 2 0 0</gml:low>

@@ -71,7 +71,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="4" gmlrgrid:id="test_wcs_local_metadata_netcdf_in_xml-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="4" gml:id="test_wcs_local_metadata_netcdf_in_xml-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>0 0 0 0</gml:low>

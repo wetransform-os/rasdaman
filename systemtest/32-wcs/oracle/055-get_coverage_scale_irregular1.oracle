@@ -7,7 +7,7 @@
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
-        <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_irr_cube_2-grid">
+        <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_irr_cube_2-grid">
             <gml:limits>
                 <gml:GridEnvelope>
                     <gml:low>0 0 35</gml:low>

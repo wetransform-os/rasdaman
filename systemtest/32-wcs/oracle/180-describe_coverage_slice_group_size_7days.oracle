@@ -22,7 +22,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_slice_group_size_7days-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_slice_group_size_7days-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>0 0 0</gml:low>

@@ -7,7 +7,7 @@
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
-        <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_time_irregular_coefficients_subset-grid">
+        <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_time_irregular_coefficients_subset-grid">
             <gml:limits>
                 <gml:GridEnvelope>
                     <gml:low>5 0 0</gml:low>

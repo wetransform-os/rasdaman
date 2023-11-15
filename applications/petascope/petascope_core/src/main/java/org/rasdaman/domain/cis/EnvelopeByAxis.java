@@ -33,6 +33,7 @@ import javax.persistence.Table;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import org.rasdaman.config.ConfigManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -228,7 +229,7 @@ public class EnvelopeByAxis implements Serializable {
         String lowerCorner = "";
         for (AxisExtent axisExtent : this.axisExtents) {
             if (!ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
-                lowerCorner += axisExtent.getLowerBound() + " ";
+                lowerCorner += axisExtent.getLowerBoundRepresentation() + " ";
             } else {
                 // Returns the bound as number as OGC CITE requires value in number
                 lowerCorner += axisExtent.getLowerBoundNumber() + " ";
@@ -282,7 +283,7 @@ public class EnvelopeByAxis implements Serializable {
         String upperCorner = "";
         for (AxisExtent axisExtent : this.axisExtents) {
             if (!ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
-                upperCorner += axisExtent.getUpperBound() + " ";
+                upperCorner += axisExtent.getUpperBoundRepresentation() + " ";
             } else {
                 // Returns the bound as number as OGC CITE requires value in number
                 upperCorner += axisExtent.getUpperBoundNumber() + " ";
@@ -478,6 +479,20 @@ public class EnvelopeByAxis implements Serializable {
         i++;
         
         return results;
+    }
+    
+    @JsonIgnore
+    /**
+     * Return the sorted list of axisExtents by grid axis order (stored in rasdaman
+     */
+    public List<AxisExtent> getAxisExtentsByGridOrder() {
+        TreeMap<Integer, AxisExtent> map = new TreeMap<>();
+        
+        for (AxisExtent axisExtent : this.axisExtents) {
+            map.put(axisExtent.getGridAxisOrder(), axisExtent);
+        }
+        
+        return new ArrayList<>(map.values());
     }
     
 }

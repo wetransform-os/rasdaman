@@ -20,6 +20,25 @@
                 <div style="float:left">
                     <span>Generated GET URL: </span> <a href="{{generatedGETURL}}" target="_blank" class="long-link-wrap-text">{{generatedGETURL}}</a>
                 </div>
+
+                <div style="background-color: white; margin-top: 60px;" class="row row-centered">
+        
+                    <b>Coverage type:</b>
+
+                    <!-- (!) NOTE: because this dropdown IS NOT under the uib-accordion, 
+                        hence, the ng-model MUST NOT BE stored in an object interface and it can get the value changed when a new option is selected.
+                        It doesn't work like that in the case of GetCoverageController when the <select> is under uib-accordion (!)-->
+                    <select                         
+                        style="height: 30px;" ng-selected="avaiableCisTypes[0]" ng-options="cisType.value as cisType.text for cisType in avaiableCisTypes" 
+                        ng-model="selectedCisType" id="selectedCisType" ng-change="updateGeneratedUrlForSelectedCisType()"
+
+                        onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" 
+                        data-placement="right" title="After a CIS type is chosen, click on Describe Coverage button to view the new GML output format in the bottom of the page.">
+                    </select>
+                    
+        
+                </div>
+
             </div>
 
             <br/>
@@ -173,10 +192,6 @@
                 </uib-accordion-group>
 
             </uib-accordion>
-        </div>
-
-        <div class="row top5" ng-show="requestUrl" style="background-color: white; padding: 10px; margin-top: -10px; border-radius: 5px;">
-            The constructed GET KVP request is: <a href="{{requestUrl}}" target="_blank">{{requestUrl}}</a>
         </div>
 
     </div>

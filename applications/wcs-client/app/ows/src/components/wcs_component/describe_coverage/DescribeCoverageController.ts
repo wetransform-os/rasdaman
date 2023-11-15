@@ -63,6 +63,12 @@ module rasdaman {
             // default hide the div containing the Globe
             $scope.hideWebWorldWindGlobe = true;
 
+            $scope.avaiableCisTypes = [
+                    { "value": "CIS1.1", "text": "CIS 1.1 GeneralGridCoverage" },
+                    { "value": "CIS1.0", "text": "CIS 1.0 GridCoverage / RectifiedGridCoverage / RectifiedGridCoverage (legacy)" }
+                ];
+            $scope.selectedCisType = $scope.avaiableCisTypes[0].value;
+
             // Show coverage's extent on the globe
             let canvasId = "wcsCanvasDescribeCoverage";
 
@@ -124,6 +130,26 @@ module rasdaman {
                     $scope.describeCoverage();
                 }
             });
+
+
+            /**
+             * Default CIS 1.1. is selected
+             */
+            $scope.updateGeneratedUrlForSelectedCisType = () => {
+                let coverageIds:string[] = [];
+                coverageIds.push($scope.selectedCoverageId);
+                let describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
+                let requestUrl:string = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
+
+                if ($scope.selectedCisType == "CIS1.1") {
+                    requestUrl += "&outputType=GeneralGridCoverage";
+
+                    // NOTE: only WCS 2.1.0 supports GeneralGridCoverage
+                    requestUrl = requestUrl.replace("2.0.1", "2.1.0");
+                }
+
+                $scope.generatedGETURL = requestUrl;
+            };
 
             /**
              * Update coverage's metadata from a text file
@@ -239,14 +265,16 @@ module rasdaman {
                 }
             }
 
-            $scope.describeCoverage = function () {                
+            $scope.describeCoverage = function () {          
 
+                // Show the newly generated URL for DescribeCoverage
+                $scope.updateGeneratedUrlForSelectedCisType();
+                
                 //Create describe coverage request
-                var coverageIds:string[] = [];
+                let coverageIds:string[] = [];
                 coverageIds.push($scope.selectedCoverageId);
 
-                var describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
-                $scope.requestUrl = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
+                let describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
                 $scope.coverageBBox = "";
                 $scope.axes = [];                
 
@@ -255,15 +283,17 @@ module rasdaman {
                 $("#uploadFileName").html("");
                 $("#btnUpdateCoverageMetadata").hide();
 
-                $scope.generatedGETURL = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
-                            
+                           
                 //Retrieve coverage description
                 wcsService.getCoverageDescription(describeCoverageRequest)
                     .then(
                         (response:rasdaman.common.Response<wcs.CoverageDescription>)=> {
                             // //Success handler                            
-                            $scope.coverageDescription = response.value;                           
-                            $scope.rawCoverageDescription = response.document.value;
+                            $scope.coverageDescription = response.value;    
+                            
+                            if ($scope.selectedCisType == "CIS1.0") {
+                                $scope.rawCoverageDescription = response.document.value;
+                            }
 
                             $scope.parseCoverageMetadata();
 
@@ -286,7 +316,34 @@ module rasdaman {
                     .finally(() => {
                         $scope.wcsStateInformation.selectedCoverageDescription = $scope.coverageDescription;
                     });
-            };           
+
+
+                if ($scope.selectedCisType == "CIS1.1") {
+                
+                    // NOTE: now it always need to request twice if CIS1.1 is selected
+                    wcsService.getCoverageDescriptionCis11($scope.generatedGETURL)
+                        .then(
+                            (response:string)=> {
+                                // //Success handler                            
+                                let xmlResult:string = response;
+                                $scope.rawCoverageDescription = xmlResult;
+
+                            },
+                            (...args:any[])=> {                                                        
+
+                                errorHandlingService.handleError(args);
+                                $log.error(args);
+                            })
+                        .finally(() => {
+                            $scope.wcsStateInformation.selectedCoverageDescription = $scope.coverageDescription;
+                        });
+                };
+
+
+            };        
+                
+                
+
         }
     }
 
@@ -306,8 +363,6 @@ module rasdaman {
         // Array of objects
         axes:any[];
 
-        requestUrl:string;
-
         coverageBBox:string
 
         metadata:string;
@@ -315,6 +370,9 @@ module rasdaman {
 
         generatedGETURL:string;
 
+
+        avaiableCisTypes:any[];
+        selectedCisType:string;
 
         isCoverageIdValid():boolean;
         describeCoverage():void;
@@ -325,5 +383,7 @@ module rasdaman {
         adminUserLoggedIn:boolean;
         metadataFileToUpload:string;
         updateCoverageMetadata():void;
+
+        updateGeneratedUrlForSelectedCisType():void;
     }
 }

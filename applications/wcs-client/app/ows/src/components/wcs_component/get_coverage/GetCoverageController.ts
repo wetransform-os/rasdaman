@@ -55,6 +55,12 @@ module rasdaman {
             let canvasId = "wcsCanvasGetCoverage";
             $scope.selectedCoverageId = null;
 
+
+            $scope.avaiableCisTypes = [
+                { "value": "CIS1.1", "text": "CIS 1.1 GeneralGridCoverage" },
+                { "value": "CIS1.0", "text": "CIS 1.0 GridCoverage / RectifiedGridCoverage / RectifiedGridCoverage (legacy)" }
+            ];
+
             $scope.hideWebWorldWindGlobe = false;
             // default hide the div containing the Globe
             $scope.hideWebWorldWindGlobe = true;
@@ -106,7 +112,7 @@ module rasdaman {
                     // Supported HTTP request type for GetCoverage KVP request
                     $scope.avaiableHTTPRequests = ["GET", "POST"];
                     $scope.selectedHTTPRequest = $scope.avaiableHTTPRequests[0];
-                    
+                   
                     $scope.availableCoverageIds = [];
                     $scope.coverageCustomizedMetadatasDict = {};
                     
@@ -152,7 +158,6 @@ module rasdaman {
             // Send a GetCoverage request to get result
             $scope.getCoverageClickEvent = function () {
 
-                
                 var numberOfAxis = $scope.coverageDescription.boundedBy.envelope.lowerCorner.values.length;
                 var dimensionSubset:wcs.DimensionSubset[] = [];
                 for (var i = 0; i < numberOfAxis; ++i) {
@@ -169,21 +174,27 @@ module rasdaman {
                     }
                 }
 
-                var getCoverageRequest = new wcs.GetCoverage($scope.coverageDescription.coverageId, dimensionSubset, $scope.core.selectedCoverageFormat, $scope.core.isMultiPartFormat);
+                let getCoverageRequest = new wcs.GetCoverage($scope.coverageDescription.coverageId, dimensionSubset, $scope.core.selectedCoverageFormat, $scope.core.isMultiPartFormat);
                 getCoverageRequest.rangeSubset = $scope.rangeSubsettingExtension.rangeSubset;
                 getCoverageRequest.scaling = $scope.scalingExtension.getScaling();
                 getCoverageRequest.interpolation = $scope.interpolationExtension.getInterpolation();
                 getCoverageRequest.crs = $scope.crsExtension.getCRS();
                 getCoverageRequest.clipping = $scope.clippingExtension.getClipping();
 
+                if ($scope.getCoverageTabStates.selectedCisTypeObj.value == "CIS1.1") {
+                    getCoverageRequest.isGeneralGridCoverage = true;
+                } else {
+                    getCoverageRequest.isGeneralGridCoverage = false;
+                }
+
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + getCoverageRequest.toKVP();
+
                 if ($scope.selectedHTTPRequest == "GET") {
                     // GET KVP request which open a new Window to show the result
                     wcsService.getCoverageHTTPGET(getCoverageRequest)
                     .then(
                         (requestUrl:string)=> {                                        
-                            $scope.core.requestUrl = requestUrl;          
-                            
-                            $scope.generatedGETURL = settings.wcsEndpoint + "?" + getCoverageRequest.toKVP();
+                            $scope.core.requestUrl = requestUrl;
                         },
                         (...args:any[])=> {
                             $scope.core.requestUrl = null;
@@ -362,7 +373,8 @@ module rasdaman {
                             isCRSSupported: WCSGetCoverageController.isCRSSupported($scope.wcsStateInformation.serverCapabilities),
                             isClippingOpen: false,
                             // TODO: when clipping is accepted from OGC, get an URI to schema from WCS GetCapabilities.
-                            isClippingSupported: true
+                            isClippingSupported: true,
+                            selectedCisTypeObj: $scope.avaiableCisTypes[0]
                         };
 
                         $scope.core = {
@@ -682,6 +694,9 @@ module rasdaman {
         avaiableHTTPRequests:string[];
         selectedHTTPRequest:string;
 
+        // CIS 1.1, CIS1.0
+        avaiableCisTypes:any[];
+
         core:GetCoverageCoreModel;
         rangeSubsettingExtension:RangeSubsettingModel;
         scalingExtension:WCSScalingExtensionModel;
@@ -741,6 +756,8 @@ module rasdaman {
         //Is the Clipping tab open
         isClippingOpen:boolean;
         isClippingSupported:boolean;
+
+        selectedCisTypeObj:any;
 
     }
 }

@@ -227,12 +227,12 @@ module rasdaman {
             /**
              * Parse coverage metadata as string and show it to a dropdown
              */
-            $scope.parseCoverageMetadata = () => {
+            $scope.parseCoverageMetadata = (gmlResponse:string) => {
                 $scope.metadata = null;
                 
                 // Extract the metadata from the coverage document (inside <rasdaman:covMetadata></rasdaman:covMetadata>)
                 var parser = new DOMParser();
-                var xmlDoc = parser.parseFromString($scope.rawCoverageDescription, "text/xml");
+                var xmlDoc = parser.parseFromString(gmlResponse, "text/xml");
 
                 var elements = xmlDoc.getElementsByTagName("rasdaman:covMetadata");
                 if (elements.length == 0) {
@@ -295,7 +295,7 @@ module rasdaman {
                                 $scope.rawCoverageDescription = response.document.value;
                             }
 
-                            $scope.parseCoverageMetadata();
+                            $scope.parseCoverageMetadata(response.document.value);
 
                             let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents, $scope.selectedCoverageId);
                             if (coverageExtent == null) {
@@ -305,7 +305,8 @@ module rasdaman {
                                 // coverage is referenced -> draw on globe
                                 $scope.hideWebWorldWindGlobe = false;
                                 webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent, true);
-                            }                  
+                            } 
+               
                         },
                         (...args:any[])=> {                            
                             $scope.coverageDescription = null ;
@@ -378,7 +379,7 @@ module rasdaman {
         describeCoverage():void;
         getAxisResolution(number, any):string;
         getAxisType(number, any):string;
-        parseCoverageMetadata():void;
+        parseCoverageMetadata(string):void;
 
         adminUserLoggedIn:boolean;
         metadataFileToUpload:string;

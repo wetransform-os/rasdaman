@@ -3711,10 +3711,10 @@ var rasdaman;
                     $log.error(args);
                 });
             };
-            $scope.parseCoverageMetadata = function () {
+            $scope.parseCoverageMetadata = function (gmlResponse) {
                 $scope.metadata = null;
                 var parser = new DOMParser();
-                var xmlDoc = parser.parseFromString($scope.rawCoverageDescription, "text/xml");
+                var xmlDoc = parser.parseFromString(gmlResponse, "text/xml");
                 var elements = xmlDoc.getElementsByTagName("rasdaman:covMetadata");
                 if (elements.length == 0) {
                     elements = xmlDoc.getElementsByTagName("gmlcov:Extension");
@@ -3756,7 +3756,7 @@ var rasdaman;
                     if ($scope.selectedCisType == "CIS1.0") {
                         $scope.rawCoverageDescription = response.document.value;
                     }
-                    $scope.parseCoverageMetadata();
+                    $scope.parseCoverageMetadata(response.document.value);
                     var coverageExtent = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents, $scope.selectedCoverageId);
                     if (coverageExtent == null) {
                         $scope.hideWebWorldWindGlobe = true;

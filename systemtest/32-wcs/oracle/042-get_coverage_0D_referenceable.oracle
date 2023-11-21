@@ -7,16 +7,16 @@
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
-        <gmlrgrid:ReferenceableGridByVectors dimension="0" gmlrgrid:id="test_irr_cube_1-grid">
-            <gml:limits>
+        <gmlrgrid:ReferenceableGridByVectors dimension="0" gml:id="test_irr_cube_1-grid" xmlns:gml="http://www.opengis.net/gml/3.3/rgrid">
+            <gml:limits xmlns:gml="http://www.opengis.net/gml/3.2">
                 <gml:GridEnvelope>
                     <gml:low/>
                     <gml:high/>
                 </gml:GridEnvelope>
             </gml:limits>
-            <gml:axisLabels/>
+            <gml:axisLabels xmlns:gml="http://www.opengis.net/gml/3.2"/>
             <gmlrgrid:origin>
-                <gml:Point gml:id="test_irr_cube_1-point" srsName="">
+                <gml:Point gml:id="test_irr_cube_1-point" srsName="" xmlns:gml="http://www.opengis.net/gml/3.2">
                     <gml:pos/>
                 </gml:Point>
             </gmlrgrid:origin>

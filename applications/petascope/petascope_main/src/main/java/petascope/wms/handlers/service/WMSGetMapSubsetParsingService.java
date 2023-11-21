@@ -133,8 +133,6 @@ public class WMSGetMapSubsetParsingService {
         // e.g: time="2015-02-05"
         for (Axis axis : wcpsCoverageMetadata.getSortedAxesByGridOrder()) {
             if (axis.isNonXYAxis()) {
-                
-                List<ParsedSubset<Long>> translatedGridSubsets = new ArrayList<>();
 
                 // Parse the requested dimension subset values from GetMap request
                 List<ParsedSubset<BigDecimal>> parsedGeoSubsets = new ArrayList<>();
@@ -155,20 +153,16 @@ public class WMSGetMapSubsetParsingService {
                 } else {
                     // NOTE: if coverage contains a non XY, time dimension (e.g: temperature) axis but there is no dim_temperature parameter from GetMap request
                     // it will be the upper Bound grid coordinate in this axis (the latest slice of this dimension according to WMS 1.3 document).
-                    Long gridUpperBound = axis.getGridBounds().getUpperLimit().longValue();
-                    translatedGridSubsets.add(new ParsedSubset<>(gridUpperBound, gridUpperBound));
+                    parsedGeoSubsets.add(new ParsedSubset<>(axis.getGeoBounds().getLowerLimit(), axis.getGeoBounds().getUpperLimit()));
                 }
 
-                // Then, translate all these parsed subsets to grid domains
-                for (ParsedSubset<BigDecimal> parsedGeoSubset : parsedGeoSubsets) {
-                    WcpsSubsetDimension subsetDimension = new WcpsTrimSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(),
-                                                                                      parsedGeoSubset.getLowerLimit().toPlainString(), parsedGeoSubset.getUpperLimit().toPlainString());
-                    ParsedSubset<Long> parsedGridSubset = coordinateTranslationService.geoToGridSpatialDomain(axis, subsetDimension, parsedGeoSubset);
-                    translatedGridSubsets.add(parsedGridSubset);
+
+                List<WcpsSliceSubsetDimension> geoSlicings = new ArrayList<>();
+                for (ParsedSubset<BigDecimal> subset : parsedGeoSubsets) {
+                    geoSlicings.add(new WcpsSliceSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(), subset.getLowerLimit().toPlainString()));
                 }
-                
-                List<WcpsSliceSubsetDimension> gridSlicings = this.createGridBounds(axis.getLabel(), translatedGridSubsets);
-                parsedNonXYAxesGridSlicings.add(gridSlicings);
+
+                parsedNonXYAxesGridSlicings.add(geoSlicings);
             }
         }
 
@@ -237,33 +231,7 @@ public class WMSGetMapSubsetParsingService {
             return null;
         }
     }    
-    
-    /**
-     * Create a list of grid bounds which needs to regard nonXY axes properly.
-     * Trimming needs to be separated to multiple slicing values (e.g: [0:3] -> 0,1,2,3
-     */
-    private List<WcpsSliceSubsetDimension> createGridBounds(String axisLabel, List<ParsedSubset<Long>> inputGridBounds) {
-        List<WcpsSliceSubsetDimension> results = new ArrayList<>();
-        
-        for (ParsedSubset<Long> parsedSubset : inputGridBounds) {
-            String value;
-            // e.g: time, dim_pressure axis...
-            if (parsedSubset.getLowerLimit().equals(parsedSubset.getUpperLimit())) {
-                // slicing
-                value = parsedSubset.getLowerLimit().toString();
-                results.add(new WcpsSliceSubsetDimension(axisLabel, CrsUtil.GRID_CRS, value));
-            } else {
-                for (Long i = parsedSubset.getLowerLimit(); i <= parsedSubset.getUpperLimit(); i++) {
-                    // also slicing
-                    value = i.toString();
-                    results.add(new WcpsSliceSubsetDimension(axisLabel, CrsUtil.GRID_CRS, value));
-                }
-            }
-        }
-        
-        return results;
-    }
-    
+
     /**
      * Parse the dimension subsets (if exist) from GetMap request, e.g: time=...&dim_pressure=...
      * NOTE: WMS subset can be:

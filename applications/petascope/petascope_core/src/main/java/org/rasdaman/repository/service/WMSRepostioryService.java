@@ -41,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.PetascopeRuntimeException;
+import petascope.exceptions.WMSException;
 import petascope.util.ThreadUtil;
 
 /**
@@ -150,7 +151,7 @@ public class WMSRepostioryService {
         
         Layer layer = this.layerRepository.findOneByName(layerName);
         if (layer == null) {
-            throw new PetascopeException(ExceptionCode.NoSuchLayer, "Layer '" + layerName + "' does not exist in local petascopedb.");
+            throw new WMSException(ExceptionCode.LayerNotDefined, "Layer '" + layerName + "' does not exist.");
         }
         
         final long end = System.currentTimeMillis();

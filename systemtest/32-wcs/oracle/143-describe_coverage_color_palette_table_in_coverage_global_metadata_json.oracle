@@ -20,7 +20,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="4" gmlrgrid:id="test_ecmwf_fire_4d_color_palette_table_metadata_json-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="4" gml:id="test_ecmwf_fire_4d_color_palette_table_metadata_json-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>0 0 0 0</gml:low>

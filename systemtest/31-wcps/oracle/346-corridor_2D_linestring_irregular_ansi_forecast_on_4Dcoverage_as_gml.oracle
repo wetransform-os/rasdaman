@@ -7,7 +7,7 @@
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
-        <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_wms_4d_ecmwf_fire_netcdf-grid">
+        <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_wms_4d_ecmwf_fire_netcdf-grid">
             <gml:limits>
                 <gml:GridEnvelope>
                     <gml:low>0 0 0</gml:low>

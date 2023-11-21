@@ -105,8 +105,15 @@ public class RangeSubsettingHandler extends Handler {
         int rangeFieldIndex = wcpsCoverageMetadataService.getRangeFieldIndex(metadata, rangeField);
 
         String coverageExprStr = coverageExpression.getRasql().trim();
-        String rasql = TEMPLATE.replace("$coverageExp", coverageExprStr)
-                .replace("$rangeFieldIndex", String.valueOf(rangeFieldIndex));
+        String rasql = "";
+
+        if (metadata.getRangeFields().size() == 1) {
+            // e.g. coverage has 1 band and user has $c.red -> c.0 will have error in rasdaman as collection is not composite
+            rasql = TEMPLATE_WITH_NO_BAND.replace("$coverageExp", coverageExprStr);
+        } else {
+            rasql = TEMPLATE.replace("$coverageExp", coverageExprStr)
+                            .replace("$rangeFieldIndex", String.valueOf(rangeFieldIndex));
+        }
 
         wcpsCoverageMetadataService.removeUnusedRangeFields(metadata, rangeFieldIndex);
 
@@ -116,4 +123,5 @@ public class RangeSubsettingHandler extends Handler {
     }
 
     private final String TEMPLATE = "$coverageExp.$rangeFieldIndex";
+    private final String TEMPLATE_WITH_NO_BAND = "$coverageExp";
 }

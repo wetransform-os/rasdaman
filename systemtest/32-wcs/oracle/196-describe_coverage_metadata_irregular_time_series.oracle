@@ -293,7 +293,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_wcs_metadata_irregular_time_series-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_wcs_metadata_irregular_time_series-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>-3 0 -33</gml:low>

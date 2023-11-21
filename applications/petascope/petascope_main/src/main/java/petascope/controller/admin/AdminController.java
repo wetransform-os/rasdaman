@@ -26,13 +26,18 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.io.IOUtils;
 import static org.rasdaman.config.ConfigManager.ADMIN;
+
+import org.rasdaman.config.ConfigManager;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import petascope.controller.AbstractController;
 import petascope.core.response.Response;
 import petascope.exceptions.PetascopeException;
+import petascope.util.ras.RasUtil;
+
 import static petascope.util.MIMEUtil.MIME_HTML;
+import static petascope.util.MIMEUtil.MIME_TEXT;
 
 /**
  * End point to receive requests for admin features in petascope
@@ -51,6 +56,18 @@ public class AdminController extends AbstractController {
     @Override
     protected void requestDispatcher(HttpServletRequest httpServletRequest, Map<String, String[]> kvpParameters) throws PetascopeException {
     }
+    
+
+    @RequestMapping(path = ADMIN + "/version")
+    protected void handleGetVersion(HttpServletRequest httpServletRequest) throws Exception {
+        // e.g. result is: Result element 1: rasdaman 10.2.12 on x86_64-linux-gnu, compiled by g++ (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
+        String version = RasUtil.executeQueryToReturnString("SELECT version()",
+                                                            ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS);
+        // e.g. 10.2.11
+        version = version.trim().split("rasdaman ")[1].split(" ")[0];
+        Response response = new Response(Arrays.asList(version.getBytes()), MIME_TEXT);
+        this.writeResponseResult(response);
+    }    
     
     /**
      * Just return the admin home page.

@@ -477,7 +477,12 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
 
         // Title        
         Element titleElement = new Element(XMLSymbols.LABEL_WMS_TITLE, NAMESPACE_WMS);
-        titleElement.appendChild(layer.getTitle());
+        String title = layer.getTitle();
+        if (ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
+            // NOTE: if testing WMS 1.3.0 with OGC CITE -> title needs this prefix, e.g. cite:Lakes
+            title = "cite:" + title;
+        }
+        titleElement.appendChild(title);
         layerElement.appendChild(titleElement);
 
         // Abstract

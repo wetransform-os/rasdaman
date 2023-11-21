@@ -201,11 +201,9 @@ public class WMSGetMapSubsetTranslatingService {
             ratioX = BigDecimalUtil.divide(extendedBBoxXMax.subtract(extendedBBoxXMin), orgBBoxXMax.subtract(orgBBoxXMin));
         }
 
-        BigDecimal fractionalPartX = ratioX.remainder(BigDecimal.ONE);
-        if (fractionalPartX.compareTo(BigDecimal.ZERO) == 0) {
-            fractionalPartX = BigDecimal.ONE;
+        if (ratioX.compareTo(BigDecimal.TEN) > 0) {
+            ratioX = BigDecimal.TEN.add(ratioX.remainder(BigDecimal.ONE));
         }
-        ratioX = BigDecimal.ONE.add(fractionalPartX);
 
         BigDecimal ratioY = BigDecimal.ONE;
         BigDecimal distanceY = orgBBoxYMax.subtract(orgBBoxYMin);
@@ -213,11 +211,9 @@ public class WMSGetMapSubsetTranslatingService {
             ratioY = BigDecimalUtil.divide(extendedBBoxYMax.subtract(extendedBBoxYMin), orgBBoxYMax.subtract(orgBBoxYMin));
         }
 
-        BigDecimal fractionalPartY = ratioY.remainder(BigDecimal.ONE);
-        if (fractionalPartY.compareTo(BigDecimal.ZERO) == 0) {
-            fractionalPartY = BigDecimal.ONE;
+        if (ratioY.compareTo(BigDecimal.TEN) > 0) {
+            ratioY = BigDecimal.TEN.add(ratioY.remainder(BigDecimal.ONE));
         }
-        ratioY = BigDecimal.ONE.add(fractionalPartY);
 
         // NOTE: with the original request BBOX -> the result is width x height (e.g. 256 x 256)
         // but with the extended BBOX -> the result will be larged than that by width * ratioX x height * ratioY (e.g. 433 x 450)

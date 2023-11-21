@@ -40,6 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.controller.PetascopeController;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.WMSException;
 import petascope.rasdaman.exceptions.RasdamanException;
 import petascope.exceptions.WCSException;
 import petascope.util.ras.RasUtil;
@@ -281,8 +282,8 @@ public class DeleteCoverageHandler {
 
         try {
             layer = wmsRepositoryService.readLayerByNameFromDatabase(coverageId);
-        } catch(PetascopeException ex) {
-            if (!ex.getExceptionCode().equals(ExceptionCode.NoSuchLayer)) {
+        } catch (WMSException ex) {
+            if (!ex.getExceptionCode().equals(ExceptionCode.LayerNotDefined)) {
                 throw ex;
             }
         }

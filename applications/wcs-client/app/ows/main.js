@@ -2089,6 +2089,10 @@ var wcs;
             if (this.mediaType) {
                 serialization += "&MEDIATYPE=multipart/related";
             }
+            if (this.isGeneralGridCoverage) {
+                serialization += "&outputType=GeneralGridCoverage";
+                serialization = serialization.replace("2.0.1", "2.1.0");
+            }
             return serialization;
         };
         return GetCoverage;
@@ -2402,6 +2406,24 @@ var rasdaman;
                     var description = new wcs.CoverageDescription(serializedResponse);
                     var response = new rasdaman.common.Response(doc, description);
                     result.resolve(response);
+                }
+                catch (err) {
+                    result.reject(err);
+                }
+            }, function (error) {
+                result.reject(error);
+            });
+            return result.promise;
+        };
+        WCSService.prototype.getCoverageDescriptionCis11 = function (requestUrl) {
+            var result = this.$q.defer();
+            var self = this;
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
+            this.$http.get(requestUrl, {
+                headers: requestHeaders
+            }).then(function (data) {
+                try {
+                    result.resolve(data.data);
                 }
                 catch (err) {
                     result.reject(err);
@@ -3570,6 +3592,11 @@ var rasdaman;
             $scope.NOT_AVALIABLE = "N/A";
             $scope.hasRoleUpdateCoverage = rasdaman.AdminService.hasRole($rootScope.userLoggedInRoles, rasdaman.AdminService.PRIV_OWS_WCS_UPDATE_COV);
             $scope.hideWebWorldWindGlobe = true;
+            $scope.avaiableCisTypes = [
+                { "value": "CIS1.1", "text": "CIS 1.1 GeneralGridCoverage" },
+                { "value": "CIS1.0", "text": "CIS 1.0 GridCoverage / RectifiedGridCoverage / RectifiedGridCoverage (legacy)" }
+            ];
+            $scope.selectedCisType = $scope.avaiableCisTypes[0].value;
             var canvasId = "wcsCanvasDescribeCoverage";
             $scope.isCoverageIdValid = function () {
                 if ($scope.wcsStateInformation.serverCapabilities) {
@@ -3617,6 +3644,17 @@ var rasdaman;
                     $scope.describeCoverage();
                 }
             });
+            $scope.updateGeneratedUrlForSelectedCisType = function () {
+                var coverageIds = [];
+                coverageIds.push($scope.selectedCoverageId);
+                var describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
+                var requestUrl = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
+                if ($scope.selectedCisType == "CIS1.1") {
+                    requestUrl += "&outputType=GeneralGridCoverage";
+                    requestUrl = requestUrl.replace("2.0.1", "2.1.0");
+                }
+                $scope.generatedGETURL = requestUrl;
+            };
             $scope.updateCoverageMetadata = function () {
                 var fileInput = document.getElementById("coverageMetadataUploadFile");
                 var mimeType = fileInput.files[0].type;
@@ -3673,10 +3711,10 @@ var rasdaman;
                     $log.error(args);
                 });
             };
-            $scope.parseCoverageMetadata = function () {
+            $scope.parseCoverageMetadata = function (gmlResponse) {
                 $scope.metadata = null;
                 var parser = new DOMParser();
-                var xmlDoc = parser.parseFromString($scope.rawCoverageDescription, "text/xml");
+                var xmlDoc = parser.parseFromString(gmlResponse, "text/xml");
                 var elements = xmlDoc.getElementsByTagName("rasdaman:covMetadata");
                 if (elements.length == 0) {
                     elements = xmlDoc.getElementsByTagName("gmlcov:Extension");
@@ -3703,21 +3741,22 @@ var rasdaman;
                 }
             };
             $scope.describeCoverage = function () {
+                $scope.updateGeneratedUrlForSelectedCisType();
                 var coverageIds = [];
                 coverageIds.push($scope.selectedCoverageId);
                 var describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
-                $scope.requestUrl = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
                 $scope.coverageBBox = "";
                 $scope.axes = [];
                 $("#coverageMetadataUploadFile").val("");
                 $("#uploadFileName").html("");
                 $("#btnUpdateCoverageMetadata").hide();
-                $scope.generatedGETURL = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
                 wcsService.getCoverageDescription(describeCoverageRequest)
                     .then(function (response) {
                     $scope.coverageDescription = response.value;
-                    $scope.rawCoverageDescription = response.document.value;
-                    $scope.parseCoverageMetadata();
+                    if ($scope.selectedCisType == "CIS1.0") {
+                        $scope.rawCoverageDescription = response.document.value;
+                    }
+                    $scope.parseCoverageMetadata(response.document.value);
                     var coverageExtent = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents, $scope.selectedCoverageId);
                     if (coverageExtent == null) {
                         $scope.hideWebWorldWindGlobe = true;
@@ -3737,6 +3776,23 @@ var rasdaman;
                 })["finally"](function () {
                     $scope.wcsStateInformation.selectedCoverageDescription = $scope.coverageDescription;
                 });
+                if ($scope.selectedCisType == "CIS1.1") {
+                    wcsService.getCoverageDescriptionCis11($scope.generatedGETURL)
+                        .then(function (response) {
+                        var xmlResult = response;
+                        $scope.rawCoverageDescription = xmlResult;
+                    }, function () {
+                        var args = [];
+                        for (var _i = 0; _i < arguments.length; _i++) {
+                            args[_i] = arguments[_i];
+                        }
+                        errorHandlingService.handleError(args);
+                        $log.error(args);
+                    })["finally"](function () {
+                        $scope.wcsStateInformation.selectedCoverageDescription = $scope.coverageDescription;
+                    });
+                }
+                ;
             };
         }
         WCSDescribeCoverageController.$inject = [
@@ -3908,6 +3964,10 @@ var rasdaman;
         function WCSGetCoverageController($http, $scope, $rootScope, $log, wcsService, settings, alertService, webWorldWindService) {
             var canvasId = "wcsCanvasGetCoverage";
             $scope.selectedCoverageId = null;
+            $scope.avaiableCisTypes = [
+                { "value": "CIS1.1", "text": "CIS 1.1 GeneralGridCoverage" },
+                { "value": "CIS1.0", "text": "CIS 1.0 GridCoverage / RectifiedGridCoverage / RectifiedGridCoverage (legacy)" }
+            ];
             $scope.hideWebWorldWindGlobe = false;
             $scope.hideWebWorldWindGlobe = true;
             $scope.isCoverageIdValid = function () {
@@ -4001,11 +4061,17 @@ var rasdaman;
                 getCoverageRequest.interpolation = $scope.interpolationExtension.getInterpolation();
                 getCoverageRequest.crs = $scope.crsExtension.getCRS();
                 getCoverageRequest.clipping = $scope.clippingExtension.getClipping();
+                if ($scope.getCoverageTabStates.selectedCisTypeObj.value == "CIS1.1") {
+                    getCoverageRequest.isGeneralGridCoverage = true;
+                }
+                else {
+                    getCoverageRequest.isGeneralGridCoverage = false;
+                }
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + getCoverageRequest.toKVP();
                 if ($scope.selectedHTTPRequest == "GET") {
                     wcsService.getCoverageHTTPGET(getCoverageRequest)
                         .then(function (requestUrl) {
                         $scope.core.requestUrl = requestUrl;
-                        $scope.generatedGETURL = settings.wcsEndpoint + "?" + getCoverageRequest.toKVP();
                     }, function () {
                         var args = [];
                         for (var _i = 0; _i < arguments.length; _i++) {
@@ -4131,7 +4197,8 @@ var rasdaman;
                         isCRSOpen: false,
                         isCRSSupported: WCSGetCoverageController.isCRSSupported($scope.wcsStateInformation.serverCapabilities),
                         isClippingOpen: false,
-                        isClippingSupported: true
+                        isClippingSupported: true,
+                        selectedCisTypeObj: $scope.avaiableCisTypes[0]
                     };
                     $scope.core = {
                         slices: [],

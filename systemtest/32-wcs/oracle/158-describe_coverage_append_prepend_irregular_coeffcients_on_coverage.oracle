@@ -53,7 +53,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_append_prepend_irregular_coverage_slice-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_append_prepend_irregular_coverage_slice-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>-1 0 0</gml:low>

@@ -30,6 +30,7 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
+import petascope.util.StringUtil;
 import petascope.util.TimeUtil;
 
 /**
@@ -211,6 +212,28 @@ public class AxisExtent implements Serializable {
         } else {
             return BigDecimalUtil.stripDecimalZeros(new BigDecimal(this.upperBound));
         }
+    }
+
+    @JsonIgnore
+    public String getLowerBoundRepresentation() throws PetascopeException {
+        String result = lowerBound;
+        if (this.axisType.equals(AxisTypes.T_AXIS) && !result.startsWith("\"")) {
+            result = TimeUtil.valueToISODateTime(BigDecimal.ZERO,
+                    new BigDecimal(String.valueOf(this.lowerBound)), CrsUtil.getCrsDefinition(this.srsName));
+        }
+
+        return result;
+    }
+
+    @JsonIgnore
+    public String getUpperBoundRepresentation() throws PetascopeException {
+        String result = upperBound;
+        if (this.axisType.equals(AxisTypes.T_AXIS) && !result.startsWith("\"")) {
+            result = TimeUtil.valueToISODateTime(BigDecimal.ZERO,
+                    new BigDecimal(String.valueOf(this.upperBound)), CrsUtil.getCrsDefinition(this.srsName));
+        }
+
+        return result;
     }
 
     public Long getGridLowerBound() {

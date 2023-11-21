@@ -229,7 +229,7 @@ public class EnvelopeByAxis implements Serializable {
         String lowerCorner = "";
         for (AxisExtent axisExtent : this.axisExtents) {
             if (!ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
-                lowerCorner += axisExtent.getLowerBound() + " ";
+                lowerCorner += axisExtent.getLowerBoundRepresentation() + " ";
             } else {
                 // Returns the bound as number as OGC CITE requires value in number
                 lowerCorner += axisExtent.getLowerBoundNumber() + " ";
@@ -283,7 +283,7 @@ public class EnvelopeByAxis implements Serializable {
         String upperCorner = "";
         for (AxisExtent axisExtent : this.axisExtents) {
             if (!ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
-                upperCorner += axisExtent.getUpperBound() + " ";
+                upperCorner += axisExtent.getUpperBoundRepresentation() + " ";
             } else {
                 // Returns the bound as number as OGC CITE requires value in number
                 upperCorner += axisExtent.getUpperBoundNumber() + " ";

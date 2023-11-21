@@ -16,7 +16,7 @@
         </gml:coverageFunction>
         <gmlcov:metadata/>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_AverageChloro-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_AverageChloro-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>-5 0 0</gml:low>

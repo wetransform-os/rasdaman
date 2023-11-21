@@ -67,7 +67,11 @@ public class RangeConstructorHandler extends Handler {
     private WcpsResult handle(WcpsResult coverageExpression) {
         WcpsCoverageMetadata metadata = coverageExpression.getMetadata();
         
-        String rasql = "{ " +  coverageExpression.getRasql() + " }";
+        String rasql = coverageExpression.getRasql();
+        if (metadata.getRangeFields().size() > 1) {
+            rasql = "{ " + coverageExpression.getRasql() + "}";
+        }
+        
         return new WcpsResult(metadata, rasql);
     }
 }

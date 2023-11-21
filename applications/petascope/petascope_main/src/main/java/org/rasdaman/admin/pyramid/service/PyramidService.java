@@ -135,10 +135,10 @@ public class PyramidService {
         } catch (PetascopeException ex) {
             String errorMessage = "Error initializing MDD for newly "
                     + "created downscaled rasdaman collection '" + downscaledLevelCollection + "' for pyramid member coverage '" + pyramidMemberCoverageId
-                    + "'. Reason: " + ex.getExceptionText();            
+                    + "'. Reason: " + ex.getExceptionText();
             // NOTE: any error when preparing the downscaled collection will need to clean the newly created collection in rasdaman.
-            this.deleteDownscaledLevelCollection(downscaledLevelCollection, username, password); 
-            
+            this.deleteDownscaledLevelCollection(downscaledLevelCollection, username, password);
+
             throw new PetascopeException(ExceptionCode.InternalComponentError, errorMessage, ex);
         }
     }
@@ -541,10 +541,21 @@ public class PyramidService {
                 
                 if (subsetDimension instanceof WcpsSliceSubsetDimension) {
                     WcpsSliceSubsetDimension sliceSubset = (WcpsSliceSubsetDimension)subsetDimension;
+                    String bound = sliceSubset.getBound();
+                    if (!isGoodGeoBound(bound)) {
+                        return false;
+                    }
                     geoLowerBound = geoAxis.getBoundNumber(sliceSubset.getBound());
                     geoUpperBound = geoLowerBound;
                 } else {
                     WcpsTrimSubsetDimension trimSubset = (WcpsTrimSubsetDimension)subsetDimension;
+                    String lowerBound = trimSubset.getLowerBound();
+                    String upperBound = trimSubset.getUpperBound();
+
+                    if (!isGoodGeoBound(lowerBound) || !isGoodGeoBound(upperBound)) {
+                        return false;
+                    }
+
                     geoLowerBound = geoAxis.getBoundNumber(trimSubset.getLowerBound());
                     geoUpperBound = geoAxis.getBoundNumber(trimSubset.getUpperBound());
                 }
@@ -580,7 +591,12 @@ public class PyramidService {
         
         return true;
     }
-    
+
+
+    private boolean isGoodGeoBound(String geoBound) {
+        boolean result = BigDecimalUtil.isNumber(geoBound) || geoBound.startsWith("\"");
+        return result;
+    }
     
     /**
     *  Given geo subsets on X and Y axes, and their scale target grid domains,

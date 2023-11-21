@@ -48,7 +48,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="3" gmlrgrid:id="test_wcs_local_metadata_tiff-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_wcs_local_metadata_tiff-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>0 0 0</gml:low>

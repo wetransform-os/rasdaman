@@ -86,12 +86,33 @@
                                             <label for="select-coverage-format">
                                                 Select encoding format:
                                             </label>
-                                        </div>
+                                        </div>                                        
+
                                         <div class="col-sm-9">
                                             <select id="select-coverage-format" ng-model="core.selectedCoverageFormat" ng-options="format for format in wcsStateInformation.serverCapabilities.serviceMetadata.formatSupported">\
                                             </select>
                                         </div>
                                     </div>
+
+
+                                    <div class="row">
+                                        <div class="col-sm-3">
+                                            <label for="select-coverage-type">Coverage type:</label>
+                                        </div>         
+                                        
+                                        
+                                        <div class="col-sm-9" ng-show="core.selectedCoverageFormat == 'application/gml+xml'">
+                                            <!-- (!!!!!!!) NOTE: because of under the uib-accordion, 
+                                                    the ng-model MUST BE stored in an object interface, 
+                                                    otherwise it will not be able to get the value changed when a new option is selected (!)-->
+                                            <select id ="select-coverage-type" 
+                                                ng-model="getCoverageTabStates.selectedCisTypeObj" ng-options="cisType.text for cisType in avaiableCisTypes" ng-change="updateGeneratedUrlForSelectedCisType()">                                            
+                                            </select>
+                                        </div>
+                                        
+        
+                                    </div>
+
                                     <div class="row">
                                         <div class="col-sm-3">
                                             <label for="multipart-format">Multipart:</label>

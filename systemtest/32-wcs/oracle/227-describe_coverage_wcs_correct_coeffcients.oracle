@@ -16,7 +16,7 @@
         </gml:coverageFunction>
         <gmlcov:metadata/>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="4" gmlrgrid:id="test_wcs_correct_coeffcients-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="4" gml:id="test_wcs_correct_coeffcients-grid">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>0 -1 -231 -271</gml:low>

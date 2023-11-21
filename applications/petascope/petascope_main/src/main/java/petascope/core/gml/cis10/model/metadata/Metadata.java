@@ -63,9 +63,35 @@ public class Metadata implements ISerializeToXMElement {
             Element gmlExtensionElement = new Element(XMLUtil.createXMLLabel(PREFIX_GMLCOV, LABEL_EXTENSION), NAMESPACE_GMLCOV);
             metadataElement.appendChild(gmlExtensionElement);
             
-            Element covMetadateElement = null;
+            Element covMetadateElement = getRasdamanCoverageMetadataElement(this.metadata);
+            gmlExtensionElement.appendChild(covMetadateElement);
+        }
+        
+        return metadataElement;
+    }
+
+    /**
+     * Return metadata element like below:
+     * <rasdaman:covMetadata>
+         * <PartitionSet>
+             * <Partition>
+                * <CoverageRef>test_source_coverage_1</CoverageRef>
+             * </Partition>
+         * </PartitionSet>
+         * <title>rasdaman</title>
+         * <description>this virtual coverage is created from source coverages</description>
+         * <xxxx>This is metadata 1......</xxxx>
+         * <x123>This is metadata 2.......</x123>
+         * <x124>metadata 3.......</x124>
+         * <x125>metadata 4.......</x125>
+     * </rasdaman:covMetadata>
+     */
+    public static Element getRasdamanCoverageMetadataElement(String metadata) throws PetascopeException {
+        Element covMetadateElement = null;
+
+        if (metadata != null && !metadata.isEmpty()) {
             metadata = XMLUtil.stripXMLDeclaration(metadata);
-            
+
             if (XMLUtil.hasXMLNameSpaceAtRootElement(metadata)) {
                 // metadata has its own namspaces, e.g: INSPIRE, don't add rasdaman:covMetadata wrapper element
                 metadata = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + metadata;
@@ -76,10 +102,8 @@ public class Metadata implements ISerializeToXMElement {
                 String covMetadataXML = XMLUtil.createXMLString(NAMESPACE_RASDAMAN, PREFIX_RASDAMAN, LABEL_COVERAGE_METADATA, metadata);
                 covMetadateElement = XMLUtil.parseXmlFragment(covMetadataXML);
             }
-            
-            gmlExtensionElement.appendChild(covMetadateElement);
         }
-        
-        return metadataElement;
+
+        return covMetadateElement;
     }
 }

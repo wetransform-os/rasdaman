@@ -28,11 +28,11 @@
  */
 module wcs {
     export class GetCapabilities extends ows.GetCapabilities implements rasdaman.common.ISerializable {
-        public constructor() {
+        public constructor(version:string = "2.0.1") {
             super();
 
             this.service = "WCS";
-            this.acceptVersions = ["2.0.1"];
+            this.acceptVersions = [version];
         }
 
         public toKVP():string {

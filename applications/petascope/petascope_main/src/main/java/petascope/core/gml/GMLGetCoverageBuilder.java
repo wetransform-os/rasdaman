@@ -27,11 +27,6 @@ import java.util.Set;
 import nu.xom.Element;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import static petascope.core.XMLSymbols.LABEL_GENERAL_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_REFERENCEABLE_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.NAMESPACE_GMLCOV;
-import static petascope.core.XMLSymbols.PREFIX_CIS11;
-import static petascope.core.XMLSymbols.PREFIX_GMLCOV;
 import petascope.core.gml.cis10.GMLCoreCIS10;
 import petascope.core.gml.cis10.GMLCoreCIS10Builder;
 import petascope.core.gml.cis10.GMLCIS10GetCoverage;
@@ -46,11 +41,9 @@ import petascope.core.gml.cis11.GMLCoreCIS11;
 import petascope.core.gml.cis11.GMLCoreCIS11Builder;
 import petascope.core.gml.cis11.model.rangeset.DataBlockCIS11;
 import petascope.core.gml.cis11.model.rangeset.RangeSetCIS11;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_CIS_11_GET_COVERAGE;
-import static petascope.core.XMLSymbols.NAMESPACE_CIS_11;
-import static petascope.core.XMLSymbols.NAMESPACE_GMLRGRID;
-import static petascope.core.XMLSymbols.PREFIX_GMLRGRID;
 import petascope.util.XMLUtil;
+
+import static petascope.core.XMLSymbols.*;
 import static petascope.core.gml.GMLDescribeCoverageBuilder.isCIS11;
 import petascope.exceptions.ExceptionCode;
 
@@ -142,6 +135,8 @@ public class GMLGetCoverageBuilder {
             if (coverageType.equals(LABEL_REFERENCEABLE_GRID_COVERAGE)) {
                 xmlNameSpacesMap.put(PREFIX_GMLRGRID, NAMESPACE_GMLRGRID);
             }
+
+            schemaLocations.add(SCHEMA_LOCATION_WCS_2_0_1_GET_COVERAGE);
         }
         
         AbstractGMLCISGetCoverage gmlGetCoverage = this.buildGMLGetCoverage(wcpsCoverageMetadata, pixelValues);

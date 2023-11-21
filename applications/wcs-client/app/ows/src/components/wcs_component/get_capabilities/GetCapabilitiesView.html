@@ -21,6 +21,24 @@
                 </div>
             </div>
 
+            <div style="background-color: white; margin: 30px;" class="row row-centered">
+        
+                <b>Version:</b>
+
+                <!-- (!) NOTE: because this dropdown IS NOT under the uib-accordion, 
+                    hence, the ng-model MUST NOT BE stored in an object interface and it can get the value changed when a new option is selected.
+                    It doesn't work like that in the case of GetCoverageController when the <select> is under uib-accordion (!)-->
+                <select                         
+                    style="height: 30px;" ng-selected="avaiableVersions[0]" ng-options="version.value as version.text for version in avaiableVersions" 
+                    ng-model="selectedVersion" ng-change="updateGeneratedUrlForSelectedVersion()"
+
+                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" 
+                    data-placement="right" title="After a version is chosen, click on GetCapabilities button to view the new GML output format in the bottom of the page.">
+                </select>
+                
+    
+            </div>
+
         </div>
  	
         <div class="row-sm-11 top15">

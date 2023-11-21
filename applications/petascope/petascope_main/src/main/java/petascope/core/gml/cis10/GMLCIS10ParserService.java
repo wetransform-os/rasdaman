@@ -1155,4 +1155,3 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
     private static final String TEMPLATE_RASDAMAN_STRUCTURE = "{" + TOKEN_STRUCTURE_CELL_VAL + "}";
 
 }
-

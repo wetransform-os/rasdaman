@@ -90,6 +90,22 @@ module rasdaman {
 
             $scope.hasBlackWhiteListeCoverageRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_BLACKWHITELIST_COV);
 
+            
+            $scope.avaiableVersions = [
+                { "value": "2.1.0", "text": "WCS 2.1.0" },
+                { "value": "2.0.1", "text": "WCS 2.0.1" }
+            ];
+            $scope.selectedVersion = $scope.avaiableVersions[0].value;
+
+            /**
+             * Default version 2.1.0 is selected
+             */
+            $scope.updateGeneratedUrlForSelectedVersion = () => {
+                // Create capabilities request
+                let capabilitiesRequest = new wcs.GetCapabilities($scope.selectedVersion);                
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + capabilitiesRequest.toKVP();
+            };
+
             // NOTE: not all coverages could be loaded as geo-referenced, only possible coverages will have checkboxes nearby coveargeId
             $scope.initCheckboxesForCoverageIds = () => {
                 // all coverages
@@ -433,7 +449,7 @@ module rasdaman {
                 settings.wcsEndpoint = $scope.wcsServerEndpoint;
 
                 // Create capabilities request
-                let capabilitiesRequest = new wcs.GetCapabilities();       
+                let capabilitiesRequest = new wcs.GetCapabilities($scope.selectedVersion);       
                 
                 $scope.generatedGETURL = settings.wcsEndpoint + "?" + capabilitiesRequest.toKVP();
 
@@ -496,6 +512,9 @@ module rasdaman {
         adminUserLoggedIn:boolean;
 
         generatedGETURL:string;
+
+        avaiableVersions:any[];
+        selectedVersion:string;
 
         parseCoveragesExtents():void;
 

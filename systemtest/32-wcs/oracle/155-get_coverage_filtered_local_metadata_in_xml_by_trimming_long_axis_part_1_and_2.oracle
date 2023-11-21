@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<gmlcov:RectifiedGridCoverage gml:id="test_wcs_local_metadata_tiff_map_mosaic" xsi:schemaLocation="" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org">
+<gmlcov:RectifiedGridCoverage gml:id="test_wcs_local_metadata_tiff_map_mosaic" xsi:schemaLocation="http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/coverage.xsd" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org">
     <gml:boundedBy>
         <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" axisLabels="Lat Long" uomLabels="degree degree" srsDimension="2">
             <gml:lowerCorner>-44.975 111.975</gml:lowerCorner>
@@ -62,7 +62,7 @@
                             </Envelope>
                         </boundedBy>
                         <local_metadata_key>value_1</local_metadata_key>
-                        <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/testcases_services/test_all_wcst_import/testdata/117-wcs_local_metadata_tiff_map_mosaic/part_1.tiff</fileReferenceHistory>
+                        <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/30-wcstimport/testdata/117-wcs_local_metadata_tiff_map_mosaic/part_1.tiff</fileReferenceHistory>
                     </slice>
                     <slice>
                         <boundedBy>
@@ -74,7 +74,7 @@
                             </Envelope>
                         </boundedBy>
                         <local_metadata_key>value_2</local_metadata_key>
-                        <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/testcases_services/test_all_wcst_import/testdata/117-wcs_local_metadata_tiff_map_mosaic/part_2.tiff</fileReferenceHistory>
+                        <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/30-wcstimport/testdata/117-wcs_local_metadata_tiff_map_mosaic/part_2.tiff</fileReferenceHistory>
                     </slice>
                 </slices>
                 <Title>Drought code</Title>

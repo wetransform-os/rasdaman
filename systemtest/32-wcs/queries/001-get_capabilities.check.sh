@@ -36,7 +36,13 @@ for file in "$nout" "$nora"
 do
   prepare_xml_file "$file"
   sed -i -e '/<wcs:CoverageSummary>/,/<\/wcs:CoverageSummary>/d' \
+         -e '/<wcs20:CoverageSummary>/,/<\/wcs20:CoverageSummary>/d' \
+         -e '/<wcs:Contents>/,/<\/wcs:Contents>/d' \
+         -e '/<wcs:Contents\/>/d' \
+         -e '/<wcs20:Contents>/,/<\/wcs20:Contents>/d' \
+         -e '/<wcs20:Contents\/>/d' \
          -e 's/<\(wcs:\)\?formatSupported>.*<\/\(wcs:\)\?formatSupported>/%formatSupported%/g' \
+         -e 's/<\(wcs20:\)\?formatSupported>.*<\/\(wcs20:\)\?formatSupported>/%formatSupported%/g' \
          -e '/<ows:HTTP>/,/<\/ows:HTTP>/d' \
          -e '/<ows:ExtendedCapabilities>/,/<\/ows:ExtendedCapabilities>/d' \
          "$file"

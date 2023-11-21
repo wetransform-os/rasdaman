@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<wcs:CoverageDescriptions xsi:schemaLocation="http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd" xmlns:wcs="http://www.opengis.net/wcs/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:gmlrgrid="http://www.opengis.net/gml/3.3/rgrid" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0">
+<wcs:CoverageDescriptions xsi:schemaLocation="http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsDescribeCoverage.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd" xmlns:wcs="http://www.opengis.net/wcs/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:gmlrgrid="http://www.opengis.net/gml/3.3/rgrid" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0">
     <wcs:CoverageDescription gml:id="test_wcs_metadata_irregular_time_series">
         <gml:boundedBy>
             <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" axisLabels="ansi Lat Lon" uomLabels="d degree degree" srsDimension="3">
@@ -83,7 +83,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/opt/rasdaman/source/systemtest/testcases_services/test_all_wcst_import/testdata/120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-07.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/30-wcstimport/testdata/120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-07.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -150,7 +150,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/opt/rasdaman/source/systemtest/testcases_services/test_all_wcst_import/testdata/120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-05.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/30-wcstimport/testdata/120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-05.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -217,7 +217,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/opt/rasdaman/source/systemtest/testcases_services/test_all_wcst_import/testdata/120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-02.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/30-wcstimport/testdata/120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-02.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -284,7 +284,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/opt/rasdaman/source/systemtest/testcases_services/test_all_wcst_import/testdata/120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-01.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/home/rasdaman/rasdaman_enterprise/stable_repository/rasdaman-enterprise/systemtest/30-wcstimport/testdata/120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-01.tiff</fileReferenceHistory>
                         </slice>
                     </slices>
                     <AREA_OR_POINT>Area</AREA_OR_POINT>
@@ -293,7 +293,7 @@
             </gmlcov:Extension>
         </gmlcov:metadata>
         <gml:domainSet>
-            <gmlrgrid:ReferenceableGridByVectors dimension="3" gml:id="test_wcs_metadata_irregular_time_series-grid">
+            <gmlrgrid:ReferenceableGridByVectors dimension="3">
                 <gml:limits>
                     <gml:GridEnvelope>
                         <gml:low>-3 0 -33</gml:low>

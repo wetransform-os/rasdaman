@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<wcs:CoverageDescriptions xsi:schemaLocation="http://www.opengis.net/wcs/2.1/gml http://schemas.opengis.net/wcs/2.1/gml/wcsAll.xsd" xmlns:wcs="http://www.opengis.net/wcs/2.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:cis11="http://www.opengis.net/cis/1.1/gml">
-    <wcs:CoverageDescription gml:id="test_irr_cube_2">
-        <cis11:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/32633" axisLabels="ansi E N" srsDimension="3">
-            <cis11:AxisExtent axisLabel="ansi" uomLabel="d" lowerBound="2008-01-01T02:01:20.000Z" upperBound="2008-01-08T00:02:58.000Z"/>
-            <cis11:AxisExtent axisLabel="E" uomLabel="metre" lowerBound="75042.72735943" upperBound="705042.72735943"/>
-            <cis11:AxisExtent axisLabel="N" uomLabel="metre" lowerBound="5094865.557938452" upperBound="5454865.557938452"/>
-        </cis11:Envelope>
-        <wcs:CoverageId>test_irr_cube_2</wcs:CoverageId>
+<wcs21:CoverageDescriptions xsi:schemaLocation="http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd http://www.opengis.net/wcs/2.1/gml http://schemas.opengis.net/wcs/2.1/gml/wcsAll.xsd http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsAll.xsd" xmlns:wcs21="http://www.opengis.net/wcs/2.1/gml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:cis11="http://www.opengis.net/cis/1.1/gml" xmlns:wcs20="http://www.opengis.net/wcs/2.0">
+    <wcs21:CoverageDescription>
+        <wcs20:CoverageId>test_irr_cube_2</wcs20:CoverageId>
         <gml:coverageFunction>
             <gml:GridFunction>
                 <gml:sequenceRule axisOrder="+3 +2 +1">Linear</gml:sequenceRule>
                 <gml:startPoint>0 0 0</gml:startPoint>
             </gml:GridFunction>
         </gml:coverageFunction>
+        <cis11:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/32633" axisLabels="ansi E N" srsDimension="3">
+            <cis11:AxisExtent axisLabel="ansi" uomLabel="d" lowerBound="2008-01-01T02:01:20.000Z" upperBound="2008-01-08T00:02:58.000Z"/>
+            <cis11:AxisExtent axisLabel="E" uomLabel="metre" lowerBound="75042.72735943" upperBound="705042.72735943"/>
+            <cis11:AxisExtent axisLabel="N" uomLabel="metre" lowerBound="5094865.557938452" upperBound="5454865.557938452"/>
+        </cis11:Envelope>
+        <cis11:Metadata/>
         <cis11:DomainSet>
             <cis11:GeneralGrid srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/32633" axisLabels="ansi E N">
                 <cis11:RegularAxis axisLabel="E" uomLabel="metre" lowerBound="75042.72735943" upperBound="705042.72735943" resolution="10000"/>
@@ -38,7 +39,7 @@
                         <swe:description/>
                         <swe:nilValues>
                             <swe:NilValues>
-                                <swe:nilValue reason="">-9.22337204e+18</swe:nilValue>
+                                <swe:nilValue reason="">-9.223372036854776e+18</swe:nilValue>
                             </swe:NilValues>
                         </swe:nilValues>
                         <swe:uom code="10^0"/>
@@ -51,7 +52,7 @@
                         <swe:description/>
                         <swe:nilValues>
                             <swe:NilValues>
-                                <swe:nilValue reason="">-9.22337204e+18</swe:nilValue>
+                                <swe:nilValue reason="">-9.223372036854776e+18</swe:nilValue>
                             </swe:NilValues>
                         </swe:nilValues>
                         <swe:uom code="10^0"/>
@@ -60,10 +61,9 @@
                 </swe:field>
             </swe:DataRecord>
         </cis11:RangeType>
-        <cis11:metadata/>
-        <wcs:ServiceParameters>
-            <wcs:CoverageSubtype>GeneralGridCoverage</wcs:CoverageSubtype>
-            <wcs:nativeFormat>application/octet-stream</wcs:nativeFormat>
-        </wcs:ServiceParameters>
-    </wcs:CoverageDescription>
-</wcs:CoverageDescriptions>
+        <wcs20:ServiceParameters>
+            <wcs20:CoverageSubtype>GeneralGridCoverage</wcs20:CoverageSubtype>
+            <wcs20:nativeFormat>application/octet-stream</wcs20:nativeFormat>
+        </wcs20:ServiceParameters>
+    </wcs21:CoverageDescription>
+</wcs21:CoverageDescriptions>

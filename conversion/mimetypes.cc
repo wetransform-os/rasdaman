@@ -28,10 +28,16 @@ rasdaman GmbH.
 using namespace std;
 
 std::map<std::string, std::string> r_MimeTypes::mimeTypeToFormatName = initMimeTypeToFormatNameMap();
+std::map<std::string, std::string> r_MimeTypes::mimeTypeToVectorFormatName = initMimeTypeToVectorFormatNameMap();
 
 bool r_MimeTypes::isMimeType(const std::string &mimeType)
 {
     return mimeTypeToFormatName.count(mimeType) == 1;
+}
+
+bool r_MimeTypes::isVectorMimeType(const std::string &mimeType) 
+{
+    return mimeTypeToVectorFormatName.count(mimeType) == 1;
 }
 
 std::string r_MimeTypes::getFormatName(const std::string &mimeType)
@@ -44,6 +50,109 @@ std::string r_MimeTypes::getFormatName(const std::string &mimeType)
     {
         return std::string();
     }
+}
+
+std::string r_MimeTypes::getVectorFormatName(const std::string &mimeType)
+{
+    if (isVectorMimeType(mimeType)) 
+    {
+        return mimeTypeToVectorFormatName[mimeType];
+    }
+    else
+    {
+        return std::string();
+    }
+}
+
+std::map<std::string, std::string> r_MimeTypes::initMimeTypeToVectorFormatNameMap() 
+{
+    std::map<std::string, std::string> ret;
+    ret["application/x-ogc-amigocloud"] = "AmigoCloud";
+    ret["application/vnd.apache.arrow.file"] = "Arrow";
+    ret["application/vnd.apache.arrow.stream"] = "Arrow";
+    ret["application/x-ogc-arc/info-binary-coverage"] = "Arc/Info Binary Coverage";
+    ret["application/x-ogc-arc/info-e00-(ascii)-coverage"] = "Arc/Info E00 (ASCII) Coverage";
+    ret["application/x-ogc-autocad-dwg"] = "AutoCAD DWG";
+    ret["application/x-ogc-carto"] = "Carto";
+    ret["text/csv"] = "CSV";
+    ret["application/x-ogc-csw"] = "CSW";
+    ret["application/x-ogc-dgn"] = "DGN";
+    ret["application/x-ogc-dgnv8"] = "DGNv8";
+    ret["image/vnd.dxf"] = "DXF";
+    ret["application/x-ogc-edigeo"] = "EDIGEO";
+    ret["application/vnd.google-earth.kmz"] = "EEDA";
+    ret["application/x-ogc-elasticsearch"] = "Elasticsearch";
+    ret["application/x-ogc-esrijson"] = "ESRIJSON";
+    ret["application/x-ogc-filegdb"] = "FileGDB";
+    ret["application/x-ogc-flatgeobuf"] = "FlatGeobuf";
+    ret["application/x-ogc-geoconcept"] = "Geoconcept";
+    ret["application/geo+json"] = "GeoJSON";
+    ret["application/geo+json-seq"] = "GeoJSONSeq";
+    ret["application/x-ogc-georss"] = "GeoRSS";
+    ret["application/gml+xml"] = "GML";
+    ret["application/x-ogc-gmlas"] = "GMLAS";
+    ret["application/x-ogc-gmt"] = "GMT";
+    ret["application/x-ogc-gpkg"] = "GPKG";
+    ret["application/x-ogc-gpsbabel"] = "GPSBabel";
+    ret["application/vnd.gpxsee.map+xml"] = "GPX";
+    ret["application/x-ogc-grass"] = "GRASS";
+    ret["application/x-ogc-gtfs"] = "GTFS";
+    ret["application/x-ogc-hana"] = "HANA";
+    ret["application/x-ogc-idb"] = "IDB";
+    ret["application/x-ogc-idrisi"] = "IDRISI";
+    ret["application/x-ogc-interlis-1"] = "INTERLIS 1";
+    ret["application/x-ogc-interlis-2"] = "INTERLIS 2";
+    ret["application/x-ogc-jml"] = "JML";
+    ret["application/x-ogc-jsonfg"] = "JSONFG";
+    ret["application/vnd.google-earth.kml+xml"] = "KML";
+    ret["application/vnd.google-earth.kml+xml"] = "LIBKML";
+    ret["application/vnd.google-earth.kmz"] = "LIBKML";
+    ret["application/x-ogc-lvbag"] = "LVBAG";
+    ret["application/x-ogc-mapml"] = "MapML";
+    ret["application/x-ogc-mapinfo-file"] = "MapInfo File";
+    ret["application/x-ogc-mongodbv3"] = "MongoDBv3";
+    ret["application/x-ogc-mssqlspatial"] = "MSSQLSpatial";
+    ret["application/vnd.mapbox-vector-tile"] = "MVT";
+    ret["application/x-ogc-mysql"] = "MySQL";
+    ret["application/x-ogc-nas"] = "NAS";
+    ret["application/x-ogc-netcdf"] = "netCDF";
+    ret["application/x-ogc-ngw"] = "NGW";
+    ret["application/x-ogc-uk-.ntf"] = "UK .NTF";
+    ret["application/x-ogc-oapif"] = "OAPIF";
+    ret["application/x-ogc-oci"] = "OCI";
+    ret["application/x-ogc-odbc"] = "ODBC";
+    ret["application/vnd.oasis.opendocument.spreadsheet"] = "ODS";
+    ret["application/x-ogc-ogdi"] = "OGDI";
+    ret["application/x-ogc-openfilegdb"] = "OpenFileGDB";
+    ret["application/vnd.openstreetmap.data+xml"] = "OSM";
+    ret["application/x-ogc-parquet"] = "Parquet";
+    ret["application/pdf"] = "PDF";
+    ret["application/x-ogc-pds"] = "PDS";
+    ret["application/x-ogc-postgresql"] = "PostgreSQL";
+    ret["application/x-ogc-pgdump"] = "PGDump";
+    ret["application/x-ogc-pgeo"] = "PGeo";
+    ret["application/x-ogc-plscenes"] = "PLScenes";
+    ret["application/x-ogc-pmtiles"] = "PMTiles";
+    ret["application/x-ogc-s57"] = "S57";
+    ret["application/x-ogc-sdts"] = "SDTS";
+    ret["application/x-ogc-selafin"] = "Selafin";
+    ret["application/vnd.dbf"] = "ESRI Shapefile";
+    ret["text/vnd.sosi"] = "SOSI";
+    ret["application/geopackage+sqlite3"] = "SQLite";
+    ret["application/vnd.sqlite3"] = "SQLite";
+    ret["image/svg+xml"] = "SVG";
+    ret["application/x-ogc-sxf"] = "SXF";
+    ret["application/x-ogc-tiger"] = "TIGER";
+    ret["application/x-ogc-tiledb"] = "TileDB";
+    ret["application/geo+json"] = "TopoJSON";
+    ret["application/x-ogc-vdv"] = "VDV";
+    ret["application/x-ogc-vfk"] = "VFK";
+    ret["application/x-ogc-vrt"] = "VRT";
+    ret["application/x-ogc-wasp"] = "WAsP";
+    ret["application/x-ogc-wfs"] = "WFS";
+    ret["application/vnd.ms-excel"] = "XLS";
+    ret["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"] = "XLSX";
+    return ret;
 }
 
 /**

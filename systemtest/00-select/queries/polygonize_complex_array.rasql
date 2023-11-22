@@ -1,0 +1,1 @@
+select polygonize(marray i in [0:1,0:1] values complex(1.0,2.0), "pdf")

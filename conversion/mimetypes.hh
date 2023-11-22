@@ -45,16 +45,24 @@ public:
      */
     static bool isMimeType(const std::string &mimeType);
 
+    static bool isVectorMimeType(const std::string &mimeType);
+
     /**
      * Return the GDAL format name for a given mime type string.
      * Return empty string if the mimeType is not recognized.
      */
     static std::string getFormatName(const std::string &mimeType);
 
+    static std::string getVectorFormatName(const std::string &mimeType);
+
 private:
     static std::map<std::string, std::string> initMimeTypeToFormatNameMap();
 
+    static std::map<std::string, std::string> initMimeTypeToVectorFormatNameMap();
+
     static std::map<std::string, std::string> mimeTypeToFormatName;
+
+    static std::map<std::string, std::string> mimeTypeToVectorFormatName;
 };
 
 #endif

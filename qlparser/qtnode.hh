@@ -197,6 +197,7 @@ public:
         QT_DROP_TYPE,
         QT_CELL_TYPE_ATTRIBUTES,
         QT_ADD_NULLVALUES,
+        QT_POLYGONIZE,
         QT_LAST_NODE_TYPE
     };
 

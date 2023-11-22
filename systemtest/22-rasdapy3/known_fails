@@ -3,3 +3,10 @@ composite_constants_struct.rasql
 
 # rasql.py prints nan, rasql prints -nan
 pow_neg_frac_arg.rasql
+
+# rasdapy does not see added error messages
+polygonize_3d_array.rasql
+polygonize_complex_array.rasql
+polygonize_mime_unlisted.rasql
+polygonize_nocreate.rasql
+polygonize_wrong.rasql

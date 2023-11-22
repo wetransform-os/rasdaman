@@ -78,6 +78,7 @@ rasdaman GmbH.
 #include "qlparser/qtgeometryop.hh"
 #include "qlparser/qtgeometrydata.hh"
 #include "qlparser/qtsort.hh"
+#include "qlparser/qtpolygonize.hh"
 
 #include "raslib/mddtypes.hh"
 #include "rasodmg/dirdecompose.hh"
@@ -283,7 +284,7 @@ struct QtUpdateSpecElement
 %token <floatToken>      FloatLit
 %token <stringToken>     StringLit
 %token <typeToken>       TUNSIG TBOOL TOCTET TCHAR TSHORT TUSHORT TLONG TULONG TFLOAT TDOUBLE TCOMPLEX1 TCOMPLEX2 TCINT16 TCINT32
-%token <commandToken>    SELECT FROM WHERE AS RESTRICT TO EXTEND BY PROJECT AT DIMENSION ALL SOME
+%token <commandToken>    SELECT FROM WHERE AS RESTRICT TO EXTEND BY PROJECT AT DIMENSION ALL SOME POLYGONIZE
                          COUNTCELLS ADDCELLS AVGCELLS MINCELLS MAXCELLS VAR_POP VAR_SAMP STDDEV_POP STDDEV_SAMP SDOM OVER USING LO HI UPDATE
                          SET ASSIGN MARRAY MDARRAY CONDENSE IN DOT COMMA IS NOT AND OR XOR PLUS MINUS MAX_BINARY MIN_BINARY MULT
                          DIV INTDIV MOD ATAN2 EQUAL LESS GREATER LESSEQUAL GREATEREQUAL NOTEQUAL COLON SEMICOLON LEPAR
@@ -330,7 +331,7 @@ struct QtUpdateSpecElement
 %type <qtOperationValue>      mddExp inductionExp generalExp resultList reduceExp  functionExp spatialOp
                               integerExp mintervalExp nullvaluesList nullvaluesExp addNullvaluesExp intervalExp
                               condenseExp variable mddConfiguration mintervalList  concatExp rangeConstructorExp
-                              caseExp typeAttribute projectExp sortExp flipExp
+                              caseExp typeAttribute projectExp sortExp flipExp polygonizeExp
                               //namedMintervalExp2,namedIntervalExp2 is for select and similar, namedMintervalExp and namedIntervalExp is for type definition.
 %type <intervalListToken>       namedMintervalExp namedIntervalExp namedMintervalExp2 namedIntervalExp2
 %type <intervalListValueToken>  namedSpatialOpList2 namedSpatialOpList namedSpatialOpList22 namedSpatialOpList1
@@ -397,6 +398,50 @@ query: createExp
      | dropType
      | alterExp
      ;
+
+
+polygonizeExp: POLYGONIZE LRPAR generalExp COMMA StringLit RRPAR 
+{
+  $$ = new QtPolygonize($3, $5.value);
+  parseQueryTree->addDynamicObject( $$ );
+  parseQueryTree->removeDynamicObject( $3 );
+  FREESTACK($2)
+  FREESTACK($4)
+  FREESTACK($6)
+}
+| POLYGONIZE LRPAR generalExp COMMA StringLit COMMA IntegerLit RRPAR
+{
+  $$ = new QtPolygonize($3, $5.value, $7.svalue);
+  parseQueryTree->addDynamicObject( $$ );
+  parseQueryTree->removeDynamicObject( $3 );
+  FREESTACK($2)
+  FREESTACK($4)
+  FREESTACK($6)
+  FREESTACK($8)
+}
+| POLYGONIZE LRPAR generalExp COMMA StringLit COMMA StringLit COMMA StringLit RRPAR
+{
+  $$ = new QtPolygonize($3, $5.value, $7.value, $9.value);
+  parseQueryTree->addDynamicObject( $$ );
+  parseQueryTree->removeDynamicObject( $3 );
+  FREESTACK($2)
+  FREESTACK($4)
+  FREESTACK($6)
+  FREESTACK($8)
+  FREESTACK($10)
+}
+| POLYGONIZE LRPAR generalExp COMMA StringLit COMMA IntegerLit COMMA StringLit COMMA StringLit RRPAR
+{
+  $$ = new QtPolygonize($3, $5.value, $7.svalue, $9.value, $11.value);
+  parseQueryTree->addDynamicObject( $$ );
+  parseQueryTree->removeDynamicObject( $3 );
+  FREESTACK($2)
+  FREESTACK($4)
+  FREESTACK($6)
+  FREESTACK($8)
+  FREESTACK($10)
+  FREESTACK($12)
+}
 
 commitExp: COMMIT
 {
@@ -1406,6 +1451,7 @@ generalExp:
 	| mintervalExp                      { $$ = $1; }
 	| intervalExp                       { $$ = $1; }
 	| projectExp	                      { $$ = $1; }
+  | polygonizeExp                     { $$ = $1; }
 	| generalLit
 	{
 	  $$ = new QtConst( $1 );

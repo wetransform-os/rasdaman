@@ -154,7 +154,8 @@ const QtNode::QtNodeType QtNode::QtInheritance[][2] =
         {QT_EXECUTE, QT_CREATE_SET_TYPE},
         {QT_EXECUTE, QT_DROP_TYPE},
         {QT_OPERATION, QT_CELL_TYPE_ATTRIBUTES},
-        {QT_UNDEFINED_NODE, QT_LAST_NODE_TYPE}};
+        {QT_UNDEFINED_NODE, QT_LAST_NODE_TYPE},
+        {QT_OPERATION, QtNode::QT_POLYGONIZE}};
 
 int QtNode::minim[QtNodes + 1];
 int QtNode::maxim[QtNodes + 1];

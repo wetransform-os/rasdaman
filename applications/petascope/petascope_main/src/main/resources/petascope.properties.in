@@ -63,7 +63,6 @@ xml_validation=false
 ogc_cite_output_optimization=false
 petascope_servlet_url=
 inspire_common_url=
-inspire_dls_spatial_dataset_identifier=rasdaman
 uploaded_files_dir_tmp=/tmp/rasdaman_petascope/upload
 max_wms_cache_size=100000000
 full_stacktraces=false

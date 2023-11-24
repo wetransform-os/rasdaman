@@ -165,7 +165,7 @@
                         <swe:description>Count of the number of observations from the SeaWiFS sensor contributing to this bin cell</swe:description>
                         <swe:nilValues>
                             <swe:NilValues>
-                                <swe:nilValue reason="The nil value represents an error in the sensor.">9.96921e+36</swe:nilValue>
+                                <swe:nilValue reason="">9.96921e+36</swe:nilValue>
                             </swe:NilValues>
                         </swe:nilValues>
                         <swe:uom code="10^0"/>
@@ -178,7 +178,7 @@
                         <swe:description>Uncertainty lookups derived from file: /data/datasets/CCI/v2.0-production/stage09b-uncertainty_tables/chlor_a/cci_chla_bias.dat</swe:description>
                         <swe:nilValues>
                             <swe:NilValues>
-                                <swe:nilValue reason="The nil value represents an error in the sensor.">9.96921e+36</swe:nilValue>
+                                <swe:nilValue reason="">9.96921e+36</swe:nilValue>
                             </swe:NilValues>
                         </swe:nilValues>
                         <swe:uom code="10^0"/>
@@ -191,7 +191,7 @@
                         <swe:description>Uncertainty lookups derived from file: /data/datasets/CCI/v2.0-production/stage09b-uncertainty_tables/chlor_a/cci_chla_rmsd.dat</swe:description>
                         <swe:nilValues>
                             <swe:NilValues>
-                                <swe:nilValue reason="The nil value represents an error in the sensor.">9.96921e+36</swe:nilValue>
+                                <swe:nilValue reason="">9.96921e+36</swe:nilValue>
                             </swe:NilValues>
                         </swe:nilValues>
                         <swe:uom code="10^0"/>

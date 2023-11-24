@@ -50,6 +50,7 @@ from util.crs_util import CRSAxis
 from util.file_util import File
 
 from util.grib_util import grib_open
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 class GRIBMessage:
@@ -150,7 +151,7 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
 
         # NOTE: all files should have same bands's metadata
         try:
-            nil_value = self.dataset.message(1)["missingValue"]
+            nil_value = RangeTypeNilValue("", self.dataset.message(1)["missingValue"])
         except KeyError:
             # missingValue is not defined in grib file
             nil_value = None

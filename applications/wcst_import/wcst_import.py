@@ -196,6 +196,7 @@ def main():
     # Parse input arguments from command line
     arguments = parse_arguments()
     ingredients_file_path = arguments.ingredients_file
+    ConfigManager.ingredients_file_path = ingredients_file_path
 
     ConfigManager.user = arguments.user
     ConfigManager.passwd = arguments.passwd
@@ -230,7 +231,7 @@ def main():
         reg.run_recipe(session)
     except Exception as ex:
         # log error message to console
-        error_message = "Failed to import data. Reason: " + str(ex)
+        error_message = "\nFailed to import recipe at '{}'. Reason: {}".format(ConfigManager.ingredients_file_path, ex)
 
         # log stack trace to log file (coverage_id.log)
         error_message += "\nStack trace: " + traceback.format_exc()

@@ -72,7 +72,7 @@ class BaseRecipe:
         """
         cov = CoverageUtilCache.get_cov_util(self.session.get_coverage_id())
         operation_type = "UPDATE" if cov.exists() else "INSERT"
-        log.info("The recipe has been validated and is ready to run.")
+        log.info("The recipe at '{}' has been validated and is ready to run.".format(ConfigManager.ingredients_file_path))
         log.info(make_bold("Recipe: ") + self.session.get_recipe()['name'])
         log.info(make_bold("Coverage: ") + self.session.get_coverage_id())
         log.info(make_bold("WCS Service: ") + ConfigManager.wcs_service)

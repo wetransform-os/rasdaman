@@ -33,6 +33,7 @@ from util.import_util import decode_res
 from util.time_util import timeout, execute_with_retry_on_timeout
 from util.s2metadata_util import S2MetadataUtil
 from util.type_util import NoPublicConstructor
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 _spatial_ref_cache = {}
 _gdal_dataset_cache = {}
@@ -339,7 +340,9 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
             else:
                 # If not, then detects it from file's bands
                 nil_value = repr(band.GetNoDataValue()) if band.GetNoDataValue() is not None else ""
-                nil_values = [nil_value]
+                nil_values = []
+                if nil_value != "":
+                    nil_values = [RangeTypeNilValue("", nil_value)]
 
             # Get the unit of measure
             uom = band.GetUnitType() if band.GetUnitType() else ConfigManager.default_unit_of_measure

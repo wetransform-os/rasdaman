@@ -33,7 +33,7 @@ class RangeTypeNilValue(Model):
         :param number value: the value of the nil value
         """
         self.reason = reason
-        self.value = value
+        self.value = str(value).strip().replace("'", "")
 
     def get_template_name(self):
         return "gml_range_type_nil_values.xml"

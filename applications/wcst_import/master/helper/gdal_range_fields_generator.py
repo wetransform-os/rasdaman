@@ -45,14 +45,14 @@ class GdalRangeFieldsGenerator:
         fields = []
         field_id = 0
         for range_field in self.gdal_dataset.get_fields_range_type():
-            nill_values = []
-            for nill_value in range_field.nill_values:
-                nill_values.append(RangeTypeNilValue("", nill_value))
+            nill_value_objs = []
+            for nill_value_obj in range_field.nill_values:
+                nill_value_objs.append(nill_value_obj)
             field_name = range_field.field_name
             if self.field_names is not None and len(self.field_names) > field_id:
                 field_name = self.field_names[field_id]
             field_id += 1
             # Old recipes don't support nilReason option
-            fields.append(RangeTypeField(field_name, "", "", "", nill_values, range_field.uom_code))
+            fields.append(RangeTypeField(field_name, "", "", nill_value_objs, range_field.uom_code))
 
         return fields

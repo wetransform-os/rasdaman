@@ -40,6 +40,7 @@ from util.file_util import FileUtil, File, FilePair
 from util.gdal_util import GDALGmlUtil
 from util.log import log, make_bold
 from master.importer.resumer import Resumer
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 import re
 
@@ -67,7 +68,7 @@ class Recipe(GeneralCoverageRecipe):
     VAR_POLARISATION = '${polarisation}'
 
     # 1 tiff file contains 1 band
-    BAND = UserBand("0", "Grey", "", "", "", [], "")
+    BAND = UserBand("0", "Grey", "", "")
 
     DEFAULT_PRODUCT = "GRD"
     SLC_PRODUCT = "SLC"
@@ -394,7 +395,7 @@ class Recipe(GeneralCoverageRecipe):
         default_null_values = []
 
         if self.product == self.DEFAULT_PRODUCT:
-            default_null_values = [self.DEFAULT_NULL_VALUE]
+            default_null_values = [RangeTypeNilValue("", self.DEFAULT_NULL_VALUE)]
 
         return GdalToCoverageConverter(self.resumer,
                                        default_null_values,

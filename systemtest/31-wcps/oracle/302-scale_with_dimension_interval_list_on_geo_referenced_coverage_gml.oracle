@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<gmlcov:RectifiedGridCoverage gml:id="test_eobstest" xsi:schemaLocation="" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org">
+<gmlcov:RectifiedGridCoverage gml:id="test_eobstest" xsi:schemaLocation="http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/coverage.xsd" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org">
     <gml:boundedBy>
         <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" axisLabels="Lat Long" uomLabels="degree degree" srsDimension="2">
             <gml:lowerCorner>25 40</gml:lowerCorner>
@@ -44,7 +44,7 @@
                     <swe:description>Count of the number of observations from the MERIS sensor contributing to this bin cell</swe:description>
                     <swe:nilValues>
                         <swe:NilValues>
-                            <swe:nilValue reason="The nil value represents an error in the sensor.">-9999</swe:nilValue>
+                            <swe:nilValue reason="">-9999</swe:nilValue>
                         </swe:NilValues>
                     </swe:nilValues>
                     <swe:uom code="10^0"/>

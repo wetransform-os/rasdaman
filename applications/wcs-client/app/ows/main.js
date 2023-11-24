@@ -2089,7 +2089,7 @@ var wcs;
             if (this.mediaType) {
                 serialization += "&MEDIATYPE=multipart/related";
             }
-            if (this.isGeneralGridCoverage) {
+            if (this.isGeneralGridCoverage && this.format.includes("gml")) {
                 serialization += "&outputType=GeneralGridCoverage";
                 serialization = serialization.replace("2.0.1", "2.1.0");
             }

@@ -92,7 +92,7 @@ module wcs {
                 serialization += "&MEDIATYPE=multipart/related";
             }
 
-            if (this.isGeneralGridCoverage) {
+            if (this.isGeneralGridCoverage && this.format.includes("gml")) {
                 serialization += "&outputType=GeneralGridCoverage";
                 // NOTE: only WCS 2.1.0 supports GeneralGridCoverage
                 serialization = serialization.replace("2.0.1", "2.1.0");

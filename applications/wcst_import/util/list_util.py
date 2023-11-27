@@ -22,6 +22,7 @@
  *
 """
 import decimal
+from decimal import Decimal
 from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
@@ -122,11 +123,30 @@ def get_null_values(default_null_values):
     range_type_nil_values = None
     if default_null_values is not None:
         range_type_nil_values = []
+
+        tmp_values = []
         for element in default_null_values:
-            # e.g. "30:60" or 30 or "30, 60, 70" or [23,35, "35:65"]
-            band_nil_values = str(element).replace("[", "").replace("]", "")
-            tmps = band_nil_values.split(",")
-            for tmp in tmps:
+            if isinstance(element, list):
+                # multiple null values per band, e.g. ["30:60", 30, 50]
+                for value in element:
+                    tmp_values.append(value)
+            else:
+                # single null value per band, e.g. "20:30" or 233.333
+                value = element
+                tmp_values.append(value)
+
+        for tmp_value in tmp_values:
+            if isinstance(tmp_value, Decimal):
+                # e.g. 35.35
+                value = [float(tmp_value)]
+            elif isinstance(tmp_value, str):
+                # e.g. "60, 70, 80" or "30:50"
+                value = tmp_value.split(", ")
+            else:
+                # e.g. 25
+                value = [tmp_value]
+
+            for tmp in value:
                 range_type_nil_values.append(RangeTypeNilValue("", tmp))
 
     return range_type_nil_values

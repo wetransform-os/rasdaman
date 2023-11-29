@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.LoggerFactory;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 
@@ -37,6 +38,9 @@ import petascope.exceptions.PetascopeException;
  * @author <a href="mailto:bphamhuu@jacobs-university.net">Bang Pham Huu</a>
  */
 public class JSONUtil {
+
+
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(JSONUtil.class);
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
     
@@ -62,6 +66,11 @@ public class JSONUtil {
      * Serialize an object to JSON string with indentation (human readable)
      */
     public static String serializeObjectToJSONString(Object obj) throws PetascopeException {
+        if (obj instanceof String) {
+            return obj.toString();
+        }
+
+        objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
         String result = serializeObjectToString(obj);

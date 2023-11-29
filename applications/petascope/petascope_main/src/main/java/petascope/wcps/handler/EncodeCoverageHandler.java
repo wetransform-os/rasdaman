@@ -44,6 +44,8 @@ import petascope.wcps.exception.processing.InvalidNumberOfNodataValuesException;
 import petascope.wcps.metadata.model.RangeField;
 import petascope.wcps.parameters.netcdf.service.NetCDFParametersService;
 
+import javax.servlet.http.HttpServletRequest;
+
 /**
  * Class to translate a WCPS expression with encode() *
  *
@@ -73,6 +75,8 @@ public class EncodeCoverageHandler extends Handler {
     private SerializationEncodingService serializationEncodingService;
     @Autowired
     private NetCDFParametersService netCDFParametersFactory;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
     
     public EncodeCoverageHandler() {
         
@@ -82,6 +86,7 @@ public class EncodeCoverageHandler extends Handler {
         EncodeCoverageHandler result = new EncodeCoverageHandler();
         result.serializationEncodingService = this.serializationEncodingService;
         result.netCDFParametersFactory = this.netCDFParametersFactory;
+        result.httpServletRequest = this.httpServletRequest;
         result.setChildren(Arrays.asList(coverageExpressionHandler, formatTypeStringScalarHandler, extraParamsStringScalarHandler));
         
         return result;
@@ -216,7 +221,7 @@ public class EncodeCoverageHandler extends Handler {
             }
 
             // Update the nodata values in range fields as well
-            updateNoDataInRangeFileds(noDataValues, metadata);
+            updateNoDataInRangeFields(noDataValues, metadata);
 
             return true;                
         }
@@ -227,11 +232,8 @@ public class EncodeCoverageHandler extends Handler {
     /**
      * Update the range filed's nodata value from passing nodata values as extra
      * parameter
-     *
-     * @param noDataValues
-     * @param metadata
      */
-    public void updateNoDataInRangeFileds(List<NilValue> noDataValues, WcpsCoverageMetadata metadata) {
+    public void updateNoDataInRangeFields(List<NilValue> noDataValues, WcpsCoverageMetadata metadata) {
         if (!noDataValues.isEmpty()) {
             // We update the range fields of coverages with the passing nodata values
             if (noDataValues.size() == 1) {

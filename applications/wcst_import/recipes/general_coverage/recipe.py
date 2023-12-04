@@ -52,7 +52,7 @@ from util.gdal_util import GDALGmlUtil, MAX_RETRIES_TO_OPEN_FILE
 from master.importer.resumer import Resumer
 from util.time_util import execute_with_retry_on_timeout
 from master.generator.model.range_type_nill_value import RangeTypeNilValue
-from master.helper.user_band import OBSERVATION_TYPE_NUMERIC, VALID_OBSERVATION_TYPES
+from master.helper.user_band import OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_CATEGORIAL, VALID_OBSERVATION_TYPES
 
 
 class Recipe(BaseRecipe):
@@ -242,15 +242,31 @@ class Recipe(BaseRecipe):
                     if band_observation_type not in VALID_OBSERVATION_TYPES:
                         raise RecipeValidationException("Value for setting: observationType is not valid. Given: {}.".format(band_observation_type))
 
+                uom_code = self._read_or_empty_string(band, "uomCode")
+                code_space = self._read_or_empty_string(band, "codeSpace")
+
+                if band_observation_type == OBSERVATION_TYPE_NUMERIC and code_space != "":
+                    raise RecipeValidationException("Band: {} - codeSpace can be specified only when observationType"
+                                                    " is set to {}.".format(band_name, OBSERVATION_TYPE_CATEGORIAL))
+                if band_observation_type == OBSERVATION_TYPE_CATEGORIAL:
+                    if uom_code != "":
+                        raise RecipeValidationException("Band: {} - uomCode can be specified only when observationType"
+                                                        " is set to {}.".format(band_name, OBSERVATION_TYPE_NUMERIC))
+                    if code_space == "":
+                        raise RecipeValidationException("Band: {} - codeSpace must be specified to be a valid URL"
+                                                        " when observationType is set to {}.".format(band_name,
+                                                        OBSERVATION_TYPE_CATEGORIAL))
+
                 ret_bands.append(UserBand(
                     identifier,
                     self._read_or_empty_string(band, "name"),
                     self._read_or_empty_string(band, "description"),
                     self._read_or_empty_string(band, "definition"),
                     self.__parse_specified_nil_values_by_band(band),
-                    self._read_or_empty_string(band, "uomCode"),
+                    uom_code,
                     grib_messages_filter_by_dict,
-                    band_observation_type
+                    band_observation_type,
+                    code_space
                 ))
 
                 i += 1

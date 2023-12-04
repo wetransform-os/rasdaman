@@ -6,6 +6,6 @@
 {{nilValues}}
                     </swe:NilValues>
                 </swe:nilValues>
-                <swe:uom code="{{uom}}"/>
+                <swe:codeSpace xlink:href="{{codeSpace}}"/>
             </swe:Category>
         </swe:field>

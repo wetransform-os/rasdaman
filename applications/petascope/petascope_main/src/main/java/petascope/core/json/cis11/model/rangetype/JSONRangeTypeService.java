@@ -59,20 +59,36 @@ public class JSONRangeTypeService {
     }
 
     /**
+     * Create an URL which points to opengis data type based on rasdaman data type,
+     * e.g: rasdaman octet -> http://www.opengis.net/def/dataType/OGC/0/signedByte
+     */
+    private String createOpenGisDataTypeDefinitionURL(String definition, String opengisDataType) {
+        String result = definition;
+        if (result == null || result.isEmpty()) {
+            result = OPENGIS_DATA_TYPE_PREFIX + opengisDataType;
+        }
+
+        return result;
+    }
+
+    /**
      * Build Quantity for Field.
      */
-    private Quantity buildQuantity(RangeField rangeField) throws PetascopeException {
+    private Quantity buildQuantity(RangeField rangeField) {
         String label = rangeField.getName();
         String description = rangeField.getDescription();
+        String storedDefinition = rangeField.getDefinition();
+
         NilValues nilValues = this.buildNilValues(rangeField);
         String uomCode = rangeField.getUomCode();
         UoM uom = new UoM(uomCode);
         // e.g: unsignedInt
         String rasdamanDataType = rangeField.getDataType();
         String opengisDataType = TypeResolverUtil.RAS_TYPES_TO_OPENGIS_TYPES.get(rasdamanDataType);
-        String definition = OPENGIS_DATA_TYPE_PREFIX + opengisDataType;
+        String definition = this.createOpenGisDataTypeDefinitionURL(storedDefinition, opengisDataType);
 
-        Quantity quantity = new Quantity(label, description, definition, nilValues, uom);
+        Quantity quantity = new Quantity(label, description, definition, nilValues, uom, rangeField.getObservationType(),
+                                        rangeField.getCodeSpace());
         return quantity;
     }
 

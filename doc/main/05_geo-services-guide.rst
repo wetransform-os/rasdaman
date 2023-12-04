@@ -3461,7 +3461,12 @@ bounds and resolution corresponding to each file.
   * ``uomCode`` - Set the Unit of measurement (uom) code of the band. Besides 
     setting it directly, it can also be derived from the input file metadata,
     with e.g. ``${netcdf:variable:NAME:units}`` for NetCDF or
-    ``${grib:unitsOfFirstFixedSurface}`` for GRIB.
+    ``${grib:unitsOfFirstFixedSurface}`` for GRIB. 
+    Note: only valid for ``swe:Quantity``.
+  * ``codeSpace`` - List and define the meaning of all possible values
+    for this component. Note: only valid for ``swe:Category``. 
+    ``${grib:unitsOfFirstFixedSurface}`` for GRIB. 
+    Note: only used for ``swe:Category``.    
   * ``filterMessagesMatching`` - Default is empty. If not-empty (a dictionary of 
     user input GRIB keys:values; keys (e.g. ``shortName``) must exist in the input GRIB files),
     then it filters any GRIB message which has a GRIB value not contain a user input value of a GRIB key.

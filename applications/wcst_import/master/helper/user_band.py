@@ -29,7 +29,8 @@ OBSERVATION_TYPE_CATEGORIAL = "categorial"
 VALID_OBSERVATION_TYPES = [OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_CATEGORIAL]
 
 class UserBand:
-    def __init__(self, identifier, name, description, definition, nilValues=[], uomCode=None, filterMessagesMatching=None, observationType=OBSERVATION_TYPE_NUMERIC):
+    def __init__(self, identifier, name, description, definition, nilValues=[], uomCode=None, filterMessagesMatching=None,
+                 observationType=OBSERVATION_TYPE_NUMERIC, codeSpace=None):
         """
         Definition of a band as provided by a user in an ingredient file
         :param str identifier: the identifier of this band in the data provider (e.g. the gdal band id or the netcdf variable name)
@@ -51,6 +52,9 @@ class UserBand:
         self.description = description
         self.definition = definition
         self.nilValues = nilValues
+        # NOTE: used only for observationType = numeric
         self.uomCode = uomCode
         self.filterMessagesMatching = filterMessagesMatching
         self.observationType = observationType
+        # NOTE: used only for observationType = categorial
+        self.codeSpace = codeSpace

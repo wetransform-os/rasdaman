@@ -29,7 +29,7 @@ from master.helper.user_band import OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_C
 
 
 class RangeTypeField(Model):
-    def __init__(self, name, definition="", description="", nilValues=[], uom=None, observationType=OBSERVATION_TYPE_NUMERIC):
+    def __init__(self, name, definition="", description="", nilValues=[], uom=None, observationType=OBSERVATION_TYPE_NUMERIC, codeSpace=None):
         """
         Class to represent the range type field element of range type
         :param str name: the name of the field
@@ -43,8 +43,11 @@ class RangeTypeField(Model):
         self.definition = definition
         self.description = description
         self.nilValues = nilValues
+        # NOTE: used only for swe:Quantity
         self.uom = uom
         self.observationType = observationType
+        # NOTE: used only for swe:Category
+        self.codeSpace = codeSpace
 
     def get_template_name(self):
         if self.observationType == OBSERVATION_TYPE_NUMERIC:

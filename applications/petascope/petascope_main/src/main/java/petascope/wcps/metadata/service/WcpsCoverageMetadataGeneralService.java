@@ -21,6 +21,7 @@
  */
 package petascope.wcps.metadata.service;
 
+import org.rasdaman.domain.cis.Quantity;
 import petascope.wcps.metadata.model.RangeField;
 import petascope.wcps.metadata.model.IrregularAxis;
 import petascope.wcps.metadata.model.NumericSubset;
@@ -692,7 +693,9 @@ public class WcpsCoverageMetadataGeneralService {
         if (wcpsCoverageMetadata == null) {
         
             rangeFields = new ArrayList<>();
-            RangeField rangeField = new RangeField(RangeField.DATA_TYPE, RangeField.DEFAULT_NAME, null, new ArrayList<NilValue>(), RangeField.UOM_CODE, null, null);
+            RangeField rangeField = new RangeField(RangeField.DATA_TYPE, RangeField.DEFAULT_NAME, null,
+                                                new ArrayList<NilValue>(), RangeField.UOM_CODE, null, null,
+                                                Quantity.ObservationType.NUMERICAL, null);
             rangeFields.add(rangeField);
 
             nilValues = new ArrayList<>();

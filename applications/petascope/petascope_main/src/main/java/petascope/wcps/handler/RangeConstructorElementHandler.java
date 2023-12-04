@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.rasdaman.domain.cis.NilValue;
+import org.rasdaman.domain.cis.Quantity;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -80,7 +81,8 @@ public class RangeConstructorElementHandler extends Handler {
         } else {
             metadata = new WcpsCoverageMetadata();
             // e.g: { red: 0 } which coverage metadata is null then need to create a range field for this case
-            rangeField = new RangeField(RangeField.DATA_TYPE, fieldName, null, new ArrayList<>(), RangeField.UOM_CODE, null, null);
+            rangeField = new RangeField(RangeField.DATA_TYPE, fieldName, null, new ArrayList<>(), RangeField.UOM_CODE, null, null,
+                                        Quantity.ObservationType.NUMERICAL, null);
         }
          
         metadata.setRangeFields(Arrays.asList(rangeField));

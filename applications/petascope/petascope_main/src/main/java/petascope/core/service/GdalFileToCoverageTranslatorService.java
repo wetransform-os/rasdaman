@@ -250,7 +250,8 @@ public class GdalFileToCoverageTranslatorService {
             }
             Uom uom = new Uom(DEFAUL_BAND_UOM);
 
-            Quantity quantity = new Quantity(null, null, null, nilValues, uom, dataType);
+            Quantity quantity = new Quantity(null, null, null, nilValues, uom, dataType,
+                                            Quantity.ObservationType.NUMERICAL, null);
             Field field = new Field(fieldName, quantity);
 
             fields.add(field);

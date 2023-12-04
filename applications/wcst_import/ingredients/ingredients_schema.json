@@ -272,6 +272,9 @@
                                                             "uomCode": {
                                                                 "type": "string"
                                                             },
+                                                            "codeType": {
+                                                                "type": "string"
+                                                            },
                                                             "filterMessagesMatching": {
                                                                 "type": "object",
                                                                 "properties": {

@@ -557,6 +557,7 @@ var rasdaman;
     (function (common) {
         function DecomposeQualifiedCoverageIdFilter() {
             return function (coverageId) {
+                coverageId = coverageId.replace(/--/g, ":");
                 var tmps = coverageId.split(":");
                 return tmps[tmps.length - 1];
             };
@@ -1779,6 +1780,9 @@ var swe;
             }
             if (source.doesElementExist("swe:Quantity")) {
                 this.quantity = new swe.Quantity(source.getChildAsSerializedObject("swe:Quantity"));
+            }
+            if (source.doesElementExist("swe:Category")) {
+                this.quantity = new swe.Quantity(source.getChildAsSerializedObject("swe:Category"));
             }
         }
         return Field;

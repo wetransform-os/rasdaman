@@ -94,7 +94,7 @@ public class EncodeCoverageHandler extends Handler {
     
     public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
         WcpsResult coverageExpressionVisitorResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
-        String formatType = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String formatType = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql().toLowerCase();
         String extraParams = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         WcpsResult result = this.handle(coverageExpressionVisitorResult, formatType, extraParams, coverageExpressionVisitorResult.withCoordinates());
@@ -127,8 +127,8 @@ public class EncodeCoverageHandler extends Handler {
         //get the right template for rasql string (the dem() encode still use the old format, other will use the new JSON format)
         String template = getTemplate(format);
         String resultRasql = template.replace("$covExpression", coverageExpression.getRasql())
-                .replace("$format", '"' + format + '"')
-                .replace("$otherParams", otherParamsString);
+                                     .replace("$format", '"' + format + '"')
+                                     .replace("$otherParams", otherParamsString);
         WcpsResult wcpsResult = new WcpsResult(coverageExpression.getMetadata(), resultRasql);
         wcpsResult.setWithCoordinates(widthCoordinates);
         wcpsResult.setMimeType(mimeType);

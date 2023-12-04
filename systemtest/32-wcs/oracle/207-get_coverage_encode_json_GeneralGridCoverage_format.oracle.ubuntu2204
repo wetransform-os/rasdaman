@@ -80,6 +80,7 @@
       "type" : "QuantityType",
       "name" : "b1",
       "description" : "",
+      "definition" : "ogcType:float32",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -89,12 +90,12 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:float32"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "b2",
       "description" : "",
+      "definition" : "ogcType:float32",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -104,8 +105,7 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:float32"
+      }
     } ]
   },
   "rangeSet" : {

@@ -22,6 +22,10 @@
 package org.rasdaman.domain.cis;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import petascope.exceptions.ExceptionCode;
+import petascope.exceptions.PetascopeException;
+import petascope.exceptions.PetascopeRuntimeException;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import javax.persistence.*;
@@ -58,6 +62,32 @@ public class Quantity implements Serializable {
     public static final String TABLE_NAME = "quantity";
     public static final String COLUMN_ID = TABLE_NAME + "_id";
 
+    public enum ObservationType {
+        NUMERICAL(0), // swe:Quantity
+        CATEGORIAL(1); // swe:Category
+
+        private final int value;
+
+        ObservationType(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return this.value;
+        }
+
+        public static ObservationType getObservationType(Integer number) {
+            if (number == null || number == 0) {
+                return NUMERICAL;
+            } else if (number == 1) {
+                return CATEGORIAL;
+            }
+
+            throw new PetascopeRuntimeException(ExceptionCode.NoApplicableCode,
+                                        "Mapping number to observation type is not supported. Given number: " + number);
+        }
+    }
+
     @Id
     @JsonIgnore
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -79,6 +109,7 @@ public class Quantity implements Serializable {
     @OrderColumn
     private List<NilValue> nilValues;
 
+    // NOTE: not-supported
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @OrderColumn
     @JoinColumn(name = Quantity.COLUMN_ID)
@@ -95,17 +126,28 @@ public class Quantity implements Serializable {
     // @TODO: need to get the dataTypes of bands when "guessing" collectionType in InsertCoverageHandler
     private String dataType;
 
+    @Column(name = "observation_type")
+    @Enumerated(EnumType.ORDINAL)
+    // shows in GML as swe:Quantity / swe:Category
+    private ObservationType observationType;
+
+    @Column(name = "code_space")
+    private String codeSpace;
+
     public Quantity() {
 
     }
 
-    public Quantity(String definition, String description, List<AllowedValue> allowedValues, List<NilValue> nilValues, Uom uom, String dataType) {
+    public Quantity(String definition, String description, List<AllowedValue> allowedValues, List<NilValue> nilValues, Uom uom, String dataType,
+                    ObservationType observationType, String codeSpace) {
         this.definition = definition;
         this.description = description;
         this.allowedValues = allowedValues;
         this.nilValues = nilValues;
         this.uom = uom;
         this.dataType = dataType;
+        this.observationType = observationType;
+        this.codeSpace = codeSpace;
     }
     
     public String getDefinition() {
@@ -157,5 +199,27 @@ public class Quantity implements Serializable {
 
     public void setDataType(String dataType) {
         this.dataType = dataType;
+    }
+
+    public void setObservationType(ObservationType observationType) {
+        this.observationType = observationType;
+    }
+
+    public ObservationType getObservationType() {
+
+        ObservationType result = ObservationType.NUMERICAL;
+        if (this.observationType != null) {
+            result = this.observationType;
+        }
+
+        return result;
+    }
+
+    public String getCodeSpace() {
+        return codeSpace;
+    }
+
+    public void setCodeSpace(String codeSpace) {
+        this.codeSpace = codeSpace;
     }
 }

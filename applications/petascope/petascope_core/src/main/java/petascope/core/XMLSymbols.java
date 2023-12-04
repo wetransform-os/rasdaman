@@ -71,6 +71,7 @@ public interface XMLSymbols {
     String PREFIX_XSI = "xsi";
     String PREFIX_RASDAMAN = "rasdaman";
     String PREFIX_XLINK = "xlink";
+    String PREFIX_XLINK_HREF = "xlink:href";
     // Used in CRS-Extensions
     String PREFIX_CRS = "crs";
     String PREFIX_PROCESS_COVERAGE = "proc";
@@ -451,7 +452,9 @@ public interface XMLSymbols {
     String LABEL_NILVALUES_ASSOCIATION_ROLE = "nilValues";
     String LABEL_NILVALUES = "NilValues";
     String LABEL_QUANTITY = "Quantity";
+    String LABEL_CATEGORY = "Category";
     String LABEL_UOM = "uom";
+    String LABEL_CODE_SPACE = "codeSpace";
 
     // contrain with AllowedValues
     String LABEL_CONSTRAINT_ASSOCIATE_ROLE = "Constraint";

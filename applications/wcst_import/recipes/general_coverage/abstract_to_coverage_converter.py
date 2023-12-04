@@ -459,7 +459,7 @@ class AbstractToCoverageConverter:
         for band in self.bands:
             # NOTE: each range (band) should contain only 1 nilValue, e.g: [-99999]
             range_nils = self._get_nil_values(i)
-            range_fields.append(RangeTypeField(band.name, band.definition, band.description, range_nils, band.uomCode, band.observationType))
+            range_fields.append(RangeTypeField(band.name, band.definition, band.description, range_nils, band.uomCode, band.observationType, band.codeSpace))
             i += 1
 
         return range_fields

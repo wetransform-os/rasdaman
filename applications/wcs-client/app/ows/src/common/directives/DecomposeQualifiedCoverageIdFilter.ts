@@ -30,6 +30,9 @@ module rasdaman.common {
      */
     export function DecomposeQualifiedCoverageIdFilter() {
         return function(coverageId:string) {
+            // Convert NcName style to rasdaman stype
+            coverageId = coverageId.replace(/--/g, ":");
+
             let tmps:string[] = coverageId.split(":");
             return tmps[tmps.length - 1];
         };

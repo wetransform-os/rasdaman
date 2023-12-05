@@ -2882,18 +2882,19 @@ Concatenation of two arrays "glues" together arrays by lining them up
 along an axis.
 
 This can be achieved with a shorthand function, ``concat``, which for
-convenience is implemented as an n-ary operator accepting an unlimited number of
-arrays of the same base type. The operator takes the input arrays, lines them up
-along the concatenation dimension specified in the request, and outputs one
-result array. To this end, each input array is shifted to the appropriate
-position, with the first array's position remaining unchanged; therefore, it is
-irrelevant whether array extents, along the concatenation dimension, are
-disjoint, overlapping, or containing each other.
+convenience is implemented as an n-ary operator accepting an unlimited number
+of arrays of the same base type. The operator takes the input arrays, lines
+them up along the concatenation dimension specified in the request, and outputs
+one result array. To this end, each input array from the second one on is
+shifted to the origin of the first one, except along the concatenation
+dimension where it's shifted so that the lower bound of the current array is
+right after the upper bound of the previous array.
 
 The resulting array's dimensionality is equal to the input array dimensionality.
 
 The resulting array extent is the sum of all extents along the concatenation
-dimension, and the extent of the input arrays in all other dimensions.
+dimension, and the extent of the input arrays in all other dimensions; the
+origin is same as the origin of the first input array.
 
 The resulting array cell type is same as the cell types of the input arrays.
 
@@ -2902,7 +2903,7 @@ The resulting array cell type is same as the cell types of the input arrays.
 All participating arrays must have the same number of dimensions.
 
 All participating arrays must have identical extents in all dimensions, except
-that dimension along which concatenation is performed.
+the dimension along which concatenation is performed.
 
 Input arrays must have the same cell types, i.e. concatenating a char and float
 arrays is not possible and requires explicit casting to a common type.

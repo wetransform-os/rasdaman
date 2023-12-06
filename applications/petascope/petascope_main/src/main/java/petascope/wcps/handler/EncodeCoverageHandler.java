@@ -96,7 +96,7 @@ public class EncodeCoverageHandler extends Handler {
     
     public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
         WcpsResult coverageExpressionVisitorResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
-        String formatType = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String formatType = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql().toLowerCase();
         String extraParams = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         WcpsResult result = this.handle(coverageExpressionVisitorResult, formatType, extraParams, coverageExpressionVisitorResult.withCoordinates());

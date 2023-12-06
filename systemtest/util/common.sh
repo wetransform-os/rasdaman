@@ -300,6 +300,7 @@ prepare_xml_file()
            -e '/version=".*"/d' \
            -e 's/-9.223372036854776e+18/-9.22337204e+18/g' \
            -e 's/-3.3999999521443642e+38/-3.4e+38/g' \
+           -e '/formatSupported/d' \
            "$xml_file"
   fi
 }

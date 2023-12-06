@@ -27,6 +27,8 @@ import com.networknt.schema.SpecVersion;
 import org.rasdaman.repository.service.ProcessGraphRepositoryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.KVPSymbols;
 import petascope.core.response.Response;
@@ -39,6 +41,11 @@ import java.io.IOException;
 import java.util.*;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.STGroupString;
+import petascope.util.ListUtil;
+import petascope.util.StringUtil;
+import petascope.wcps.metadata.model.Axis;
+import petascope.wcps.metadata.model.WcpsCoverageMetadata;
+import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
 import petascope.wcs2.handlers.kvp.KVPWCSProcessCoverageHandler;
 
 /**
@@ -47,12 +54,15 @@ import petascope.wcs2.handlers.kvp.KVPWCSProcessCoverageHandler;
  * and handle it to generate a WPCS query and execute it to return a result.
  */
 @Service
+@Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class OpenEOJSonToWcpsResultService {
 
     @Autowired
     private ProcessGraphRepositoryService processGraphRepositoryService;
     @Autowired
     private KVPWCSProcessCoverageHandler kvpwcsProcessCoverageHandler;
+    @Autowired
+    private WcpsCoverageMetadataTranslator wcpsCoverageMetadataTranslator;
 
     // NOTE: this schema only validates the content under "process_graph" JSON element
     private static final String PROCESS_GRAPH_JSON_SCHEMA_URL = "https://openeo.org/documentation/1.0/developers/api/assets/pg-schema.json";
@@ -60,6 +70,9 @@ public class OpenEOJSonToWcpsResultService {
     private static final String PROCESS_GRAPH_PROPERTY_NAME = "process_graph";
 
     private static org.slf4j.Logger log = LoggerFactory.getLogger(OpenEOJSonToWcpsResultService.class);
+
+    // cov1 -> $c0
+    private Map<String, String> loadCollectionCoverageIdAliasMap = new LinkedHashMap<>();
 
     /**
      * Given a JSON string, generates a WCPS query and returns result from the query to the client.
@@ -105,7 +118,7 @@ public class OpenEOJSonToWcpsResultService {
         return processGraphNode;
     }
 
-    
+
     // ------ step 2
 
     /**
@@ -113,7 +126,7 @@ public class OpenEOJSonToWcpsResultService {
      * a complete WCPS query
      */
     private ProcessGraph parseProcessGraphNode(JsonNode processGraphNode, String username) throws PetascopeException, IOException {
-        
+
         log.debug("parsing process graph");
 
         Map<String, ProcessNode> processNodeMap = new LinkedHashMap<>();
@@ -124,9 +137,9 @@ public class OpenEOJSonToWcpsResultService {
 
             // e.g. p1
             String processNodeId = jsonField.getKey();
-            
+
             JsonNode processNodeJsonNode = jsonField.getValue();
-            
+
             // e.g. sum
             String processId = processNodeJsonNode.get("process_id").asText();
 
@@ -138,7 +151,7 @@ public class OpenEOJSonToWcpsResultService {
             String wcpsExpression = null;
 
             Map<String, ParameterValue> argumentsMap = parseArgumentsMap(processNodeJsonNode, username);
-            
+
             // TODO this should be configurable in the request?
             ProcessNode.Namespace namespace = ProcessNode.Namespace.BOTH;
 
@@ -146,8 +159,8 @@ public class OpenEOJSonToWcpsResultService {
 
             // final obj
             ProcessNode processNodeTmp = new ProcessNode(processNodeId, processId, ProcessNode.Namespace.BOTH,
-                                                        argumentsMap, processDefinition,
-                                                        wcpsExpression, isResultNode);
+                argumentsMap, processDefinition,
+                wcpsExpression, isResultNode);
             processNodeMap.put(processNodeId, processNodeTmp);
         }
 
@@ -155,11 +168,11 @@ public class OpenEOJSonToWcpsResultService {
         log.debug("Parsed process graph: " + result);
         return result;
     }
-    
+
     private String getOptionalText(JsonNode node, String property) {
         return node.has(property) ? node.get(property).asText() : null;
     }
-    
+
     /**
      * Parse a map of arguments (an argument is a parameter) of a processNode
      * e.g.
@@ -172,7 +185,7 @@ public class OpenEOJSonToWcpsResultService {
      */
     private Map<String, ParameterValue> parseArgumentsMap(JsonNode processNode, String username) throws PetascopeException, IOException {
         Map<String, ParameterValue> results = new LinkedHashMap<>();
-        
+
         String processId = processNode.get("process_id").asText();
         JsonNode argumentsJsonNode = processNode.get("arguments");
         Iterator<Map.Entry<String, JsonNode>> fields = argumentsJsonNode.fields();
@@ -229,10 +242,10 @@ public class OpenEOJSonToWcpsResultService {
                             if (lower == null)
                                 throw new RuntimeException("Required argument missing: lower");
                             valueObj = new ParameterSubset(
-                                    valueElement.get("dimension").asText(),
-                                    lower,
-                                    getOptionalText(valueElement, "upper"),
-                                    getOptionalText(valueElement, "crs"));
+                                valueElement.get("dimension").asText(),
+                                lower,
+                                getOptionalText(valueElement, "upper"),
+                                getOptionalText(valueElement, "crs"));
                         } else {
                             log.debug("Cannot handle object array item of parameter '" + parameterName + "'.");
                             valueObj = valueElement.asText();
@@ -240,14 +253,14 @@ public class OpenEOJSonToWcpsResultService {
                     } else {
                         valueObj = valueElement.asText();
                     }
-                    
+
                     if (valueObj == null) {
                         throw new RuntimeException("Could not determine array item value of parameter: " + parameterName);
                     }
 
                     // NOTE: this case with each element is an object with "from_" property is not supported (!)
                     // "arguments": {  "data": [  	1,  	{  		"from_parameter": "nir"  	},  	{  		"from_node": "p1"  	},  	{  		"from_node": "p2"  	}  ] 			}
-                    
+
                     log.debug("item value: " + valueObj);
                     valueArray.add(valueObj);
                 }
@@ -292,14 +305,14 @@ public class OpenEOJSonToWcpsResultService {
             }
 
             ParameterValue parameterValue = new ParameterValue(parameterName,
-                    parameterType, scalarValue,
-                    valueArray,
-                    fromNode,
-                    fromParameter, processGraph);
+                parameterType, scalarValue,
+                valueArray,
+                fromNode,
+                fromParameter, processGraph);
 
             // e.g. x -> ParameterValue{ scalarValue:5 }
             results.put(parameterName, parameterValue);
-            
+
             log.trace("parsed: " + parameterName + " -> " + parameterValue);
         }
 
@@ -308,25 +321,25 @@ public class OpenEOJSonToWcpsResultService {
 
 
     // ------ step 3
-    
+
     /**
      * Parse a process definition from petascopedb; exmaple process definition:
-     * 
+     *
      * ```
      * {
-        "id": "load_collection",
-        "summary": "Load a collection",
-        "parameters": [
-            {
-                "name": "id", ...
-            },
-        "wcps": "..."
-       }
+     "id": "load_collection",
+     "summary": "Load a collection",
+     "parameters": [
+     {
+     "name": "id", ...
+     },
+     "wcps": "..."
+     }
      * ```
      */
     ProcessDefinition getProcessDefinition(String processId, ProcessNode.Namespace namespace, String username) throws PetascopeException, IOException {
         // 1. load JSON for processId from petascopedb based on the processId and namespace
-        
+
         String processDefJson = null;
 
         if (namespace == ProcessNode.Namespace.BOTH) {
@@ -341,41 +354,41 @@ public class OpenEOJSonToWcpsResultService {
             org.rasdaman.domain.openeo.ProcessGraph processGraph = processGraphRepositoryService.getProcessGraph(username, processId);
             processDefJson = processGraph.getContent();
         }
-        
+
         // 2. parseJSON, and translate to ProcessDefinition
         JsonNode processDefNode = JSONUtil.getJsonNode(processDefJson);
-        
+
         /* The ProcessDefinition must have these properties from the parsed JSON:
            - String id - process id
            - List<ProcessParameter> parameters - an array of parameters
-           - String wcpsTemplate - the WCPS template (see here) 
+           - String wcpsTemplate - the WCPS template (see here)
         */
         String id = processDefNode.get("id").asText();
         String wcpsTemplate = getOptionalText(processDefNode, "wcps");
         List<ProcessParameter> parameters = new ArrayList<>();
-        
+
         JsonNode parametersNode = processDefNode.get("parameters");
         Iterator<Map.Entry<String, JsonNode>> parametersIt = parametersNode.fields();
         while (parametersIt.hasNext()) {
             // parse each parameter
             JsonNode parameterNode = parametersIt.next().getValue();
-            
+
             /* The ProcessParameter must have these properties:
                - String name - the parameter name
                - Boolean isRequired - by default true, unless "optional": true is set in the JSON
-               - String defaultValue - by default null (no default value), 
-                 otherwise the value of "default" in the JSON as a String 
+               - String defaultValue - by default null (no default value),
+                 otherwise the value of "default" in the JSON as a String
             */
             String name = parameterNode.get("name").asText();
             boolean isRequired = true;
             if (parameterNode.has("optional"))
                 isRequired = !parameterNode.get("optional").asBoolean();
             String defaultValue = getOptionalText(parameterNode, "default");
-            
+
             ProcessParameter param = new ProcessParameter(name, isRequired, defaultValue);
             parameters.add(param);
         }
-        
+
         ProcessDefinition ret = new ProcessDefinition(id, parameters, wcpsTemplate);
         log.trace("got process definition: " + ret);
         return ret;
@@ -385,7 +398,7 @@ public class OpenEOJSonToWcpsResultService {
     // ------ step 4
 
     // Render a ProcessGraph into a WCPS query expression and return it
-    private String renderProcessGraph(ProcessGraph g) {
+    private String renderProcessGraph(ProcessGraph g) throws PetascopeException {
         // Will be set to true when all processing have a wcpsExpr which is not null.
         boolean allRendered = false;
         // Check that at least one node is rendered in the nested for loop below;
@@ -438,7 +451,7 @@ public class OpenEOJSonToWcpsResultService {
         return result.wcpsExpression;
     }
 
-    private String renderProcessNode(ProcessNode p, ProcessGraph g) {
+    private String renderProcessNode(ProcessNode p, ProcessGraph g) throws PetascopeException {
         // 0. StringTemplate object which will render the WCPS expression
         String wcpsTemplate = p.processDefinition.getWcpsTemplate();
         if (wcpsTemplate == null)
@@ -447,7 +460,7 @@ public class OpenEOJSonToWcpsResultService {
         ST template = stg.getInstanceOf("f");
         if (template == null)
             template = new ST(wcpsTemplate);
-        
+
         // put the values also in a map, so we can use them to resolve load_collection
         Map<String, Object> argValues = new HashMap<String, Object>();
 
@@ -513,8 +526,8 @@ public class OpenEOJSonToWcpsResultService {
                 if (!found) {
                     // TODO fix correct exception
                     throw new RuntimeException("Cannot call process " + p.processId + " with process node "
-                            + p.processNodeId + ", required parameter is not specified as an argument: "
-                            + param.getName());
+                        + p.processNodeId + ", required parameter is not specified as an argument: "
+                        + param.getName());
                 }
             }
         }
@@ -538,26 +551,57 @@ public class OpenEOJSonToWcpsResultService {
         return wcpsExpr;
     }
 
-    String renderLoadCollection(Map<String, Object> argValues) {
-        String coverage = argValues.get("id").toString();
+    String renderLoadCollection(Map<String, Object> argValues) throws PetascopeException {
+        String coverageId = argValues.get("id").toString();
+        String coverageAlias = loadCollectionCoverageIdAliasMap.get(coverageId);
+        if (coverageAlias == null) {
+            coverageAlias = "$c" + loadCollectionCoverageIdAliasMap.size();
+            loadCollectionCoverageIdAliasMap.put(coverageId, coverageAlias);
+        }
 
-        String result = coverage;
+        WcpsCoverageMetadata coverageMetadata = this.wcpsCoverageMetadataTranslator.translate(coverageId);
+
+        String result = coverageAlias;
 
         if (argValues.containsKey("spatial_extent")) {
             Object value = argValues.get("spatial_extent");
             if (value instanceof ParameterBoundingBox) {
-                result += renderBoundingBox((ParameterBoundingBox) value);
-            } else if (value != null && value instanceof String && 
-                    !((String)value).equals("null") && !((String)value).isEmpty()) {
+                String timeSubset = this.renderTimeSubset(argValues, coverageMetadata);
+                result += renderBoundingBoxWithDateTimeIfAny(coverageMetadata, (ParameterBoundingBox) value, timeSubset);
+            } else if (value != null && value instanceof String &&
+                !((String)value).equals("null") && !((String)value).isEmpty()) {
                 result = "clip(" + result + ", " + value.toString() + ")";
             }
+        } else if (argValues.containsKey("temporal_extent")) {
+            result += "[" + this.renderTimeSubset(argValues, coverageMetadata) + "]";
         }
-        if (argValues.containsKey("temporal_extent")) {
-            List<Object> dates = (List<Object>) argValues.get("temporal_extent");
-            result += "[t(" + dates.get(0).toString() + ", " + dates.get(1).toString() + ")]";
-        }
+
         if (argValues.containsKey("bands")) {
             result = renderFilterBands((List<Object>) argValues.get("bands"), result);
+        }
+
+        return result;
+    }
+
+    /**
+     * e.g. t("20215-01-01":"2015-01-03")
+     */
+    private String renderTimeSubset(Map<String, Object> argValues, WcpsCoverageMetadata coverageMetadata) {
+        String result = null;
+
+        if (argValues.containsKey("temporal_extent")) {
+            List<Object> dates = (List<Object>) argValues.get("temporal_extent");
+            String lowerBound = StringUtil.enquoteIfNotEnquotedAlready(dates.get(0).toString());
+            String timeSubsets = "(" + lowerBound + ")";
+            String upperBound = null;
+            if (dates.size() > 1) {
+                upperBound = StringUtil.enquoteIfNotEnquotedAlready(dates.get(1).toString());
+                timeSubsets = "(" + lowerBound + ":" + upperBound + ")";
+            }
+
+            Axis timeAxis = coverageMetadata.getTimeAxis();
+
+            result = timeAxis.getLabel() + timeSubsets;
         }
 
         return result;
@@ -567,15 +611,24 @@ public class OpenEOJSonToWcpsResultService {
      * @return a WCPS subset expression:
      * [x:"EPSG:v.crs"(v.west:v.east), y:"EPSG:v.crs"(v.south:v.north)]
      */
-    String renderBoundingBox(ParameterBoundingBox v) {
+    String renderBoundingBoxWithDateTimeIfAny(WcpsCoverageMetadata coverageMetadata, ParameterBoundingBox v, String timeSubset) throws PetascopeException {
+        List<Axis> xyAxes = coverageMetadata.getXYAxes();
+        Axis axisX = xyAxes.get(0);
+        Axis axisY = xyAxes.get(1);
+
         String crs = ""; // native CRS
         if (v.crs != null)
             crs = ":\"EPSG:" + v.crs + "\"";
-        String spatialExtent = "x" + crs + "(" + v.west + ":" + v.east + "), " +
-                "y" + crs + "(" + v.south + ":" + v.north + ")";
+        String spatialExtent = axisX.getLabel() + crs + "(" + v.west + ":" + v.east + "), " +
+            axisY.getLabel() + crs + "(" + v.south + ":" + v.north + ")";
         if (v.base != null) {
             spatialExtent += ", z(" + v.base + ":" + v.height + ")";
         }
+
+        if (timeSubset != null) {
+            spatialExtent += ", " + timeSubset;
+        }
+
         spatialExtent = "[" + spatialExtent + "]";
         return spatialExtent;
     }
@@ -595,10 +648,10 @@ public class OpenEOJSonToWcpsResultService {
         }
         return result;
     }
-    
+
     String renderScale(String data, Object scaleSpec) {
         String target = "";
-        
+
         if (scaleSpec instanceof String) {
             // another coverage
             target = "{ imageCrsDomain(" + scaleSpec + ") }";
@@ -621,50 +674,32 @@ public class OpenEOJSonToWcpsResultService {
             // single factor
             target = scaleSpec.toString();
         }
-        
+
         return "scale(" + data + ", " + target + ")";
     }
-    
+
 
     // ------ step 5
 
 
-    private String translateToWcpsQuery(ProcessGraph g) {
+    private String translateToWcpsQuery(ProcessGraph g) throws PetascopeException {
         // return clause
         log.debug("translating process graph to WCPS query");
         String returnExpr = renderProcessGraph(g);
         String returnClause = " return " + returnExpr;
         log.debug("return clause: " + returnClause);
 
-        // for clause
-        String forClause = "";
-        Set<String> collections = new HashSet<>();
-        for (Map.Entry<String, ProcessNode> entry : g.getProcessNodeMap().entrySet()) {
-            ProcessNode p = entry.getValue();
-            if (p.processId.equals("load_collection")) {
-                ParameterValue arg = p.arguments.get("id");
-                if (arg.getParameterType() == ParameterValue.ParameterType.STRING) {
-                    collections.add((String) arg.getScalarValue());
-                } else {
-                    // TODO fix correct exception
-                    throw new RuntimeException("load_collection has an id argument with "
-                            + "invalid value, expected a string indicating the collection name.");
-                }
-            }
+        List<String> forClauseExpressions = new ArrayList<>();
+        for (Map.Entry<String, String> entry : loadCollectionCoverageIdAliasMap.entrySet()) {
+            forClauseExpressions.add(entry.getValue() + " IN (" + entry.getKey() + ") ");
         }
-        for (String collection : collections) {
-            if (!forClause.isEmpty()) {
-                forClause += ", ";
-            }
-            forClause += collection + " in (" + collection + ")";
-        }
-        forClause = "for " + forClause;
-        log.debug("for clause: " + forClause);
 
+        String forClause = "FOR " + ListUtil.join(forClauseExpressions, ", ");
         // TODO let, where clauses?
 
         // final result
         String wcpsQuery = forClause + returnClause;
+        log.debug("Generated final WCPS query: " + wcpsQuery);
         return wcpsQuery;
     }
 

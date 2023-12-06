@@ -65,8 +65,8 @@ public class ParameterBoundingBox {
     public String base;
     public String height;
     public String crs;
-    
-    public ParameterBoundingBox(String west, String south, String east, String north, String base, String height, String crs) {
+
+    public ParameterBoundingBox(String west, String east, String south, String north, String base, String height, String crs) {
         this.west = west;
         this.south = south;
         this.east = east;

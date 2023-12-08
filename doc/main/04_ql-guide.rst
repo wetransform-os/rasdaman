@@ -4042,7 +4042,7 @@ The ``bbox`` parameter is a geographic bounding box given as a string of
 comma-separated floating-point values of the format: "xmin, ymin, xmax, ymax".
 
 As a result, the operation produces a file in the desired target format. If the
-format assumes several output files, they will be packaged in a tar archive.
+format assumes several output files, they will be packaged in a zip archive.
 
 **Limitations**
 
@@ -4058,7 +4058,7 @@ The following query uses default parameters to polygonize ``rgb`` collection: ::
 
     select polygonize(rgb) from rgb
 
-The result is a ``.tar`` archive that consists of the three files in accordance
+The result is a ``.zip`` archive that consists of the three files in accordance
 to the "ESRI Shapefile" format: ``polygonize.shp``, ``polygonize.shx``,
 ``polygonize.dbf``
 

@@ -1,0 +1,65 @@
+{
+  "config": {
+    "service_url": "PETASCOPE_URL",
+    "tmp_directory": "/tmp/",
+    "mock": false,
+    "automated": true,
+    "track_files": false
+  },
+  "input": {
+    "coverage_id": "test_rgb_categorial_bands_nil_values",
+    "paths": [
+      "rgb.png"
+    ]
+  },
+  "recipe": {
+    "name": "general_coverage",
+    "options": {
+      "coverage": {
+        "crs": "OGC/0/Index2D",
+        "metadata": {
+          "type": "json",
+          "global": {
+            "resolution": "'1'"
+          }
+        },
+        "slicer": {
+          "type": "gdal",
+          "bands": [
+            {
+              "name": "red",
+              "identifier": "red",
+              "observationType": "numeric",
+              "nilValue": 25,
+              "nilReason": "I don't know",
+              "description": "Band 1 description"
+            }, {
+              "name": "green",
+              "identifier": "green",
+              "observationType": "categorial",
+              "definition": "Band 2 definition which is an attribute",
+              "codeSpace": "http://code.list.org/",
+              "nilValue": 35
+            }, {
+              "name": "blue",
+              "identifier": "blue"
+            }
+          ],
+          "axes": {
+            "j": {
+              "min": "${gdal:maxY}",
+              "max": "${gdal:minY}",
+              "resolution": "-1"
+            },
+            "i": {
+              "min": "${gdal:minX}",
+              "max": "${gdal:maxX}",
+              "resolution": "${gdal:resolutionX}"
+            }
+          }
+        }
+      },
+      "tiling": "ALIGNED [0:1023, 0:1023] TILE SIZE 4194304"
+    }
+  }
+}

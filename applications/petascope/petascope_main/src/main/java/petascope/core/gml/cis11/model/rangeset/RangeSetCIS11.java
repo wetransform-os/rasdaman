@@ -22,12 +22,11 @@
 package petascope.core.gml.cis11.model.rangeset;
 
 import nu.xom.Element;
-import static petascope.core.XMLSymbols.LABEL_RANGESET_CIS11;
-import static petascope.core.XMLSymbols.NAMESPACE_GML;
-import static petascope.core.XMLSymbols.PREFIX_GML;
 import petascope.core.gml.ISerializeToXMElement;
 import petascope.exceptions.PetascopeException;
 import petascope.util.XMLUtil;
+
+import static petascope.core.XMLSymbols.*;
 
 /**
  * Class to represent rangeSet element in CIS 1.1 for WCS GetCoverage result in GML. e.g:
@@ -64,7 +63,7 @@ public class RangeSetCIS11 implements ISerializeToXMElement {
 
     @Override
     public Element serializeToXMLElement() throws PetascopeException {
-        Element rangeSetElement = new Element(XMLUtil.createXMLLabel(PREFIX_GML, LABEL_RANGESET_CIS11), NAMESPACE_GML);
+        Element rangeSetElement = new Element(XMLUtil.createXMLLabel(PREFIX_CIS11, LABEL_RANGESET_CIS11), NAMESPACE_CIS_11);
         Element dataBlockElement = this.dataBlock.serializeToXMLElement();
         rangeSetElement.appendChild(dataBlockElement);
         

@@ -64,17 +64,17 @@
       "type" : "QuantityType",
       "name" : "tg",
       "description" : "Count of the number of observations from the MERIS sensor contributing to this bin cell",
+      "definition" : "ogcType:signedShort",
       "nilValues" : {
         "nilValues" : [ {
-          "reason" : "The nil value represents an error in the sensor.",
+          "reason" : "",
           "value" : "-9999"
         } ]
       },
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:signedShort"
+      }
     } ]
   },
   "metadata" : {

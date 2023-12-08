@@ -242,6 +242,7 @@ public class ConfigManager {
     private static final String KEY_APPLICATION_NAME_NEW = "server.servlet.context-path";
     
     private static final String KEY_INSPIRE_METADATA_URL = "inspire_common_url";
+    private static final String KEY_INSPIRE_SPATIAL_DATASET_IDENTIFIER = "inspire_dls_spatial_dataset_identifier";
 
     // For old Petascopedb to migrate (source datasource)
     private static final String KEY_SOURCE_DATASOURCE_URL = "metadata_url";
@@ -305,6 +306,7 @@ public class ConfigManager {
     public static String CONF_DIR = "";
 
     public static String INSPIRE_COMMON_URL = "";
+    public static String INSPIRE_SPATIAL_DATASET_IDENTIFIER = "rasdaman";
 
     // rasj 
     private static final String KEY_RASJ_LOGGING_LEVEL = "rasj_logging_level";
@@ -452,7 +454,7 @@ public class ConfigManager {
     private void initPetascopeSettings() throws PetascopeException {
         // server.port
         EMBEDDED_PETASCOPE_PORT = this.get(KEY_EMBEDDED_PETASCOPE_PORT);
-        
+
         String petascopeEndpointURL = get(KEY_PETASCOPE_SERVLET_URL);
         this.setPetascopeEndpointUrl(petascopeEndpointURL);
 
@@ -469,6 +471,7 @@ public class ConfigManager {
         
         
         INSPIRE_COMMON_URL = getOptionalPropertyValue(KEY_INSPIRE_METADATA_URL, "");
+        INSPIRE_SPATIAL_DATASET_IDENTIFIER = getOptionalPropertyValue(KEY_INSPIRE_SPATIAL_DATASET_IDENTIFIER, "rasdaman");
         
         PETASCOPE_APPLICATION_CONTEXT_PATH = getOptionalPropertyValue(KEY_APPLICATION_NAME_NEW, "");
         if (PETASCOPE_APPLICATION_CONTEXT_PATH.trim().isEmpty()) {

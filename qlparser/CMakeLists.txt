@@ -99,6 +99,7 @@ add_library(qlparser
         qtpointop.cc qtpointop.hh qtpointop.icc
         qtpolygonclipping.hh qtpolygonclipping.cc
         qtpolygonutil.hh qtpolygonutil.cc
+        qtpolygonize.hh qtpolygonize.cc
         qtproject.cc qtproject.hh
         qtrangeconstructor.cc qtrangeconstructor.hh qtrangeconstructor.icc
         qtscalardata.cc qtscalardata.hh qtscalardata.icc

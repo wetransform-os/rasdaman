@@ -557,6 +557,7 @@ var rasdaman;
     (function (common) {
         function DecomposeQualifiedCoverageIdFilter() {
             return function (coverageId) {
+                coverageId = coverageId.replace(/--/g, ":");
                 var tmps = coverageId.split(":");
                 return tmps[tmps.length - 1];
             };
@@ -1780,6 +1781,9 @@ var swe;
             if (source.doesElementExist("swe:Quantity")) {
                 this.quantity = new swe.Quantity(source.getChildAsSerializedObject("swe:Quantity"));
             }
+            if (source.doesElementExist("swe:Category")) {
+                this.quantity = new swe.Quantity(source.getChildAsSerializedObject("swe:Category"));
+            }
         }
         return Field;
     }());
@@ -1985,10 +1989,11 @@ var wcs;
 (function (wcs) {
     var GetCapabilities = (function (_super) {
         __extends(GetCapabilities, _super);
-        function GetCapabilities() {
+        function GetCapabilities(version) {
+            if (version === void 0) { version = "2.0.1"; }
             var _this = _super.call(this) || this;
             _this.service = "WCS";
-            _this.acceptVersions = ["2.0.1"];
+            _this.acceptVersions = [version];
             return _this;
         }
         GetCapabilities.prototype.toKVP = function () {
@@ -2089,7 +2094,7 @@ var wcs;
             if (this.mediaType) {
                 serialization += "&MEDIATYPE=multipart/related";
             }
-            if (this.isGeneralGridCoverage) {
+            if (this.isGeneralGridCoverage && this.format.includes("gml")) {
                 serialization += "&outputType=GeneralGridCoverage";
                 serialization = serialization.replace("2.0.1", "2.1.0");
             }
@@ -3263,6 +3268,15 @@ var rasdaman;
             $scope.wcsServerEndpoint = settings.wcsEndpoint;
             var canvasId = "wcsCanvasGetCapabilities";
             $scope.hasBlackWhiteListeCoverageRole = rasdaman.AdminService.hasRole($rootScope.userLoggedInRoles, rasdaman.AdminService.PRIV_OWS_WCS_BLACKWHITELIST_COV);
+            $scope.avaiableVersions = [
+                { "value": "2.1.0", "text": "WCS 2.1.0" },
+                { "value": "2.0.1", "text": "WCS 2.0.1" }
+            ];
+            $scope.selectedVersion = $scope.avaiableVersions[0].value;
+            $scope.updateGeneratedUrlForSelectedVersion = function () {
+                var capabilitiesRequest = new wcs.GetCapabilities($scope.selectedVersion);
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + capabilitiesRequest.toKVP();
+            };
             $scope.initCheckboxesForCoverageIds = function () {
                 var coverageSummaryArray = $scope.capabilities.contents.coverageSummaries;
                 for (var i = 0; i < coverageSummaryArray.length; i++) {
@@ -3534,7 +3548,7 @@ var rasdaman;
                 $scope.hideAllFootprintsOnGlobe();
                 _this.coveragesExtents = [];
                 settings.wcsEndpoint = $scope.wcsServerEndpoint;
-                var capabilitiesRequest = new wcs.GetCapabilities();
+                var capabilitiesRequest = new wcs.GetCapabilities($scope.selectedVersion);
                 $scope.generatedGETURL = settings.wcsEndpoint + "?" + capabilitiesRequest.toKVP();
                 wcsService.getServerCapabilities(capabilitiesRequest)
                     .then(function (response) {

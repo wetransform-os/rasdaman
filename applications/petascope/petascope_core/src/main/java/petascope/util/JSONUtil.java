@@ -77,6 +77,10 @@ public class JSONUtil {
      * Serialize an object to JSON string with indentation (human readable)
      */
     public static String serializeObjectToJSONString(Object obj) throws PetascopeException {
+        if (obj instanceof String) {
+            return obj.toString();
+        }
+
         objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);

@@ -139,7 +139,7 @@ module rasdaman {
             var requestUrl = this.wcsSettingsService.wcsEndpoint + "?" + request.toKVP();
 
             var url = this.wcsSettingsService.defaultContextPath + "/ows/result.html";
-            // TESTING !!! (NOTE: rarely need to enable to test (!))
+            // TESTING !!! (NOTE: rarely needed to enable to test, ONLY when testing with WCS GetCoverage tab (!))
             // var url = "http://localhost:8000/ows/result.html";
                         
             this.storeKVPParametersToLocalStorage(this.wcsSettingsService.wcsEndpoint, request.toKVP());            

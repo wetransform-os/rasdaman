@@ -64,11 +64,11 @@
       "type" : "QuantityType",
       "name" : "Gray",
       "description" : "",
+      "definition" : "ogcType:unsignedByte",
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     } ]
   }
 }

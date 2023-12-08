@@ -64,6 +64,10 @@
       "type" : "QuantityType",
       "name" : "red",
       "description" : "",
+<<<<<<< HEAD
+=======
+      "definition" : "ogcType:unsignedByte",
+>>>>>>> release_10.2
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -73,12 +77,12 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "green",
       "description" : "",
+      "definition" : "ogcType:unsignedByte",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -88,12 +92,12 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "blue",
       "description" : "",
+      "definition" : "ogcType:unsignedByte",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -103,12 +107,12 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "red0",
       "description" : "",
+      "definition" : "ogcType:unsignedByte",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -118,8 +122,7 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "green1",
@@ -133,8 +136,7 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "blue2",
@@ -148,12 +150,12 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "green3",
       "description" : "",
+      "definition" : "ogcType:unsignedByte",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -163,8 +165,7 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "blue4",
@@ -178,8 +179,7 @@
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:unsignedByte"
+      }
     } ]
   },
   "metadata" : {
@@ -189,7 +189,7 @@
     "type" : "RangeSetType",
     "dataBlock" : {
       "type" : "VDataBlockType",
-      "values" : [ "119 119 119 119 119 119 119 119" ]
+      "values" : [ "null null null null null null null null" ]
     }
   }
 }

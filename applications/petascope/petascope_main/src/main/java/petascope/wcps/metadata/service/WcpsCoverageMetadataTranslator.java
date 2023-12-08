@@ -394,6 +394,8 @@ public class WcpsCoverageMetadataTranslator {
             rangeField.setNodata(quantity.getNilValues());
             rangeField.setUomCode(quantity.getUom().getCode());
             rangeField.setAllowedValues(quantity.getAllowedValues());
+            rangeField.setObservationType(quantity.getObservationType());
+            rangeField.setCodeSpace(quantity.getCodeSpace());
 
             rangeFields.add(rangeField);
         }

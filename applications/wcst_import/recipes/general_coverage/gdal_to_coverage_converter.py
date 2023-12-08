@@ -44,6 +44,7 @@ from master.helper.high_pixel_adjuster import HighPixelAjuster
 from master.helper.point_pixel_adjuster import PointPixelAdjuster
 from util.gdal_util import GDALGmlUtil
 from util.s2metadata_util import S2MetadataUtil
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 class GdalToCoverageConverter(AbstractToCoverageConverter):
@@ -131,9 +132,9 @@ class GdalToCoverageConverter(AbstractToCoverageConverter):
             if nil_value is None:
                 return None
             else:
-                return [nil_value]
+                return [RangeTypeNilValue("", nil_value)]
         else:
-            return [0.0]
+            return [RangeTypeNilValue("", 0)]
 
     def _axis_subset(self, crs_axis, evaluator_slice, resolution=None):
         """

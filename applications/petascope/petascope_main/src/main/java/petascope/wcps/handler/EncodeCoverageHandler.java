@@ -138,8 +138,8 @@ public class EncodeCoverageHandler extends Handler {
         //get the right template for rasql string (the dem() encode still use the old format, other will use the new JSON format)
         String template = getTemplate(format);
         String resultRasql = template.replace("$covExpression", coverageExpression.getRasql())
-                .replace("$format", '"' + format + '"')
-                .replace("$otherParams", otherParamsString);
+                                     .replace("$format", '"' + format + '"')
+                                     .replace("$otherParams", otherParamsString);
         WcpsResult wcpsResult = new WcpsResult(coverageExpression.getMetadata(), resultRasql);
         wcpsResult.setWithCoordinates(widthCoordinates);
         wcpsResult.setMimeType(mimeType);
@@ -232,7 +232,7 @@ public class EncodeCoverageHandler extends Handler {
             }
 
             // Update the nodata values in range fields as well
-            updateNoDataInRangeFileds(noDataValues, metadata);
+            updateNoDataInRangeFields(noDataValues, metadata);
 
             return true;                
         }
@@ -243,11 +243,8 @@ public class EncodeCoverageHandler extends Handler {
     /**
      * Update the range filed's nodata value from passing nodata values as extra
      * parameter
-     *
-     * @param noDataValues
-     * @param metadata
      */
-    public void updateNoDataInRangeFileds(List<NilValue> noDataValues, WcpsCoverageMetadata metadata) {
+    public void updateNoDataInRangeFields(List<NilValue> noDataValues, WcpsCoverageMetadata metadata) {
         if (!noDataValues.isEmpty()) {
             // We update the range fields of coverages with the passing nodata values
             if (noDataValues.size() == 1) {

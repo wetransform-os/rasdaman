@@ -23,17 +23,12 @@ package petascope.core.gml.cis.model.rangetype;
 
 import nu.xom.Attribute;
 import nu.xom.Element;
-import static petascope.core.XMLSymbols.LABEL_CODE;
-import static petascope.core.XMLSymbols.LABEL_DEFINITION;
-import static petascope.core.XMLSymbols.LABEL_DESCRIPTION;
-import static petascope.core.XMLSymbols.LABEL_LABEL;
-import static petascope.core.XMLSymbols.LABEL_QUANTITY;
-import static petascope.core.XMLSymbols.LABEL_UOM;
-import static petascope.core.XMLSymbols.NAMESPACE_SWE;
-import static petascope.core.XMLSymbols.PREFIX_SWE;
+import petascope.core.XMLSymbols;
 import petascope.core.gml.ISerializeToXMElement;
 import petascope.util.XMLUtil;
 import petascope.util.ras.TypeResolverUtil;
+
+import static petascope.core.XMLSymbols.*;
 
 /**
  * Class to represent Quantity element. e.g:
@@ -62,10 +57,15 @@ public class Quantity implements ISerializeToXMElement {
     
     private String label;
     private String description;
+    private String definition;
     private NilValues nilValues;
+    // NOTE: used only for swe:Quantity
     private String uomCode;
     private Constraint constraint;
     private String dataType;
+    private org.rasdaman.domain.cis.Quantity.ObservationType observationType;
+    // NOTE: used only for swe:Category
+    private String codeSpace;
 
     public String getLabel() {
         return label;
@@ -114,20 +114,53 @@ public class Quantity implements ISerializeToXMElement {
     public void setDataType(String dataType) {
         this.dataType = dataType;
     }
-    
+
+
+    public String getDefinition() {
+        return definition;
+    }
+
+    public void setDefinition(String definition) {
+        this.definition = definition;
+    }
+
+    public org.rasdaman.domain.cis.Quantity.ObservationType getObservationType() {
+        return observationType;
+    }
+
+    public void setObservationType(org.rasdaman.domain.cis.Quantity.ObservationType observationType) {
+        this.observationType = observationType;
+    }
+
+    public String getCodeSpace() {
+        return codeSpace;
+    }
+
+    public void setCodeSpace(String codeSpace) {
+        this.codeSpace = codeSpace;
+    }
+
     /**
      * Create an URL which points to opengis data type based on rasdaman data type,
      * e.g: rasdaman octet -> http://www.opengis.net/def/dataType/OGC/0/signedByte
      */
     private String createOpenGisDataTypeDefinitionURL() {
-        String opengisDataType = TypeResolverUtil.RAS_TYPES_TO_OPENGIS_TYPES.get(this.dataType);
-        String result = "http://www.opengis.net/def/dataType/OGC/0/" + opengisDataType;
+        String result = this.definition;
+        if (result == null || result.isEmpty()) {
+            String opengisDataType = TypeResolverUtil.RAS_TYPES_TO_OPENGIS_TYPES.get(this.dataType);
+            result = "http://www.opengis.net/def/dataType/OGC/0/" + opengisDataType;
+        }
+
         return result;
     }
 
     @Override
     public Element serializeToXMLElement() {
         Element quantityElement = new Element(XMLUtil.createXMLLabel(PREFIX_SWE, LABEL_QUANTITY), NAMESPACE_SWE);
+        if (this.observationType == org.rasdaman.domain.cis.Quantity.ObservationType.CATEGORIAL) {
+            quantityElement = new Element(XMLUtil.createXMLLabel(PREFIX_SWE, LABEL_CATEGORY), NAMESPACE_SWE);
+        }
+
         String dataTypeURL = this.createOpenGisDataTypeDefinitionURL();
         Attribute definitionAttribute = new Attribute(LABEL_DEFINITION, dataTypeURL);
         quantityElement.addAttribute(definitionAttribute);
@@ -143,21 +176,32 @@ public class Quantity implements ISerializeToXMElement {
         if (this.nilValues.getNilValues().size() > 0) {
             nilValuesElement = this.nilValues.serializeToXMLElement(); 
         }
-        
-        Element uomElement = new Element(XMLUtil.createXMLLabel(PREFIX_SWE, LABEL_UOM), NAMESPACE_SWE);
-        Attribute codeAttribute = new Attribute(LABEL_CODE, this.uomCode);
-        uomElement.addAttribute(codeAttribute);
-        
-        Element constraintElement = this.constraint.serializeToXMLElement();
-         
+
         quantityElement.appendChild(labelElement);
         quantityElement.appendChild(descriptionElement);
         if (nilValuesElement != null) {
             quantityElement.appendChild(nilValuesElement);
         }
-        quantityElement.appendChild(uomElement);
-        quantityElement.appendChild(constraintElement);
-        
+
+        if (this.observationType == org.rasdaman.domain.cis.Quantity.ObservationType.NUMERICAL) {
+            if (this.uomCode != null) {
+                Element uomElement = new Element(XMLUtil.createXMLLabel(PREFIX_SWE, LABEL_UOM), NAMESPACE_SWE);
+                Attribute codeAttribute = new Attribute(LABEL_CODE, this.uomCode);
+                uomElement.addAttribute(codeAttribute);
+                quantityElement.appendChild(uomElement);
+            }
+        } else if (this.observationType == org.rasdaman.domain.cis.Quantity.ObservationType.CATEGORIAL) {
+            if (this.codeSpace != null) {
+                Element codeSpaceElement = new Element(XMLUtil.createXMLLabel(PREFIX_SWE, LABEL_CODE_SPACE), NAMESPACE_SWE);
+                Attribute codeAttribute =  new Attribute(PREFIX_XLINK_HREF,
+                                                        XMLSymbols.NAMESPACE_XLINK,
+                                                        this.codeSpace);
+                codeAttribute.setValue(this.codeSpace);
+                codeSpaceElement.addAttribute(codeAttribute);
+                quantityElement.appendChild(codeSpaceElement);
+            }
+        }
+
         return quantityElement;
     }
     

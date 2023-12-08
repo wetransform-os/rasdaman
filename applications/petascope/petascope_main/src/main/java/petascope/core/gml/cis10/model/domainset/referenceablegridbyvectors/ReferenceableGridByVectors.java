@@ -87,10 +87,8 @@ public class ReferenceableGridByVectors extends RectifiedGrid implements ISerial
         Element referenceableGridByVectorsElement = new Element(XMLUtil.createXMLLabel(PREFIX_GMLRGRID, LABEL_REFERENCEABLE_GRID_BY_VECTORS), NAMESPACE_GMLRGRID);
         
         Attribute dimensionAttribute = new Attribute(ATT_DIMENSION, dimension);
-        Attribute idAttribute = XMLUtil.createXMLAttribute(NAMESPACE_GMLRGRID, PREFIX_GML, ATT_ID, id);
         referenceableGridByVectorsElement.addAttribute(dimensionAttribute);
-        referenceableGridByVectorsElement.addAttribute(idAttribute);
-        
+
         Element limitsElement = this.limits.serializeToXMLElement();
         Element axisLabelsElement = new Element(XMLUtil.createXMLLabel(PREFIX_GML, ATT_AXIS_LABELS), NAMESPACE_GML);
         axisLabelsElement.appendChild(this.axisLabels);

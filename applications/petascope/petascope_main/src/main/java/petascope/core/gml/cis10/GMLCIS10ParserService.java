@@ -23,6 +23,8 @@ package petascope.core.gml.cis10;
 
 import java.math.BigDecimal;
 import java.util.*;
+
+import nu.xom.Attribute;
 import nu.xom.Document;
 
 import nu.xom.Element;
@@ -85,11 +87,10 @@ import petascope.util.CrsUtil;
 import petascope.core.Pair;
 import petascope.util.StringUtil;
 import petascope.core.XMLSymbols;
-import static petascope.core.XMLSymbols.LABEL_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_RECTIFIED_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_REFERENCEABLE_GRID_COVERAGE;
 import petascope.core.gml.cis.AbstractGMLCISParserService;
 import petascope.util.ListUtil;
+
+import static petascope.core.XMLSymbols.*;
 import static petascope.util.ras.TypeResolverUtil.R_Abb_Float;
 
 /**
@@ -712,6 +713,11 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
 
             //get the quantity element
             Elements quantitiesElement = fieldElements.get(i).getChildElements(XMLSymbols.LABEL_QUANTITY, XMLSymbols.NAMESPACE_SWE);
+            if (quantitiesElement.size() == 0) {
+                // In case band has swe:Category
+                quantitiesElement = fieldElements.get(i).getChildElements(XMLSymbols.LABEL_CATEGORY, XMLSymbols.NAMESPACE_SWE);
+            }
+
             if (quantitiesElement.size() != 1) {
                 throw new PetascopeException(ExceptionCode.InvalidCoverageConfiguration, "Wrong number of \"" + XMLSymbols.LABEL_QUANTITY
                         + "\" elements encountered (exactly 1 expected).");
@@ -740,8 +746,14 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
      */
     private Quantity parseSweQuantity(Element quantityElement) throws WCSTWrongInervalFormat, WCSException {
         String description = null;
-        String definitionUri = null;
+        String definition = null;
         String uomCode = null;
+        String codeSpace = null;
+
+        Attribute definitionAttribute = quantityElement.getAttribute(XMLSymbols.LABEL_DEFINITION);
+        if (definitionAttribute != null) {
+            definition = definitionAttribute.getValue();
+        }
 
         //get the description
         Elements descriptionElements = quantityElement.getChildElements(XMLSymbols.LABEL_DESCRIPTION, XMLSymbols.NAMESPACE_SWE);
@@ -753,6 +765,11 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
         Elements uomCodes = quantityElement.getChildElements(XMLSymbols.LABEL_UOM, XMLSymbols.NAMESPACE_SWE);
         if (uomCodes.size() != 0) {
             uomCode = uomCodes.get(0).getAttributeValue(XMLSymbols.ATT_UOMCODE);
+        }
+
+        Elements codeSpaceElements = quantityElement.getChildElements(XMLSymbols.LABEL_CODE_SPACE, XMLSymbols.NAMESPACE_SWE);
+        if (codeSpaceElements.size() != 0) {
+            codeSpace = codeSpaceElements.get(0).getAttributeValue(XMLSymbols.ATT_HREF, NAMESPACE_XLINK);
         }
 
         // get the nilvalues
@@ -789,12 +806,19 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
         // @TODO: add this feature first in wcst_import and to petascope
         List<AllowedValue> allowedValues = new ArrayList<>();
 
+        Quantity.ObservationType observationType = Quantity.ObservationType.NUMERICAL;
+        if (quantityElement.getLocalName().equals(XMLSymbols.LABEL_CATEGORY)) {
+            observationType = Quantity.ObservationType.CATEGORIAL;
+        }
+
         Quantity quantity = new Quantity();
         quantity.setDescription(description);
-        quantity.setDefinition(definitionUri);
+        quantity.setDefinition(definition);
         quantity.setAllowedValues(allowedValues);
         quantity.setUom(new Uom(uomCode));
         quantity.setNilValues(nils);
+        quantity.setObservationType(observationType);
+        quantity.setCodeSpace(codeSpace);
 
         return quantity;
     }
@@ -1155,4 +1179,3 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
     private static final String TEMPLATE_RASDAMAN_STRUCTURE = "{" + TOKEN_STRUCTURE_CELL_VAL + "}";
 
 }
-

@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cis11:GeneralGridCoverage gml:id="test_irr_cube_2" xsi:schemaLocation="http://www.opengis.net/cis/1.1/gml http://schemas.opengis.net/cis/1.1/gml/cisAll.xsd" xmlns:cis11="http://www.opengis.net/cis/1.1/gml" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org">
-    <cis11:Envelope srsName="http://localhost:8080/rasdaman/def/crs/EPSG/0/32633" axisLabels="E N" srsDimension="2">
-        <cis11:AxisExtent axisLabel="E" uomLabel="metre" lowerBound="75042.72735943" upperBound="85042.72735943"/>
-        <cis11:AxisExtent axisLabel="N" uomLabel="metre" lowerBound="5094865.557938452" upperBound="5104865.557938452"/>
-    </cis11:Envelope>
-    <gml:coverageFunction>
+    <cis11:CoverageFunction>
         <gml:GridFunction>
             <gml:sequenceRule axisOrder="+2 +1">Linear</gml:sequenceRule>
             <gml:startPoint>0 35</gml:startPoint>
         </gml:GridFunction>
-    </gml:coverageFunction>
+    </cis11:CoverageFunction>
+    <cis11:Envelope srsName="http://localhost:8080/rasdaman/def/crs/EPSG/0/32633" axisLabels="E N" srsDimension="2">
+        <cis11:AxisExtent axisLabel="E" uomLabel="metre" lowerBound="75042.72735943" upperBound="85042.72735943"/>
+        <cis11:AxisExtent axisLabel="N" uomLabel="metre" lowerBound="5094865.557938452" upperBound="5104865.557938452"/>
+    </cis11:Envelope>
     <cis11:DomainSet>
         <cis11:GeneralGrid srsName="http://localhost:8080/rasdaman/def/crs/EPSG/0/32633" axisLabels="E N">
             <cis11:RegularAxis axisLabel="E" uomLabel="metre" lowerBound="75042.72735943" upperBound="85042.72735943" resolution="10000"/>
@@ -20,6 +20,11 @@
             </cis11:GridLimits>
         </cis11:GeneralGrid>
     </cis11:DomainSet>
+    <cis11:RangeSet>
+        <cis11:DataBlock>
+            <cis11:V>9.697354 4.181835</cis11:V>
+        </cis11:DataBlock>
+    </cis11:RangeSet>
     <cis11:RangeType>
         <swe:DataRecord>
             <swe:field name="b1">
@@ -50,10 +55,5 @@
             </swe:field>
         </swe:DataRecord>
     </cis11:RangeType>
-    <gml:RangeSet>
-        <gml:DataBlock>
-            <cis11:V>9.697354 4.181835</cis11:V>
-        </gml:DataBlock>
-    </gml:RangeSet>
-    <cis11:metadata/>
+    <cis11:Metadata/>
 </cis11:GeneralGridCoverage>

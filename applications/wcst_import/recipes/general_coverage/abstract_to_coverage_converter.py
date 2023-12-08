@@ -372,16 +372,18 @@ class AbstractToCoverageConverter:
 
         return metadata_str
 
-    def __validate_null_values(self, input_nil_value):
-        tmp = [input_nil_value]
-        if isinstance(input_nil_value, list):
-            tmp = input_nil_value
+    def __validate_null_values_per_band(self, input_nil_value):
+        """
+        :param list[RangeTypeNilValue] input_nil_value: objects
+        """
+        nil_value = str(input_nil_value.value)
+        tmps = nil_value.split(", ")
 
-        for nil_value in tmp:
+        for tmp in tmps:
             # null_value could be 9999 (gdal), "9999", or "'9999'" (netcdf, grib) so remove the redundant quotes
-            nil_value = str(nil_value).replace("'", "")
+            nil_value = str(tmp).replace("'", "")
 
-            # nill value can be single (e.g: "-9999") or interval (e.g: "-9999:-9998")
+            # nilValue can be single (e.g: "-9999") or interval (e.g: "-9999:-9998")
             values = nil_value.split(":")
 
             for value in values:
@@ -392,7 +394,7 @@ class AbstractToCoverageConverter:
 
                 if not (value == "*" or is_number(value)):
                     # nilValue is invalid number
-                    raise RuntimeException("NilValue of band: {} is not valid.".format(nil_value))
+                    raise RuntimeException("NilValue of band is not valid. Given: {}".format(nil_value))
 
     def _get_nil_values(self, index):
         """
@@ -416,7 +418,8 @@ class AbstractToCoverageConverter:
             # nil_values = [[2,3], [1], [4]] or [999:9999, 999:*, 20]
             has_all_nested_lists = []
 
-            for nil_value in nil_values:
+            for obj in nil_values:
+                nil_value = obj.value
                 has_all_nested_lists.append(isinstance(nil_value, list))
 
             if True in has_all_nested_lists and False in has_all_nested_lists:
@@ -427,10 +430,19 @@ class AbstractToCoverageConverter:
                 # default_null_values contains list of null values per band
                 nil_values = nil_values[index]
 
-            for nil_value in nil_values:
-                self.__validate_null_values(nil_value)
+            i = 0
+            for obj in nil_values:
+                nil_value = obj.value
 
-                range_nils.append(RangeTypeNilValue(band.nilReason, nil_value))
+                nil_reason = ""
+                if len(band.nilValues) > 0:
+                    nil_reason = band.nilValues[i].reason
+
+                range_type_nil_value = RangeTypeNilValue(nil_reason, nil_value)
+                self.__validate_null_values_per_band(range_type_nil_value)
+
+                range_nils.append(range_type_nil_value)
+                i += 1
 
             return range_nils
         else:
@@ -447,8 +459,7 @@ class AbstractToCoverageConverter:
         for band in self.bands:
             # NOTE: each range (band) should contain only 1 nilValue, e.g: [-99999]
             range_nils = self._get_nil_values(i)
-            range_fields.append(RangeTypeField(band.name, band.definition, band.description, band.nilReason,
-                                               range_nils, band.uomCode))
+            range_fields.append(RangeTypeField(band.name, band.definition, band.description, range_nils, band.uomCode, band.observationType, band.codeSpace))
             i += 1
 
         return range_fields

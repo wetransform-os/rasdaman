@@ -80,32 +80,32 @@
       "type" : "QuantityType",
       "name" : "b1",
       "description" : "",
+      "definition" : "ogcType:float32",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
-          "value" : "-9.22337204e+18"
+          "value" : "-9.223372036854776e+18"
         } ]
       },
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:float32"
+      }
     }, {
       "type" : "QuantityType",
       "name" : "b2",
       "description" : "",
+      "definition" : "ogcType:float32",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
-          "value" : "-9.22337204e+18"
+          "value" : "-9.223372036854776e+18"
         } ]
       },
       "uom" : {
         "type" : "UnitReference",
         "code" : "10^0"
-      },
-      "definition" : "ogcType:float32"
+      }
     } ]
   },
   "rangeSet" : {

@@ -30,6 +30,7 @@ class ConfigManager:
      The values below will be overridden as soon as the application is initialized, the values
      below serve only as documentation
     """
+    ingredients_file_path = ""
 
     wcs_service = "http://localhost:8080/rasdaman/ows"
     service_is_local = True

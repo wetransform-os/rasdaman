@@ -2882,18 +2882,19 @@ Concatenation of two arrays "glues" together arrays by lining them up
 along an axis.
 
 This can be achieved with a shorthand function, ``concat``, which for
-convenience is implemented as an n-ary operator accepting an unlimited number of
-arrays of the same base type. The operator takes the input arrays, lines them up
-along the concatenation dimension specified in the request, and outputs one
-result array. To this end, each input array is shifted to the appropriate
-position, with the first array's position remaining unchanged; therefore, it is
-irrelevant whether array extents, along the concatenation dimension, are
-disjoint, overlapping, or containing each other.
+convenience is implemented as an n-ary operator accepting an unlimited number
+of arrays of the same base type. The operator takes the input arrays, lines
+them up along the concatenation dimension specified in the request, and outputs
+one result array. To this end, each input array from the second one on is
+shifted to the origin of the first one, except along the concatenation
+dimension where it's shifted so that the lower bound of the current array is
+right after the upper bound of the previous array.
 
 The resulting array's dimensionality is equal to the input array dimensionality.
 
 The resulting array extent is the sum of all extents along the concatenation
-dimension, and the extent of the input arrays in all other dimensions.
+dimension, and the extent of the input arrays in all other dimensions; the
+origin is same as the origin of the first input array.
 
 The resulting array cell type is same as the cell types of the input arrays.
 
@@ -2902,7 +2903,7 @@ The resulting array cell type is same as the cell types of the input arrays.
 All participating arrays must have the same number of dimensions.
 
 All participating arrays must have identical extents in all dimensions, except
-that dimension along which concatenation is performed.
+the dimension along which concatenation is performed.
 
 Input arrays must have the same cell types, i.e. concatenating a char and float
 arrays is not possible and requires explicit casting to a common type.
@@ -3981,6 +3982,98 @@ clip, concat, and geographic reprojection.
     +-----------+------------+
 
 
+.. _polygonize-operation:
+
+Polygonize operation
+====================
+
+The `POLYGONIZE` operation creates vector polygons for all connected regions of
+pixels in a given array, resulting in a vector format file such as Shapefile.
+This operation is useful in geographical context, providing ability to layer
+additional information on existing maps, for example.
+
+**Syntax**
+
+::
+    POLYGONIZE(mddExp, targetFormat)
+    POLYGONIZE(mddExp, targetFormat, connectedness)
+
+    POLYGONIZE(mddExp, targetFormat, crs, bbox)
+    POLYGONIZE(mddExp, targetFormat, connectedness, crs, bbox)
+
+Where
+
+.. code-block:: text
+
+    targetFormat: StringLit
+    connectedness: integerLit
+
+    crs: StringLit
+    bbox: StringLit
+
+The ``targetFormat`` indicates the vector file format in which the result will
+be encoded. To check supported ``targetFormat``, refer to the `GDAL
+documentation <https://gdal.org/drivers/vector/index.html>`_. Only those
+formats can be used that support creation option. When omitted, ``targetFormat``
+is assumed to be "ESRI Shapefile".
+
+The ``connectedness`` parameter can be set to 4 or 8; if omitted, it will be set
+to 4 by default. Setting it to 4 would ensure a 'true'-cell can only be
+considered a neighbor if it shares at least a corner with some
+other 'true'-cell. If we set the connectedness parameter to 8, a 'true'-cell
+can only be a neighbor if it shares a least an edge with some
+other 'true'-cell.
+
+The ``crs`` is the geographic CRS of the mddExp. The same CRS formats as GDAL are accepted:
+
+- Well Known Text (as per GDAL)
+- "EPSG:n"
+- "EPSGA:n"
+- "AUTO:proj_id,unit_id,lon0,lat0" indicating OGC WMS auto projections
+- "urn:ogc:def:crs:EPSG::n" indicating OGC URNs (deprecated by OGC)
+- PROJ.4 definitions
+- well known names, such as NAD27, NAD83, WGS84 or WGS72.
+- WKT in ESRI format, prefixed with "ESRI::"
+- "IGNF:xxx" and "+init=IGNF:xxx", etc.
+- Since recently (v1.10), GDAL also supports OGC CRS URLs, OGC’s preferred way of identifying CRSs.
+
+The ``bbox`` parameter is a geographic bounding box given as a string of 
+comma-separated floating-point values of the format: "xmin, ymin, xmax, ymax".
+
+As a result, the operation produces a file in the desired target format. If the
+format assumes several output files, they will be packaged in a tar archive.
+
+**Limitations**
+
+The implementation uses
+`GDALPolygonize <https://gdal.org/api/gdal_alg.html#_CPPv414GDALPolygonize15GDALRasterBandH15GDALRasterBandH9OGRLayerHiPPc16GDALProgressFuncPv>`__
+internally, so it has similar limitations. In particular, arrays with complex
+values are not supported, and floating-point arrays will be truncated to 64-bit
+integer. The operation is applicable only on 2-D arrays.
+
+**Examples**
+
+The following query uses default parameters to polygonize ``rgb`` collection: ::
+
+    select polygonize(rgb) from rgb
+
+The result is a ``.tar`` archive that consists of the three files in accordance
+to the "ESRI Shapefile" format: ``polygonize.shp``, ``polygonize.shx``,
+``polygonize.dbf``
+
+The next query produces the result in ``pdf`` format: ::
+
+    select polygonize(rgb, "PDF") from rgb
+
+The retrieved file is ``polygonize.pdf``. 
+
+To specify 8-connectedness instead of the default 4, one can use the following query: ::
+    
+    select polygonize(rgb, "ESRI Shapefile", 8) from rgb
+
+If the input array is geo-referenced, its CRS and geo bbox can be specified: ::
+    
+    select polygonize(c, "EPSG:4326", "-180, -90, 180, 90") from worldmap as c
 
 .. _format-conversion:
 
@@ -4015,6 +4108,7 @@ Decode for data import
 The ``decode()`` function allows for decoding data represented in one of
 the supported formats, into an MDD which can be persisted or processed in
 rasdaman.
+
 
 Syntax
 ------

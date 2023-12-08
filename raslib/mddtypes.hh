@@ -138,6 +138,7 @@ enum r_Data_Format
     r_NITF,
     r_GRIB,
     r_GDAL,
+    r_GDAL_OGR,
     r_Data_Format_NUMBER
 };
 

@@ -1,0 +1,11 @@
+        <swe:field name="{{name}}">
+            <swe:Category definition="{{definition}}">
+                <swe:description>{{description}}</swe:description>
+                <swe:nilValues>
+                    <swe:NilValues>
+{{nilValues}}
+                    </swe:NilValues>
+                </swe:nilValues>
+                <swe:codeSpace xlink:href="{{codeSpace}}"/>
+            </swe:Category>
+        </swe:field>

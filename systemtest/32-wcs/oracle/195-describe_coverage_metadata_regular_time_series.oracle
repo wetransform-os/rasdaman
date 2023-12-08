@@ -83,7 +83,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/home/rasdaman/rasdaman_community/rasdaman/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-01.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/opt/rasdaman/source/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-01.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -150,7 +150,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/home/rasdaman/rasdaman_community/rasdaman/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-02.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/opt/rasdaman/source/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-02.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -217,7 +217,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/home/rasdaman/rasdaman_community/rasdaman/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-05.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/opt/rasdaman/source/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-05.tiff</fileReferenceHistory>
                         </slice>
                         <slice>
                             <boundedBy>
@@ -284,7 +284,7 @@
                                     <oi-cov:beginLifespanVersion>20190319</oi-cov:beginLifespanVersion>
                                 </oi-cov:OrthoimageCoverageMetadata>
                             </INSPIRE>
-                            <fileReferenceHistory>/home/rasdaman/rasdaman_community/rasdaman/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-07.tiff</fileReferenceHistory>
+                            <fileReferenceHistory>/opt/rasdaman/source/systemtest/30-wcstimport/testdata/122-wcs_metadata_regular_time_series/../120-wcs_metadata_irregular_time_series/SCALED_CHLORA_2015-07.tiff</fileReferenceHistory>
                         </slice>
                     </slices>
                     <AREA_OR_POINT>Area</AREA_OR_POINT>

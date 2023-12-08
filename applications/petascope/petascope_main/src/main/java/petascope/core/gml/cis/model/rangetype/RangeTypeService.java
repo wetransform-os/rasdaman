@@ -53,34 +53,34 @@ public class RangeTypeService {
         NilValues nilValues = new NilValues(values);       
         return nilValues;
     }
-    
+
     /**
      * Build AllowedValues for Constraint.
      */
     private AllowedValues buildAllowedValues(RangeField rangeField) {
         List<String> intervals = new ArrayList<>();
-        
+
         if (rangeField.getAllowedValues() != null) {
             for (AllowedValue allowedValue : rangeField.getAllowedValues()) {
                 String values = allowedValue.getValues();
                 intervals.add(values);
             }
         }
-        
+
         AllowedValues allowedValues = new AllowedValues(intervals);
         return allowedValues;
     }
-    
+
     /**
      * Build Constraint for Quantity.
      */
     private Constraint buildConstraint(RangeField rangeField) {
         AllowedValues allowedValues = this.buildAllowedValues(rangeField);
         Constraint constraint = new Constraint(allowedValues);
-        
+
         return constraint;
     }
-    
+
         /**
      * Build Quantity for Field.
      */
@@ -93,10 +93,17 @@ public class RangeTypeService {
         String dataType = rangeField.getDataType();
         
         Quantity quantity = new Quantity();
+        quantity.setObservationType(rangeField.getObservationType());
         quantity.setLabel(label);
         quantity.setDescription(description);
+        quantity.setDefinition(rangeField.getDefinition());
         quantity.setNilValues(nilValues);
-        quantity.setUomCode(uomCode);
+
+        if (rangeField.getObservationType() == org.rasdaman.domain.cis.Quantity.ObservationType.NUMERICAL) {
+            quantity.setUomCode(uomCode);
+        } else if (rangeField.getObservationType() == org.rasdaman.domain.cis.Quantity.ObservationType.CATEGORIAL) {
+            quantity.setCodeSpace(rangeField.getCodeSpace());
+        }
         quantity.setConstraint(constraint);
         quantity.setDataType(dataType);
 

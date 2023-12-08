@@ -1,0 +1,1 @@
+select polygonize(<[0:0,0:1,0:1] 1c, 2c, 3c, 4c>, "pdf")

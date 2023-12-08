@@ -21,7 +21,7 @@
  */
 package petascope.core.json.cis11.model.rangetype;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import static petascope.core.json.cis11.JSONCIS11GetCoverage.TYPE_NAME;
 
@@ -43,30 +43,51 @@ import static petascope.core.json.cis11.JSONCIS11GetCoverage.TYPE_NAME;
  */
 @JsonPropertyOrder({TYPE_NAME})
 public class Quantity {
-    
-    private final String type = "QuantityType";
-    
+
+    // swe:Quantity
+    public static final String QUANTITY_TYPE = "QuantityType";
+    // swe:Category
+    public static final String CATEGORY_TYPE = "CategoryType";
+
     private String name;
     private String description;
     // Data type (e.g: unsignedInt)
-    private String defintion;
+    private String definition;
     private NilValues nilValues;
     private UoM uom;
+    private org.rasdaman.domain.cis.Quantity.ObservationType observationType;
+    private String codeSpace;
 
     public Quantity() {
         
     }
 
-    public Quantity(String name, String description, String definition, NilValues nilValues, UoM uom) {
+    public Quantity(String name, String description, String definition, NilValues nilValues, UoM uom,
+                    org.rasdaman.domain.cis.Quantity.ObservationType observationType,
+                    String codeSpace) {
         this.name = name;
         this.description = description;
-        this.defintion = definition;
+        this.definition = definition;
         this.nilValues = nilValues;
-        this.uom = uom;
+        this.observationType = observationType;
+
+        if (observationType == org.rasdaman.domain.cis.Quantity.ObservationType.CATEGORIAL) {
+            this.uom = null;
+            this.codeSpace = codeSpace;
+        } if (observationType == org.rasdaman.domain.cis.Quantity.ObservationType.NUMERICAL) {
+            this.codeSpace = null;
+            this.uom = uom;
+        }
+
     }
     
     public String getType() {
-        return type;
+        String result = QUANTITY_TYPE;
+        if (this.observationType == org.rasdaman.domain.cis.Quantity.ObservationType.CATEGORIAL) {
+            result = CATEGORY_TYPE;
+        }
+
+        return result;
     }    
 
     public String getName() {
@@ -77,20 +98,20 @@ public class Quantity {
         this.name = name;
     }
 
+    public String getDefinition() {
+        return definition;
+    }
+
+    public void setDefinition(String definition) {
+        this.definition = definition;
+    }
+
     public String getDescription() {
         return description;
     }
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public String getDefinition() {
-        return defintion;
-    }
-
-    public void setDefintion(String defintion) {
-        this.defintion = defintion;
     }
 
     public NilValues getNilValues() {
@@ -107,5 +128,14 @@ public class Quantity {
 
     public void setUom(UoM uom) {
         this.uom = uom;
+    }
+
+    public String getCodeSpace() {
+        return codeSpace;
+    }
+
+    @JsonIgnore
+    public org.rasdaman.domain.cis.Quantity.ObservationType getObservationType() {
+        return this.observationType;
     }
 }

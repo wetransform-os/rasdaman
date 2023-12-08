@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<gmlcov:ReferenceableGridCoverage gml:id="test_irr_cube_1" xsi:schemaLocation="" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:gmlrgrid="http://www.opengis.net/gml/3.3/rgrid">
+<gmlcov:ReferenceableGridCoverage gml:id="test_irr_cube_1" xsi:schemaLocation="http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/coverage.xsd" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:gmlrgrid="http://www.opengis.net/gml/3.3/rgrid">
     <gml:boundedBy>
         <gml:Envelope srsName="" axisLabels="" uomLabels="" srsDimension="0">
             <gml:lowerCorner/>
@@ -7,16 +7,16 @@
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
-        <gmlrgrid:ReferenceableGridByVectors dimension="0" gml:id="test_irr_cube_1-grid" xmlns:gml="http://www.opengis.net/gml/3.3/rgrid">
-            <gml:limits xmlns:gml="http://www.opengis.net/gml/3.2">
+        <gmlrgrid:ReferenceableGridByVectors dimension="0">
+            <gml:limits>
                 <gml:GridEnvelope>
                     <gml:low/>
                     <gml:high/>
                 </gml:GridEnvelope>
             </gml:limits>
-            <gml:axisLabels xmlns:gml="http://www.opengis.net/gml/3.2"/>
+            <gml:axisLabels/>
             <gmlrgrid:origin>
-                <gml:Point gml:id="test_irr_cube_1-point" srsName="" xmlns:gml="http://www.opengis.net/gml/3.2">
+                <gml:Point gml:id="test_irr_cube_1-point" srsName="">
                     <gml:pos/>
                 </gml:Point>
             </gmlrgrid:origin>

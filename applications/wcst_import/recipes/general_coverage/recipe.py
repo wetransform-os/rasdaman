@@ -51,10 +51,11 @@ from util.file_util import FileUtil
 from util.gdal_util import GDALGmlUtil, MAX_RETRIES_TO_OPEN_FILE
 from master.importer.resumer import Resumer
 from util.time_util import execute_with_retry_on_timeout
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
+from master.helper.user_band import OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_CATEGORIAL, VALID_OBSERVATION_TYPES
 
 
 class Recipe(BaseRecipe):
-
 
     RECIPE_TYPE = "general_coverage"
 
@@ -234,15 +235,38 @@ class Recipe(BaseRecipe):
                     if grib_messages_filter_by_setting in band:
                         grib_messages_filter_by_dict = band[grib_messages_filter_by_setting]
 
+                band_observation_type = OBSERVATION_TYPE_NUMERIC
+                if "observationType" in band:
+                    band_observation_type = band["observationType"]
+
+                    if band_observation_type not in VALID_OBSERVATION_TYPES:
+                        raise RecipeValidationException("Value for setting: observationType is not valid. Given: {}.".format(band_observation_type))
+
+                uom_code = self._read_or_empty_string(band, "uomCode")
+                code_space = self._read_or_empty_string(band, "codeSpace")
+
+                if band_observation_type == OBSERVATION_TYPE_NUMERIC and code_space != "":
+                    raise RecipeValidationException("Band: {} - codeSpace can be specified only when observationType"
+                                                    " is set to {}.".format(band_name, OBSERVATION_TYPE_CATEGORIAL))
+                if band_observation_type == OBSERVATION_TYPE_CATEGORIAL:
+                    if uom_code != "":
+                        raise RecipeValidationException("Band: {} - uomCode can be specified only when observationType"
+                                                        " is set to {}.".format(band_name, OBSERVATION_TYPE_NUMERIC))
+                    if code_space == "":
+                        raise RecipeValidationException("Band: {} - codeSpace must be specified to be a valid URL"
+                                                        " when observationType is set to {}.".format(band_name,
+                                                        OBSERVATION_TYPE_CATEGORIAL))
+
                 ret_bands.append(UserBand(
                     identifier,
                     self._read_or_empty_string(band, "name"),
                     self._read_or_empty_string(band, "description"),
                     self._read_or_empty_string(band, "definition"),
-                    self._read_or_empty_string(band, "nilReason"),
-                    self._read_or_empty_string(band, "nilValue").split(","),
-                    self._read_or_empty_string(band, "uomCode"),
-                    grib_messages_filter_by_dict
+                    self.__parse_specified_nil_values_by_band(band),
+                    uom_code,
+                    grib_messages_filter_by_dict,
+                    band_observation_type,
+                    code_space
                 ))
 
                 i += 1
@@ -263,7 +287,6 @@ class Recipe(BaseRecipe):
                                 field.field_name,
                                 None,
                                 None,
-                                None,
                                 field.nill_values
                             ))
                         break
@@ -276,6 +299,38 @@ class Recipe(BaseRecipe):
                 return ret_bands
             else:
                 raise RuntimeError("'bands' must be specified in ingredient file for netCDF/GRIB recipes.")
+
+    def __parse_specified_nil_values_by_band(self, band):
+        """
+        Parse nil values specified in the ingredients file
+        :return: list[RangeTypeNilValue] objects
+        """
+        results = []
+        if "nilValue" in band and "nilValues" in band:
+            raise RecipeValidationException("nilValue and nilValues settings are exclusive; use one type of setting only for band: {}.".format(band["name"]))
+
+        if "nilValue" in band:
+            # Band has only 1 null value or exceptional case with multiple null values shorthand, e.g. [25, 35] or "35, 45"
+            nil_value = str(band["nilValue"]).replace("[", "").replace("]", "")
+            nil_reason = ""
+            if "nilReason" in band:
+                nil_reason = band["nilReason"]
+
+            tmps = nil_value.split(",")
+            for tmp in tmps:
+                results.append(RangeTypeNilValue(nil_reason, tmp))
+
+        elif "nilValues" in band:
+            # Band has multiple null values
+            for obj in band["nilValues"]:
+                nil_value = obj["value"]
+                nil_reason = ""
+                if "reason" in obj:
+                    nil_reason = obj["reason"]
+
+                results.append(RangeTypeNilValue(nil_reason, nil_value))
+
+        return results
 
     def _update_crs_axes_grid_orders(self, crs_axes):
         """

@@ -22,6 +22,8 @@
  *
 """
 import decimal
+from decimal import Decimal
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 def numpy_array_to_list_decimal(numpy_array):
@@ -116,24 +118,38 @@ def get_null_values(default_null_values):
     """
     Parse from 1 list of user-defined null values to individual null values
      (e.g: ["20", "30, 40, 50"] -> [20, 30, 40, 50])
-    :param list[str] default_null_values: user defined null values in ingredient file
+    :param list[RangeTypeNilValue] default_null_values: user defined null values in ingredient file
     """
-    null_values = None
+    range_type_nil_values = None
     if default_null_values is not None:
-        null_values = []
+        range_type_nil_values = []
+
+        tmp_values = []
         for element in default_null_values:
             if isinstance(element, list):
-                # e.g. [3, 6, "7:9"]
-                nested_null_values = []
-                for nested_value in element:
-                    nested_null_values += __parse_null_values_in_string_to_list(nested_value)
-
-                null_values.append(nested_null_values)
+                # multiple null values per band, e.g. ["30:60", 30, 50]
+                for value in element:
+                    tmp_values.append(value)
             else:
-                # e.g. "30:60" or 30 or "30, 60, 70"
-                null_values += __parse_null_values_in_string_to_list(element)
+                # single null value per band, e.g. "20:30" or 233.333
+                value = element
+                tmp_values.append(value)
 
-    return null_values
+        for tmp_value in tmp_values:
+            if isinstance(tmp_value, Decimal):
+                # e.g. 35.35
+                value = [float(tmp_value)]
+            elif isinstance(tmp_value, str):
+                # e.g. "60, 70, 80" or "30:50"
+                value = tmp_value.split(", ")
+            else:
+                # e.g. 25
+                value = [tmp_value]
+
+            for tmp in value:
+                range_type_nil_values.append(RangeTypeNilValue("", tmp))
+
+    return range_type_nil_values
 
 
 def __parse_null_values_in_string_to_list(input_str):

@@ -42,3 +42,30 @@ bool common::SystemUtil::isProcessAlive(pid_t processId)
         return false;
     }
 }
+
+std::string common::SystemUtil::executeSystemCommand(const char *cmd)
+{
+    std::string ret;
+    std::string popenCmd = cmd;
+    popenCmd += " 2>&1";
+    FILE *fp = popen(popenCmd.c_str(), "r");
+    if (!fp)
+    {
+        ret = "Failed to execute command: " + popenCmd;
+    }
+    else
+    {
+        auto res = common::FileUtils::readFile(fp);
+        int rc = pclose(fp);
+        if (rc != 0)
+        {
+            ret = "Failed to execute command: " + popenCmd;
+            if (!res.empty())
+            {
+                ret += "; reason: ";
+                ret += res;
+            }
+        }
+    }
+    return ret;
+}

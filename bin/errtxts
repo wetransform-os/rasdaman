@@ -75,6 +75,9 @@
 246^E^Exception: Invalid interval, the lower bound $lim1 is larger than the upper bound $lim2.
 247^E^Exception: Mismatching mintervals.
 248^E^Exception: Invalid offset in minterval.
+249^E^Exception: Specified output format is not supported.
+250^E^Exception: Specified collection has type complex, which is not supported.
+251^E^Exception: The dimension of the collection is not supported, only 2D collections are supported. 
 #
 300^E^Parsing error $errorNo in line $lineNo, column $columnNo: Unexpected name $token.
 301^E^Parsing error $errorNo in line $lineNo, column $columnNo, token $token: All cell values of an MDD must be of the same type.
@@ -284,6 +287,9 @@
 720^E^Admin error: Empty blob file found; check the server log for more details.
 721^E^Admin error: File storage data directory is not an absolute path; please set an absolute path for the -connect option in rasmgr.conf.
 722^E^Admin error: Failed converting blob file name to blob id.
+723^E^Admin error: Server cannot create temporary directory to store output files.
+724^E^Admin error: Server could not archive multiple output files.
+725^E^Admin error: Output file is said to be created, but cannot be found.
 #
 # 80x errors for RasManager problems
 #

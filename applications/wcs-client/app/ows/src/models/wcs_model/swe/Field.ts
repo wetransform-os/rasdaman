@@ -43,6 +43,11 @@ module swe {
             if (source.doesElementExist("swe:Quantity")) {
                 this.quantity = new Quantity(source.getChildAsSerializedObject("swe:Quantity"));
             }
+
+            // For now, consider swe:Category is as same as quantity
+            if (source.doesElementExist("swe:Category")) {
+                this.quantity = new Quantity(source.getChildAsSerializedObject("swe:Category"));
+            }
         }
     }
 }

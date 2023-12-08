@@ -24,13 +24,13 @@ package petascope.core.gml.cis11.model.metadata;
 import java.io.IOException;
 import nu.xom.Element;
 import nu.xom.ParsingException;
-import static petascope.core.XMLSymbols.LABEL_METADATA;
-import static petascope.core.XMLSymbols.PREFIX_CIS11;
 import petascope.core.gml.ISerializeToXMElement;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.util.XMLUtil;
-import static petascope.core.XMLSymbols.NAMESPACE_CIS_11;
+
+import static petascope.core.XMLSymbols.*;
+import static petascope.core.gml.cis10.model.metadata.Metadata.getRasdamanCoverageMetadataElement;
 
 /**
  * Class represent metadata element in CIS 1.1.
@@ -55,10 +55,12 @@ public class Metadata implements ISerializeToXMElement {
 
     @Override
     public Element serializeToXMLElement() throws PetascopeException {
-        String metadataElementStr = XMLUtil.createXMLString(NAMESPACE_CIS_11, PREFIX_CIS11, LABEL_METADATA, metadata);
-        Element metadataElement = null;
-        metadataElement = XMLUtil.parseXmlFragment(metadataElementStr);
-        
+        Element metadataElement = new Element(XMLUtil.createXMLLabel(PREFIX_CIS11, LABEL_METADATA_CIS11), NAMESPACE_CIS_11);
+        Element rasdamanMetadataElement = getRasdamanCoverageMetadataElement(this.metadata);
+        if (rasdamanMetadataElement != null) {
+            metadataElement.appendChild(rasdamanMetadataElement);
+        }
+
         return metadataElement;
     }
 }

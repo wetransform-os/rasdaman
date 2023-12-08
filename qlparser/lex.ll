@@ -189,6 +189,8 @@ int string_yyinput( char* buf, int max_size )
 "q1"                                     { SETTOKEN( RA_QFIRST, commandToken, RA_QFIRST ) }
 "q3"                                     { SETTOKEN( RA_QTHIRD, commandToken, RA_QTHIRD ) }
 
+"POLYGONIZE"                             { SETTOKEN( POLYGONIZE, commandToken, POLYGONIZE) }
+
 "at"                                     { SETTOKEN( AT, commandToken, AT ) }
 "dimension"                              { SETTOKEN( DIMENSION, commandToken, DIMENSION ) }
 "all_cell"|"all_cells"                   { SETTOKEN( ALL, commandToken, ALL ) }

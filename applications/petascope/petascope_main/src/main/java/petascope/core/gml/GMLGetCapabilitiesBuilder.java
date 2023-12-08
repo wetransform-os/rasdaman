@@ -60,112 +60,7 @@ import petascope.exceptions.PetascopeException;
 import petascope.util.ListUtil;
 import petascope.util.MIMEUtil;
 import petascope.util.XMLUtil;
-import static petascope.core.XMLSymbols.ATT_CRS;
-import static petascope.core.XMLSymbols.ATT_DIMENSIONS;
-import static petascope.core.XMLSymbols.ATT_HREF;
-import static petascope.core.XMLSymbols.ATT_METADATA_URL;
-import static petascope.core.XMLSymbols.ATT_NAME;
-import static petascope.core.XMLSymbols.ATT_VALUE_POST_ENDCODING;
-import static petascope.core.XMLSymbols.LABEL_ABSTRACT;
-import static petascope.core.XMLSymbols.LABEL_ACCESS_CONSTRAINTS;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETERS;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER_NAME;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER_VALUE;
-import static petascope.core.XMLSymbols.LABEL_ADDRESS;
-import static petascope.core.XMLSymbols.LABEL_ADMINISTRATIVE_AREA;
-import static petascope.core.XMLSymbols.LABEL_ALLOWED_VALUES;
-import static petascope.core.XMLSymbols.LABEL_BOUNDING_BOX;
-import static petascope.core.XMLSymbols.LABEL_CAPABILITIES;
-import static petascope.core.XMLSymbols.LABEL_CITY;
-import static petascope.core.XMLSymbols.LABEL_CONSTRAINT_ASSOCIATE_ROLE;
-import static petascope.core.XMLSymbols.LABEL_CONTACT_INFO;
-import static petascope.core.XMLSymbols.LABEL_CONTACT_INSTRUCTIONS;
-import static petascope.core.XMLSymbols.LABEL_CONTENTS;
-import static petascope.core.XMLSymbols.LABEL_COUNTRY;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_ID;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUBTYPE;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUMMARY;
-import static petascope.core.XMLSymbols.LABEL_CRS_METADATA;
-import static petascope.core.XMLSymbols.LABEL_CRS_SUPPORTED;
-
-import static petascope.core.XMLSymbols.LABEL_DCP;
-import static petascope.core.XMLSymbols.LABEL_DELIVERY_POINT;
-import static petascope.core.XMLSymbols.LABEL_DESCRIBE_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_EMAIL_ADDRESS;
-import static petascope.core.XMLSymbols.LABEL_EXTENSION;
-import static petascope.core.XMLSymbols.LABEL_FACSIMILE;
-import static petascope.core.XMLSymbols.LABEL_FEES;
-import static petascope.core.XMLSymbols.LABEL_FORMAT_SUPPORTED;
-import static petascope.core.XMLSymbols.LABEL_GET;
-import static petascope.core.XMLSymbols.LABEL_GET_CAPABILITIES;
-import static petascope.core.XMLSymbols.LABEL_GET_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_HOURS_OF_SERVICE;
-import static petascope.core.XMLSymbols.LABEL_HTTP;
-import static petascope.core.XMLSymbols.LABEL_INDIVIDUAL_NAME;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_CODE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_DEFAULT_LANGUAGE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_EXTENDED_CAPABILITIES;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_LANGUAGE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_MEDIATYPE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_METADATA_URL;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_NAMESPACE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_RESPONSE_LANGUAGE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_SPATIAL_DATASET_IDENTIFIER;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_SUPPORTED_LANGUAGES;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_URL;
-import static petascope.core.XMLSymbols.LABEL_INTERPOLATION_METADATA;
-import static petascope.core.XMLSymbols.LABEL_INTERPOLATION_SUPPORTED;
-import static petascope.core.XMLSymbols.LABEL_KEYWORD;
-import static petascope.core.XMLSymbols.LABEL_KEYWORDS;
-import static petascope.core.XMLSymbols.LABEL_LOWER_CORNER_ASSOCIATE_ROLE;
-import static petascope.core.XMLSymbols.LABEL_ONLINE_RESOURCE;
-import static petascope.core.XMLSymbols.LABEL_OPERATION;
-import static petascope.core.XMLSymbols.LABEL_OPERATIONS_METADATA;
-import static petascope.core.XMLSymbols.LABEL_PHONE;
-import static petascope.core.XMLSymbols.LABEL_POSITION_NAME;
-import static petascope.core.XMLSymbols.LABEL_POST;
-import static petascope.core.XMLSymbols.LABEL_POSTAL_CODE;
-import static petascope.core.XMLSymbols.LABEL_PROFILE;
-import static petascope.core.XMLSymbols.LABEL_PROVIDER_NAME;
-import static petascope.core.XMLSymbols.LABEL_PROVIDER_SITE;
-import static petascope.core.XMLSymbols.LABEL_ROLE;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_CONTACT;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_IDENTIFICATION;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_METADATA;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_PROVIDER;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_TYPE;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_TYPE_VERSION;
-import static petascope.core.XMLSymbols.LABEL_TITLE;
-import static petascope.core.XMLSymbols.LABEL_UPPER_CORNER_ASSOCIATE_ROLE;
-import static petascope.core.XMLSymbols.LABEL_VALUE;
-import static petascope.core.XMLSymbols.LABEL_VERSION;
-import static petascope.core.XMLSymbols.LABEL_VOICE;
-import static petascope.core.XMLSymbols.LABEL_WGS84_BOUNDING_BOX;
-import static petascope.core.XMLSymbols.NAMESPACE_INTERPOLATION;
-import static petascope.core.XMLSymbols.NAMESPACE_OWS;
-import static petascope.core.XMLSymbols.NAMESPACE_XLINK;
-import static petascope.core.XMLSymbols.PREFIX_INT;
-import static petascope.core.XMLSymbols.PREFIX_OWS;
-import static petascope.core.XMLSymbols.PREFIX_WCS;
-import static petascope.core.XMLSymbols.PREFIX_XLINK;
-import static petascope.core.XMLSymbols.VALUE_CONSTRAINT_POST_ENCODING_SOAP;
-import static petascope.core.XMLSymbols.VALUE_CONSTRAINT_POST_ENCODING_XML;
-import static petascope.core.XMLSymbols.NAMESPACE_WCS_20;
-import static petascope.core.XMLSymbols.NAMESPACE_WCS_21;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_21_GET_CAPABILITIES;
-import static petascope.core.XMLSymbols.NAMESPACE_CRS;
-import static petascope.core.XMLSymbols.NAMESPACE_INSPIRE_COMMON;
-import static petascope.core.XMLSymbols.NAMESPACE_INSPIRE_DLS;
-import static petascope.core.XMLSymbols.PREFIX_CRS;
-import static petascope.core.XMLSymbols.PREFIX_INSPIRE_COMMON;
-import static petascope.core.XMLSymbols.PREFIX_INSPIRE_DLS;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_INSPIRE1;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_INSPIRE2;
-import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES;
-import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_AXIS_NAMES_LIST;
-import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES_WITH_PYRAMID_LEVELS;
+import static petascope.core.XMLSymbols.*;
 import petascope.util.HttpUtil;
 import static petascope.wcs2.handlers.kvp.service.KVPWCSGetCoverageScalingService.NEAREST_INTERPOLATION;
 
@@ -218,7 +113,7 @@ public class GMLGetCapabilitiesBuilder {
     // CRS Projection
     private static final String CRS_IDENTIFIER = "http://www.opengis.net/spec/WCS_service-extension_crs/1.0/conf/crs";
 
-    // Interpoltation Extension
+    // Interpolation Extension
     public static final String OGC_CITE_INTEPOLATION_NEAR = "http://www.opengis.net/def/interpolation/OGC/1.0/nearest-neighbor";
     public static final String INTERPOLATION_NEAR = "http://www.opengis.net/def/interpolation/OGC/1.0/near";
     public static final String INTERPOLATION_BILINEAR = "http://www.opengis.net/def/interpolation/OGC/1.0/bilinear";
@@ -241,7 +136,7 @@ public class GMLGetCapabilitiesBuilder {
     private static List<String> SUPPORTED_CRSS = ListUtil.valuesToList(CRS_EPSG_4326);
 
     // Singleton object to store all the extensions (profiles) of WCS
-    private static List<String> profiles;
+    private static Set<String> profiles;
     
     static {
         if (ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
@@ -269,8 +164,9 @@ public class GMLGetCapabilitiesBuilder {
      * @return
      */
     private static List<String> getProfiles() {
-        if (profiles == null) {
-            profiles = new ArrayList<>();
+        if (profiles == null || profiles.isEmpty()) {
+            profiles = new LinkedHashSet<>();
+
             // Decode formats extension
             profiles.add(GML_IDENTIFIER);
             profiles.add(GMLCOV_IDENTIFIER);
@@ -301,7 +197,7 @@ public class GMLGetCapabilitiesBuilder {
             profiles.add(CRS_IDENTIFIER);
         }
 
-        return profiles;
+        return new ArrayList<>(profiles);
     }
 
     /**
@@ -648,13 +544,15 @@ public class GMLGetCapabilitiesBuilder {
      */
     private Element buildServiceMetadataElement(String version) {
         
-        String wcsNameSpace = this.getWCSNameSpace(version);        
-        Element serviceMetadataElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_SERVICE_METADATA), wcsNameSpace);
+        String wcsNameSpace = this.getWCSNameSpace(version);
+        String wcsPrefix = this.getWCSPrefix(version);
+
+        Element serviceMetadataElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_SERVICE_METADATA), wcsNameSpace);
 
         // Children elements
         // List of supported encode format extensions
         for (String mimeType : MIMEUtil.getAllMimeTypes()) {
-            Element formatSupportedElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_FORMAT_SUPPORTED), wcsNameSpace);
+            Element formatSupportedElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_FORMAT_SUPPORTED), wcsNameSpace);
             formatSupportedElement.appendChild(mimeType);
 
             serviceMetadataElement.appendChild(formatSupportedElement);
@@ -671,9 +569,11 @@ public class GMLGetCapabilitiesBuilder {
      * Build wcs:Extension of wcs:ServiceMetadata element
      */
     private Element buildExtensionElement(String version) {
+
+        String wcsPrefix = this.getWCSPrefix(version);
         
         String wcsNameSpace = this.getWCSNameSpace(version);
-        Element wcsExtensionElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_EXTENSION), wcsNameSpace);
+        Element wcsExtensionElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_EXTENSION), wcsNameSpace);
 
         // 1.1 Children elements of wcsExtension element
         Element interpolationMetadataElement = new Element(XMLUtil.createXMLLabel(PREFIX_INT, LABEL_INTERPOLATION_METADATA), NAMESPACE_INTERPOLATION);
@@ -706,7 +606,9 @@ public class GMLGetCapabilitiesBuilder {
      */
     private Element buildContentsElement(Element operationsMetadataElement, String version) throws PetascopeException {
 
-        Element contentsElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_CONTENTS), this.getWCSNameSpace(version));
+        String wcsPrefix = this.getWCSPrefix(version);
+
+        Element contentsElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_CONTENTS), this.getWCSNameSpace(version));
         List<Pair<Coverage, Boolean>> importedCoveragePairs = this.coverageRepositoryService.readAllLocalCoveragesBasicMetatataFromCache();
         List<Coverage> inspireCoverages = new ArrayList<>();
         
@@ -730,16 +632,16 @@ public class GMLGetCapabilitiesBuilder {
                 continue;
             }
             // 1.1 CoverageSummary element
-            Element coverageSummaryElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_SUMMARY), this.getWCSNameSpace(version));
+            Element coverageSummaryElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_COVERAGE_SUMMARY), this.getWCSNameSpace(version));
             contentsElement.appendChild(coverageSummaryElement);
 
             // 1.1.1 Children elements of CoverageSummary element
-            Element coverageIdElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_ID), this.getWCSNameSpace(version));
+            Element coverageIdElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_COVERAGE_ID), this.getWCSNameSpace(version));
             String coverageId = coveragePair.fst.getCoverageId();
             coverageIdElement.appendChild(coverageId);
             coverageSummaryElement.appendChild(coverageIdElement);
 
-            Element coverageSubTypeElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_SUBTYPE), this.getWCSNameSpace(version));
+            Element coverageSubTypeElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_COVERAGE_SUBTYPE), this.getWCSNameSpace(version));
             coverageSubTypeElement.appendChild(coveragePair.fst.getCoverageType());
             coverageSummaryElement.appendChild(coverageSubTypeElement);
             
@@ -818,6 +720,14 @@ public class GMLGetCapabilitiesBuilder {
              <inspire_common:Language>eng</inspire_common:Language>
            </inspire_common:ResponseLanguage>
 
+
+         <!-- NOTE: this element below always appear to be valid in WCS 2.1.0 GetCapabilities schema -->
+         <inspire_dls:SpatialDataSetIdentifier metadataURL="https://inspire-geoportal.ec.europa.eu/resources/521-540/16.iso19139.xml">
+             <inspire_common:Code>
+                 rasdaman
+             </inspire_common:Code>
+         <inspire_common:Namespace>
+
            <inspire_dls:SpatialDataSetIdentifier metadataURL="https://inspire-geoportal.ec.europa.eu/resources/521-540/16.iso19139.xml">
              <inspire_common:Code>
               test_cov_1
@@ -874,6 +784,16 @@ public class GMLGetCapabilitiesBuilder {
             responseLanguagesElement.appendChild(languageElement2);
 
             extendedCapabilitiesElement.appendChild(responseLanguagesElement);
+
+
+            Element rootSpatialDatasetIdentifierElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_DLS, LABEL_INSPIRE_SPATIAL_DATASET_IDENTIFIER),
+                                                                NAMESPACE_INSPIRE_DLS);
+            Element rootCodeElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_CODE),
+                                                            NAMESPACE_INSPIRE_COMMON);
+            rootCodeElement.appendChild(ConfigManager.INSPIRE_SPATIAL_DATASET_IDENTIFIER);
+            rootSpatialDatasetIdentifierElement.appendChild(rootCodeElement);
+            extendedCapabilitiesElement.appendChild(rootSpatialDatasetIdentifierElement);
+
 
             for (Coverage inspireCoverage : inspireCoverages) {
 
@@ -1031,7 +951,15 @@ public class GMLGetCapabilitiesBuilder {
         if (version.equals(VersionManager.WCS_VERSION_20)) {
             return NAMESPACE_WCS_20;
         } else {
-            return NAMESPACE_WCS_21;
+            return NAMESPACE_WCS_20;
+        }
+    }
+
+    private String getWCSPrefix(String version) {
+        if (version.equals(VersionManager.WCS_VERSION_20)) {
+            return PREFIX_WCS;
+        } else {
+            return PREFIX_WCS_20;
         }
     }
        
@@ -1041,11 +969,18 @@ public class GMLGetCapabilitiesBuilder {
         
         Map<String, String> xmlNameSpacesMap = GMLWCSRequestResultBuilder.getMandatoryXMLNameSpacesMap();
         Set<String> schemaLocations = new LinkedHashSet<>();
-        schemaLocations.add(SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES);
+
+        if (version.equals(VersionManager.WCS_VERSION_20)) {
+            schemaLocations.add(SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES);
+        } else {
+            schemaLocations.add(SCHEMA_LOCATION_WCS_21_GET_CAPABILITIES);
+        }
         schemaLocations.add(SCHEMA_LOCATION_INSPIRE1);
         schemaLocations.add(SCHEMA_LOCATION_INSPIRE2);
+
+        String wcsPrefix = this.getWCSPrefix(version);
         
-        Element capabilitiesElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_CAPABILITIES), this.getWCSNameSpace(version));
+        Element capabilitiesElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_CAPABILITIES), this.getWCSNameSpace(version));
         Attribute versionAttribute = new Attribute(LABEL_VERSION, version);
         capabilitiesElement.addAttribute(versionAttribute);
         
@@ -1089,4 +1024,5 @@ public class GMLGetCapabilitiesBuilder {
         
         return capabilitiesElement;
     }
+    
 }

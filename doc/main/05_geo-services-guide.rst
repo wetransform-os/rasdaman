@@ -2667,7 +2667,8 @@ config section
   .. NOTE::
 
      - If set this parameter will override the null/nodata values present in
-       the input files.
+       the input files and the ``nilValue`` setting specified in
+       the ingredients file.
      - If this parameter is not set, wcst_import will try to detect these values
        for bands implicity from the first input file.
      - If set this parameter to: ``[]``, then, wcst_import will
@@ -3449,13 +3450,28 @@ bounds and resolution corresponding to each file.
     imported; this only works for input GRIB files with only one band.
   * ``name`` - The name of the band which will be used in the created coverage;
     this can be set to different from the ``indentifier``;
+  * ``observationType`` - set the output type in GML format of a band in SWE standard. 
+    If omitted, then it set to ``numerical`` by default. Valid values are:
+    ``numeric`` (in GML showed as ``swe:Quantity``) and ``categorial``
+    (in GML showed as ``swe:Category``).    
   * ``description`` - Metadata description of the band;
-  * ``nilValue``` - Metadata null value of the band;
-  * ``nilReason`` - Metadata reason for the null value of the band;
+  * ``definition`` - Metadata definition of the band, typically it is a URL pointing to
+    online registries, ontologies or dictionaries. If omitted, petascope sets the value
+    to the URL corresponding to band's data type.  
+  * ``nilValue``` - Metadata null value of the band; used 
+    in case band has only one null value.
+    
+    If ``default_null_values`` setting is specified, then ``nilValue`` setting is ignored.
+  * ``nilReason`` - Metadata reason for the null value of the band;      
   * ``uomCode`` - Set the Unit of measurement (uom) code of the band. Besides 
     setting it directly, it can also be derived from the input file metadata,
     with e.g. ``${netcdf:variable:NAME:units}`` for NetCDF or
-    ``${grib:unitsOfFirstFixedSurface}`` for GRIB.
+    ``${grib:unitsOfFirstFixedSurface}`` for GRIB. 
+    Note: only valid for ``swe:Quantity``.
+  * ``codeSpace`` - List and define the meaning of all possible values
+    for this component. Note: only valid for ``swe:Category``. 
+    ``${grib:unitsOfFirstFixedSurface}`` for GRIB. 
+    Note: only used for ``swe:Category``.    
   * ``filterMessagesMatching`` - Default is empty. If not-empty (a dictionary of 
     user input GRIB keys:values; keys (e.g. ``shortName``) must exist in the input GRIB files),
     then it filters any GRIB message which has a GRIB value not contain a user input value of a GRIB key.

@@ -116,8 +116,6 @@ public class NetCDFParametersService {
      * Build the dimensions's variables parameters of netCDF encoding, e.g:
      * \"variables\":{\"i\":{\"type\":\"double\",\"data\":[0.5],\"name\":\"i\",\"metadata\":{\"standard_name\":\"i\",\"units\":\"GridSpacing\",\"axis\":\"X\"}}
      *               ,\"j\":{\"type\":\"double\",\"data\":[-0.5],\"name\":\"j\",\"metadata\":{\"standard_name\":\"j\",\"units\":\"GridSpacing\",\"axis\":\"Y\"}}
-     * @param covName
-     * @param axes
      * @return
      * @throws PetascopeException 
      */
@@ -153,7 +151,7 @@ public class NetCDFParametersService {
                 }
             }
             DimensionVariableMetadata dimensionVariableMetadata = new DimensionVariableMetadata(axesMetadataMap);
-            dimensionVariables.add(new DimensionVariable<>(RangeField.DATA_TYPE, this.buildPoisitionData(axis, coverageMetadata), axis.getLabel(), dimensionVariableMetadata));
+            dimensionVariables.add(new DimensionVariable<>(RangeField.DATA_TYPE, this.buildPositionData(axis, coverageMetadata), axis.getLabel(), dimensionVariableMetadata));
         }
         return dimensionVariables;
     }
@@ -212,7 +210,7 @@ public class NetCDFParametersService {
      * \"Long\":{\"type\":\"double\",\"data\":[10.0,10.5,11.0,11.5,12.0,12.5,13.0,13.5,14.0,14.5,15.0,15.5,16.0,16.5,17.0,17.5,18.0,18.5,19.0,19.5,20.0]
      * NOTE: nagative axis like Lat will write max to min values (origin is the max value)
      */
-    private List<Double> buildPoisitionData(Axis axis, CoverageMetadata coverageMetadata) throws PetascopeException {
+    private List<Double> buildPositionData(Axis axis, CoverageMetadata coverageMetadata) throws PetascopeException {
 
         // data=[geoLow, geoLow+res, geoLow+2*res, ...., geoHigh]
         List<Double> result = new ArrayList<>();

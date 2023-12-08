@@ -47,6 +47,7 @@ from util.gdal_util import MAX_RETRIES_TO_OPEN_FILE
 from util.log import log
 from util.time_util import execute_with_retry_on_timeout
 from util.netcdf4_util import netcdf4_open
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 class NetcdfToCoverageConverter(AbstractToCoverageConverter):
@@ -145,7 +146,7 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
         if nil_value is None:
             return None
         else:
-            return [nil_value]
+            return [RangeTypeNilValue("", nil_value)]
 
     def _axis_subset(self, crs_axis, evaluator_slice, resolution=None):
         """

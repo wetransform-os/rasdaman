@@ -25,24 +25,34 @@
 from master.generator.model.model import Model
 from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
+from master.helper.user_band import OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_CATEGORIAL
+
 
 class RangeTypeField(Model):
-    def __init__(self, name, definition="", description="", nilReason="", nilValues=None, uom=None):
+    def __init__(self, name, definition="", description="", nilValues=[], uom=None, observationType=OBSERVATION_TYPE_NUMERIC, codeSpace=None):
         """
         Class to represent the range type field element of range type
         :param str name: the name of the field
         :param str definition: the definition of the field
         :param str description: the description of the field
-        :param str nilReason: the reason of nil value
         :param list[RangeTypeNilValue] nilValues: the nil values for this field
         :param str uom: the unit of measure for the field
+        :param str observationType: if omitted -> swe:Quantity, else if set to categorial -> swe:Category
         """
         self.name = name
         self.definition = definition
         self.description = description
-        self.nilReason = nilReason
         self.nilValues = nilValues
+        # NOTE: used only for swe:Quantity
         self.uom = uom
+        self.observationType = observationType
+        # NOTE: used only for swe:Category
+        self.codeSpace = codeSpace
 
     def get_template_name(self):
-        return "gml_range_type_field.xml"
+        if self.observationType == OBSERVATION_TYPE_NUMERIC:
+            # swe:Quantity element
+            return "gml_range_type_field_quantity.xml"
+        elif self.observationType == OBSERVATION_TYPE_CATEGORIAL:
+            # swe:Category element
+            return "gml_range_type_field_category.xml"

@@ -123,6 +123,7 @@ class Session:
         self.insitu = config['insitu'] if "insitu" in config else None
         self.black_listed = config["black_listed"] if "black_listed" in config else None
         self.default_null_values = config['default_null_values'] if "default_null_values" in config else None
+        self.default_null_values = get_null_values(self.default_null_values)
         self.mock = False if "mock" not in config else bool(self.config["mock"])
         # By default, analyze all files then import (blocking import mode). With non_blocking_import mode, analyze and import each file separately.
         self.blocking = True if "blocking" not in config else bool(self.config["blocking"])
@@ -209,7 +210,7 @@ class Session:
         ConfigManager.automated = self.is_automated()
         ConfigManager.crs_resolver = self.crs_resolver
         ConfigManager.default_crs = self.default_crs
-        ConfigManager.default_null_values = get_null_values(self.default_null_values)
+        ConfigManager.default_null_values = self.default_null_values
         ConfigManager.insitu = self.insitu
         ConfigManager.black_listed = self.black_listed
         ConfigManager.mock = self.mock

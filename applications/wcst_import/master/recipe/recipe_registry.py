@@ -286,7 +286,7 @@ class RecipeRegistry:
                     session.files = [file]
                     self.__run_recipe(session, recipe)
 
-            log.success("Recipe executed successfully")
+            log.success("Recipe at '{}' executed successfully".format(ConfigManager.ingredients_file_path))
 
 
 def update_progress(processed_items, total):

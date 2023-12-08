@@ -64,7 +64,7 @@ public class DataBlockCIS11 implements ISerializeToXMElement {
 
     @Override
     public Element serializeToXMLElement() throws PetascopeException {
-        Element dataBlockElement = new Element(XMLUtil.createXMLLabel(PREFIX_GML, LABEL_DATABLOCK), NAMESPACE_GML);
+        Element dataBlockElement = new Element(XMLUtil.createXMLLabel(PREFIX_CIS11, LABEL_DATABLOCK), NAMESPACE_CIS_11);
         
         String[] values = this.pixelValues.split(",");
         

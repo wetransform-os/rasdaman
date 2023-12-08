@@ -40,6 +40,10 @@ public class PetascopeRuntimeException extends RuntimeException {
         }
         this.exception = exception;
     }
+
+    public PetascopeRuntimeException(ExceptionCode exceptionCode, String errorMessage) {
+        this(new PetascopeException(exceptionCode, errorMessage));
+    }
     
     public PetascopeRuntimeException(Exception exception) {
         this(null, exception);

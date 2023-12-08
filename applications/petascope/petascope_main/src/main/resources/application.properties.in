@@ -62,7 +62,6 @@ spring.datasource.tomcat.max-idle=30
 # Only for embedded petascope
 server.contextPath=/rasdaman
 
-
 # Hot reload to provide changed in classpath of petascope_core directly to petascope_main when developing with IDE
 spring.devtools.restart.additional-paths=../petascope_core
 

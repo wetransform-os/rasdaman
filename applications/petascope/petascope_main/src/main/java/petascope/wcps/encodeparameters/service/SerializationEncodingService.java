@@ -24,6 +24,7 @@ package petascope.wcps.encodeparameters.service;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -146,7 +147,7 @@ public class SerializationEncodingService {
         // Extra metadata of coverage
         CoverageMetadata coverageMetadata = wcpsCoverageMetadata.getCoverageMetadata();
         if (coverageMetadata != null) {
-            jsonExtraParams.setMetadata(coverageMetadata.flattenMetadataMap());        
+            jsonExtraParams.setMetadata(coverageMetadata.flattenMetadataMap(wcpsCoverageMetadata.getMetadata(), isGML));
         }
         
         jsonExtraParams.setGeoReference(geoReference);
@@ -196,10 +197,10 @@ public class SerializationEncodingService {
         }
 
         // update each range of coverage with value from passing nodata_values
-        encodeCoverageHandler.updateNoDataInRangeFileds(jsonExtraParams.getNoData().getNilValues(), wcpsCoverageMetadata);      
+        encodeCoverageHandler.updateNoDataInRangeFields(jsonExtraParams.getNoData().getNilValues(), wcpsCoverageMetadata);
         // parse coverage's metadata XML/JSON string to a CoverageMetadata object
         CoverageMetadata coverageMetadata = wcpsCoverageMetadata.getCoverageMetadata();
-        Map<String, String> metadataMap = coverageMetadata.flattenMetadataMap();
+        Map<String, String> metadataMap = coverageMetadata.flattenMetadataMap(wcpsCoverageMetadata.getMetadata(), isGML);
 
         if (jsonExtraParams.getMetadata().isEmpty()) {
             // If there is no metadata in extra params of encode() then metadata of encode() comes from coverage's metadata.

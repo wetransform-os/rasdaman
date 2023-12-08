@@ -25,39 +25,31 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.servlet.http.HttpServletRequest;
 import nu.xom.Element;
+import org.rasdaman.ApplicationMain;
+import org.rasdaman.config.ConfigManager;
+import org.rasdaman.domain.cis.Coverage;
+import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import static petascope.core.KVPSymbols.VALUE_GENERAL_GRID_COVERAGE;
+import static petascope.core.XMLSymbols.*;
+
+import petascope.core.Pair;
 import petascope.core.gml.cis10.GMLCoreCIS10;
 import petascope.core.gml.cis10.GMLCoreCIS10Builder;
 import petascope.core.gml.cis10.GMLCIS10DescribeCoverage;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_DESCRIPTIONS;
-import static petascope.core.XMLSymbols.LABEL_GENERAL_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_RECTIFIED_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_REFERENCEABLE_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.NAMESPACE_GMLCOV;
-import static petascope.core.XMLSymbols.NAMESPACE_GMLRGRID;
-import static petascope.core.XMLSymbols.PREFIX_GMLRGRID;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
 import petascope.util.XMLUtil;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
-import static petascope.core.XMLSymbols.PREFIX_CIS11;
-import static petascope.core.XMLSymbols.PREFIX_GMLCOV;
-import static petascope.core.XMLSymbols.PREFIX_WCS;
 import petascope.core.gml.cis.AbstractGMLCISDescribeCoverage;
 import petascope.core.gml.cis11.GMLCIS11DescribeCoverage;
 import petascope.core.gml.cis11.GMLCoreCIS11;
 import petascope.core.gml.cis11.GMLCoreCIS11Builder;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_CIS_10_COVERAGE_DESCRIBE_COVERAGE;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_CIS_10_REFERENCEABLE_COVERAGE_DESCRIBE_COVERAGE;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_CIS_11_DESCRIBE_COVERAGE;
-import static petascope.core.XMLSymbols.NAMESPACE_WCS_20;
-import static petascope.core.XMLSymbols.NAMESPACE_WCS_21;
-import static petascope.core.XMLSymbols.NAMESPACE_CIS_11;
+import petascope.exceptions.ExceptionCode;
+import petascope.util.ras.RasUtil;
 
 /**
  * Build GMLDescribeCoverage object as result of WCS DescribeCoverage request.
@@ -108,6 +100,11 @@ public class GMLDescribeCoverageBuilder {
     public Element buildWCSDescribeCoverageResult(String outputType, List<String> coverageIds) throws PetascopeException {
 
         Element coverageDescriptionsElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_DESCRIPTIONS), NAMESPACE_WCS_20);
+        if (outputType != null && outputType.equals(VALUE_GENERAL_GRID_COVERAGE)) {
+            // CIS 1.1
+            coverageDescriptionsElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS_21, LABEL_COVERAGE_DESCRIPTIONS), NAMESPACE_WCS_21);
+        }
+
         Map<String, String> xmlNameSpacesMap = GMLWCSRequestResultBuilder.getMandatoryXMLNameSpacesMap();
         Set<String> schemaLocations = new LinkedHashSet<>();
         
@@ -120,7 +117,7 @@ public class GMLDescribeCoverageBuilder {
             if (outputType != null && outputType.equals(VALUE_GENERAL_GRID_COVERAGE)) {
                 wcpsCoverageMetadata.setCoverageType(VALUE_GENERAL_GRID_COVERAGE);
             }
-            
+
             AbstractGMLCISDescribeCoverage gmlDescribeCoverage = this.buildGMLCISDescribeCoverage(wcpsCoverageMetadata);
 
             Element coverageDescriptionElement = gmlDescribeCoverage.serializeToXMLElement();
@@ -146,6 +143,8 @@ public class GMLDescribeCoverageBuilder {
             // CIS 1.1
             schemaLocations.add(SCHEMA_LOCATION_WCS_CIS_11_DESCRIBE_COVERAGE);
             xmlNameSpacesMap.put(PREFIX_CIS11, NAMESPACE_CIS_11);
+            xmlNameSpacesMap.put(PREFIX_WCS_21, NAMESPACE_WCS_21);
+            xmlNameSpacesMap.put(PREFIX_WCS_20, NAMESPACE_WCS_20);
             
             coverageDescriptionsElement.setNamespaceURI(NAMESPACE_WCS_21);
         } else {
@@ -153,6 +152,58 @@ public class GMLDescribeCoverageBuilder {
             xmlNameSpacesMap.put(PREFIX_GMLCOV, NAMESPACE_GMLCOV);
         }
         
+        XMLUtil.addXMLNameSpacesOnRootElement(xmlNameSpacesMap, coverageDescriptionsElement);
+        XMLUtil.addXMLSchemaLocationsOnRootElement(schemaLocations, coverageDescriptionsElement);
+
+        return coverageDescriptionsElement;
+    }
+
+    /**
+     * Build WCS DescribeCoverage result for WCPS
+     */
+    public Element buildWCSDescribeCoverageResult(String outputType, WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException {
+        Map<String, String> xmlNameSpacesMap = GMLWCSRequestResultBuilder.getMandatoryXMLNameSpacesMap();
+        Set<String> schemaLocations = new LinkedHashSet<>();
+
+        Element coverageDescriptionsElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_DESCRIPTIONS), NAMESPACE_WCS_20);
+        if (outputType != null && outputType.equals(VALUE_GENERAL_GRID_COVERAGE)) {
+            // CIS 1.1
+            coverageDescriptionsElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS_21, LABEL_COVERAGE_DESCRIPTIONS), NAMESPACE_WCS_21);
+        }
+
+
+
+        // Transform all coverages CIS 1.0 to CIS 1.1 output
+        if (outputType != null && outputType.equals(VALUE_GENERAL_GRID_COVERAGE)) {
+            wcpsCoverageMetadata.setCoverageType(VALUE_GENERAL_GRID_COVERAGE);
+        }
+
+        AbstractGMLCISDescribeCoverage gmlDescribeCoverage = this.buildGMLCISDescribeCoverage(wcpsCoverageMetadata);
+
+        Element coverageDescriptionElement = gmlDescribeCoverage.serializeToXMLElement();
+        coverageDescriptionsElement.appendChild(coverageDescriptionElement);
+
+        String coverageType = wcpsCoverageMetadata.getCoverageType();
+
+        // CIS 1.0
+        if (coverageType.equals(LABEL_GRID_COVERAGE) || coverageType.equals(LABEL_RECTIFIED_GRID_COVERAGE)) {
+            schemaLocations.add(SCHEMA_LOCATION_WCS_CIS_10_COVERAGE_DESCRIBE_COVERAGE);
+            xmlNameSpacesMap.put(PREFIX_GMLCOV, NAMESPACE_GMLCOV);
+        } else if (coverageType.equals(LABEL_REFERENCEABLE_GRID_COVERAGE)) {
+            schemaLocations.add(SCHEMA_LOCATION_WCS_CIS_10_REFERENCEABLE_COVERAGE_DESCRIBE_COVERAGE);
+            xmlNameSpacesMap.put(PREFIX_GMLRGRID, NAMESPACE_GMLRGRID);
+            xmlNameSpacesMap.put(PREFIX_GMLCOV, NAMESPACE_GMLCOV);
+        }
+        else if (coverageType.equals(LABEL_GENERAL_GRID_COVERAGE)) {
+            // CIS 1.1
+            schemaLocations.add(SCHEMA_LOCATION_WCS_CIS_11_DESCRIBE_COVERAGE);
+            xmlNameSpacesMap.put(PREFIX_CIS11, NAMESPACE_CIS_11);
+            xmlNameSpacesMap.put(PREFIX_WCS_21, NAMESPACE_WCS_21);
+            xmlNameSpacesMap.put(PREFIX_WCS_20, NAMESPACE_WCS_20);
+
+            coverageDescriptionsElement.setNamespaceURI(NAMESPACE_WCS_21);
+        }
+
         XMLUtil.addXMLNameSpacesOnRootElement(xmlNameSpacesMap, coverageDescriptionsElement);
         XMLUtil.addXMLSchemaLocationsOnRootElement(schemaLocations, coverageDescriptionsElement);
 

@@ -32,6 +32,17 @@ module rasdaman {
 	//Declare the fileSaver function so that typescript does not complain.
     declare var saveAs:any;
     export class WCPSResultFactory {
+
+
+        public static convertArrayBufferToString(data:any) {
+            // valid result to display as text
+            const buf = new ArrayBuffer(64);
+            const decoder = new TextDecoder();
+            const str = decoder.decode(data);
+
+            return str;
+        }
+
         public static getResult(errorHandlingService:any, command:WCPSCommand, data:any, mimeType:string, fileName:string):WCPSQueryResult {
 
             var validationResult = this.validateResult(errorHandlingService, command, mimeType);
@@ -43,7 +54,8 @@ module rasdaman {
             } else if (command.widgetConfiguration.type == "diagram") {
                 // validate result for diagram widget (only 1D encoding in csv, json is supported)
                 if (validationResult == null) {
-                    return new DiagramWCPSResult(command, data);
+                    let str = this.convertArrayBufferToString(data);
+                    return new DiagramWCPSResult(command, str);
                 } else {
                     return new NotificationWCPSResult(command, validationResult);
                 }                
@@ -63,8 +75,10 @@ module rasdaman {
                 }
             } else if (command.widgetConfiguration.type == "text") {
                 // valid result to display as text
+                let str = this.convertArrayBufferToString(data);
+
                 if (validationResult == null) {
-                    return new RawWCPSResult(command, data);
+                    return new RawWCPSResult(command, str);
                 } else {
                     return new NotificationWCPSResult(command, validationResult);
                 }

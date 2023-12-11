@@ -475,6 +475,13 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitCoverageExpressionExponentialLabel(wcpsParser.CoverageExpressionExponentialLabelContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code coverageExpressionPolygonizeLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code CoverageExpressionLogicLabel}
 	 * labeled alternative in {@link wcpsParser#coverageExpression}.
 	 * @param ctx the parse tree
@@ -1002,6 +1009,13 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitCrsTransformShorthandExpressionLabel(wcpsParser.CrsTransformShorthandExpressionLabelContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code PolygonizeExpressionLabel}
+	 * labeled alternative in {@link wcpsParser#polygonizeExpression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code DimensionCrsListLabel}
 	 * labeled alternative in {@link wcpsParser#dimensionCrsList}.

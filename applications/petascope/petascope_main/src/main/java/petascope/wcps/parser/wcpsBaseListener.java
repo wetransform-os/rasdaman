@@ -845,6 +845,18 @@ public class wcpsBaseListener implements wcpsListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterCoverageExpressionLogicLabel(wcpsParser.CoverageExpressionLogicLabelContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -1764,6 +1776,18 @@ public class wcpsBaseListener implements wcpsListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitCrsTransformShorthandExpressionLabel(wcpsParser.CrsTransformShorthandExpressionLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

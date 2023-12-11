@@ -21,46 +21,9 @@
  */
 package petascope.wcps.parser;
 
+import petascope.wcps.handler.*;
 import petascope.wcps.metadata.service.CrsUtility;
 import petascope.wcps.metadata.service.AxisIteratorAliasRegistry;
-import petascope.wcps.handler.SubsetExpressionHandler;
-import petascope.wcps.handler.BinaryScalarExpressionHandler;
-import petascope.wcps.handler.CoverageVariableNameHandler;
-import petascope.wcps.handler.ImageCrsDomainExpressionByDimensionExpressionHandler;
-import petascope.wcps.handler.ForClauseHandler;
-import petascope.wcps.handler.ComplexNumberConstantHandler;
-import petascope.wcps.handler.ImageCrsDomainExpressionHandler;
-import petascope.wcps.handler.ImageCrsExpressionHandler;
-import petascope.wcps.handler.RootHandler;
-import petascope.wcps.handler.UnaryBooleanExpressionHandler;
-import petascope.wcps.handler.BooleanNumericalComparisonScalarHandler;
-import petascope.wcps.handler.ExtendExpressionHandler;
-import petascope.wcps.handler.CoverageConstructorHandler;
-import petascope.wcps.handler.CoverageCrsSetHandler;
-import petascope.wcps.handler.RangeConstructorHandler;
-import petascope.wcps.handler.UnaryPowerExpressionHandler;
-import petascope.wcps.handler.RangeSubsettingHandler;
-import petascope.wcps.handler.EncodeCoverageHandler;
-import petascope.wcps.handler.ReturnClauseHandler;
-import petascope.wcps.handler.GeneralCondenserHandler;
-import petascope.wcps.handler.DomainExpressionHandler;
-import petascope.wcps.handler.ReduceExpressionHandler;
-import petascope.wcps.handler.CrsTransformHandler;
-import petascope.wcps.handler.ParenthesesCoverageExpressionHandler;
-import petascope.wcps.handler.ScaleExpressionByDimensionIntervalsHandler;
-import petascope.wcps.handler.StringScalarHandler;
-import petascope.wcps.handler.UnaryArithmeticExpressionHandler;
-import petascope.wcps.handler.CoverageConstantHandler;
-import petascope.wcps.handler.BooleanUnaryScalarExpressionHandler;
-import petascope.wcps.handler.NanScalarHandler;
-import petascope.wcps.handler.ForClauseListHandler;
-import petascope.wcps.handler.CastExpressionHandler;
-import petascope.wcps.handler.SwitchCaseExpressionHandler;
-import petascope.wcps.handler.CoverageIdentifierHandler;
-import petascope.wcps.handler.RealNumberConstantHandler;
-import petascope.wcps.handler.WhereClauseHandler;
-import petascope.wcps.handler.BooleanConstantHandler;
-import petascope.wcps.handler.BinaryCoverageExpressionHandler;
 import petascope.wcps.exception.processing.InvalidAxisNameException;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.apache.commons.lang3.StringUtils;
@@ -75,54 +38,14 @@ import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.WCPSException;
 import petascope.util.ListUtil;
 import petascope.util.StringUtil;
-import petascope.wcps.handler.AxisIteratorDomainIntervalsHandler;
-import petascope.wcps.handler.AxisIteratorHandler;
-import petascope.wcps.handler.AxisSpecHandler;
-import petascope.wcps.handler.CellCountHandler;
-import petascope.wcps.handler.ClipCorridorExpressionHandler;
-import petascope.wcps.handler.ClipCurtainExpressionHandler;
-import petascope.wcps.handler.ClipWKTExpressionHandler;
-import petascope.wcps.handler.CoverageIsNullHandler;
-import petascope.wcps.handler.CrsTransformShorthandHandler;
-import petascope.wcps.handler.CrsTransformTargetGeoXYBoundingBoxHandler;
-import petascope.wcps.handler.CrsTransformTargetGeoXYResolutionsHandler;
-import petascope.wcps.handler.DecodeCoverageHandler;
-import petascope.wcps.handler.DescribeCoverageHandler;
-import petascope.wcps.handler.DimensionIntervalListHandler;
-import petascope.wcps.handler.DimensionPointElementHandler;
-import petascope.wcps.handler.DimensionPointListElementHandler;
-import petascope.wcps.handler.DomainIntervalsHandler;
+
 import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PORPERTY_UPPER_BOUND;
 import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PROPERTY_LOWER_BOUND;
 import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PROPERTY_RESOLUTION;
-import petascope.wcps.handler.FlipExpressionHandler;
-import petascope.wcps.handler.Handler;
-import petascope.wcps.handler.IntervalExpressionHandler;
-import petascope.wcps.handler.LetClauseHandler;
-import petascope.wcps.handler.LetClauseListHandler;
-import petascope.wcps.handler.RangeConstructorElementHandler;
-import petascope.wcps.handler.RangeConstructorElementListHandler;
-import petascope.wcps.handler.ScaleDimensionIntervalListHandler;
-import petascope.wcps.handler.ShortHandSubsetWithLetClauseVariableHandler;
-import petascope.wcps.handler.ShorthandSubsetHandler;
-import petascope.wcps.handler.SliceDimensionIntervalElementHandler;
-import petascope.wcps.handler.SliceScaleDimensionPointElement;
-import petascope.wcps.handler.UnaryModExpressionHandler;
+
 import petascope.wcps.metadata.service.LetClauseAliasRegistry;
-import petascope.wcps.handler.SortExpressionHandler;
-import petascope.wcps.handler.SwitchCaseDefaultValueHandler;
-import petascope.wcps.handler.SwitchCaseElementHandler;
-import petascope.wcps.handler.SwitchCaseElementListHandler;
-import petascope.wcps.handler.TrimDimensionIntervalElementHandler;
-import petascope.wcps.handler.TrimScaleDimensionIntervalElement;
-import petascope.wcps.handler.WKTCompoundPointHandler;
-import petascope.wcps.handler.WKTCompoundPointsListHandler;
-import petascope.wcps.handler.WKTLineStringHandler;
-import petascope.wcps.handler.WKTMultiPolygonHandler;
-import petascope.wcps.handler.WKTPolygonHandler;
 import petascope.wcps.metadata.service.SortedAxisIteratorAliasRegistry;
 import petascope.wcps.metadata.service.UsingCondenseRegistry;
-import petascope.wcps.handler.TrimDimensionIntervalByImageCrsDomainElementHandler;
 
 
 /**
@@ -182,6 +105,9 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     CrsTransformTargetGeoXYResolutionsHandler crsTransformTargetGeoXYResolutionsHandler;
     @Autowired private
     CrsTransformTargetGeoXYBoundingBoxHandler crsTransformTargetGeoXYBoundingBoxHandler;
+
+    @Autowired private
+    PolygonizeHandler polygonizeHandler;
     
     @Autowired private
     CoverageVariableNameHandler coverageVariableNameHandler;
@@ -823,9 +749,26 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
      */
     private CrsTransformTargetGeoXYBoundingBoxHandler createCrsTransformTargetGeoXYBoundingBoxHandler(wcpsParser.DimensionGeoXYResolutionContext ctx) {
         Handler domainExpressionHandler = visit(ctx);
-        CrsTransformTargetGeoXYBoundingBoxHandler result = this.crsTransformTargetGeoXYBoundingBoxHandler.create(null, 
+        CrsTransformTargetGeoXYBoundingBoxHandler result = this.crsTransformTargetGeoXYBoundingBoxHandler.create(null,
                                                                                                                 domainExpressionHandler);
-        
+        return result;
+    }
+
+    /**
+     *
+     * Handler for polygonize(coverageExpression, "encodingFormat", connectedness)
+     */
+    @Override
+    public Handler visitPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx) {
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        StringScalarHandler encodingFormatHandler = this.stringScalarHandler.create(ctx.STRING_LITERAL().getText());
+        StringScalarHandler connectednessHandler = null;
+        if (ctx.INTEGER() != null) {
+            connectednessHandler = this.stringScalarHandler.create(ctx.INTEGER().getText());
+        }
+
+        PolygonizeHandler result = this.polygonizeHandler.create(coverageExpressionHandler,
+                                                                encodingFormatHandler, connectednessHandler);
         return result; 
     }
     

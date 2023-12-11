@@ -187,11 +187,14 @@ public class WMSGetMapStyleService {
         
         wcpsSubsetDimensions.addAll(wcpsGeoXYSubsetDimensions);
         
-        List<List<WcpsSliceSubsetDimension>> nonXYGridSliceSubsetDimensions = this.wmsGetMapSubsetParsingService.translateGeoDimensionsSubsetsLayers(wcpsCoverageMetadataTmp, dimSubsetsMap);
+        List<List<WcpsSliceSubsetDimension>> nestedNonXYGridSliceSubsetDimensions = this.wmsGetMapSubsetParsingService.translateGeoDimensionsSubsetsLayers(wcpsCoverageMetadataTmp, dimSubsetsMap);
+
+        List<WcpsSliceSubsetDimension> nonXYGridSliceSubsetDimensions = new ArrayList<>();
         
-        if (nonXYGridSliceSubsetDimensions != null) {
-            for (List<WcpsSliceSubsetDimension> list : nonXYGridSliceSubsetDimensions) {
+        if (nestedNonXYGridSliceSubsetDimensions != null) {
+            for (List<WcpsSliceSubsetDimension> list : nestedNonXYGridSliceSubsetDimensions) {
                 wcpsSubsetDimensions.addAll(list);
+                nonXYGridSliceSubsetDimensions.addAll(list);
             }
         }
         
@@ -219,7 +222,8 @@ public class WMSGetMapStyleService {
             
             String coverageId = StringUtil.stripDollarSign(layerNameIteratorFromStyle);
             wmsLayer.setLayerName(coverageId);
-            List<WcpsSubsetDimension> wcpsSubsetDimensionsByLayerName = this.getSubsetDimensionForWCPSFragment(wmsLayer, wcpsCoverageMetadata, nonXYGridSliceSubsetDimensions);
+            List<WcpsSubsetDimension> wcpsSubsetDimensionsByLayerName = this.getSubsetDimensionForWCPSFragment(wmsLayer, wcpsCoverageMetadata,
+                                                                                                                nestedNonXYGridSliceSubsetDimensions);
             wmsSubsetDimensionsRegistry.add(coverageId, wcpsSubsetDimensionsByLayerName);
             
             // e.g: c0 in (covA)
@@ -231,14 +235,18 @@ public class WMSGetMapStyleService {
             
             coverageAliasList.add(coverageAlias + IN + "(" + coverageId + ")");
             
-            
+
             List<String> tmps = new ArrayList<>();
             for (WcpsSubsetDimension wcpsSubsetDimension : wcpsGeoXYSubsetDimensions) {
                 tmps.add(wcpsSubsetDimension.toStringWithoutCRS());
             }
+
+            for (WcpsSubsetDimension wcpsSubsetDimension : nonXYGridSliceSubsetDimensions) {
+                tmps.add(wcpsSubsetDimension.toStringWithoutCRS());
+            }
             
             String coverageAliasWithGeoXYSubsets = coverageAlias + "[" + ListUtil.join(tmps, ", ")  + "]";
-            
+
             styleQuery = WMSGetMapService.replaceLayerIteratorByLayerName(styleQuery, layerNameIteratorFromStyle, coverageAliasWithGeoXYSubsets);
             
             i++;

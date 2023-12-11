@@ -24,12 +24,16 @@ package petascope.wcps.handler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+
+import org.apache.tomcat.util.http.fileupload.util.mime.MimeUtility;
 import org.rasdaman.domain.cis.NilValue;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.wcps.parameters.model.netcdf.NetCDFExtraParams;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
@@ -77,6 +81,11 @@ public class EncodeCoverageHandler extends Handler {
     private NetCDFParametersService netCDFParametersFactory;
     @Autowired
     private HttpServletRequest httpServletRequest;
+
+    private static Set<String> image2DFormatsSet = Set.of(
+                                                        MIMEUtil.MIME_PNG, MIMEUtil.MIME_JP2,
+                                                        MIMEUtil.MIME_JPEG, MIMEUtil.MIME_TIFF
+                                                        );
     
     public EncodeCoverageHandler() {
         
@@ -104,6 +113,16 @@ public class EncodeCoverageHandler extends Handler {
     private WcpsResult handle(WcpsResult coverageExpression, String format, String extraParams, boolean widthCoordinates) throws PetascopeException {
         // get the mime-type before modifying the rasqlFormat
         String mimeType = MIMEUtil.getMimeType(format);
+
+        if (coverageExpression.getMetadata() != null) {
+            int numberOfDimensions = coverageExpression.getMetadata().getAxes().size();
+
+            if (coverageExpression.getMetadata().getAxes().size() != 2 && image2DFormatsSet.contains(mimeType)) {
+                String errorMessage = "Data format " + mimeType + " only supports 2D data, but the coverage to be encoded is " + numberOfDimensions + "D. " +
+                    "Hint: specify a data format suitable for non-2D data, such as " + MIMEUtil.MIME_NETCDF;
+                throw new PetascopeException(ExceptionCode.InvalidRequest, errorMessage);
+            }
+        }
         
         boolean isGML = false;
         

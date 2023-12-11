@@ -21,17 +21,22 @@
  */
 package petascope.wcps.handler;
 
-import java.util.List;
+import java.util.*;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
+import petascope.util.CrsUtil;
 import petascope.util.MIMEUtil;
 import petascope.util.ras.RasConstants;
 import petascope.wcps.exception.processing.CoverageNotEncodedInReturnClauseException;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsResult;
+
+import static petascope.util.MIMEUtil.ENCODE_DEM;
+import static petascope.util.ras.RasConstants.RASQL_ENCODE;
 
 /**
  * Translation node from wcps to rasql for the return clause. Example:  <code>
@@ -58,6 +63,19 @@ public class ReturnClauseHandler extends Handler {
     }
     
     public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+
+        // Try to optimize the query tree with subsets pushed down first
+        Queue<Handler> queue = new ArrayDeque<>(this.getNonNullChildren());
+
+        while (!queue.isEmpty()) {
+            Handler childHandler = queue.remove();
+            if (childHandler instanceof ShorthandSubsetHandler) {
+                this.pushDownDimensionSubsetsIfPossible(childHandler);
+            }
+
+            queue.addAll(childHandler.getNonNullChildren());
+        }
+
         VisitorResult temp = this.getFirstChild().handle(serviceRegistries);
         
         VisitorResult result = temp;
@@ -67,6 +85,88 @@ public class ReturnClauseHandler extends Handler {
         
         return result;
     }
+
+    /**
+     * For example: $c[i(20:30)][j(40:50)] can be written as:
+     * $c[i(20:30),j(40:50)]
+     *
+     * or ( ($c + $c)[i(20:30)] )[j(40:50)]
+     * can be written as ( ($c + $c)[i(20:30), j(40:50)] )
+     *
+     * or ( $c[j(30:40)] + avg($c) )[j(40:50)]
+     * will not be changed
+     */
+    private void pushDownDimensionSubsetsIfPossible(Handler inputShortHandSubsetHandler) throws PetascopeException {
+
+        // e.g. ($c + $c) or $c[i(30:40)]
+        Handler firstChildHandler = inputShortHandSubsetHandler.getFirstChild();
+        Handler dimensionIntervalsHandler = inputShortHandSubsetHandler.getSecondChild();
+
+        List<Handler> unPushedDownSubsetDimensionHandlers = new ArrayList<>();
+
+        for (Handler subsetDimensionHandler : dimensionIntervalsHandler.getChildren()) {
+
+            // Now try to put it down on other shorthand subset node's dimensionIntervalsList node
+            Queue<Handler> queue = new ArrayDeque<>(firstChildHandler.getNonNullChildren());
+
+            String inputAxisLabel = ((StringScalarHandler)subsetDimensionHandler.getFirstChild()).getValue();
+            boolean pushedDownNode = false;
+
+            while (!queue.isEmpty()) {
+                Handler childHandler = queue.remove();
+
+                if (this.stopToTraverseFurtherInTree(childHandler)) {
+                    break;
+                }
+
+                Handler parentHandler = childHandler.getParent();
+
+                if (childHandler instanceof DimensionIntervalListHandler
+                   && parentHandler instanceof ShorthandSubsetHandler) {
+                    // e.g. Current childHandler is j(0:30) and parentNode is shortHandSubsetHandler(c[j(0:30)])
+                    List<Handler> subsetDimensionHandlersTmp = childHandler.getChildren();
+
+                    boolean isAxisLabelExists = false;
+                    for (Handler subsetDimensionHandlerTmp : subsetDimensionHandlersTmp) {
+                        String axisLabel = ((StringScalarHandler)subsetDimensionHandlerTmp.getFirstChild()).getValue();
+                        if (CrsUtil.axisLabelsMatch(inputAxisLabel, axisLabel)) {
+                            isAxisLabelExists = true;
+                            break;
+                        }
+                    }
+
+                    if (!isAxisLabelExists) {
+                        // ok, $c[i(20:30)] can push j(40:50) into it
+                        childHandler.getChildren().add(subsetDimensionHandler);
+                        pushedDownNode = true;
+                    }
+                }
+
+                queue.addAll(childHandler.getNonNullChildren());
+
+            }
+
+            if (!pushedDownNode) {
+                unPushedDownSubsetDimensionHandlers.add(subsetDimensionHandler);
+            }
+
+        }
+
+        if (unPushedDownSubsetDimensionHandlers.size() == 0) {
+            // All the subset dimensions can be pushed down -> remove the current shorthand subset node as it is not used anymore
+            Handler inputParentNodeTmp = inputShortHandSubsetHandler.getParent();
+            int indexOfShortHandSubsetHandlerNodeInParentChildrenList = inputShortHandSubsetHandler.getChildIndexInParentsList();
+            inputParentNodeTmp.getChildren().set(indexOfShortHandSubsetHandlerNodeInParentChildrenList, inputShortHandSubsetHandler.getFirstChild());
+        } else {
+            // remove the pushed down subset dimension from the current dimensionIntervalsList node
+            Handler dimensionalIntervalsListHandlerTmp = new DimensionIntervalListHandler();
+            dimensionalIntervalsListHandlerTmp.setChildren(unPushedDownSubsetDimensionHandlers);
+
+            inputShortHandSubsetHandler.getChildren().set(1, dimensionalIntervalsListHandlerTmp);
+
+        }
+    }
+
 
     private VisitorResult handle(WcpsResult processingExpr) {
         String template = TEMPLATE_RASQL.replace("$processingExpression", processingExpr.getRasql());
@@ -78,9 +178,17 @@ public class ReturnClauseHandler extends Handler {
                 // Coverage result is not scalar (it has axis domain(s)) so it must start with encode()
                 // NOTE: dem() is a special one in rasql and does not need encode().
                 String tmp = processingExpr.getRasql().toLowerCase().trim();
-                if (!(tmp.startsWith(RasConstants.RASQL_ENCODE) || tmp.startsWith(MIMEUtil.ENCODE_DEM))) {
+                boolean needEncode = true;
+                for (String function : KEYWORDS_FUNCTIONS) {
+                    if (tmp.startsWith(function)) {
+                        needEncode = false;
+                    }
+                }
+
+                if (needEncode) {
                     throw new CoverageNotEncodedInReturnClauseException();
                 }
+
             }
         }
         processingExpr.setMetadata(metadata);
@@ -88,5 +196,6 @@ public class ReturnClauseHandler extends Handler {
         return processingExpr;
     }
 
-    private  final String TEMPLATE_RASQL = "SELECT $processingExpression ";
+    private final Set<String> KEYWORDS_FUNCTIONS = Set.of(RASQL_ENCODE, ENCODE_DEM, PolygonizeHandler.OPERATOR);
+    private final String TEMPLATE_RASQL = "SELECT $processingExpression ";
 }

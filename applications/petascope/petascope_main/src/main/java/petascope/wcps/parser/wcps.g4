@@ -510,7 +510,9 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                   | flipExpression
                     #coverageExpresisonFlipLabel
                   | sortExpression
-                    #coverageExpressionSortLabel;
+                    #coverageExpressionSortLabel
+                  | polygonizeExpression
+                    #coverageExpressionPolygonizeLabel;
 /**
  * Example:
  *   $c1 AND $c2
@@ -848,6 +850,11 @@ crsTransformShorthandExpression: CRS_TRANSFORM LEFT_PARENTHESIS
                           (COMMA LEFT_BRACE ( dimensionIntervalList | domainExpression ) RIGHT_BRACE)?
                         RIGHT_PARENTHESIS
 #CrsTransformShorthandExpressionLabel;
+
+
+
+polygonizeExpression: POLYGONIZE LEFT_PARENTHESIS coverageExpression COMMA STRING_LITERAL ( COMMA INTEGER )?
+#PolygonizeExpressionLabel;
 
 
 /*

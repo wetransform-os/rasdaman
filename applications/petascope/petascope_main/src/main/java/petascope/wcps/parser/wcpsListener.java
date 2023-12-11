@@ -798,6 +798,18 @@ public interface wcpsListener extends ParseTreeListener {
 	 */
 	void exitCoverageExpressionExponentialLabel(wcpsParser.CoverageExpressionExponentialLabelContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code coverageExpressionPolygonizeLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 */
+	void enterCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code coverageExpressionPolygonizeLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 */
+	void exitCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code CoverageExpressionLogicLabel}
 	 * labeled alternative in {@link wcpsParser#coverageExpression}.
 	 * @param ctx the parse tree
@@ -1699,6 +1711,18 @@ public interface wcpsListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitCrsTransformShorthandExpressionLabel(wcpsParser.CrsTransformShorthandExpressionLabelContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code PolygonizeExpressionLabel}
+	 * labeled alternative in {@link wcpsParser#polygonizeExpression}.
+	 * @param ctx the parse tree
+	 */
+	void enterPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code PolygonizeExpressionLabel}
+	 * labeled alternative in {@link wcpsParser#polygonizeExpression}.
+	 * @param ctx the parse tree
+	 */
+	void exitPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code DimensionCrsListLabel}
 	 * labeled alternative in {@link wcpsParser#dimensionCrsList}.

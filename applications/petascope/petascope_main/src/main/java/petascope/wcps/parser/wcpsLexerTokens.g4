@@ -113,6 +113,7 @@ QUOTE: '"';
 ESCAPED_QUOTE: '\\"';
 PLUS: '+';
 POWER: ('p'|'P')('o'|'O')('w'|'W');
+POLYGONIZE: ('p'|'P')('o'|'O')('l'|'L')('y'|'Y')('g'|'G')('o'|'O')('n'|'N')('i'|'I')('z'|'Z')('e'|'E');
 REAL_PART: ('r'|'R')('e'|'E');
 ROUND: ('r'|'R')('o'|'O')('u'|'U')('n'|'N')('d'|'D');
 RETURN: ('r'|'R')('e'|'E')('t'|'T')('u'|'U')('r'|'R')('n'|'N');

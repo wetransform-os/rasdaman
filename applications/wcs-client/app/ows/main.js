@@ -2507,9 +2507,7 @@ var rasdaman;
                 transformResponse: null,
                 data: queryStr
             };
-            if (queryStr.indexOf("png") >= 0 || queryStr.indexOf("jpeg") >= 0 || queryStr.indexOf("jpeg2000") >= 0 || queryStr.indexOf("tiff") >= 0 || queryStr.indexOf("netcdf") >= 0) {
-                request.responseType = "arraybuffer";
-            }
+            request.responseType = "arraybuffer";
             this.$http(request).then(function (data) {
                 result.resolve(data);
             }, function (error) {
@@ -4646,6 +4644,12 @@ var rasdaman;
     var WCPSResultFactory = (function () {
         function WCPSResultFactory() {
         }
+        WCPSResultFactory.convertArrayBufferToString = function (data) {
+            var buf = new ArrayBuffer(64);
+            var decoder = new TextDecoder();
+            var str = decoder.decode(data);
+            return str;
+        };
         WCPSResultFactory.getResult = function (errorHandlingService, command, data, mimeType, fileName) {
             var validationResult = this.validateResult(errorHandlingService, command, mimeType);
             if (command.widgetConfiguration == null) {
@@ -4655,7 +4659,8 @@ var rasdaman;
             }
             else if (command.widgetConfiguration.type == "diagram") {
                 if (validationResult == null) {
-                    return new rasdaman.DiagramWCPSResult(command, data);
+                    var str = this.convertArrayBufferToString(data);
+                    return new rasdaman.DiagramWCPSResult(command, str);
                 }
                 else {
                     return new rasdaman.NotificationWCPSResult(command, validationResult);
@@ -4678,8 +4683,9 @@ var rasdaman;
                 }
             }
             else if (command.widgetConfiguration.type == "text") {
+                var str = this.convertArrayBufferToString(data);
                 if (validationResult == null) {
-                    return new rasdaman.RawWCPSResult(command, data);
+                    return new rasdaman.RawWCPSResult(command, str);
                 }
                 else {
                     return new rasdaman.NotificationWCPSResult(command, validationResult);

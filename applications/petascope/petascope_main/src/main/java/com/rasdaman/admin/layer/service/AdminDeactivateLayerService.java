@@ -22,8 +22,6 @@
 package com.rasdaman.admin.layer.service;
 
 
-// -- rasdaman enterprise begin
-
 import com.rasdaman.admin.service.AbstractAdminService;
 
 // -- rasdaman enterprise end

@@ -21,7 +21,6 @@
  */
 package petascope.wcst.handlers;
 
-import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,6 +41,7 @@ import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import petascope.controller.AuthenticationController;
 import petascope.controller.PetascopeController;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
@@ -103,7 +103,7 @@ public class InsertCoverageHandler {
      */
     public Response handle(InsertCoverageRequest request) throws Exception {
         log.debug("Handling coverage insertion...");
-        this.petascopeController.validateWriteRequestFromIP(httpServletRequest);
+        this.petascopeController.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
         
         if (request.getGMLCoverage() != null) {
             return handleGMLCoverageInsert(request);

@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.support.StandardMultipartHttpServletRequest;
 import petascope.controller.AbstractController;
+import petascope.controller.AuthenticationController;
 import petascope.controller.RequestHandlerInterface;
 import petascope.core.KVPSymbols;
 import static petascope.core.KVPSymbols.KEY_METADATA;
@@ -81,7 +82,7 @@ public class AdminUpdateCoverageController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
 
                 this.adminUpdateCoverageService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {

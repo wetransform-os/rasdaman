@@ -382,7 +382,7 @@ public class ScaleHandlerService {
                     // e.g. avg(c)
                     // NOTE: this is required, to get the correct scale factor by calculating it from rasdaman
                     // then to update the grid domains of the current coverage object c after scale(c, avg(c))
-                    Pair<String, String> rasUserCredentialsPair = new Pair<> (ConfigManager.RASDAMAN_USER, ConfigManager.RASDAMAN_PASS);
+                    Pair<String, String> rasUserCredentialsPair = AuthenticationService.getRasUserCredentials(this.httpServletRequest);
 
                     String query = "SELECT " + scaleFactorStr + " " + this.collectionAliasRegistry.getFromClause();
                     String result = RasUtil.executeQueryToReturnString(query, rasUserCredentialsPair.fst, rasUserCredentialsPair.snd);

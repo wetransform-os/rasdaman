@@ -107,7 +107,7 @@ public class ConfigManager {
     // context path for OAPI endpoint (e.g: localhost:8080/rasdaman/oapi)
     public static final String OAPI = "oapi";
 
-    // For community this endpoint always return fasle, it is used to check that if petascope is running from wsclient
+    // Check if petascope has enabled authentication in petascope.properties
     public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION = "authisactive";
     public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH = ADMIN + "/authisactive";
 
@@ -291,6 +291,10 @@ public class ConfigManager {
     public static String INSPIRE_COMMON_URL = "";
     public static String INSPIRE_SPATIAL_DATASET_IDENTIFIER = "rasdaman";
 
+    private static final String KEY_AUTHENTICATION_TYPE = "authentication_type";
+    public static final String AUTHENTICATION_TYPE_BASIC_HEADER = "basic_header";
+    public static String AUTHENTICATION_TYPE = AUTHENTICATION_TYPE_BASIC_HEADER;
+
     // rasj 
     private static final String KEY_RASJ_LOGGING_LEVEL = "rasj_logging_level";
     public static String RASJ_LOGGING_LEVEL = RasjLoggingLevel.WARN.name();
@@ -382,6 +386,8 @@ public class ConfigManager {
         
         initRasj();
 
+        initAuthenticationTypesSetting();
+
         printStartupMessage();
         
         GDAL_JAVA_VERSION = Byte.parseByte(gdal.VersionInfo().substring(0, 1));
@@ -432,6 +438,10 @@ public class ConfigManager {
         }
         
         return value;
+    }
+
+    private boolean containsProperty(String key) {
+        return props.get(key) != null;
     }
     
     private void initPetascopeSettings() throws PetascopeException {
@@ -739,6 +749,27 @@ public class ConfigManager {
         log.info("WMS: " + VersionManager.getAllSupportedVersions(WMS_SERVICE));
 
         log.info("------------------------------------");
+    }
+
+    public static boolean enableAuthentication() {
+        return !AUTHENTICATION_TYPE.isEmpty();
+    }
+
+    /**
+     * Initialize authentication types in Petascope (e.g: shibboleth and basic authentication header).
+     */
+    private void initAuthenticationTypesSetting() throws PetascopeException {
+        if (containsProperty(KEY_AUTHENTICATION_TYPE)) {
+            String value = get(KEY_AUTHENTICATION_TYPE).trim();
+            if (!value.isEmpty()) {
+                if (!value.equals(AUTHENTICATION_TYPE_BASIC_HEADER)) {
+                    throw new PetascopeException(ExceptionCode.InvalidPropertyValue,
+                            "Value for authentication setting '" + KEY_AUTHENTICATION_TYPE + "' is not supported. Given: '" + value + "'");
+                }
+            }
+
+            AUTHENTICATION_TYPE = value;
+        }
     }
 }
 

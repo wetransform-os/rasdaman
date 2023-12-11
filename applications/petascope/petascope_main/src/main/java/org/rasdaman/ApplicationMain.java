@@ -329,19 +329,13 @@ public class ApplicationMain extends SpringBootServletInitializer {
 
         // Test if rasdaman is running first with provided credentials from rasguest and rasadmin
 
-        if (ConfigManager.RASDAMAN_USER.trim().isEmpty() && ConfigManager.RASDAMAN_PASS.trim().isEmpty()) {
-            AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError,
-                "petascope does not know which user to query to rasdaman. " +
-                "Hint: in petascope.properties set rasdaman_user and rasdaman_pass with valid credentials of a rasdaman user, then restart tomcat service afterwards.");
-        }
-
         if (ConfigManager.RASDAMAN_USER != null && !ConfigManager.RASDAMAN_USER.isEmpty()
-            && ConfigManager.RASDAMAN_PASS != null && !ConfigManager.RASDAMAN_PASS.isEmpty()) {
+          && ConfigManager.RASDAMAN_PASS != null && !ConfigManager.RASDAMAN_PASS.isEmpty()) {
             try {
                 RasUtil.checkValidUserCredentials(ConfigManager.RASDAMAN_USER, ConfigManager.RASDAMAN_PASS);
             } catch (Exception ex) {
                 String errorMessage = "Cannot check if rasdaman is running. Reason: " + ex.getMessage().trim()
-                    + ". Hint: make sure rasdaman is running, user's credentials are correct and restart tomcat service afterwards.";
+                        + ". Hint: make sure rasdaman is running, user's credentials are correct and restart tomcat service afterwards.";
                 log.error(errorMessage);
                 AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError, errorMessage);
                 return;
@@ -353,7 +347,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
             RasUtil.checkValidUserCredentials(ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS);
         } catch(Exception ex) {
             String errorMessage = "Cannot check if rasdaman is running. Reason: " + ex.getMessage().trim()
-                + ". Hint: make sure rasdaman is running, user's credentials are correct and restart tomcat service afterwards.";
+                                + ". Hint: make sure rasdaman is running, user's credentials are correct and restart tomcat service afterwards.";
             log.error(errorMessage);
             AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError, errorMessage);
             return;
@@ -361,6 +355,15 @@ public class ApplicationMain extends SpringBootServletInitializer {
 
         CrsUtil.setInternalResolverCRSToQualifiedCRS();
         CrsUtil.currentWorkingResolverURL = ConfigManager.SECORE_URLS.get(0);
+
+        if (ConfigManager.RASDAMAN_USER.trim().isEmpty() && ConfigManager.RASDAMAN_PASS.trim().isEmpty()
+                && !ConfigManager.enableAuthentication()
+        ) {
+            AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError,
+                    "No authentication is enabled, hence, petascope does not know which user to query to rasdaman.\n" +
+                            "Hint: in petascope.properties either change to authentication_type=basic_header " +
+                            "or set rasdaman_user and rasdaman_pass with valid credentials of a rasdaman user, then restart petascope.");
+        }
 
     }
 

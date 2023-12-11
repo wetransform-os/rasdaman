@@ -471,7 +471,7 @@ std::pair<std::string, std::string> QtPolygonize::prepareFilenames(GDALDriver *d
     std::string baseFilename = "/tmp/rasdaman/polygonize/";
     if (!common::FileUtils::dirExists(baseFilename))
     {
-        const auto creationRes = common::FileUtils::createDirectory(baseFilename);
+        const auto creationRes = common::FileUtils::createDirectoryRecursive(baseFilename);
         if (!creationRes)
         {
             LERROR << "Error creating directory of base filename " << baseFilename;

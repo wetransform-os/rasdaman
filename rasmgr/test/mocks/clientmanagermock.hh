@@ -4,7 +4,7 @@
 #include "../../src/clientmanager.hh"
 #include "../../src/clientcredentials.hh"
 #include "../../src/usermanager.hh"
-#include "../../src/cpuscheduler.hh"
+#include "../../src/clientservermatcher.hh"
 #include <gmock/gmock.h>
 
 namespace rasmgr
@@ -16,9 +16,9 @@ class ClientManagerMock : public rasmgr::ClientManager
 public:
     ClientManagerMock(const ClientManagerConfig &config,
                       std::shared_ptr<UserManager> userManager,
-                      std::shared_ptr<ServerManager> serverManager,
-                      std::shared_ptr<PeerManager> peerManager)
-        : ClientManager(config, userManager, serverManager, peerManager, std::make_shared<CpuScheduler>(4)) {}
+                      std::shared_ptr<PeerManager> peerManager,
+                      std::shared_ptr<ClientServerMatcher> clientServerMatcher)
+        : ClientManager(config, userManager, peerManager, clientServerMatcher) {}
     MOCK_METHOD2(connectClient, std::uint32_t(const ClientCredentials &, const std::string &));
     MOCK_METHOD1(disconnectClient, void(std::uint32_t));
     MOCK_METHOD3(openClientDbSession, void(std::uint32_t, const std::string &, ClientServerSession &));

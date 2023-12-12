@@ -40,25 +40,29 @@
 #include <sstream>
 #include <unordered_set>
 
+#include <tbb/parallel_for.h>
+
 namespace rasmgr
 {
 
+using std::chrono::milliseconds;
+
 ServerManager::ServerManager(const ServerManagerConfig &config1, std::shared_ptr<ServerGroupFactory> sgf)
-    : serverGroupFactory(sgf), config(config1), isWorkerThreadRunning(true), isRestartServersThreadRunning(false)
+    : serverGroupFactory(sgf), config(config1),
+      evaluateServerGroupsExecutor{[this]()
+                                   {
+                                       this->evaluateServerGroups();
+                                   },
+                                   milliseconds(config.getCleanupInterval())},
+      isRestartServersThreadRunning(false)
 {
-    this->workerCleanup.reset(new std::thread(&ServerManager::workerCleanupRunner, this));
 }
 
 ServerManager::~ServerManager()
 {
     try
     {
-        {
-            std::lock_guard<std::mutex> lock(this->threadMutex);
-            this->isWorkerThreadRunning = false;
-        }
-        this->isThreadRunningCondition.notify_one();
-        this->workerCleanup->join();
+        this->evaluateServerGroupsExecutor.stop();
         if (this->restartServersThread)
         {
             this->restartServersThread->join();
@@ -227,11 +231,14 @@ void ServerManager::startServerGroup(const StartServerGroup &startGroup)
     else if (startGroup.has_all())
     {
         // up srv -all
-        for (const auto &sg: this->serverGroupList)
-        {
-            LDEBUG << "Starting server: " << sg->getGroupName();
-            sg->start();
-        }
+        tbb::parallel_for(
+            size_t(0), this->serverGroupList.size(), [&](size_t i)
+            //  for (size_t i = 0; i < outpeers.size(); ++i)
+            {
+                const auto &sg = this->serverGroupList[i];
+                LDEBUG << "Starting server: " << sg->getGroupName();
+                sg->start();
+            });
     }
     else
     {
@@ -244,6 +251,7 @@ void ServerManager::stopServerGroup(const StopServerGroup &stopGroup)
     boost::shared_lock<boost::shared_mutex> lockMutexGroups(this->serverGroupMutex);
     if (stopGroup.has_group_name())
     {
+        // down srv N1
         bool found = false;
         const auto &group = stopGroup.group_name();
         for (const auto &sg: this->serverGroupList)
@@ -263,6 +271,7 @@ void ServerManager::stopServerGroup(const StopServerGroup &stopGroup)
     }
     else if (stopGroup.has_host_name())
     {
+        // down srv -host rasdaman_host
         bool found = false;
         const auto &host = stopGroup.host_name();
         for (const auto &sg: this->serverGroupList)
@@ -284,14 +293,18 @@ void ServerManager::stopServerGroup(const StopServerGroup &stopGroup)
     }
     else if (stopGroup.has_all())
     {
-        for (const auto &sg: this->serverGroupList)
-        {
-            if (!sg->isStopped())
+        // down srv -all
+        tbb::parallel_for(
+            size_t(0), this->serverGroupList.size(), [&](size_t i)
+            //  for (size_t i = 0; i < outpeers.size(); ++i)
             {
-                LDEBUG << "Stopping server " << sg->getGroupName();
-                sg->stop(stopGroup.kill_level());
-            }
-        }
+                const auto &sg = this->serverGroupList[i];
+                if (!sg->isStopped())
+                {
+                    LDEBUG << "Stopping server " << sg->getGroupName();
+                    sg->stop(stopGroup.kill_level());
+                }
+            });
     }
     else
     {
@@ -302,7 +315,7 @@ void ServerManager::stopServerGroup(const StopServerGroup &stopGroup)
 void ServerManager::restartAllServerGroups()
 {
     boost::upgrade_lock<boost::shared_mutex> sharedLock(this->restartServersMutex);
-    if (!this->isRestartServersThreadRunning && this->isWorkerThreadRunning)
+    if (!this->isRestartServersThreadRunning && this->evaluateServerGroupsExecutor.running)
     {
         boost::upgrade_to_unique_lock<boost::shared_mutex> exclusiveLock(sharedLock);
         if (this->restartServersThread)
@@ -316,16 +329,12 @@ void ServerManager::restartAllServerGroups()
 
 void ServerManager::restartServersRunner()
 {
-    LDEBUG << "restarting servers, wait for " << this->config.getRestartDelay() << " seconds.";
-    // wait before proceeding with restarting servers
-    //    sleep(this->config.getRestartDelay());
-    LDEBUG << "restarting servers, waiting finished.";
-
     {
         boost::shared_lock<boost::shared_mutex> lock(this->serverGroupMutex);
         for (const auto &sg: this->serverGroupList)
         {
-            sg->scheduleForRestart();
+            bool onlyIfSessionCountIsNonZero = true;
+            sg->scheduleForRestart(onlyIfSessionCountIsNonZero);
         }
         LDEBUG << "restarting servers, all groups restarted.";
     }
@@ -349,22 +358,6 @@ bool ServerManager::hasRunningServers()
     return false;
 }
 
-std::shared_ptr<Server> ServerManager::getServer(const std::string &serverId)
-{
-    boost::shared_lock<boost::shared_mutex> lockMutexGroups(this->serverGroupMutex);
-
-    for (const auto &sg: this->serverGroupList)
-    {
-        auto ret = sg->getServer(serverId);
-        if (ret)
-        {
-            return ret;
-        }
-    }
-
-    throw InexistentServerGroupException(serverId, "cannot get server");
-}
-
 ServerMgrProto ServerManager::serializeToProto()
 {
     ServerMgrProto result;
@@ -376,24 +369,6 @@ ServerMgrProto ServerManager::serializeToProto()
     }
 
     return result;
-}
-
-void ServerManager::workerCleanupRunner()
-{
-    std::chrono::milliseconds timeToSleepFor(this->config.getCleanupInterval());
-
-    std::unique_lock<std::mutex> threadLock(this->threadMutex);
-    while (this->isWorkerThreadRunning)
-    {
-        // Wait on the condition variable to be notified from the
-        // ~ServerManager() destructor when it is time to stop the worker thread,
-        // or until the cleanup timeout is reached (3 seconds by default)
-        if (this->isThreadRunningCondition.wait_for(threadLock, timeToSleepFor) ==
-            std::cv_status::timeout)
-        {
-            this->evaluateServerGroups();
-        }
-    }
 }
 
 void ServerManager::evaluateServerGroups()

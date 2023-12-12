@@ -53,26 +53,69 @@ public:
      * Install the specified handler for a specific signal.
      */
     static void installSignalHandler(void (*handler)(int, siginfo_t *, void *), int signal);
-
-    /**
-     * @return a string description of the caught signal info
-     */
-    static std::string toString(siginfo_t *info);
-
+    
     /**
      * @return a stack trace as a string; the caller address is not included.
      */
     static std::string getStackTrace();
+    
+    /**
+     * Prints crash details: server pid, signal details, and a stacktrace.
+     * This function is Async-Signal-Safe (AS-Safe), good to be called from
+     * signal handlers: https://www.gnu.org/software/libc/manual/html_node/POSIX-Safety-Concepts.html#index-AS_002dSafe
+     * @param info signal info
+     * @param file a filepath to which to write the information; if no file 
+     * is specified or set to nullptr, details will be printed to stdout.
+     */
+    static void printCrashDetailsASSafe(siginfo_t *info, const char *file = nullptr);
+    
+    /**
+     * Print the given string to stdout/file in Async-Signal-Safe (AS-Safe) way, 
+     * good to be called from signal handlers: 
+     * https://www.gnu.org/software/libc/manual/html_node/POSIX-Safety-Concepts.html#index-AS_002dSafe
+     * @param msg the string to be printed.
+     * @param file a filepath to which to write the information; if no file 
+     * is specified or set to nullptr, details will be printed to stdout.
+     */
+    static void printASSafe(const char *msg,
+                            const char *file = nullptr);
 
-    static std::string signalName(int signalNumber);
+    /// @return the signal name given a signal number, e.g. 9 -> SIGKILL
+    static const char *signalName(int signalNumber);
 
-    static std::string signalInfo(siginfo_t *info);
+private:
+    
+    /**
+     * Add information about the signal info to the provide C-string buf.
+     * The buffer must be large enough; size of 200 should be more than enough.
+     * The buffer must be a valid C-string ending with a '\0'; signal details
+     * are appended with strcat.
+     * @param info signal info
+     * @param buf a buffer large enough to contain the signal details
+     */
+    static void printSignalInfoASSafe(siginfo_t *info, char *buf);
+    
+    /**
+     * Prints the current stacktrace with backtrace + backtrace_symbols_fd.
+     * This function is Async-Signal-Safe (AS-Safe), good to be called from
+     * signal handlers: https://www.gnu.org/software/libc/manual/html_node/POSIX-Safety-Concepts.html#index-AS_002dSafe
+     * @param file a filepath to which to write the information; if no file 
+     * is specified or set to nullptr, details will be printed to stdout.
+     */
+    static void printStackTraceASSafe(const char *file = nullptr);
+    
+    static void printSignalInfo(siginfo_t *info, char *buf);
+    
+    static void printBasicSignalInfo(siginfo_t *info, char *buf);
 
-    static std::string basicSignalInfo(siginfo_t *info);
-
-    static std::string extraSignalInfo(siginfo_t *info);
-
-    static std::string pointerToString(const void *p);
+    static void printExtraSignalInfo(siginfo_t *info, char *buf);
+    
+    static void printAddress(void *ptr, char *buf);
+    
+    static void printInteger(long long val, char *buf);
+    
+    static int openFile(const char *file = nullptr);
+    static void closeFile(int fd, const char *file = nullptr);
 };
 
 }  // namespace common

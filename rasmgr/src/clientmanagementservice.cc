@@ -40,13 +40,15 @@ namespace rasmgr
 
 using common::GrpcUtils;
 
+using namespace rasnet::service;
+
 ClientManagementService::ClientManagementService(std::shared_ptr<ClientManager> cm)
     : clientManager(cm)
 {
 }
 
 grpc::Status ClientManagementService::Connect(
-    grpc::ServerContext *, const rasnet::service::ConnectReq *request, rasnet::service::ConnectRepl *response)
+    grpc::ServerContext *, const ConnectReq *request, ConnectRepl *response)
 {
     BLDEBUG << "\n";
     LDEBUG << "Connecting client...";
@@ -93,7 +95,7 @@ grpc::Status ClientManagementService::Connect(
 }
 
 grpc::Status ClientManagementService::Disconnect(
-    grpc::ServerContext *, const rasnet::service::DisconnectReq *request, rasnet::service::Void *)
+    grpc::ServerContext *, const DisconnectReq *request, Void *)
 {
     const auto clientId = request->clientid();
     BLDEBUG << "\n";
@@ -122,7 +124,7 @@ grpc::Status ClientManagementService::Disconnect(
 }
 
 grpc::Status ClientManagementService::OpenDb(
-    grpc::ServerContext *, const rasnet::service::OpenDbReq *request, rasnet::service::OpenDbRepl *response)
+    grpc::ServerContext *, const OpenDbReq *request, OpenDbRepl *response)
 {
     const auto clientId = request->clientid();
     const auto &dbName = request->databasename();
@@ -159,7 +161,7 @@ grpc::Status ClientManagementService::OpenDb(
 }
 
 grpc::Status ClientManagementService::CloseDb(
-    grpc::ServerContext *, const rasnet::service::CloseDbReq *request, rasnet::service::Void *)
+    grpc::ServerContext *, const CloseDbReq *request, Void *)
 {
     const auto clientId = request->clientid();
     const auto &sessionId = request->dbsessionid();
@@ -190,7 +192,7 @@ grpc::Status ClientManagementService::CloseDb(
 }
 
 grpc::Status ClientManagementService::KeepAlive(
-    grpc::ServerContext *, const rasnet::service::KeepAliveReq *request, rasnet::service::Void *)
+    grpc::ServerContext *, const KeepAliveReq *request, Void *)
 {
     const auto clientId = request->clientid();
     LDEBUG << "Process keep alive message from client " << clientId;

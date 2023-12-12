@@ -26,53 +26,29 @@
 #include "clientmanagerconfig.hh"
 #include "clientserverrequest.hh"
 #include "clientserversession.hh"
+#include "common/macros/utildefs.hh"
+#include "common/thread/threadutil.hh"
 
 #include <string>
 #include <memory>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
 #include <queue>
 #include <atomic>
-#include <boost/thread/shared_mutex.hpp>
+
+#include <xenium/harris_michael_hash_map.hpp>
+#include <xenium/reclamation/generic_epoch_based.hpp>
 
 namespace rasmgr
 {
 
 class Client;
 class ClientCredentials;
+class ClientServerMatcher;
 class PeerManager;
 class Server;
 class ServerManager;
 class UserManager;
-class CpuScheduler;
-
-/**
- * A struct allowing to communicate data (the session assigned to the client)
- * from the `evaluateWaitingClients()` thread back to the thread that created
- * this structure; that thread is waiting on the condition variable cv in the
- * `openClientDbSession(..)` method, and `evaluateWaitingClients()` does
- * `cv.notify()` when the client is assigned a session. The mutex mut is used
- * for synchronizing cv.
- */
-struct WaitingClient
-{
-    WaitingClient(const std::shared_ptr<Client> &c, const std::string &db)
-        : client(c), serverSession(), dbName(db), assigned(false) {}
-    ~WaitingClient() = default;
-    /// openDB will wait on this to be notified when a server is assigned
-    std::condition_variable cv;
-    /// mutex for the condition variable
-    std::mutex mut;
-    /// the client waiting to be assigned a server
-    std::shared_ptr<Client> client;
-    /// the assigne server session
-    ClientServerSession serverSession;
-    /// database name to open
-    std::string dbName;
-    /// true if a server session was assigned
-    bool assigned;
-};
 
 /**
   The ClientManager class maintains a registry of clientId -> active client, as
@@ -134,18 +110,19 @@ public:
      * @param serverManager Instance of the server manager that is used to retrieve
      * servers for clients of each client
      * @param peerManager the peer manager
-     * @param cpuScheduler the CPU core scheduler
+     * @param csm an object matching clients to servers
      */
     ClientManager(const ClientManagerConfig &config,
-                  std::shared_ptr<UserManager> userManager,
-                  std::shared_ptr<ServerManager> serverManager,
-                  std::shared_ptr<PeerManager> peerManager,
-                  std::shared_ptr<CpuScheduler> cpuScheduler);
+                  const std::shared_ptr<UserManager> &userManager,
+                  const std::shared_ptr<PeerManager> &peerManager,
+                  const std::shared_ptr<ClientServerMatcher> &csm);
+    
+    DISABLE_COPY_AND_MOVE(ClientManager)
 
     /**
      * Destruct the ClientManager class object.
      */
-    virtual ~ClientManager();
+    virtual ~ClientManager() = default;
 
     /**
      * Authenticate and connect the client to rasmgr. If the authentication
@@ -207,68 +184,22 @@ public:
 private:
     ClientManagerConfig config;
     std::shared_ptr<UserManager> userManager;
-    std::shared_ptr<ServerManager> serverManager;
-    std::mutex serverManagerMutex; /*!< Mutex used to prevent a free server being assigned to two different clients when tryGetFreeLocalServer is called*/
     std::shared_ptr<PeerManager> peerManager;
-    std::shared_ptr<CpuScheduler> cpuScheduler;
+    std::shared_ptr<ClientServerMatcher> clientServerMatcher;
+    
+    /// Used to generate unique ids for each client
+    std::atomic<std::uint32_t> nextClientId{};
 
     // -------------------------------------------------------------------------
     // manage all clients
-    std::map<std::uint32_t, std::shared_ptr<Client>> clients; /*!< Map of clientId -> active client */
-    boost::shared_mutex clientsMutex;                         /*!< Mutex used to synchronize access to the clients object*/
-
-    std::unique_ptr<std::thread> checkAssignedClientsThread; /*!< Thread used to manage the list of clients and remove dead ones */
-    std::mutex checkAssignedClientsMutex;                    /*!< Mutex used to safely stop the worker thread */
-    std::condition_variable checkAssignedClientsCondition;   /*!< Condition variable used to stop the worker thread */
-    bool isCheckAssignedClientsThreadRunning;                /*!< Flag used to stop the worker thread */
-    // -------------------------------------------------------------------------
-
-    // -------------------------------------------------------------------------
-    // manage waiting clients
-    std::queue<WaitingClient *> waitingClients;
-    boost::shared_mutex waitingClientsMutex; /*!< Mutex used to synchronize access to the waitingClients object*/
-
-    std::unique_ptr<std::thread> checkWaitingClientsThread; /*!< Thread used to check the queue of waiting clients */
-    std::mutex checkWaitingClientsMutex;                    /*!< Mutex used with the checkWaitingClientsThreadCondition */
-    std::condition_variable checkWaitingClientsCondition;   /*!< Condition variable used to trigger waiting client checking thread */
-    bool isCheckWaitingClientsThreadRunning;                /*!< Flag used to stop the waiting client checking thread */
-    std::atomic<bool> isCheckWaitingClientsConditionWaiting{false};
-    // -------------------------------------------------------------------------
+    /// Map of clientId -> active client
+    xenium::harris_michael_hash_map<
+            std::uint32_t, std::shared_ptr<Client>,
+            xenium::policy::reclaimer<xenium::reclamation::generic_epoch_based<>>> clients;
+    common::PeriodicTaskExecutor checkAssignedClients;
 
     /// Evaluate the list of clients assigned to a server and remove the ones that have died.
     void evaluateAssignedClients();
-
-    /// Evaluate the list of clients waiting to be assigned to a server.
-    void evaluateWaitingClients();
-
-    /// Notify the thread to check the queue of waiting clients
-    void notifyWaitingClientsThread();
-    std::mutex notifyWaitingClientsThreadMutex;
-
-    std::atomic<std::uint32_t> nextClientId{};
-
-    /**
-     * Open a DB session for the client and return a unique session id.
-     * @param client the client to be assigned
-     * @param dbName Database the client wants to open
-     * @param out_serverSession session ID identifying the client and assigned server.
-     * @return true if an available server was found, false otherwise.
-     * @throws InexistentClientException
-     * @throws NoAvailableServerException
-     * @throws common::RuntimeException on invalid server hostname
-     */
-    virtual bool tryGetFreeServer(const std::shared_ptr<Client> &client,
-                                  const std::string &dbName,
-                                  ClientServerSession &out_serverSession);
-
-    /// Try up to 3 times to acquire a free server for the client.
-    bool tryGetFreeLocalServer(std::shared_ptr<Client> client,
-                               const std::string &dbName,
-                               ClientServerSession &out_serverSession);
-
-    /// Try to get a free remote server for the client.
-    bool tryGetFreeRemoteServer(const ClientServerRequest &request,
-                                ClientServerSession &out_serverSession);
 };
 
 } /* namespace rasmgr */

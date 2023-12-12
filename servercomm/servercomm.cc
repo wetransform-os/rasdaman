@@ -53,6 +53,7 @@ rasdaman GmbH.
 #include "qlparser/qtnode.hh"
 #include "qlparser/qtdata.hh"
 #include "qlparser/querytree.hh"
+#include "mymalloc/mymalloc.h"
 
 #include "server/rasserver_config.hh"
 #include "reladminif/adminif.hh"
@@ -64,10 +65,9 @@ rasdaman GmbH.
 #include "relcatalogif/mdddimensiontype.hh"
 #include "relcatalogif/settype.hh"
 #include "relcatalogif/structtype.hh"
-#include "mymalloc/mymalloc.h"
 
 #include "common/util/timer.hh"
-
+#include "rasserver/src/rasmgrcomm.hh"
 #include <logging.hh>
 
 #include <iostream>
@@ -2940,6 +2940,11 @@ void ServerComm::setAdmin(AdminIf *newAdmin)
     if (admin)
         delete admin;
     admin = newAdmin;
+}
+
+void ServerComm::setRasmgrComm(const std::shared_ptr<rasserver::RasmgrComm> &value)
+{
+    rasmgrComm = value;
 }
 
 void ServerComm::resetExecuteQueryRes(ExecuteQueryRes &res)

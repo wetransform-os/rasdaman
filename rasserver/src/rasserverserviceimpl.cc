@@ -41,6 +41,14 @@ RasServerServiceImpl::RasServerServiceImpl(std::shared_ptr<rasserver::ClientMana
 {
 }
 
+RasServerServiceImpl::~RasServerServiceImpl()
+{
+    if (shutdownThread)
+    {
+        shutdownThread->join();
+    }
+}
+
 void RasServerServiceImpl::setServer(grpc::Server *grpcServer)
 {
     server = grpcServer;

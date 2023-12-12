@@ -76,7 +76,7 @@ const std::int32_t CLIENT_LIFETIME = CLIENT_MANAGER_CLEANUP_INTERVAL * 10;
  * @brief MAX_CLIENT_QUEUE_SIZE Maximum number of clients to allow in a waiting queue
  * until a server can be assigned to them.
  */
-const std::int32_t MAX_CLIENT_QUEUE_SIZE = 1000;
+const std::uint32_t MAX_CLIENT_QUEUE_SIZE = 1000;
 
 /**
  * @brief MAX_CONTROL_COMMAND_LENGTH Maximum length of a command from rascontrol.

@@ -597,6 +597,16 @@ else()
         "(-DGENERATE_DOCS_PDF=${GENERATE_DOCS_PDF}).")
 endif()
 
+set(ENABLE_MULTITHREADING ON CACHE BOOL "Enable multithreading.")
+if (ENABLE_MULTITHREADING)
+    add_definitions(-DENABLE_MULTITHREADING)
+    message(STATUS "Multithreading enabled with -DENABLE_MULTITHREADING def " 
+        "(-DENABLE_MULTITHREADING=${ENABLE_MULTITHREADING}).")
+else()
+    message(STATUS "Multithreading disabled " 
+        "(-DENABLE_MULTITHREADING=${ENABLE_MULTITHREADING}).")
+endif()
+
 ########################################
 # Begin backward compatibility section
 ########################################

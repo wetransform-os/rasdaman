@@ -34,7 +34,7 @@
 #include "rasmgr/src/rasmgrconfig.hh"
 #include "rasmgr/src/usermanager.hh"
 #include "rasmgr/src/clientmanager.hh"
-#include "rasmgr/src/cpuscheduler.hh"
+#include "rasmgr/src/clientservermatcher.hh"
 #include "rasmgr/src/clientcredentials.hh"
 #include "rasmgr/src/clientmanagerconfig.hh"
 #include "rasmgr/src/exceptions/rasmgrexceptions.hh"
@@ -96,9 +96,9 @@ protected:
 
         peerManager = std::make_shared<PeerManagerMock>();
 
-        cpuScheduler = std::make_shared<CpuScheduler>(4);
+        clientServerMatcher = std::make_shared<ClientServerMatcher>(config, serverManager, peerManager);
 
-        clientManager = std::make_shared<ClientManager>(config, userManager, serverManager, peerManager, cpuScheduler);
+        clientManager = std::make_shared<ClientManager>(config, userManager, peerManager, clientServerMatcher);
     }
 
     std::shared_ptr<rasmgr::User> user;
@@ -117,7 +117,7 @@ protected:
     std::shared_ptr<ClientManager> clientManager;
     std::shared_ptr<ServerManager> serverManager;
     std::shared_ptr<PeerManager> peerManager;
-    std::shared_ptr<CpuScheduler> cpuScheduler;
+    std::shared_ptr<ClientServerMatcher> clientServerMatcher;
 };
 
 TEST_F(ClientManagerTest, connectClient_FailsInexistentUser)

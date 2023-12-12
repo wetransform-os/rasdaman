@@ -25,13 +25,14 @@
 
 #include "servermanagerconfig.hh"
 #include "rasmgr/src/messages/rasmgrmess.pb.h"
+#include "common/thread/threadutil.hh"
+#include "common/macros/utildefs.hh"
 
 #include <map>
 #include <list>
 #include <string>
 #include <thread>
 #include <cstdint>
-#include <condition_variable>
 #include <boost/thread/shared_mutex.hpp>
 
 namespace rasmgr
@@ -86,6 +87,8 @@ public:
      */
     ServerManager(const ServerManagerConfig &config,
                   std::shared_ptr<ServerGroupFactory> serverGroupFactory);
+    
+    DISABLE_COPY_AND_MOVE(ServerManager)
 
     virtual ~ServerManager();
 
@@ -153,31 +156,21 @@ public:
     virtual bool hasRunningServers();
 
     /**
-     * @return the server with serverId if found, nullptr otherwise.
-     */
-    virtual std::shared_ptr<Server> getServer(const std::string &serverId);
-
-    /**
      * Serialize the data contained by this object into a format which can be
      * later used for presenting information to the user.
      */
     virtual ServerMgrProto serializeToProto();
 
 private:
-    std::list<std::shared_ptr<ServerGroup>> serverGroupList; /*!< Server group list */
-    boost::shared_mutex serverGroupMutex;                    /*!< Mutex used to synchronize access to the list of server groups */
+    std::vector<std::shared_ptr<ServerGroup>> serverGroupList; /*!< Server group list */
+    boost::shared_mutex serverGroupMutex; /*!< Mutex used to synchronize access to the list of server groups */
     std::shared_ptr<ServerGroupFactory> serverGroupFactory;
     ServerManagerConfig config;
 
     // -------------------------------------------------------------------------
     // cleanup thread
-    std::unique_ptr<std::thread> workerCleanup;       /*!< Thread object running the @see workerCleanupRunner() function. */
-    bool isWorkerThreadRunning;                       /*! Flag used to stop the worker thread */
-    std::mutex threadMutex;                           /*! Mutex used to safely stop the worker thread */
-    std::condition_variable isThreadRunningCondition; /*! Condition variable used to stop the worker thread */
+    common::PeriodicTaskExecutor evaluateServerGroupsExecutor;
 
-    /// Function which cleans the servers which failed to start or were stopped.
-    void workerCleanupRunner();
     /// For each server group evaluate the group's status. This means that dead
     /// server entries will be removed and new servers will be started.
     void evaluateServerGroups();

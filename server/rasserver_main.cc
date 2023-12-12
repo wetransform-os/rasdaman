@@ -80,11 +80,11 @@ void testHandler(int sig, siginfo_t *info, void *ucontext);
 void shutdownHandler(int sig, siginfo_t *info, void *ucontext);
 void crashHandler(int sig, siginfo_t *info, void *ucontext);
 
-void testHandler(int /*sig*/, siginfo_t * /*info*/, void * /*ucontext*/)
+void testHandler(int /*sig*/, siginfo_t *info, void * /*ucontext*/)
 {
-    LINFO << "test handler caught signal SIGUSR1, stacktrace: \n"
-          << common::SignalHandler::getStackTrace();
-    LINFO << "killing rasserver with SIGKILL.";
+    const char *logFile = configuration.getLogFileName();
+    common::SignalHandler::printCrashDetailsASSafe(info, logFile);
+    common::SignalHandler::printASSafe("killing rasserver with SIGKILL.\n", logFile);
     raise(SIGKILL);
 }
 void shutdownHandler(int /*sig*/, siginfo_t *info, void * /*ucontext*/)
@@ -93,9 +93,9 @@ void shutdownHandler(int /*sig*/, siginfo_t *info, void * /*ucontext*/)
     if (!alreadyExecuting)
     {
         alreadyExecuting = true;
-        LINFO << "Interrupted by signal " << common::SignalHandler::toString(info);
-        NNLINFO << "Shutting down... ";
-        BLINFO << "rasserver terminated.";
+        const char *logFile = configuration.getLogFileName();
+        common::SignalHandler::printCrashDetailsASSafe(info, logFile);
+        // TODO: notify rasmgr of shutdown?
         exit(EXIT_SUCCESS);
     }
 }
@@ -105,22 +105,11 @@ void crashHandler(int sig, siginfo_t *info, void * /*ucontext*/)
     if (!alreadyExecuting)
     {
         alreadyExecuting = true;
-        NNLERROR << "Interrupted by signal " << common::SignalHandler::toString(info);
-        BLERROR << "... stacktrace:\n"
-                << common::SignalHandler::getStackTrace() << "\n";
-        BLFLUSH;
-        NNLERROR << "Shutting down... ";
-        BLERROR << "rasserver terminated.\n";
-        BLFLUSH;
+        const char *logFile = configuration.getLogFileName();
+        common::SignalHandler::printCrashDetailsASSafe(info, logFile);
+        // TODO: notify rasmgr of crash?
+        exit(sig);
     }
-    else
-    {
-        // if a signal comes while the handler has already been invoked,
-        // wait here for max 3 seconds, so that the handler above has some time
-        // (hopefully) finish
-        sleep(3);
-    }
-    exit(sig);
 }
 void installSignalHandlers()
 {

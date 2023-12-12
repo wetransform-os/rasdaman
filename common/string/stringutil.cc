@@ -213,6 +213,11 @@ int StringUtil::countDigits(long long n)
     return 19;
 }
 
+size_t StringUtil::countChar(const std::string &s, char c)
+{
+    return size_t(std::count(s.begin(), s.end(), c));
+}
+
 int StringUtil::stringToInt(const std::string &str)
 {
     int Result;                      //number which will contain the result
@@ -273,8 +278,8 @@ std::string StringUtil::getRandomAlphaNumString(const int length)
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz";
 
-    for (size_t i = 0; i < static_cast<size_t>(length); ++i)
-        s[i] = alphanum[static_cast<size_t>(rand()) % (sizeof(alphanum) - 1)];
+    for (size_t i = 0; i < size_t(length); ++i)
+        s[i] = alphanum[size_t(rand()) % (sizeof(alphanum) - 1)];
 
     return s;
 }
@@ -316,6 +321,34 @@ void StringUtil::memsetPattern(char *dest, size_t destSize,
         dest += patternSize;
         offset += patternSize;
     }
+}
+
+void StringUtil::appendToCharSeparatedItems(std::string &s, char sep, std::string toAppend)
+{
+    if (s.empty())
+        return;
+    
+    size_t itemCount = common::StringUtil::countChar(s, sep) + 1;
+    size_t extraSpace = itemCount * toAppend.size();
+    size_t newResultSize = s.size() + extraSpace;
+    
+    std::string newResult;
+    newResult.reserve(newResultSize);
+    
+    size_t start = 0;
+    for (size_t i = 0; i < s.size(); ++i)
+    {
+        if (s[i] == ',')
+        {
+            newResult += s.substr(start, i - start);
+            newResult += toAppend;
+            newResult += sep;
+            start = i + 1;
+        }
+    }
+    newResult += s.substr(start, s.length() - start + 1);
+    newResult += toAppend;
+    s = std::move(newResult);
 }
 
 }  // namespace common

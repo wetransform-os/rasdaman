@@ -48,6 +48,8 @@ public:
     void startRasnetServer();
 
 private:
+    static const std::chrono::milliseconds WAIT_FOR_RASMGR_INITIALIZATION;
+    
     bool isRunning{false};
     std::uint32_t listenPort;
     std::uint32_t rasmgrPort;

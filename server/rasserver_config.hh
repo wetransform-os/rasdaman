@@ -64,6 +64,7 @@ public:
     const char *getRasmgrHost();
     int getRasmgrPort();
     bool isLogToStdOut();
+    const char *getLogFileName();
 
     int getMaxTransferBufferSize();
     const char *getDbConnectionID();

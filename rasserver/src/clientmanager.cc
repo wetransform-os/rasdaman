@@ -23,7 +23,6 @@ rasdaman GmbH.
 
 #include "clientmanager.hh"
 
-#include "common/uuid/uuid.hh"
 #include "server/rasserver_entry.hh"
 #include "common/macros/compilerdefs.hh"
 #include "common/exceptions/missingresourceexception.hh"
@@ -35,44 +34,25 @@ namespace rasserver
 
 using boost::shared_lock;
 using boost::shared_mutex;
-using common::Timer;
-using common::UUID;
-using std::make_pair;
-using std::map;
-using std::pair;
-using std::set;
 using std::shared_ptr;
 using std::string;
-using std::thread;
-using std::unique_lock;
+using std::chrono::milliseconds;
 
 const int ClientManager::CLIENT_ALIVE_PING_TIMEOUT_MS = 30000;  // 30 seconds
 
 ClientManager::ClientManager()
-    : timeSinceLastPing(CLIENT_ALIVE_PING_TIMEOUT_MS), isEvaluateClientStatusThreadRunning{true}
+    : timeSinceLastPing(CLIENT_ALIVE_PING_TIMEOUT_MS),
+      evaluateClientStatusExecutor{[this]()
+                     {
+                         this->evaluateClientStatus();
+                     },
+                     milliseconds(CLIENT_ALIVE_PING_TIMEOUT_MS)}
 {
-    this->evaluateClientStatusThread.reset(new thread(&ClientManager::evaluateClientStatus, this));
 }
 
 ClientManager::~ClientManager()
 {
-    try
-    {
-        {
-            std::lock_guard<std::mutex> lock(this->evaluateClientStatusMutex);
-            this->isEvaluateClientStatusThreadRunning = false;
-        }
-        this->isEvaluateClientStatusThreadRunningCondition.notify_one();  // notify thread to stop
-        this->evaluateClientStatusThread->join();                         // wait for the thread to finish
-    }
-    catch (std::exception &ex)
-    {
-        LERROR << "Client manager destructor has failed: " << ex.what();
-    }
-    catch (...)
-    {
-        LERROR << "Client manager destructor has failed.";
-    }
+    this->evaluateClientStatusExecutor.stop();
 }
 
 bool ClientManager::allocateClient(std::uint32_t clientUUID, UNUSED std::uint32_t sessionId)
@@ -166,69 +146,46 @@ bool ClientManager::hasClients()
 
 void ClientManager::evaluateClientStatus()
 {
-    static const std::chrono::milliseconds timeToSleepFor{CLIENT_ALIVE_PING_TIMEOUT_MS};
-
-    std::unique_lock<std::mutex> threadLock(this->evaluateClientStatusMutex);
-    while (this->isEvaluateClientStatusThreadRunning)
+    // will contain the clients from which no keep alive message
+    // was received after ALIVE_PERIOD milliseconds
+    boost::upgrade_lock<boost::shared_mutex> sharedLock(clientMutex);
+    if (clientConnected && timeSinceLastPing.hasExpired())
     {
+        // client Keep Alive timer has expired, so the client is considered dead
+
+        // clean up
+        RasServerEntry &rasServerEntry = RasServerEntry::getInstance();
         try
         {
-            // Wait on the condition variable to be notified from the
-            // destructor when it is time to stop the worker thread
-            if (this->isEvaluateClientStatusThreadRunningCondition.wait_for(
-                    threadLock, timeToSleepFor) == std::cv_status::timeout)
-            {
-                // will contain the clients from which no keep alive message
-                // was received after ALIVE_PERIOD milliseconds
-                boost::upgrade_lock<boost::shared_mutex> sharedLock(clientMutex);
-                if (clientConnected && timeSinceLastPing.hasExpired())
-                {
-                    // client Keep Alive timer has expired, so the client is considered dead
-
-                    // clean up
-                    RasServerEntry &rasServerEntry = RasServerEntry::getInstance();
-                    try
-                    {
-                        rasServerEntry.abortTA();
-                    }
-                    catch (...)
-                    {
-                        LERROR << "Failed aborting transaction.";
-                    }
-                    try
-                    {
-                        rasServerEntry.closeDB();
-                    }
-                    catch (...)
-                    {
-                        LERROR << "Failed closing database connection.";
-                    }
-                    try
-                    {
-                        rasServerEntry.disconnectClient();
-                    }
-                    catch (...)
-                    {
-                        LERROR << "Failed disconnecting client.";
-                    }
-
-                    // remove client results
-                    removeAllQueryStreamedResults();
-
-                    // disconnect client here
-                    boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(sharedLock);
-                    clientConnected = false;
-                }
-            }
-        }
-        catch (std::exception &ex)
-        {
-            LERROR << "Evaluating client status failed, reason: " << ex.what();
+            rasServerEntry.abortTA();
         }
         catch (...)
         {
-            LERROR << "Evaluating client status failed for unknown reason.";
+            LERROR << "Failed aborting transaction.";
         }
+        try
+        {
+            rasServerEntry.closeDB();
+        }
+        catch (...)
+        {
+            LERROR << "Failed closing database connection.";
+        }
+        try
+        {
+            rasServerEntry.disconnectClient();
+        }
+        catch (...)
+        {
+            LERROR << "Failed disconnecting client.";
+        }
+
+        // remove client results
+        removeAllQueryStreamedResults();
+
+        // disconnect client here
+        boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(sharedLock);
+        clientConnected = false;
     }
 }
 

@@ -23,7 +23,6 @@ rasdaman GmbH.
 
 #include "rasmgrcomm.hh"
 #include "common/grpc/grpcutils.hh"
-#include "common/util/system.hh"
 #include "common/exceptions/connectionfailedexception.hh"
 #include "rasnet/messages/rasmgr_rassrvr_service.grpc.pb.h"
 #include "raslib/error.hh"
@@ -34,6 +33,7 @@ rasdaman GmbH.
 #include <chrono>
 #include <grpc++/grpc++.h>
 #include <algorithm>
+#include <memory>
 
 namespace rasserver
 {
@@ -43,8 +43,9 @@ using rasnet::service::RegisterServerReq;
 using rasnet::service::Void;
 
 RasmgrComm::RasmgrComm(const std::string &_rasmgrHost, const uint32_t rasmgrPort)
+    : rasmgrHost{GrpcUtils::constructAddressString(_rasmgrHost, rasmgrPort)}
 {
-    this->rasmgrHost = GrpcUtils::constructAddressString(_rasmgrHost, rasmgrPort);
+    this->initRasmgrService();
 }
 
 void RasmgrComm::registerServerWithRasmgr(const std::string &_serverId)
@@ -64,42 +65,33 @@ void RasmgrComm::registerServerWithRasmgr(const std::string &_serverId)
     }
 }
 
-std::shared_ptr<rasnet::service::RasMgrRasServerService::Stub>
-RasmgrComm::getRasmgrService(bool throwIfConnectionFailed)
+const std::unique_ptr<RasmgrComm::RasMgrRasServerService> &RasmgrComm::getRasmgrService(bool throwIfConnectionFailed)
 {
-    this->initRasmgrService();
-
     if (!GrpcUtils::isServerAlive(this->rasmgrHealthService, SERVICE_CALL_TIMEOUT))
     {
-        LDEBUG << "The client failed to connect to rasmgr within " << SERVICE_CALL_TIMEOUT << " ms.";
+        LDEBUG << "The server failed to connect to rasmgr within " << SERVICE_CALL_TIMEOUT << " ms.";
         if (throwIfConnectionFailed)
         {
-            throw common::ConnectionFailedException("The client failed to connect to rasmgr.");
+            throw common::ConnectionFailedException("The server failed to connect to rasmgr.");
         }
     }
-
     return this->rasmgrService;
 }
 
 void RasmgrComm::initRasmgrService()
 {
-    if (!this->rasmgrServiceInitialized)
+    try
     {
-        try
-        {
-            boost::unique_lock<boost::shared_mutex> lock(this->rasmgrServiceMutex);
-            auto channelArgs = GrpcUtils::getDefaultChannelArguments();
-            auto channelCred = grpc::InsecureChannelCredentials();
-            auto channel = grpc::CreateCustomChannel(this->rasmgrHost, channelCred, channelArgs);
-            this->rasmgrService.reset(new ::rasnet::service::RasMgrRasServerService::Stub(channel));
-            this->rasmgrHealthService.reset(new common::HealthService::Stub(channel));
-            this->rasmgrServiceInitialized = true;
-        }
-        catch (std::exception &ex)
-        {
-            LERROR << "Failed initializing rasmgr service: " << ex.what();
-            throw r_EGeneral(ex.what());
-        }
+        auto channelArgs = GrpcUtils::getDefaultChannelArguments();
+        auto channelCred = grpc::InsecureChannelCredentials();
+        auto channel = grpc::CreateCustomChannel(this->rasmgrHost, channelCred, channelArgs);
+        this->rasmgrService = std::make_unique<RasmgrComm::RasMgrRasServerService>(channel);
+        this->rasmgrHealthService.reset(new common::HealthService::Stub(channel));
+    }
+    catch (std::exception &ex)
+    {
+        LERROR << "Failed initializing rasmgr service: " << ex.what();
+        throw r_EGeneral(ex.what());
     }
 }
 

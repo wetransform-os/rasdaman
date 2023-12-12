@@ -65,6 +65,7 @@ ConfigurationManager::~ConfigurationManager()
 
 void ConfigurationManager::saveConfiguration(bool backup)
 {
+    LDEBUG << "saving configuration...";
     if (backup)
     {
         if (this->isDirty())
@@ -81,6 +82,7 @@ void ConfigurationManager::saveConfiguration(bool backup)
     }
 
     this->setIsDirty(false);
+    LDEBUG << "saving configuration done.";
 }
 
 void ConfigurationManager::loadConfiguration()
@@ -143,6 +145,7 @@ void ConfigurationManager::loadRasMgrConf()
             if (!result.empty())
             {
                 LERROR << result;
+                // TODO: throw exception?
             }
         }
     }

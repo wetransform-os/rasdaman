@@ -26,11 +26,9 @@ rasdaman GmbH.
 #include "rasmgrcomm.hh"
 #include "rasserverserviceimpl.hh"
 #include "common/grpc/grpcutils.hh"
-#include "common/exceptions/connectionfailedexception.hh"
 #include "rasnet/messages/rasmgr_rassrvr_service.grpc.pb.h"
 #include "servercomm/rasnetservercomm.hh"
 #include "server/rasserver_entry.hh"
-#include "include/globals.hh"
 
 #include <logging.hh>
 
@@ -43,8 +41,11 @@ namespace rasserver
 
 using common::GrpcUtils;
 using common::HealthServiceImpl;
-using std::shared_ptr;
-using std::unique_ptr;
+using std::chrono::milliseconds;
+using namespace std::chrono_literals;
+
+// give rasmgr 10ms to initialize fully
+const milliseconds RasnetServer::WAIT_FOR_RASMGR_INITIALIZATION = 10ms;
 
 RasnetServer::RasnetServer(std::uint32_t listenPort1, const char *rasmgrHost1,
                            std::uint32_t rasmgrPort1, const char *serverId1)
@@ -61,7 +62,7 @@ RasnetServer::RasnetServer(std::uint32_t listenPort1, const char *rasmgrHost1,
 void RasnetServer::startRasnetServer()
 {
     RasServerEntry &rasserver = RasServerEntry::getInstance();
-    rasserver.connectToRasbase();
+    rasserver.connectToRasbase(rasmgrComm);
 
     std::string serverAddress = GrpcUtils::constructAddressString("0.0.0.0", listenPort);
 
@@ -77,14 +78,14 @@ void RasnetServer::startRasnetServer()
     this->isRunning = true;
 
     LDEBUG << "Starting server on:" << serverAddress;
-    this->server = builder.BuildAndStart();
-
-    // Register the server
-    rasmgrComm->registerServerWithRasmgr(this->serverId);
-    
+    this->server = builder.BuildAndStart();    
     // Provide object needed to properly shutdown the server
     rasserverService->setServer(this->server.get());
 
+    // Register the server with rasmgr
+    std::this_thread::sleep_for(WAIT_FOR_RASMGR_INITIALIZATION);
+    rasmgrComm->registerServerWithRasmgr(this->serverId);
+    
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
     this->server->Wait();

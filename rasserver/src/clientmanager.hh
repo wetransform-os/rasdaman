@@ -26,13 +26,14 @@ rasdaman GmbH.
 
 #include "clientquerystreamedresult.hh"
 #include "common/time/timer.hh"
+#include "common/thread/threadutil.hh"
+#include "common/macros/utildefs.hh"
 
 #include <map>
 #include <string>
 #include <memory>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
 #include <boost/thread/shared_mutex.hpp>
 
 namespace rasserver
@@ -45,6 +46,8 @@ class ClientManager
 {
 public:
     ClientManager();
+    
+    DISABLE_COPY_AND_MOVE(ClientManager)
 
     virtual ~ClientManager();
 
@@ -113,20 +116,17 @@ private:
     static const int CLIENT_ALIVE_PING_TIMEOUT_MS;
 
     boost::shared_mutex clientMutex;
-    common::Timer timeSinceLastPing; /*! a Timer that counts down from the last ping*/
-    std::uint32_t clientId;          /*! Current client connected to this server */
+    common::Timer timeSinceLastPing; /*!< a Timer that counts down from the last ping*/
+    std::uint32_t clientId{};        /*!< Current client connected to this server */
     bool clientConnected{false};
 
     boost::shared_mutex requestMutex;
-    std::uint32_t requestId; /*! Request id for the query result */
+    std::uint32_t requestId{};      /*!< Request id for the query result */
     bool streamingRequest{false};
     std::shared_ptr<ClientQueryStreamedResult> requestResult;
 
-    std::unique_ptr<std::thread> evaluateClientStatusThread;              /*! Thread running the evaluateClientStatus method */
-    std::mutex evaluateClientStatusMutex;                                 /*! Mutex used to safely stop the worker thread */
-    bool isEvaluateClientStatusThreadRunning;                             /*! Flag used to stop the worker thread */
-    std::condition_variable isEvaluateClientStatusThreadRunningCondition; /*! Condition variable used to stop the worker thread */
-
+    common::PeriodicTaskExecutor evaluateClientStatusExecutor;
+    
     /**
      * Evaluate the list of clients and remove the ones who's lifetime has expired.
      * This method is run in a separate evaluateClientStatusThread thread.

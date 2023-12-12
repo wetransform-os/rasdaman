@@ -35,6 +35,11 @@ struct ExecuteUpdateRes;
 struct RPCMarray;
 struct RPCOIdEntry;
 
+namespace rasserver
+{
+class RasmgrComm;
+}
+
 namespace grpc
 {
 class ServerContext;
@@ -72,7 +77,7 @@ public:
      * the backend RASBASE database, where all array information is stored.
      * @throws an r_Error exception in case the database connection fails.
      */
-    void connectToRasbase();
+    void connectToRasbase(const std::shared_ptr<rasserver::RasmgrComm> &rasmgrComm = nullptr);
 
     /**
      * Connect a new client to the server and check it's capabilities. Each

@@ -49,6 +49,8 @@ enum class ServerStatus
     RESTARTING
 };
 
+std::string serverStatusToString(ServerStatus st);
+
 /**
   Represents a group of servers with the same properties, running on a set of
   predetermined ports. The same properties apply to all the servers. The Group
@@ -110,6 +112,7 @@ public:
       * Default values will be set and a validation will be performed on the configuration
       * @param dbhManager Database Host Manager used to retrieve the database host
       * used by servers of this server group.
+      * @param serverFactory for creating Server objects.
       */
     ServerGroup(const ServerGroupConfigProto &config,
                 std::shared_ptr<DatabaseHostManager> dbhManager,
@@ -131,8 +134,11 @@ public:
 
     /**
      * Schedule the servers of this group for restart when they become free.
+     * @param onlyIfSessionCountIsNonZero server will be restarted only if its
+     * session count > 0. This is used from the UdfMonitor to true to avoid
+     * unnecessarily restarting idle servers.
      */
-    virtual void scheduleForRestart();
+    virtual void scheduleForRestart(bool onlyIfSessionCountIsNonZero = false);
 
     /**
      * Check if the server group has been stopped.
@@ -170,12 +176,6 @@ public:
      */
     virtual bool tryGetAvailableServer(const std::string &dbName,
                                        std::shared_ptr<Server> &out_server);
-
-    /**
-     * @return the server with serverId if exists, nullptr otherwise.
-     * Used only from the ServerManagementService to update the server cores.
-     */
-    virtual std::shared_ptr<Server> getServer(const std::string &serverId);
 
     /**
      * @return a copy of the ServerGroupConfig object used to create this

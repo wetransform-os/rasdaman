@@ -100,6 +100,11 @@ public:
    * @return number of digits in n (maximum 19).
    */
     static int countDigits(long long n);
+    
+    /**
+     * @return number of occurrences of c in s.
+     */
+    static size_t countChar(const std::string &s, char c);
 
     /**
   * Converts a string to an integer. Defaults to 0 if the string is incorrect;
@@ -154,6 +159,12 @@ public:
    */
     static void memsetPattern(char *dest, size_t destSize,
                               const char *pattern, size_t patternSize);
+    
+    /**
+     * Append toAppend to each item in s separated with character sep from other
+     * items in s; s is modified in place.
+     */
+    static void appendToCharSeparatedItems(std::string &s, char sep, std::string toAppend);
 };
 
 }  // namespace common

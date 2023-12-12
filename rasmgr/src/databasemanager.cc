@@ -116,9 +116,7 @@ void DatabaseManager::removeDatabase(const std::string &dbHostName, const std::s
     dbHost->removeDbFromHost(databaseName);
 
     databases.remove_if([&databaseName](const std::shared_ptr<Database> &db)
-                        {
-                            return db->getDbName() == databaseName;
-                        });
+                        { return db->getDbName() == databaseName; });
 
     LDEBUG << "Removed database \"" + databaseName + "\" from database host name \"" + dbHostName + "\"";
 }

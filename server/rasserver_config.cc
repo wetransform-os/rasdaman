@@ -432,6 +432,11 @@ bool Configuration::isLogToStdOut()
     return logToStdOut;
 }
 
+const char *Configuration::getLogFileName()
+{
+    return logFileName;
+}
+
 int Configuration::getMaxTransferBufferSize()
 {
     return maxTransferBufferSize;

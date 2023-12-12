@@ -52,18 +52,24 @@ using rasmgr::RASMGR_RESULT_OK;
 // RasManager object that orchestrates
 std::shared_ptr<rasmgr::RasManager> manager;
 
+static std::string logFilePath = "";
+
 // -------------------------------------------------------------------------- //
 //                           signal handlers                                  //
 // -------------------------------------------------------------------------- //
 
-void shutdownHandler(int /* sig */, siginfo_t * /* info */, void * /* ucontext */)
+void shutdownHandler(int /* sig */, siginfo_t *info, void * /* ucontext */)
 {
     static bool alreadyExecuting{false};
     if (!alreadyExecuting)
     {
         alreadyExecuting = true;
-        if (manager)
-            manager->stop();
+        common::SignalHandler::printCrashDetailsASSafe(info, logFilePath.c_str());
+        // TODO: kill rasservers
+        // below is not AS-SAFE
+//        if (manager)
+//            manager->stop();
+        exit(RASMGR_RESULT_OK);
     }
 }
 
@@ -73,32 +79,32 @@ void crashHandler(int sig, siginfo_t *info, void * /* ucontext */)
     if (!alreadyExecuting)
     {
         alreadyExecuting = true;
-        LERROR << "Interrupted by signal " << common::SignalHandler::toString(info)
-               << "... stacktrace:\n"
-               << common::SignalHandler::getStackTrace();
-        if (manager)
-            manager->stop();
+        common::SignalHandler::printCrashDetailsASSafe(info, logFilePath.c_str());
+        // TODO: kill rasservers
+        // below is not AS-SAFE
+//        if (manager)
+//            manager->stop();
         exit(sig);
     }
 }
 
 void configureLogging(const Configuration &config)
 {
-    auto outputLogFilePath = config.getLogFile();
-    if (outputLogFilePath.empty())
+    logFilePath = config.getLogFile();
+    if (logFilePath.empty())
     {
-        outputLogFilePath = std::string(LOGDIR);
-        if (outputLogFilePath[outputLogFilePath.length() - 1] != '/')
-            outputLogFilePath += "/";
-        outputLogFilePath += "rasmgr." + std::to_string(::getpid()) + ".log";
+        logFilePath = std::string(LOGDIR);
+        if (logFilePath[logFilePath.length() - 1] != '/')
+            logFilePath += "/";
+        logFilePath += "rasmgr." + std::to_string(::getpid()) + ".log";
     }
 
     // setup log config
-    common::LogConfiguration logConfig(CONFDIR, RASMGR_LOG_CONF);
-    logConfig.configServerLogging(outputLogFilePath, config.isQuiet());
+    common::LogConfiguration logConfig(std::string(CONFDIR), RASMGR_LOG_CONF);
+    logConfig.configServerLogging(logFilePath, config.isQuiet());
     common::GrpcUtils::redirectGRPCLogToEasyLogging();
 
-    // should come after the log config as it logs msgs
+    // should shutdown signals be ignored?
     common::SignalHandler::handleShutdownSignals(shutdownHandler);
 }
 

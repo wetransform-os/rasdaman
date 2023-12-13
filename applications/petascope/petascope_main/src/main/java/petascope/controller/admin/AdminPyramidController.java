@@ -86,7 +86,7 @@ public class AdminPyramidController extends AbstractController {
                 Response response = this.listPyramidMemberService.handle(httpServletRequest, kvpParameters);
                 this.writeResponseResult(response);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -114,7 +114,7 @@ public class AdminPyramidController extends AbstractController {
 
                 this.addPyramidMemberService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -142,7 +142,7 @@ public class AdminPyramidController extends AbstractController {
 
                 this.removePyramidMemberService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -170,7 +170,7 @@ public class AdminPyramidController extends AbstractController {
 
                 this.createPyramidMemberService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         

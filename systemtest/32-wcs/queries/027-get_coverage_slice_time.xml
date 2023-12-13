@@ -18,6 +18,6 @@
   </wcs:DimensionTrim>
   <wcs:DimensionSlice>
     <wcs:Dimension>t</wcs:Dimension>
-    <wcs:SlicePoint>"1950-01-01"</wcs:SlicePoint>
+    <wcs:SlicePoint>"1950-01-01T00"</wcs:SlicePoint>
   </wcs:DimensionSlice>
 </wcs:GetCoverage>

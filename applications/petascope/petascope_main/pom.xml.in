@@ -88,7 +88,8 @@
                 <artifactId>liquibase-maven-plugin</artifactId>
                 <version>3.5.3</version>
                 <configuration>                  
-                    <propertyFile>${sourceDir}/src/main/resources/liquibase.properties</propertyFile>
+                   <!-- used for: mvn liquibase:diff -->
+                   <propertyFile>src/main/resources/liquibase.properties</propertyFile>      
                 </configuration>                
             </plugin>
             

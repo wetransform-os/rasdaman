@@ -24,6 +24,8 @@ package petascope.wcps.metadata.service;
 import java.math.BigDecimal;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import petascope.util.CrsUtil;
 import petascope.wcps.exception.processing.InvalidExpressionSubsetException;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
@@ -48,6 +50,8 @@ import petascope.wcps.metadata.model.ParsedSubset;
  * @author <a href="merticariu@rasdaman.com">Vlad Merticariu</a>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class RasqlTranslationService {
 
     @Autowired
@@ -64,7 +68,7 @@ public class RasqlTranslationService {
      * @param nonNumericSubsets list of subset dimensions which contains "$" as axis iterator
      * @return
      */
-    public String constructRasqlDomain(List<Axis> axes, List<WcpsSubsetDimension> nonNumericSubsets) {
+    public String constructRasqlDomain(List<Axis> axes, List<WcpsSubsetDimension> nonNumericSubsets, boolean isCoverageConstructorAxisIteratorDomain) {
         
         String rasqlDomain = "";
         String result = "";
@@ -80,24 +84,33 @@ public class RasqlTranslationService {
                     if (!isSubsetValid) {
                         throw new InvalidExpressionSubsetException(nonNumericSubset);
                     }
-                    String subsetDimensionStr = nonNumericSubset.getStringBounds();
 
-                    result = subsetDimensionStr;
+                    result = nonNumericSubset.getStringBounds();
                     nonNumericSubsetFound = true;
                     break;
                 }
             }
-            if (!nonNumericSubsetFound) {
-                //ok, regular grid domain
-                NumericSubset gridBounds = axis.getGridBounds();
-                result = gridBounds.getStringRepresentationInInteger();
-            }
-            
-            String axisLabel = axis.getLabel();
-            // e.g. i[0]
-            String sortedAxisIteratorLabel = this.sortedAxisIteratorAliasRegistry.getIteratorLabelRepresentation(axisLabel);
-            if (sortedAxisIteratorLabel != null) {
-                result = sortedAxisIteratorLabel;
+
+            if (axis == null) {
+                result = "0:0";
+            } else if (axis.isCreatedFromAxisIteratorTemporalSlicingInterval() && isCoverageConstructorAxisIteratorDomain) {
+                // e.g. pt in [2:2] instead of [0:0]
+                result = axis.getGridBounds().getLowerLimit().toPlainString() + ":" + axis.getGridBounds().getLowerLimit().toPlainString();
+            } else {
+
+                if (!nonNumericSubsetFound) {
+                    //ok, regular grid domain
+                    NumericSubset gridBounds = axis.getGridBounds();
+                    result = gridBounds.getStringRepresentationInInteger();
+                }
+
+                String axisLabel = axis.getLabel();
+                // e.g. i[0]
+                String sortedAxisIteratorLabel = this.sortedAxisIteratorAliasRegistry.getIteratorLabelRepresentation(axisLabel);
+                if (sortedAxisIteratorLabel != null) {
+                    result = sortedAxisIteratorLabel;
+                }
+
             }
 
             translatedDomains.add(result);

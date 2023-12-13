@@ -105,10 +105,17 @@ public class CoverageConstantHandler extends Handler {
     
     public static void updateAxisNamesFromAxisIterators(WcpsCoverageMetadata metadata, List<AxisIterator> axisIterators) {
         for (int i = 0; i < metadata.getAxes().size(); i++) {
+            AxisIterator axisIterator = axisIterators.get(i);
             // e.g. in axis iterator is is called X from $px X(...)
-            String axisName = axisIterators.get(i).getAxisName();
+            String axisName = axisIterator.getAxisName();
             Axis axis = metadata.getAxes().get(i);
-            axis.setLabel(axisName);
+            if (axis != null) {
+                axis.setLabel(axisName);
+                if (axisIterator.isTemporal()) {
+                    // e.g. OVER $pt ansi("2015-01":"2015-12") then it is a list of slicing monthly points
+                    axis.setCreatedFromAxisIteratorTemporalSlicingInterval(true);
+                }
+            }
         }        
     }
 

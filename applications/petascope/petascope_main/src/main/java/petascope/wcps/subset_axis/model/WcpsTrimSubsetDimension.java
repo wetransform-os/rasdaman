@@ -30,8 +30,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class WcpsTrimSubsetDimension extends WcpsSubsetDimension {
     private String lowerBound;
     private String upperBound;
-    
-    public WcpsTrimSubsetDimension() {
+
+       public WcpsTrimSubsetDimension() {
         
     }
 

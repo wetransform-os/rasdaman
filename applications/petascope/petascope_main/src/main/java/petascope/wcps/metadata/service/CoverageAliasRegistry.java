@@ -226,13 +226,17 @@ public class CoverageAliasRegistry {
                 String coverageAlias = entry.getKey();
                 String rasdamanCollectionName = entry.getValue().snd;
 
-                list.add(rasdamanCollectionName + " AS " + StringUtil.stripDollarSign(coverageAlias));
+                if (rasdamanCollectionName != null) {
+                    list.add(rasdamanCollectionName + " AS " + StringUtil.stripDollarSign(coverageAlias));
+                }
                 break;
             }
 
         }
 
-        result = " FROM " + ListUtil.join(list, ", ");
+        if (!list.isEmpty()) {
+            result = " FROM " + ListUtil.join(list, ", ");
+        }
 
         return result;
     }

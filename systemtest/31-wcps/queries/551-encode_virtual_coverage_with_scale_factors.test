@@ -1,0 +1,4 @@
+for c in (test_virtual_coverage_with_scale_factors) 
+return encode(
+                scale(c[unix:"CRS:1"(0)], {lat:"CRS:1"(0:50), lon:"CRS:1"(0:50)})
+            , "png")

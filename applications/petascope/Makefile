@@ -40,6 +40,6 @@ MVN = mvn
 all: $(target)
 
 $(target): pom.xml $(shell find -name '*.java')
-	$(MVN) -q -B package -Prasnet -f pom.xml \
+	rm -rf $(BUILD_DIR)/target && $(MVN) -q -B package -Prasnet -f pom.xml \
 															  -Dversion=$(PROJECT_VERSION) \
 															  -DbuildDir=$(BUILD_DIR)

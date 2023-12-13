@@ -75,8 +75,9 @@ public class ReduceExpressionHandler extends Handler {
     private WcpsResult handle(String operator, WcpsResult reduceExpression) throws PetascopeException {
 
         
-        
-        return new WcpsResult(null, 
+
+        reduceExpression.getMetadata().setChangedToNullByReductionExpression(true);
+        return new WcpsResult(reduceExpression.getMetadata(),
                         TEMPLATE.replace("$reduceOperation", operationTranslator.get(operator.toLowerCase()))
                                 .replace("$reduceParameter", reduceExpression.getRasql()));
     }

@@ -62,6 +62,10 @@ public abstract class Axis<T> {
     // If this axis was created by subsetting by "CRS:1" -> true
     // NOTE: this is used only when considering if a pyramid member can be used for scaling
     private boolean translatedGridToGeoBounds = false;
+
+    // NOTE: in case if c[ansi($pt)] and $pt comes from OVER $pt ansi("2015-01-01":"2015-01-01")
+    // then this is set to true;
+    private boolean createdFromAxisIteratorTemporalSlicingInterval = false;
     
     public Axis() {
         
@@ -349,8 +353,8 @@ public abstract class Axis<T> {
         return axisName;
     }
     
-    public void setSlicing() {
-        this.slicing = true;
+    public void setSlicing(boolean value) {
+        this.slicing = value;
     }
     
     public boolean isSlicing() {
@@ -363,6 +367,23 @@ public abstract class Axis<T> {
 
     public void setTranslatedGridToGeoBounds(boolean translatedGridToGeoBounds) {
         this.translatedGridToGeoBounds = translatedGridToGeoBounds;
+    }
+
+    /**
+     *
+    If this is true -> although axis is set to sliced, it will not be sliced after shorthand slicing
+    because it is created from axis iterator in coverage constructor which is a trimming afterwards
+     e.g. in rasql, MARRAY x in [0:0] VALUES c[x[0],*:*,*:*] then the sdom of marray is c[0:0,*:*,*:*]
+     even though WCPS query is:
+     OVER $pt ansi("2015-01-01":"2015-01-01"
+     VALUES $c[ansi($pt)] here ansi($pt) looks like a slicing.
+    */
+    public void setCreatedFromAxisIteratorTemporalSlicingInterval(boolean createdFromAxisIteratorTemporalSlicingInterval) {
+        this.createdFromAxisIteratorTemporalSlicingInterval = createdFromAxisIteratorTemporalSlicingInterval;
+    }
+
+    public boolean isCreatedFromAxisIteratorTemporalSlicingInterval() {
+        return this.createdFromAxisIteratorTemporalSlicingInterval;
     }
     
     public String toString() {

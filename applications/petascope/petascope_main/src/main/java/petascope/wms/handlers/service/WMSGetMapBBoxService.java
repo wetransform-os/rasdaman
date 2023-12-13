@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.AxisTypes;
 import petascope.core.BoundingBox;
@@ -54,6 +56,8 @@ import petascope.wms.handlers.model.WMSLayer;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapBBoxService {
 
     @Autowired

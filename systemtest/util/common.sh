@@ -571,7 +571,7 @@ run_test()
               ;;
           test|xml)
               QUERY="$(cat "$f")"
-              $CURL -u "$RASGUEST_USER:$RASGUEST_PASS" -X POST --data-urlencode "query=$QUERY" "$PETASCOPE_URL" > "$out"
+              $CURL -X POST --data-urlencode "query=$QUERY" "$PETASCOPE_URL" > "$out"
               ;;
           *)  error "unknown wcps test type: $test_type";;
         esac

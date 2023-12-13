@@ -31,12 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -46,12 +41,15 @@ import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.maven.wagon.util.FileUtils;
 import org.rasdaman.config.ConfigManager;
 
-import static com.rasdaman.accesscontrol.service.AuthenticationService.*;
+import static com.rasdaman.accesscontrol.service.AuthenticationService.getBasicAuthCredentialsOrRasguest;
+import static com.rasdaman.accesscontrol.service.AuthenticationService.getBasicAuthUsernamePassword;
+import static com.rasdaman.accesscontrol.service.RequestsFilter.UNAUTHENTICATED_ERROR_MESSAGE;
 import static org.rasdaman.config.ConfigManager.UPLOADED_FILE_DIR_TMP;
 import static org.rasdaman.config.ConfigManager.UPLOAD_FILE_PREFIX;
 import org.rasdaman.config.VersionManager;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.util.LinkedCaseInsensitiveMap;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.support.StandardMultipartHttpServletRequest;
@@ -475,6 +473,11 @@ public abstract class AbstractController {
         injectedHttpServletResponse.setStatus(response.getHTTPCode());
         injectedHttpServletResponse.setContentType(response.getMimeType());
         addFileNameToHeader(response);
+
+        if (response.getHTTPCode() == HttpStatus.UNAUTHORIZED.value()) {
+            ExceptionUtil.addWwwAuthenticationHeader(injectedHttpServletRequest, injectedHttpServletResponse);
+        }
+
         OutputStream os = null;
         
         try {
@@ -869,7 +872,7 @@ public abstract class AbstractController {
     
     public void logReceivedRequest(Map<String, String[]> kvpParameters) throws PetascopeException {
         String requestTmp = StringUtil.enquoteSingleIfNotEnquotedAlready(this.injectedHttpServletRequest.getRequestURI() + "?" + this.getRequestRepresentation(kvpParameters));
-        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
         String logMessage = "Received request: " + requestTmp + " with user " + credentialsPair.fst;
         log.info(logMessage);
     }
@@ -879,7 +882,7 @@ public abstract class AbstractController {
 
         long end = System.currentTimeMillis();
         long totalTime = end - start;
-        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
         if (requestSuccess) {
             log.info("Processed request: " + requestTmp + " with user " + credentialsPair.fst + " in " + String.valueOf(totalTime) + " ms.");
         } else {
@@ -903,7 +906,7 @@ public abstract class AbstractController {
         String requestCounter = REQUEST_COUNTER_PREFIX + REQUEST_COUNTER;
         REQUEST_COUNTER++;
 
-        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
         log.info("Received request: " + requestCounter + ": " + requestTmp + " with user " + credentialsPair.fst);
         
         return new Pair<>(requestCounter, System.currentTimeMillis());
@@ -917,7 +920,7 @@ public abstract class AbstractController {
             ex = pex.getException();
             version = pex.getVersion();
         }
-        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
         String errorMessage = "Failed processing request: " + requestCounter + " with user " + credentialsPair.fst
                                 + ", evaluation time " + String.valueOf(System.currentTimeMillis() - startTime) + " ms. Reason: " + ex.getMessage();
         // log the error reason here as well, even though it's logged also later in
@@ -925,11 +928,11 @@ public abstract class AbstractController {
         // which helps when there are multiple concurrent requests to know
         // which one failed by what reason.
         log.error(errorMessage);      
-        ExceptionUtil.handle(version, ex, injectedHttpServletResponse);
+        ExceptionUtil.handle(version, ex, injectedHttpServletRequest, injectedHttpServletResponse);
     }
     
     private void logSuccess(String requestCounter, long startTime) throws PetascopeException {
-        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
         log.info("Processed request: " + requestCounter + " with user " + credentialsPair.fst + " in " + String.valueOf(System.currentTimeMillis() - startTime) + " ms.");
     }
     
@@ -1017,16 +1020,22 @@ public abstract class AbstractController {
                 if (basicAuthCredentialsPair == null) {
                     // In this case rasguest user is set in petascope.properties, but the user doesn't have the permission to run
                     exceptionCode = ExceptionCode.Unauthorized;
+
+                    String errorMessage = UNAUTHENTICATED_ERROR_MESSAGE + " from request '" + requestRepresentation + "'";
+
+                    throw new PetascopeException(exceptionCode, errorMessage);
+                } else {
+                    throw new PetascopeException(exceptionCode,
+                            "User '" + username + "' does not have role '" + roleName + "' to process request '" + requestRepresentation + "'.");
                 }
 
-                throw new PetascopeException(exceptionCode,
-                                            "User '" + username + "' does not have role '" + roleName + "' to process request '" + requestRepresentation + "'.");
             }
         }
     }
 
     /**
-     * The user requests must have the role if basic header is enabled, or his IP must be allowed
+     * The user write requests (e.g. DeleteCoverage, InsertLayer,...)
+     * must have the role if basic header is enabled, or his IP must be allowed
      */
     public void validateWriteRequestByRoleOrAllowedIP(HttpServletRequest httpServletRequest,
                                                       String roleName) throws PetascopeException {
@@ -1044,7 +1053,7 @@ public abstract class AbstractController {
      * If basic authentication header is not enabled, then petascope checks if write request from IP address is valid or not
      * before processing.
      */
-    private void validateWriteRequestFromIP(HttpServletRequest httpServletRequest) throws PetascopeException {
+    public void validateWriteRequestFromIP(HttpServletRequest httpServletRequest) throws PetascopeException {
         if (!ConfigManager.ALLOW_WRITE_REQUESTS_FROM.contains(ConfigManager.PUBLIC_WRITE_REQUESTS_FROM)) {
             
             String sourceIP = this.getRequestIPAddress(httpServletRequest);
@@ -1058,7 +1067,7 @@ public abstract class AbstractController {
                 // -- rasdaman community only
                 
                 //  If user's IP is not allowed, check if request contains valid admin credentials in basic header
-                Pair<String, String> resultPair = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
+                Pair<String, String> resultPair = getBasicAuthUsernamePassword(httpServletRequest);
                 if (resultPair != null) {
                     String username = resultPair.fst;
                     String password = resultPair.snd;

@@ -120,7 +120,7 @@ public class CoverageVariableNameHandler extends Handler {
         // assume it is an axis iterator
         if (coverageName == null) {
             AxisIterator axisIterator = axisIteratorAliasRegistry.getAxisIterator(coverageAlias);
-            rasql = axisIterator.getRasqlAliasName() + RASQL_OPEN_SUBSETS + axisIterator.getAxisIteratorOrder() + RASQL_CLOSE_SUBSETS;
+            rasql = axisIterator.getRasqlRepresentation();
             axisIteratorAliasRegistry.addRasqlAxisIterator(rasql);
             //axis iterator, no coverage information, just pass the info up
             metadata = null;

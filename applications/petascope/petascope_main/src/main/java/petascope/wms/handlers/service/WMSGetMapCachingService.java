@@ -31,6 +31,8 @@ import org.rasdaman.domain.cis.Wgs84BoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.controller.PetascopeController;
 import petascope.core.KVPSymbols;
@@ -46,6 +48,8 @@ import petascope.wms.handlers.kvp.KVPWMSGetMapHandler;
  * @author <a href="mailto:b.phamhuu@jacobs-university.de">Bang Pham Huu</a>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapCachingService {
     
     private static Logger log = LoggerFactory.getLogger(WMSGetMapCachingService.class);

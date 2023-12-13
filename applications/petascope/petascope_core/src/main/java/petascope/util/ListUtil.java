@@ -427,5 +427,20 @@ public class ListUtil {
         
         return partionedList;
     }
+
+    /**
+     *
+     * e.g. input list contains "03", "01" then put "01" before "03"
+     */
+    public static void sortStringValues(List<String> inputList) {
+        Collections.sort(inputList, new Comparator<String>() {
+            @Override
+            public int compare(String lhs, String rhs) {
+                Double tmp = Double.valueOf(lhs) - Double.valueOf(rhs);
+                int value = tmp <= 0 ? -1 : 1;
+                return value;
+            }
+        });
+    }
     
 }

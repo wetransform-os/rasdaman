@@ -79,7 +79,7 @@ public class AdminStyleManagementController extends AbstractController {
 
                 this.createOrUpdateStyleService.handleAdd(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -107,7 +107,7 @@ public class AdminStyleManagementController extends AbstractController {
 
                 this.createOrUpdateStyleService.handleUpdate(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -135,7 +135,7 @@ public class AdminStyleManagementController extends AbstractController {
 
                 this.adminDeleteStyleService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         

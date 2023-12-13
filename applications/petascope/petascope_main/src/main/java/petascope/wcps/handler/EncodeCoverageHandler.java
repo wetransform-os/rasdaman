@@ -24,12 +24,15 @@ package petascope.wcps.handler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+
 import org.rasdaman.domain.cis.NilValue;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.exceptions.ExceptionCode;
 import petascope.core.KVPSymbols;
 import petascope.exceptions.PetascopeException;
 import petascope.util.ras.TypeResolverUtil;
@@ -79,6 +82,11 @@ public class EncodeCoverageHandler extends Handler {
     private NetCDFParametersService netCDFParametersFactory;
     @Autowired
     private HttpServletRequest httpServletRequest;
+
+    private static Set<String> image2DFormatsSet = Set.of(
+                                                        MIMEUtil.MIME_PNG, MIMEUtil.MIME_JP2,
+                                                        MIMEUtil.MIME_JPEG, MIMEUtil.MIME_TIFF
+                                                        );
     
     public EncodeCoverageHandler() {
         
@@ -104,6 +112,19 @@ public class EncodeCoverageHandler extends Handler {
     }
 
     private WcpsResult handle(WcpsResult coverageExpression, String format, String extraParams, boolean widthCoordinates) throws PetascopeException {
+        // get the mime-type before modifying the rasqlFormat
+        String mimeType = MIMEUtil.getMimeType(format);
+
+        if (coverageExpression.getMetadata() != null) {
+            int numberOfDimensions = coverageExpression.getMetadata().getAxes().size();
+
+            if (coverageExpression.getMetadata().getAxes().size() != 2 && image2DFormatsSet.contains(mimeType)) {
+                String errorMessage = "Data format " + mimeType + " only supports 2D data, but the coverage to be encoded is " + numberOfDimensions + "D. " +
+                    "Hint: specify a data format suitable for non-2D data, such as " + MIMEUtil.MIME_NETCDF;
+                throw new PetascopeException(ExceptionCode.InvalidRequest, errorMessage);
+            }
+        }
+        
         boolean isGML = false;
         
         // NOTE: must use JP2OpenJPEG to encode with geo-reference metadata for JPEG2000 (JP2)
@@ -116,17 +137,17 @@ public class EncodeCoverageHandler extends Handler {
             isGML = true;
         }
 
+        // get the mime-type before modifying the rasqlFormat
+        if (isGML) {
+            mimeType = MIMEUtil.MIME_GML;
+        }
+
         if (this.httpServletRequest.getAttribute(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE) != null
             && this.httpServletRequest.getAttribute(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE).equals(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE)) {
             // NOTE: in this case this is /oapi/coverageId/coverage, hence the output format is influenced by petascope
             format = this.getOutputFormatBasedOnOAPIGetCoverageRequest(coverageExpression.getMetadata());
         }
 
-        // get the mime-type before modifying the rasqlFormat
-        String mimeType = MIMEUtil.getMimeType(format);
-        if (isGML) {
-            mimeType = MIMEUtil.MIME_GML;
-        }
 
         // NOTE: we have 2 cases for extra params:
         // + In old style: for c in (test_eobstest) return encode(c, "netcdf", "nodata=0"), then extra params will need to be built in JSON format

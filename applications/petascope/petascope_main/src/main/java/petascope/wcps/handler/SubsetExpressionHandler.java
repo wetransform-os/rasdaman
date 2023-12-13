@@ -36,6 +36,7 @@ import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
+import petascope.util.ListUtil;
 import petascope.wcps.exception.processing.CoverageAxisNotFoundExeption;
 import petascope.wcps.metadata.model.Axis;
 import petascope.core.BoundingBox;
@@ -43,22 +44,20 @@ import petascope.core.Pair;
 import petascope.util.StringUtil;
 import petascope.wcps.metadata.model.Subset;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
-import petascope.wcps.metadata.service.RasqlTranslationService;
-import petascope.wcps.metadata.service.SubsetParsingService;
-import petascope.wcps.metadata.service.WcpsCoverageMetadataGeneralService;
+import petascope.wcps.metadata.service.*;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.DimensionIntervalList;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wcps.metadata.model.NumericTrimming;
-import petascope.wcps.metadata.service.AxisIteratorAliasRegistry;
-import petascope.wcps.metadata.service.CollectionAliasRegistry;
-import petascope.wcps.metadata.service.CoverageAliasRegistry;
-import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
 import petascope.wcps.result.VisitorResult;
 import petascope.wcps.subset_axis.model.AxisIterator;
 import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
-import petascope.wcps.metadata.service.WMSSubsetDimensionsRegistry;
 import petascope.wms.handlers.kvp.KVPWMSGetMapHandler;
+
+import javax.servlet.http.HttpServletRequest;
+
+import static petascope.core.KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE;
+import static petascope.core.KVPSymbols.KEY_INTERNAL_OAPI_SUBSET_OUT_OF_BOUND_HTTP_CODE;
 import static petascope.wms.handlers.service.WMSGetMapStyleService.WMS_VIRTUAL_LAYER_EXPECTED_BBOX;
 import static petascope.wms.handlers.service.WMSGetMapStyleService.WMS_VIRTUAL_LAYER_EXPECTED_HEIGHT;
 import static petascope.wms.handlers.service.WMSGetMapStyleService.WMS_VIRTUAL_LAYER_EXPECTED_OUTPUT_CRS;
@@ -96,6 +95,10 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
     private AxisIteratorAliasRegistry axisIteratorAliasRegistry;
     @Autowired
     private WMSSubsetDimensionsRegistry wmsSubsetDimensionsRegistry;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+    @Autowired
+    private SubsetIntersectionService subsetIntersectionService;
     
     
     public static final String OPERATOR = "domain subset";
@@ -164,6 +167,9 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
 	        // e.g. from c0 -> base_cov to c0 -> pyramid_cov
 	        this.coverageAliasRegistry.updateCoverageMapping(aliasTmp, afterCoverageId, metadata.getRasdamanCollectionName());
 
+            // e.g before it is covearge id: downscaled level 1, after it is coverage id: downscaled level 8 due to scale() is used
+            rasql = rasql.replace(beforeCoverageId, afterCoverageId);
+
             // e.g. c0 Important (!)
             rasql = aliasTmp;
             
@@ -208,22 +214,38 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
         List<Subset> numericSubsets = subsetParsingService.convertToNumericSubsets(terminalSubsetDimensions, metadata.getAxes());
         
         String rasqlResult = "";
-        
-        
+
+        boolean isOAPIRequest = this.httpServletRequest.getAttribute(KEY_INTERNAL_OAPI_GET_COVERAGE) != null;
+        if (isOAPIRequest) {
+            // NOTE: OAPI allows to request out of bound / intersection of axis' extent
+            checkBounds = false;
+        }
+
         // Update the coverage expression metadata with the new subsets
         wcpsCoverageMetadataService.applySubsets(checkBounds, checkBounds, metadata, subsetDimensions, numericSubsets);
         
-        if (!checkBounds) {
+        if (!checkBounds && !isOAPIRequest) {
             // As WMS it can query with out of bounds for XY axes domains (e.g: request BBOX only intersects with a corner)
             wcpsCoverageMetadataService.adjustXYGeoGridBounds(metadata);
         }
 
         // now the metadata contains the correct geo and rasdaman subsets
         // NOTE: if subset dimension has "$" as axis iterator, just keep it and don't translate it to numeric as numeric subset.
-        String dimensionIntervals = rasqlTranslationService.constructRasqlDomain(metadata.getSortedAxesByGridOrder(),
-                                                                             expressionSubsetDimensions);
+
+        String translatedGridDimensionIntervals = rasqlTranslationService.constructRasqlDomain(metadata.getSortedAxesByGridOrder(),
+                                                                             expressionSubsetDimensions, false);
+
         String temp = TEMPLATE.replace("$covExp", rasql);
-        rasqlResult = temp.replace("$dimensionIntervalList", dimensionIntervals);
+        rasqlResult = temp.replace("$dimensionIntervalList", translatedGridDimensionIntervals);
+
+        if (isOAPIRequest) {
+            SubsetIntersectionService.SubsetIntersectionType intersectionType = this.subsetIntersectionService.getSubsetsIntersectionType(metadata, numericSubsets);
+            if (intersectionType != SubsetIntersectionService.SubsetIntersectionType.WITHIN_BOUNDS) {
+                // In case like OAPI the request is allowed to be completely / partially out of bound
+                rasqlResult = this.getRasqlExpressionForCompleteOrPartialOutOfBounds(coverageExpression, metadata,
+                        numericSubsets, translatedGridDimensionIntervals);
+            }            
+        }
 
         // NOTE: DimensionIntervalList with Trim expression can contain slicing as well (e.g: c[t(0), Lat(0:20), Long(30)])
         // then the slicing axis also need to be removed from coverage metadata.
@@ -242,6 +264,103 @@ public class SubsetExpressionHandler extends AbstractOperatorHandler {
         
         WcpsResult result = new WcpsResult(metadata, rasqlResult, this.collectionAliasRegistry);
         return result;
+    }
+
+
+    /**
+     * NOTE: for OAPI requests, it is allowed to request complete or partial out of bound subsettings
+     */
+    private String getRasqlExpressionForCompleteOrPartialOutOfBounds(WcpsResult coverageExpression,
+                                                                     WcpsCoverageMetadata metadata,
+                                                                     List<Subset> numericSubsets,
+                                                                     String translatedGridDimensionIntervals) {
+        String rasqlResult = "";
+        SubsetIntersectionService.SubsetIntersectionType intersectionType = this.subsetIntersectionService.getSubsetsIntersectionType(metadata, numericSubsets);
+
+        if (intersectionType == SubsetIntersectionService.SubsetIntersectionType.COMPLETE_OUT_OF_BOUNDS) {
+
+            // if subset doesn't touch axis' extent -> return HTTP code 204
+            this.httpServletRequest.setAttribute(KEY_INTERNAL_OAPI_SUBSET_OUT_OF_BOUND_HTTP_CODE, true);
+
+            // In the case of subset is out of axis' extent
+            String nullValueRepresentation = metadata.getRasqlNodataWithDefaultNullValue();
+
+            // e.g. subsets = 0,20:30,50:60 -> only trimmings = 20:30,50:60
+            List<String> trimmingGridDomains = new ArrayList<>();
+            String[] gridDomainsTmp = translatedGridDimensionIntervals.split(",");
+            for (String gridDomainTmp : gridDomainsTmp) {
+                if (gridDomainTmp.contains(":")) {
+                    trimmingGridDomains.add(gridDomainTmp);
+                }
+            }
+
+            String trimmingGridDomainsRepresentation = "[" + ListUtil.join(trimmingGridDomains, ",") + "]";
+
+            if (trimmingGridDomains.size() > 1) {
+                // It has at least 1 trimming
+                List<String> sourceZeroGridDomains = new ArrayList<>();
+                for (int i = 0; i < trimmingGridDomains.size(); i++) {
+                    sourceZeroGridDomains.add("0:0");
+                }
+
+                // e.g. 0:0,0:0
+                String sourceZeroGridDomainsRepresentation = ListUtil.join(sourceZeroGridDomains, ",");
+                // e.g. SCALE(<[0:0,0:0] {119,208,248}>, [-89:-70,44:143]
+
+                // NOTE: HTTP 204 client will not receive anything from server -> no point to run the query
+//                rasqlResult = "SCALE(<[" + sourceZeroGridDomainsRepresentation + "] "
+//                        + nullValueRepresentation + ">, "
+//                        + trimmingGridDomainsRepresentation + ")";
+            } else {
+                // only slicings -> only set null values for 1 pixel
+                rasqlResult = nullValueRepresentation;
+            }
+
+        } else {
+            String[] gridDomains = translatedGridDimensionIntervals.split(",");
+
+            List<String> subsetGridDomains = new ArrayList<>();
+            List<String> targetGridDomainsExtending = new ArrayList<>();
+
+            // subset intersects with axis' extent or subset contains axis's extent -> need extend()
+            for (int i = 0; i < gridDomains.length; i++) {
+                // e.g. 0 or 0:5
+                String subsetGridDomain = gridDomains[i];
+                if (subsetGridDomain.contains(":")) {
+                    Axis axis = metadata.getAxisByGridOrder(i);
+                    // e.g. [20:30]
+                    long gridLowerBoundAxis = axis.getGridBounds().getLowerLimit().longValue();
+                    long gridUpperBoundAxis = axis.getGridBounds().getUpperLimit().longValue();
+
+                    // e.g. original axis is [0:25]
+                    long originalGridLowerBoundAxis = axis.getOriginalGridBounds().getLowerLimit().longValue();
+                    long originalGridUpperBoundAxis = axis.getOriginalGridBounds().getUpperLimit().longValue();
+
+                    long selectedGridLowerBound = gridLowerBoundAxis;
+                    if (gridLowerBoundAxis <= originalGridLowerBoundAxis) {
+                        selectedGridLowerBound = originalGridLowerBoundAxis;
+                    }
+                    long selectedGridUpperBound = gridUpperBoundAxis;
+                    if (gridUpperBoundAxis >= originalGridUpperBoundAxis) {
+                        selectedGridUpperBound = originalGridUpperBoundAxis;
+                    }
+
+                    // here it is trimming
+                    targetGridDomainsExtending.add(subsetGridDomain);
+                    subsetGridDomains.add(selectedGridLowerBound + ":" + selectedGridUpperBound);
+                } else {
+                    // here it is slicing
+                    subsetGridDomains.add(subsetGridDomain);
+                }
+            }
+
+            // e.g. extend(c[0,0:20,0:30], [0:50,0:30])
+            rasqlResult = "EXTEND( " + coverageExpression.getRasql()
+                    + "[" + ListUtil.join(subsetGridDomains, ",") + "], [" + ListUtil.join(targetGridDomainsExtending, ",") + "])";
+
+        }
+
+        return rasqlResult;
     }
 
     /**

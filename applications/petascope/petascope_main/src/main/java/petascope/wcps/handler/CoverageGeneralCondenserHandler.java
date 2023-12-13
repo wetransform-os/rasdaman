@@ -28,23 +28,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.core.Pair;
+import petascope.core.XMLSymbols;
 import petascope.exceptions.PetascopeException;
-import petascope.util.StringUtil;
+import petascope.util.*;
+
 import static petascope.wcps.handler.CoverageConstantHandler.updateAxisNamesFromAxisIterators;
-import static petascope.wcps.handler.CoverageConstructorHandler.validateAxisIteratorSubsetWithQuote;
-import petascope.wcps.metadata.model.Axis;
-import petascope.wcps.metadata.model.RegularAxis;
-import petascope.wcps.metadata.model.Subset;
-import petascope.wcps.metadata.model.WcpsCoverageMetadata;
-import petascope.wcps.metadata.service.AxisIteratorAliasRegistry;
-import petascope.wcps.metadata.service.RasqlTranslationService;
-import petascope.wcps.metadata.service.SubsetParsingService;
-import petascope.wcps.metadata.service.UsingCondenseRegistry;
-import petascope.wcps.metadata.service.WcpsCoverageMetadataGeneralService;
-import petascope.wcps.result.VisitorResult;
+
+import petascope.wcps.metadata.model.*;
+import petascope.wcps.metadata.service.*;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.AxisIterator;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
+
+import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 
 /**
  * Translation node from wcps coverage list to rasql for the general condenser
@@ -65,7 +62,7 @@ import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
  */
 @Service
 @Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
-public class GeneralCondenserHandler extends Handler {
+public class CoverageGeneralCondenserHandler extends Handler {
 
     @Autowired
     private WcpsCoverageMetadataGeneralService wcpsCoverageMetadataService;
@@ -77,14 +74,16 @@ public class GeneralCondenserHandler extends Handler {
     private AxisIteratorAliasRegistry axisIteratorAliasRegistry;
     @Autowired
     private UsingCondenseRegistry usingCondenseRegistry;
+    @Autowired
+    private CoverageConstructorHandler coverageConstructorHandler;
     
-    public GeneralCondenserHandler() {
+    public CoverageGeneralCondenserHandler() {
         
     }
     
-    public GeneralCondenserHandler create(Handler operatorHandler, List<Handler> axisIteratorHandlers,
-                                          Handler whereClauseHandler, Handler usingClauseHandler) {
-        GeneralCondenserHandler result = new GeneralCondenserHandler();
+    public CoverageGeneralCondenserHandler create(Handler operatorHandler, List<Handler> axisIteratorHandlers,
+                                                  Handler whereClauseHandler, Handler usingClauseHandler) {
+        CoverageGeneralCondenserHandler result = new CoverageGeneralCondenserHandler();
         List<Handler> childHandlers = new ArrayList<>();
         childHandlers.add(operatorHandler);
         childHandlers.addAll(axisIteratorHandlers);
@@ -98,6 +97,7 @@ public class GeneralCondenserHandler extends Handler {
         result.rasqlTranslationService = this.rasqlTranslationService;
         result.axisIteratorAliasRegistry = this.axisIteratorAliasRegistry;
         result.usingCondenseRegistry = this.usingCondenseRegistry;
+        result.coverageConstructorHandler = this.coverageConstructorHandler;
         
         return result;
     }
@@ -114,7 +114,9 @@ public class GeneralCondenserHandler extends Handler {
         
         String rasqlAliasName = "";
         String aliasName = "";
-        int count = 0;        
+        int count = 0;
+
+        List<AxisIterator> temporalAxisIterators = new ArrayList<>();
         
         List<AxisIterator> axisIterators = new ArrayList<>();
         for (Handler axisIteratorHandler : axisIteratorHandlers) {
@@ -131,33 +133,104 @@ public class GeneralCondenserHandler extends Handler {
             
             axisIterators.add(axisIterator);
             count++;
+
+            if (axisIterator.isTemporal()) {
+                temporalAxisIterators.add(axisIterator);
+            }
         }
         
         Handler whereClauseHandler = this.getChildren().get(this.getChildren().size() - 2);
-        WcpsResult whereClause = null;
+        WcpsResult whereClauseResult = null;
         if (whereClauseHandler != null) {
-            whereClause = (WcpsResult) whereClauseHandler.handle(serviceRegistries);
+            whereClauseResult = (WcpsResult) whereClauseHandler.handle(serviceRegistries);
         }
-        
-        Handler usingClauseHandler = this.getChildren().get(this.getChildren().size() - 1);
-        WcpsResult usingExpressionResult = (WcpsResult) usingClauseHandler.handle(serviceRegistries);
-        if (usingExpressionResult.getMetadata() != null) {
-            usingExpressionResult.getMetadata().setCondenserResult(true);
-        }
-        
-        WcpsResult result;
-        
-        try {
-            result = this.handle(operator, axisIterators, whereClause, usingExpressionResult);
-        } finally {
 
-        }
+        Handler usingClauseHandler = this.getChildren().get(this.getChildren().size() - 1);
+
+        WcpsResult result = null;
         
+        if (temporalAxisIterators.isEmpty()) {
+            // it doesn't have temporal axis iterator
+            WcpsResult usingExpressionResult = (WcpsResult) usingClauseHandler.handle(serviceRegistries);
+            if (usingExpressionResult.getMetadata() != null) {
+                usingExpressionResult.getMetadata().setCondenserResult(true);
+            }
+
+            result = this.handle(operator, axisIterators, whereClauseResult, usingExpressionResult);
+        } else {
+            // it has temporal axis iterator
+            for (AxisIterator temporalAxisIterator : temporalAxisIterators) {
+                Pair<List<WcpsResult>, List<BigDecimal>> pair = this.coverageConstructorHandler.handleTemporalAxisIterator(serviceRegistries,
+                                                                                                temporalAxisIterator,
+                                                                                                usingClauseHandler, false);
+                List<WcpsResult> segmentedUsingExpressionResults = pair.fst;
+                List<BigDecimal> dateTimeCoefficients = pair.snd;
+
+                result = this.handleSegmentedWcpsResultsForTemporalAxisIterator(operator,
+                                                                                temporalAxisIterator, axisIterators,
+                                                                                whereClauseResult,
+                                                                                segmentedUsingExpressionResults, dateTimeCoefficients);
+            }
+        }
+
         return result;
     }
 
+    /**
+     * From the segmented slicing datetimeIntervals, then create a final wcpsResult with combined rasql query and Wcps coverage metadata
+     */
+    private WcpsResult handleSegmentedWcpsResultsForTemporalAxisIterator(String operator,
+                                                                         AxisIterator temporalAxisIterator,
+                                                                         List<AxisIterator> axisIterators,
+                                                                         WcpsResult whereClauseResult,
+                                                                         List<WcpsResult> segmentedUsingExpressionResults,
+                                                                         List<BigDecimal> dateTimeCoefficients) throws PetascopeException {
+
+        String temporalAxisIteratorName = temporalAxisIterator.getAxisName();
+
+        List<String> subRasqlQueries = new ArrayList<>();
+
+        int totalGridPixels = 0;
+
+        WcpsCoverageMetadata metadataResult = null;
+
+        for (WcpsResult segmentedUsingExpressionResult : segmentedUsingExpressionResults) {
+            if (metadataResult == null) {
+                metadataResult = (WcpsCoverageMetadata) JSONUtil.clone(segmentedUsingExpressionResult.getMetadata());
+            }
+
+            Axis temporalAxis = segmentedUsingExpressionResult.getMetadata().getAxisByName(temporalAxisIteratorName);
+            String gridLowerBound = String.valueOf(temporalAxis.getGridBounds().getLowerLimit().longValue());
+            String gridUpperBound = String.valueOf(temporalAxis.getGridBounds().getUpperLimit().longValue());
+
+            totalGridPixels += temporalAxis.getGridBounds().getUpperLimit().longValue() - temporalAxis.getGridBounds().getLowerLimit().longValue();
+            WcpsTrimSubsetDimension trimSubsetDimension = new WcpsTrimSubsetDimension(temporalAxisIteratorName, CrsUtil.GRID_CRS, gridLowerBound, gridUpperBound);
+            temporalAxisIterator.setSubsetDimension(trimSubsetDimension);
+
+            WcpsResult segmentedCoverageConstructorResult = this.handle(operator, axisIterators, whereClauseResult, segmentedUsingExpressionResult);
+            String subRaqlQuery = segmentedCoverageConstructorResult.getRasql();
+            subRasqlQueries.add(" ( " + subRaqlQuery + " ) ");
+        }
+
+        // Then, create a WcpsResult object for the axis iterator as an irregular axis
+        String concatenatedRasqlQueriesStr = "";
+        if (subRasqlQueries.size() == 1) {
+            concatenatedRasqlQueriesStr = subRasqlQueries.get(0);
+        } else {
+            // e.g. MARRAY pt in [0:3] VALUES c[pt[0],0:35,0:17]) WITH (c[0:0,0:35,0:17]) WITH (c[0:0,0:35,0:17])
+            concatenatedRasqlQueriesStr = ListUtil.join(subRasqlQueries, " " + operator);
+        }
+
+        WcpsResult result = this.coverageConstructorHandler.handleFinalTemporalAxisIteratorResult(temporalAxisIterator, metadataResult,
+                                                                                    totalGridPixels, dateTimeCoefficients, concatenatedRasqlQueriesStr, true);
+        return result;
+    }
+
+    // -------- all axis iterators handler
+
+
     private WcpsResult handle(String operator, List<AxisIterator> axisIterators, WcpsResult whereClauseExpression,
-            WcpsResult usingCoverageExpression) throws PetascopeException {
+                                WcpsResult usingCoverageExpression) throws PetascopeException {
         
         // contains subset dimension without "$"
         List<WcpsSubsetDimension> pureSubsetDimensions = new ArrayList<>();
@@ -172,9 +245,7 @@ public class GeneralCondenserHandler extends Handler {
         for (AxisIterator axisIterator : axisIterators) {
             String alias = axisIterator.getAliasName();
             WcpsSubsetDimension subsetDimension = axisIterator.getSubsetDimension();
-            
-            validateAxisIteratorSubsetWithQuote(null, alias, subsetDimension);
-            
+
             if (rasqlAliasName.isEmpty()) {
                 rasqlAliasName = alias.replace(WcpsSubsetDimension.AXIS_ITERATOR_DOLLAR_SIGN, "");
             }
@@ -197,11 +268,12 @@ public class GeneralCondenserHandler extends Handler {
         
         updateAxisNamesFromAxisIterators(metadata, axisIterators);
 
-        String rasqlDomain = rasqlTranslationService.constructRasqlDomain(metadata.getSortedAxesByGridOrder(), axisIteratorSubsetDimensions);
+        String rasqlAxisIteratorGridDomain = rasqlTranslationService.constructRasqlDomain(metadata.getSortedAxesByGridOrder(),
+                                                                                        axisIteratorSubsetDimensions, false);
         String template = TEMPLATE.replace("$operation", operator)
-                .replace("$iter", rasqlAliasName)
-                .replace("$intervals", rasqlDomain)
-                .replace("$using", usingCoverageExpression.getRasql());
+                                  .replace("$iter", rasqlAliasName)
+                                  .replace("$intervals", rasqlAxisIteratorGridDomain)
+                                  .replace("$using", usingCoverageExpression.getRasql());
         
 
         if (whereClauseExpression != null) {

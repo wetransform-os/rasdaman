@@ -23,6 +23,8 @@ package petascope.wcps.handler;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.annotation.Scope;
@@ -47,7 +49,9 @@ import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 @Service
 @Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class DimensionPointElementHandler extends Handler {
-    
+
+    private static final Pattern timeIntervalPattern = Pattern.compile("(\".*\"):(\".*\")");
+
     public DimensionPointElementHandler() {
         
     }
@@ -83,13 +87,31 @@ public class DimensionPointElementHandler extends Handler {
         if (StringUtils.countMatches(bound, ":") == 1) {
             // NOTE: This only happens for this case (subsetting from result of domain()/imageCrsdomain()), with result of domain is an interval, e.g: -20:-10
             // e.g: c[Lat(domain(c[Lat(-20:-10)], Lat))] -> c[Lat(-20:-10)]
-            bound = StringUtil.stripParentheses(bound);            
-            
+            bound = StringUtil.stripParentheses(bound);
+
             String[] tmp = bound.split(":");
             String lowerBound = tmp[0];
             String upperBound = tmp[1];
-            
-            subsetDimension = new WcpsTrimSubsetDimension(axisName, crs, lowerBound, upperBound);
+
+            if (bound.contains("\"")) {
+                // time string in quotes
+                // e.g. "2015-01-01T00:00" or "2015-01-01T00:00":"2015-01-03T00:00"
+                Matcher matcher = timeIntervalPattern.matcher(bound);
+                if (matcher.find()) {
+                    lowerBound = matcher.group(1);
+                    upperBound = matcher.group(2);
+
+                    // e.g. "2015-01-01":"2015-02-02" -> trim
+                    subsetDimension = new WcpsTrimSubsetDimension(axisName, crs, lowerBound, upperBound);
+                } else {
+                    // e.g. "2015-01-01" -> slice
+                    subsetDimension = new WcpsSliceSubsetDimension(axisName, crs, bound);
+                }
+            } else {
+                // e.g. -20:-10 -> trim()
+                subsetDimension = new WcpsTrimSubsetDimension(axisName, crs, lowerBound, upperBound);
+            }
+
         } else {
             subsetDimension = new WcpsSliceSubsetDimension(axisName, crs, bound);
         }

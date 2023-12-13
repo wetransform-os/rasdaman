@@ -1,0 +1,9 @@
+for $c in (test_wcps_12_months_netcdf_irregular)
+
+return encode(
+
+coverage x
+over $month ansi( allmonths( "2023" ) )
+values $c[ ansi( $month ) ] ,
+
+"csv")

@@ -362,7 +362,7 @@ public class IrregularAxis extends Axis {
     @JsonIgnore
     public List<BigDecimal> getAllCoefficientsInInterval(BigDecimal minInput, BigDecimal maxInput) throws PetascopeException {
         
-        // Find the min and max grid incides in the List of directPositions
+        // Find the min and max grid indices in the List of directPositions
         Pair<Long, Long> gridIndices = this.getGridIndices(minInput, maxInput);
         if (gridIndices.fst.compareTo(gridIndices.snd) > 0) {
             throw new IrregularAxisTrimmingCoefficientNotFoundException(this.getLabel(), minInput.toPlainString(), maxInput.toPlainString());

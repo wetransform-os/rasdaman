@@ -654,6 +654,18 @@ public interface wcpsListener extends ParseTreeListener {
 	 */
 	void exitCoverageExpressionCrsTransformShorthandLabel(wcpsParser.CoverageExpressionCrsTransformShorthandLabelContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code CoverageExpressionTimeTruncatorLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 */
+	void enterCoverageExpressionTimeTruncatorLabel(wcpsParser.CoverageExpressionTimeTruncatorLabelContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code CoverageExpressionTimeTruncatorLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 */
+	void exitCoverageExpressionTimeTruncatorLabel(wcpsParser.CoverageExpressionTimeTruncatorLabelContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code CoverageExpressionModLabel}
 	 * labeled alternative in {@link wcpsParser#coverageExpression}.
 	 * @param ctx the parse tree
@@ -797,6 +809,18 @@ public interface wcpsListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitCoverageExpressionExponentialLabel(wcpsParser.CoverageExpressionExponentialLabelContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code coverageExpressionPolygonizeLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 */
+	void enterCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code coverageExpressionPolygonizeLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 */
+	void exitCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code CoverageExpressionLogicLabel}
 	 * labeled alternative in {@link wcpsParser#coverageExpression}.
@@ -1121,6 +1145,18 @@ public interface wcpsListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitCoverageExpressionExtendLabel(wcpsParser.CoverageExpressionExtendLabelContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code CoverageExpressionTimeExtractorLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 */
+	void enterCoverageExpressionTimeExtractorLabel(wcpsParser.CoverageExpressionTimeExtractorLabelContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code CoverageExpressionTimeExtractorLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 */
+	void exitCoverageExpressionTimeExtractorLabel(wcpsParser.CoverageExpressionTimeExtractorLabelContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code CoverageExpressionUnaryArithmeticLabel}
 	 * labeled alternative in {@link wcpsParser#coverageExpression}.
@@ -1460,6 +1496,18 @@ public interface wcpsListener extends ParseTreeListener {
 	 */
 	void exitTrimScaleDimensionIntervalElementLabel(wcpsParser.TrimScaleDimensionIntervalElementLabelContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code DimensionBoundConcatenationElementLabel}
+	 * labeled alternative in {@link wcpsParser#dimensionBoundConcatenationElement}.
+	 * @param ctx the parse tree
+	 */
+	void enterDimensionBoundConcatenationElementLabel(wcpsParser.DimensionBoundConcatenationElementLabelContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code DimensionBoundConcatenationElementLabel}
+	 * labeled alternative in {@link wcpsParser#dimensionBoundConcatenationElement}.
+	 * @param ctx the parse tree
+	 */
+	void exitDimensionBoundConcatenationElementLabel(wcpsParser.DimensionBoundConcatenationElementLabelContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code TrimDimensionIntervalElementLabel}
 	 * labeled alternative in {@link wcpsParser#dimensionIntervalElement}.
 	 * @param ctx the parse tree
@@ -1495,6 +1543,36 @@ public interface wcpsListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitSliceDimensionIntervalElementLabel(wcpsParser.SliceDimensionIntervalElementLabelContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link wcpsParser#timeIntervalElement}.
+	 * @param ctx the parse tree
+	 */
+	void enterTimeIntervalElement(wcpsParser.TimeIntervalElementContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link wcpsParser#timeIntervalElement}.
+	 * @param ctx the parse tree
+	 */
+	void exitTimeIntervalElement(wcpsParser.TimeIntervalElementContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link wcpsParser#timeExtractorElement}.
+	 * @param ctx the parse tree
+	 */
+	void enterTimeExtractorElement(wcpsParser.TimeExtractorElementContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link wcpsParser#timeExtractorElement}.
+	 * @param ctx the parse tree
+	 */
+	void exitTimeExtractorElement(wcpsParser.TimeExtractorElementContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link wcpsParser#timeTruncatorElement}.
+	 * @param ctx the parse tree
+	 */
+	void enterTimeTruncatorElement(wcpsParser.TimeTruncatorElementContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link wcpsParser#timeTruncatorElement}.
+	 * @param ctx the parse tree
+	 */
+	void exitTimeTruncatorElement(wcpsParser.TimeTruncatorElementContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code wktPointsLabel}
 	 * labeled alternative in {@link wcpsParser#wktPoints}.
@@ -1700,6 +1778,18 @@ public interface wcpsListener extends ParseTreeListener {
 	 */
 	void exitCrsTransformShorthandExpressionLabel(wcpsParser.CrsTransformShorthandExpressionLabelContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code PolygonizeExpressionLabel}
+	 * labeled alternative in {@link wcpsParser#polygonizeExpression}.
+	 * @param ctx the parse tree
+	 */
+	void enterPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code PolygonizeExpressionLabel}
+	 * labeled alternative in {@link wcpsParser#polygonizeExpression}.
+	 * @param ctx the parse tree
+	 */
+	void exitPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code DimensionCrsListLabel}
 	 * labeled alternative in {@link wcpsParser#dimensionCrsList}.
 	 * @param ctx the parse tree
@@ -1793,6 +1883,28 @@ public interface wcpsListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitAxisIteratorLabel(wcpsParser.AxisIteratorLabelContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code AxisIteratorEnumerationListLabel}
+	 * labeled alternative in {@link wcpsParser#axisIterator}.
+	 * @param ctx the parse tree
+	 */
+	void enterAxisIteratorEnumerationListLabel(wcpsParser.AxisIteratorEnumerationListLabelContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code AxisIteratorEnumerationListLabel}
+	 * labeled alternative in {@link wcpsParser#axisIterator}.
+	 * @param ctx the parse tree
+	 */
+	void exitAxisIteratorEnumerationListLabel(wcpsParser.AxisIteratorEnumerationListLabelContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link wcpsParser#regularTimeStep}.
+	 * @param ctx the parse tree
+	 */
+	void enterRegularTimeStep(wcpsParser.RegularTimeStepContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link wcpsParser#regularTimeStep}.
+	 * @param ctx the parse tree
+	 */
+	void exitRegularTimeStep(wcpsParser.RegularTimeStepContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code IntervalExpressionLabel}
 	 * labeled alternative in {@link wcpsParser#intervalExpression}.

@@ -1,0 +1,10 @@
+for $c in (test_365_days_irregular)
+return 
+
+encode(
+
+coverage x
+over $pt ansi("2023-01-01":"2023-01-31")
+values $c[ansi($pt)]
+
+, "csv")

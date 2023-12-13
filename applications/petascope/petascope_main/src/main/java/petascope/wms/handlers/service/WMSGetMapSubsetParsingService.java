@@ -27,6 +27,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.KVPSymbols;
 import static petascope.core.KVPSymbols.VALUE_WMS_DIMENSION_MIN_MAX_SEPARATE_CHARACTER;
@@ -53,6 +55,8 @@ import petascope.wcs2.parsers.subsets.TrimmingSubsetDimension;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapSubsetParsingService {
     
     @Autowired

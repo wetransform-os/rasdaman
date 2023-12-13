@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.util.ras.RasUtil;
 
 /**
@@ -65,7 +66,7 @@ public class AuthenticationService {
     /**
      * Parse header to get username and password encoded in Base64 for basic authentication header
      */
-    public static Pair<String, String> getBasicAuthUsernamePassword(HttpServletRequest httpServletRequest) throws PetascopeException {
+    public static Pair<String, String> getBasicAuthUsernamePassword(HttpServletRequest httpServletRequest) throws PetascopeRuntimeException {
         
         final String authorization = httpServletRequest.getHeader(BASIC_AUTHENTICATION_HEADER);
         Pair<String, String> result = null;
@@ -77,7 +78,7 @@ public class AuthenticationService {
             byte[] credDecoded = Base64.decodeBase64(base64Credentials);
             String credentials = new String(credDecoded, StandardCharsets.UTF_8);
             if (!credentials.contains(":")) {
-                throw new PetascopeException(ExceptionCode.InvalidRequest, "Basic authentication header credentials must be encoded in Base64 string with format username:password");
+                throw new PetascopeRuntimeException(new PetascopeException(ExceptionCode.InvalidRequest, "Basic authentication header credentials must be encoded in Base64 string with format username:password"));
             }
             // decoded username:password
             final String[] values = credentials.split(":", 2);
@@ -178,9 +179,9 @@ public class AuthenticationService {
     /**
      * Check if given basic header authentication token is valid, then return the stored credentials
      */
-    public static Pair<String, String> getStoredCredentialsByBasicHeaderAccessToken(String token) throws PetascopeException {
+    public static Pair<String, String> getStoredCredentialsByBasicHeaderAccessToken(String token) throws PetascopeRuntimeException {
         if (!basicCredentialsAccessTokensMap.containsKey(token)) {
-            throw new PetascopeException(ExceptionCode.InvalidRequest, "Basic authentication access token does not exist in the registry. Hint: try to create a new access token via the dedicated endpoint.");
+            throw new PetascopeRuntimeException(new PetascopeException(ExceptionCode.InvalidRequest, "Basic authentication access token does not exist in the registry. Hint: try to create a new access token via the dedicated endpoint."));
         };
 
         Pair<String, String> credentialsPair = basicCredentialsAccessTokensMap.get(token);

@@ -145,6 +145,7 @@ public class CrsUtil {
     public static final String AUTO_AUTH = "AUTO";
     public static final String OGC_AUTH = "OGC";
     public static final String URN_EPSG_PREFIX = "urn:ogc:def:crs:EPSG::";
+    public static final String DEFAULT_DATETIME_CRS = "https://www.opengis.net/def/crs/OGC/0/AnsiDate";
     
     // rotated-CRS netCDF
     public static final String COSMO_AUTH = "COSMO";

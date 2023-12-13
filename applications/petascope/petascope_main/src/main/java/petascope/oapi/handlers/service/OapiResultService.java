@@ -31,6 +31,8 @@ import org.springframework.stereotype.Service;
 import petascope.core.response.Response;
 import petascope.exceptions.PetascopeException;
 import petascope.oapi.handlers.model.HttpErrorResponse;
+import petascope.rasdaman.exceptions.RasdamanException;
+import petascope.util.ExceptionUtil;
 import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
 import static petascope.util.MIMEUtil.MIME_JSON;
@@ -73,13 +75,22 @@ public class OapiResultService {
 
     public Response getErrorResponse(Exception ex, String errorMessage) throws PetascopeException {
         int httpErrorCode = HttpStatus.INTERNAL_SERVER_ERROR.value();
+        String exceptionText = "";
         if (ex instanceof PetascopeException) {
             httpErrorCode = ((PetascopeException)ex).getExceptionCode().getHttpErrorCode();
+            exceptionText = ((PetascopeException)ex).getExceptionText();
+        } else if (ex instanceof RasdamanException) {
+            httpErrorCode = ((RasdamanException)ex).getExceptionCode().getHttpErrorCode();
+            exceptionText = ((RasdamanException)ex).getExceptionText();
         }
+
+        if (!exceptionText.isEmpty()) {
+            errorMessage += " with detailed reason: " + exceptionText;
+        }
+
         log.error(errorMessage, ex);
         Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_TEXT, httpErrorCode);
         return response;
     }
     
 }
-

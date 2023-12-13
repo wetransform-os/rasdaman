@@ -102,13 +102,15 @@ public class KVPWMSGetMapHandler extends KVPWMSAbstractHandler {
     @Override
     public void validate(Map<String, String[]> kvpParameters) throws WMSException, PetascopeException {
         // Table 8 — The Parameters of a GetMap request (WMS 1.3.0 document)        
-        // Layers (manadatory)
+        // Layers (mandatory)
         String[] layersParam = kvpParameters.get(KVPSymbols.KEY_WMS_LAYERS);
         List<Layer> layers = new ArrayList<>();
         if (layersParam == null) {
             throw new WMSMissingRequestParameter(KVPSymbols.KEY_WMS_LAYERS);
         } else {
-            for (String layerName : layersParam[0].split(",")) {
+            String[] tmps = layersParam[0].split(",");
+            for (int i = 0; i < tmps.length; i++) {
+                String layerName = tmps[i];
                 Layer layer = wmsRepostioryService.readLayerByName(layerName);
                 if (layer == null) {
                     throw new WMSLayerNotExistException(layerName);

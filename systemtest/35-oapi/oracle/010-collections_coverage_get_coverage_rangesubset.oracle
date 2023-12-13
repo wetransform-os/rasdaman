@@ -64,10 +64,7 @@
       "type" : "QuantityType",
       "name" : "red",
       "description" : "",
-<<<<<<< HEAD
-=======
       "definition" : "ogcType:unsignedByte",
->>>>>>> release_10.2
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -127,6 +124,7 @@
       "type" : "QuantityType",
       "name" : "green1",
       "description" : "",
+      "definition" : "ogcType:unsignedByte",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -141,6 +139,7 @@
       "type" : "QuantityType",
       "name" : "blue2",
       "description" : "",
+      "definition" : "ogcType:unsignedByte",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -170,6 +169,7 @@
       "type" : "QuantityType",
       "name" : "blue4",
       "description" : "",
+      "definition" : "ogcType:unsignedByte",
       "nilValues" : {
         "nilValues" : [ {
           "reason" : "",
@@ -189,7 +189,7 @@
     "type" : "RangeSetType",
     "dataBlock" : {
       "type" : "VDataBlockType",
-      "values" : [ "null null null null null null null null" ]
+      "values" : [ "119 119 119 119 119 119 119 119" ]
     }
   }
 }

@@ -2,7 +2,7 @@
 <gmlcov:ReferenceableGridCoverage gml:id="test_AverageChloro" xsi:schemaLocation="http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/coverage.xsd" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:gmlrgrid="http://www.opengis.net/gml/3.3/rgrid">
     <gml:boundedBy>
         <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate?axis-label=&quot;unix&quot;&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" axisLabels="unix Lat Lon" uomLabels="d degree degree" srsDimension="3">
-            <gml:lowerCorner>"2015-01-02T00:00:00.000Z" -85 -180</gml:lowerCorner>
+            <gml:lowerCorner>"2015-02-01T00:00:00.000Z" -85 -180</gml:lowerCorner>
             <gml:upperCorner>"2015-07-01T00:00:00.000Z" 90 170</gml:upperCorner>
         </gml:Envelope>
     </gml:boundedBy>
@@ -17,13 +17,13 @@
             <gml:axisLabels>unix Lat Lon</gml:axisLabels>
             <gmlrgrid:origin>
                 <gml:Point gml:id="test_AverageChloro-point" srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate?axis-label=&quot;unix&quot;&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">
-                    <gml:pos>"2015-01-02T00:00:00.000Z" 77.5 -167.5</gml:pos>
+                    <gml:pos>"2015-02-01T00:00:00.000Z" 77.5 -167.5</gml:pos>
                 </gml:Point>
             </gmlrgrid:origin>
             <gmlrgrid:generalGridAxis>
                 <gmlrgrid:GeneralGridAxis>
                     <gmlrgrid:offsetVector srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate?axis-label=&quot;unix&quot;&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">1 0 0</gmlrgrid:offsetVector>
-                    <gmlrgrid:coefficients>"2015-01-02T00:00:00.000Z" "2015-01-30T00:00:00.000Z" "2015-03-02T00:00:00.000Z" "2015-04-01T00:00:00.000Z" "2015-06-01T00:00:00.000Z"</gmlrgrid:coefficients>
+                    <gmlrgrid:coefficients>"2015-02-01T00:00:00.000Z" "2015-03-01T00:00:00.000Z" "2015-04-01T00:00:00.000Z" "2015-05-01T00:00:00.000Z" "2015-07-01T00:00:00.000Z"</gmlrgrid:coefficients>
                     <gmlrgrid:gridAxesSpanned>unix</gmlrgrid:gridAxesSpanned>
                     <gmlrgrid:sequenceRule axisOrder="+1">Linear</gmlrgrid:sequenceRule>
                 </gmlrgrid:GeneralGridAxis>
@@ -65,7 +65,6 @@
                     <swe:label>Red</swe:label>
                     <swe:description/>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
             <swe:field name="Green">
@@ -73,7 +72,6 @@
                     <swe:label>Green</swe:label>
                     <swe:description/>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
             <swe:field name="Blue">
@@ -81,7 +79,6 @@
                     <swe:label>Blue</swe:label>
                     <swe:description/>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
         </swe:DataRecord>

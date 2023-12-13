@@ -52,6 +52,10 @@ public class AxisSpec extends ParameterResult {
         return subsetDimension;
     }
 
+    public void setSubsetDimension(WcpsSubsetDimension subsetDimension) {
+        this.subsetDimension = subsetDimension;
+    }
+
     public void setAxisName(String axisName) {
         this.subsetDimension.setAxisName(axisName);
     }

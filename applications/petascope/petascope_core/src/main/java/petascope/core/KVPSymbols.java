@@ -114,6 +114,9 @@ public interface KVPSymbols {
     // This request is /oapi/coverageId/coverage to get a coverage -> output format is based on the input coverage data dimensions and type
     String KEY_INTERNAL_OAPI_GET_COVERAGE = KEY_INTERNAL_PREFIX + "_GET_COVERAGE";
 
+    // Return 204 http code in this case
+    String KEY_INTERNAL_OAPI_SUBSET_OUT_OF_BOUND_HTTP_CODE = KEY_INTERNAL_PREFIX + "OAPI_SUBSET_OUT_OF_BOUND_HTTP_CODE";
+    
     // WCPS
     String VALUE_PROCESS_COVERAGES = "ProcessCoverages";
     String KEY_QUERY = "query";

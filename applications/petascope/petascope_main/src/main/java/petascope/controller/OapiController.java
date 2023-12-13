@@ -25,11 +25,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.commons.lang3.StringUtils;
+import org.rasdaman.config.ConfigManager;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -52,6 +55,7 @@ import petascope.oapi.handlers.model.Collection;
 import petascope.oapi.handlers.service.OapiHandlersService;
 import petascope.oapi.handlers.service.OapiResultService;
 import petascope.oapi.handlers.service.OapiSubsetParsingService;
+import petascope.util.ExceptionUtil;
 import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
 
@@ -75,6 +79,8 @@ public class OapiController extends AbstractController {
     private OapiResultService oapiResultService;
     @Autowired
     private OapiSubsetParsingService opaiParsingService;
+    @Autowired
+    private HttpServletResponse httpServletResponse;
     
     // e.g: localhost:8080/rasdaman/oapi
     private static String BASE_URL;
@@ -87,6 +93,8 @@ public class OapiController extends AbstractController {
 
     public static final String COVERAGE_ID = "{coverageId}";
     public static final String COVERAGE_ID_CONTEXT_PATH = COLLECTIONS_CONTEXT_PATH + "/" + COVERAGE_ID;
+
+    public static final String OAPI_CONFORMANCE = OAPI + "/conformance";
     
     public static final String COVERAGE = "coverage";
     public static final String COVERAGE_CONTEXT_PATH = COVERAGE_ID_CONTEXT_PATH + "/" + COVERAGE;
@@ -100,6 +108,13 @@ public class OapiController extends AbstractController {
     public static final String COVERAGE_RANGE_SET_CONTEXT_PATH = COVERAGE_CONTEXT_PATH + "/" + COVERAGE_RANGE_SET;
     public static final String COVERAGE_METADATA = "metadata";
     public static final String COVERAGE_METADATA_CONTEXT_PATH = COVERAGE_CONTEXT_PATH + "/" + COVERAGE_METADATA;
+
+    // No need basic authentication to access these endpoints
+    public static final List<String> NO_NEED_AUTHENTICATION_ENDPOINTS = Arrays.asList(
+            OAPI,
+            OAPI_CONFORMANCE
+
+            );
 
 
     public OapiController() {
@@ -258,7 +273,7 @@ public class OapiController extends AbstractController {
             boolean outputGeneralGridCoverageInJSON = false;
 
             if (outputFormat == null) {
-                // this request will change the output format in WCPS encode handler
+                // In this case, petascope will return the best format for OAPI request (e.g. 1D without output format -> JSON)
                 this.injectedHttpServletRequest.setAttribute(KEY_INTERNAL_OAPI_GET_COVERAGE, KEY_INTERNAL_OAPI_GET_COVERAGE);
             } else {
                 // e.g. f=image/png

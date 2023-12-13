@@ -3,7 +3,7 @@
     <gml:boundedBy>
         <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326&amp;2=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate?axis-label=&quot;t&quot;" axisLabels="Lat Long t" uomLabels="degree degree d" srsDimension="3">
             <gml:lowerCorner>30.5 40 "1950-01-03T13:05:00.000Z"</gml:lowerCorner>
-            <gml:upperCorner>31 40.5 "1950-01-05T13:05:00.000Z"</gml:upperCorner>
+            <gml:upperCorner>31 40.5 "1950-01-05T13:05:00.999Z"</gml:upperCorner>
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
@@ -49,7 +49,6 @@
                         </swe:NilValues>
                     </swe:nilValues>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
         </swe:DataRecord>

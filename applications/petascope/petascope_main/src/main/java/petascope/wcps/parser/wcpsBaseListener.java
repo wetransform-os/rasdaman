@@ -701,6 +701,18 @@ public class wcpsBaseListener implements wcpsListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterCoverageExpressionTimeTruncatorLabel(wcpsParser.CoverageExpressionTimeTruncatorLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCoverageExpressionTimeTruncatorLabel(wcpsParser.CoverageExpressionTimeTruncatorLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterCoverageExpressionModLabel(wcpsParser.CoverageExpressionModLabelContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -840,6 +852,18 @@ public class wcpsBaseListener implements wcpsListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitCoverageExpressionExponentialLabel(wcpsParser.CoverageExpressionExponentialLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -1164,6 +1188,18 @@ public class wcpsBaseListener implements wcpsListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitCoverageExpressionExtendLabel(wcpsParser.CoverageExpressionExtendLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterCoverageExpressionTimeExtractorLabel(wcpsParser.CoverageExpressionTimeExtractorLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCoverageExpressionTimeExtractorLabel(wcpsParser.CoverageExpressionTimeExtractorLabelContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -1517,6 +1553,18 @@ public class wcpsBaseListener implements wcpsListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterDimensionBoundConcatenationElementLabel(wcpsParser.DimensionBoundConcatenationElementLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitDimensionBoundConcatenationElementLabel(wcpsParser.DimensionBoundConcatenationElementLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterTrimDimensionIntervalElementLabel(wcpsParser.TrimDimensionIntervalElementLabelContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -1548,6 +1596,42 @@ public class wcpsBaseListener implements wcpsListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitSliceDimensionIntervalElementLabel(wcpsParser.SliceDimensionIntervalElementLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterTimeIntervalElement(wcpsParser.TimeIntervalElementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitTimeIntervalElement(wcpsParser.TimeIntervalElementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterTimeExtractorElement(wcpsParser.TimeExtractorElementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitTimeExtractorElement(wcpsParser.TimeExtractorElementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterTimeTruncatorElement(wcpsParser.TimeTruncatorElementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitTimeTruncatorElement(wcpsParser.TimeTruncatorElementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -1769,6 +1853,18 @@ public class wcpsBaseListener implements wcpsListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterDimensionCrsListLabel(wcpsParser.DimensionCrsListLabelContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -1860,6 +1956,30 @@ public class wcpsBaseListener implements wcpsListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitAxisIteratorLabel(wcpsParser.AxisIteratorLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterAxisIteratorEnumerationListLabel(wcpsParser.AxisIteratorEnumerationListLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitAxisIteratorEnumerationListLabel(wcpsParser.AxisIteratorEnumerationListLabelContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterRegularTimeStep(wcpsParser.RegularTimeStepContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitRegularTimeStep(wcpsParser.RegularTimeStepContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

@@ -53,7 +53,8 @@ import java.util.Map;
 import static petascope.util.CrsUtil.GRID_CRS;
 
 @Service
-@Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class ScaleHandlerService {
 
     @Autowired

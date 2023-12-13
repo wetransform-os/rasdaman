@@ -56,7 +56,6 @@ public class AdminController extends AbstractController {
     @Override
     protected void requestDispatcher(HttpServletRequest httpServletRequest, Map<String, String[]> kvpParameters) throws PetascopeException {
     }
-    
 
     @RequestMapping(path = ADMIN + "/version")
     protected void handleGetVersion(HttpServletRequest httpServletRequest) throws Exception {
@@ -67,7 +66,7 @@ public class AdminController extends AbstractController {
         version = version.trim().split("rasdaman ")[1].split(" ")[0];
         Response response = new Response(Arrays.asList(version.getBytes()), MIME_TEXT);
         this.writeResponseResult(response);
-    }    
+    }
     
     /**
      * Just return the admin home page.

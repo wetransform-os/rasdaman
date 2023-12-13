@@ -82,7 +82,7 @@ public class AdminLayerManagementController extends AbstractController {
                 Response response = this.layerIsActiveService.handle(httpServletRequest, kvpParameters);
                 this.writeResponseResult(response);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -109,7 +109,7 @@ public class AdminLayerManagementController extends AbstractController {
                 this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
                 this.activateLayerService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -136,7 +136,7 @@ public class AdminLayerManagementController extends AbstractController {
                 this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
                 this.deactivateLayerService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         

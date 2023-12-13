@@ -1,0 +1,48 @@
+{
+  "config": {
+    "service_url": "PETASCOPE_URL",
+    "tmp_directory": "/tmp/",
+    "track_files": false,
+    "mock": false,
+    "automated": true
+  },
+  "input": {
+    "coverage_id": "test_wcps_12_months_netcdf_irregular",
+    "paths": [
+      "*.nc"
+    ]
+  },
+  "recipe": {
+    "name": "general_coverage",
+    "options": {
+      "coverage": {
+        "crs": "OGC/0/AnsiDate",
+        "metadata": {
+          "type": "xml",
+          "global": {
+            "photounit": "Taiwan Agricultural Research Institute",
+            "crs": "WGS84",
+            "groundresolutionunit": "cm"
+          }
+        },
+        "slicer": {
+          "type": "netcdf",
+	      "pixelIsPoint": true,
+          "bands": [
+            {
+              "name": "wind",
+              "identifier": "wind"
+            }
+          ],
+          "axes": {
+            "ansi": {
+                    "min": "datetime(regex_extract('${file:name}', '(.*)', 1), 'YYYY-MM-DD')",
+                    "max": "datetime(regex_extract('${file:name}', '(.*)', 1), 'YYYY-MM-DD')",
+                    "irregular": true
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -29,12 +29,15 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 import nu.xom.Attribute;
 import nu.xom.Element;
+import org.rasdaman.config.ConfigManager;
 import org.rasdaman.config.VersionManager;
 import org.rasdaman.domain.owsmetadata.OwsServiceMetadata;
 import org.rasdaman.repository.service.OWSMetadataRepostioryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.controller.PetascopeController;
 import petascope.core.XMLSymbols;
@@ -57,6 +60,8 @@ import petascope.wmts.handlers.service.WMTSGetCapabilitiesService;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class KVPWMTSGetCapabilitiesHandler extends KVPWMTSAbstractHandler {
     
     private static Logger log = LoggerFactory.getLogger(KVPWMTSGetCapabilitiesHandler.class);

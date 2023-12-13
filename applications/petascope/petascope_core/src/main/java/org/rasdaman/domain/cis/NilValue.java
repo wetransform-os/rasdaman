@@ -110,6 +110,19 @@ public class NilValue implements Serializable {
 
         return nilValue;
     }
+
+    /**
+     *
+     * If null value has an interval returns the lower bound
+     * If null value has a single value then returns this value
+     */
+    @JsonIgnore
+    public String getNullValueBound() {
+        if (this.value != null) {
+            return this.value.split(":")[0];
+        }
+        return null;
+    }
     
     @Override
     public boolean equals(Object obj) {

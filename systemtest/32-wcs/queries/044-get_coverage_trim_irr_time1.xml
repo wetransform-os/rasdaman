@@ -17,6 +17,6 @@
   <wcs:DimensionTrim>
     <wcs:Dimension>ansi</wcs:Dimension>
     <wcs:TrimLow>"2008-01-01T02:01:20"</wcs:TrimLow>
-    <wcs:TrimHigh>"2008-01-08T00:02:58"</wcs:TrimHigh>
+    <wcs:TrimHigh>"2008-01-08T00:02:58.000Z"</wcs:TrimHigh>
   </wcs:DimensionTrim>
 </wcs:GetCoverage>

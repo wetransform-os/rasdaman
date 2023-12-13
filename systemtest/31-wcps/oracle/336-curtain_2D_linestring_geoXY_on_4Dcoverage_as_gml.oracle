@@ -3,7 +3,7 @@
     <gml:boundedBy>
         <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/OGC/0/Index1D?axis-label=&quot;forecast&quot;&amp;3=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" axisLabels="ansi forecast Lat Long" uomLabels="d GridSpacing degree degree" srsDimension="4">
             <gml:lowerCorner>"2017-01-10T00:00:00.000Z" 0 34.4396675 29.6015625</gml:lowerCorner>
-            <gml:upperCorner>"2017-09-18T00:00:00.000Z" 10 34.7208095 29.8828125</gml:upperCorner>
+            <gml:upperCorner>"2017-09-18T00:00:00.000Z" 8 34.7208095 29.8828125</gml:upperCorner>
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
@@ -78,7 +78,6 @@
                         </swe:NilValues>
                     </swe:nilValues>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
         </swe:DataRecord>

@@ -2,8 +2,8 @@
 <gmlcov:ReferenceableGridCoverage gml:id="test_wcs_deep_rain_irregular_axis_coefficients" xsi:schemaLocation="http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/coverage.xsd" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:gmlrgrid="http://www.opengis.net/gml/3.3/rgrid">
     <gml:boundedBy>
         <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/OGC/0/Index1D?axis-label=&quot;ensemble&quot;&amp;3=http://localhost:8080/rasdaman/def/crs/OGC/0/Index1D?axis-label=&quot;forecast_hour&quot;&amp;4=http://localhost:8080/rasdaman/def/crs/OGC/0/Index1D?axis-label=&quot;isobaric&quot;&amp;5=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" axisLabels="ansi ensemble forecast_hour isobaric Lat Long" uomLabels="d GridSpacing GridSpacing GridSpacing degree degree" srsDimension="6">
-            <gml:lowerCorner>"2017-01-01T00:00:00.000Z" 1 5 80000 44.7790500000000013815 2.98471999999999997</gml:lowerCorner>
-            <gml:upperCorner>"2017-01-01T00:00:00.000Z" 1 10 96000 44.8332499999999986185 3.06188000000000003</gml:upperCorner>
+            <gml:lowerCorner>"2017-01-01T00:00:00.000Z" 1 6 85000 44.7790500000000013815 2.98471999999999997</gml:lowerCorner>
+            <gml:upperCorner>"2017-01-01T00:00:00.000Z" 1 9 95000 44.8332499999999986185 3.06188000000000003</gml:upperCorner>
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
@@ -17,7 +17,7 @@
             <gml:axisLabels>ansi ensemble forecast_hour isobaric Lat Long</gml:axisLabels>
             <gmlrgrid:origin>
                 <gml:Point gml:id="test_wcs_deep_rain_irregular_axis_coefficients-point" srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/OGC/0/Index1D?axis-label=&quot;ensemble&quot;&amp;3=http://localhost:8080/rasdaman/def/crs/OGC/0/Index1D?axis-label=&quot;forecast_hour&quot;&amp;4=http://localhost:8080/rasdaman/def/crs/OGC/0/Index1D?axis-label=&quot;isobaric&quot;&amp;5=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">
-                    <gml:pos>"2017-01-01T00:00:00.000Z" 1 5 80000 44.8197 3.00401</gml:pos>
+                    <gml:pos>"2017-01-01T00:00:00.000Z" 1 6 85000 44.8197 3.00401</gml:pos>
                 </gml:Point>
             </gmlrgrid:origin>
             <gmlrgrid:generalGridAxis>
@@ -89,7 +89,6 @@
                     <swe:label>r</swe:label>
                     <swe:description/>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
         </swe:DataRecord>

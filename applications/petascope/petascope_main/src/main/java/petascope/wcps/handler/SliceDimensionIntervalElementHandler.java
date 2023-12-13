@@ -58,20 +58,25 @@ public class SliceDimensionIntervalElementHandler extends Handler {
     public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         String axisName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
         String crs = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
-        WcpsResult coverageExpression = (WcpsResult)this.getThirdChild().handle(serviceRegistries);
+        VisitorResult coverageExpression = this.getThirdChild().handle(serviceRegistries);
         
         VisitorResult result = this.handle(axisName, crs, coverageExpression);
         return result;
     }
     
-    private VisitorResult handle(String axisName, String crs, WcpsResult coverageExpression) throws PetascopeException {
+    private VisitorResult handle(String axisName, String crs, VisitorResult coverageExpression) throws PetascopeException {
         // axisName (COLON crsName)?  LEFT_PARENTHESIS   coverageExpression   RIGHT_PARENTHESIS
         // e.g: i(0)
-        
-        String bound = coverageExpression.getRasql();
-        WcpsSliceSubsetDimension result = null;
-  
-        result = new WcpsSliceSubsetDimension(axisName, crs, bound);
+
+        String bound = "";
+
+        if (coverageExpression instanceof WcpsResult) {
+            bound = ((WcpsResult) coverageExpression).getRasql();
+        } else {
+            bound = coverageExpression.getResult();
+        }
+
+        WcpsSliceSubsetDimension result = new WcpsSliceSubsetDimension(axisName, crs, bound);
         return result;
     }
     

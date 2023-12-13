@@ -28,6 +28,8 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.BoundingBox;
 import petascope.core.GeoTransform;
@@ -59,6 +61,8 @@ import static petascope.wms.handlers.service.WMSGetMapStyleService.SCALE;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapSubsetTranslatingService {
     
     @Autowired

@@ -21,15 +21,7 @@
  */
 package petascope.wms.handlers.service;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.codehaus.plexus.util.StringUtils;
@@ -37,6 +29,8 @@ import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.BoundingBox;
 import petascope.core.Pair;
@@ -66,6 +60,8 @@ import static petascope.wms.handlers.service.WMSGetMapService.OVERLAY;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapStyleService {
     
     @Autowired
@@ -187,11 +183,14 @@ public class WMSGetMapStyleService {
         
         wcpsSubsetDimensions.addAll(wcpsGeoXYSubsetDimensions);
         
-        List<List<WcpsSliceSubsetDimension>> nonXYGridSliceSubsetDimensions = this.wmsGetMapSubsetParsingService.translateGeoDimensionsSubsetsLayers(wcpsCoverageMetadataTmp, dimSubsetsMap);
+        List<List<WcpsSliceSubsetDimension>> nestedNonXYGridSliceSubsetDimensions = this.wmsGetMapSubsetParsingService.translateGeoDimensionsSubsetsLayers(wcpsCoverageMetadataTmp, dimSubsetsMap);
+
+        List<WcpsSliceSubsetDimension> nonXYGridSliceSubsetDimensions = new ArrayList<>();
         
-        if (nonXYGridSliceSubsetDimensions != null) {
-            for (List<WcpsSliceSubsetDimension> list : nonXYGridSliceSubsetDimensions) {
+        if (nestedNonXYGridSliceSubsetDimensions != null) {
+            for (List<WcpsSliceSubsetDimension> list : nestedNonXYGridSliceSubsetDimensions) {
                 wcpsSubsetDimensions.addAll(list);
+                nonXYGridSliceSubsetDimensions.addAll(list);
             }
         }
         
@@ -219,7 +218,8 @@ public class WMSGetMapStyleService {
             
             String coverageId = StringUtil.stripDollarSign(layerNameIteratorFromStyle);
             wmsLayer.setLayerName(coverageId);
-            List<WcpsSubsetDimension> wcpsSubsetDimensionsByLayerName = this.getSubsetDimensionForWCPSFragment(wmsLayer, wcpsCoverageMetadata, nonXYGridSliceSubsetDimensions);
+            List<WcpsSubsetDimension> wcpsSubsetDimensionsByLayerName = this.getSubsetDimensionForWCPSFragment(wmsLayer, wcpsCoverageMetadata,
+                                                                                                                nestedNonXYGridSliceSubsetDimensions);
             wmsSubsetDimensionsRegistry.add(coverageId, wcpsSubsetDimensionsByLayerName);
             
             // e.g: c0 in (covA)
@@ -231,14 +231,18 @@ public class WMSGetMapStyleService {
             
             coverageAliasList.add(coverageAlias + IN + "(" + coverageId + ")");
             
-            
+
             List<String> tmps = new ArrayList<>();
             for (WcpsSubsetDimension wcpsSubsetDimension : wcpsGeoXYSubsetDimensions) {
                 tmps.add(wcpsSubsetDimension.toStringWithoutCRS());
             }
+
+            for (WcpsSubsetDimension wcpsSubsetDimension : nonXYGridSliceSubsetDimensions) {
+                tmps.add(wcpsSubsetDimension.toStringWithoutCRS());
+            }
             
             String coverageAliasWithGeoXYSubsets = coverageAlias + "[" + ListUtil.join(tmps, ", ")  + "]";
-            
+
             styleQuery = WMSGetMapService.replaceLayerIteratorByLayerName(styleQuery, layerNameIteratorFromStyle, coverageAliasWithGeoXYSubsets);
             
             i++;

@@ -3,7 +3,7 @@
     <gml:boundedBy>
         <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate?axis-label=&quot;t&quot;" axisLabels="t" uomLabels="d" srsDimension="1">
             <gml:lowerCorner>"1950-01-01T12:00:00.000Z"</gml:lowerCorner>
-            <gml:upperCorner>"1950-01-02T12:00:00.000Z"</gml:upperCorner>
+            <gml:upperCorner>"1950-01-02T12:59:59.999Z"</gml:upperCorner>
         </gml:Envelope>
     </gml:boundedBy>
     <gml:domainSet>
@@ -11,7 +11,7 @@
             <gml:limits>
                 <gml:GridEnvelope>
                     <gml:low>1</gml:low>
-                    <gml:high>1</gml:high>
+                    <gml:high>2</gml:high>
                 </gml:GridEnvelope>
             </gml:limits>
             <gml:axisLabels>t</gml:axisLabels>
@@ -26,7 +26,7 @@
     <gml:rangeSet>
         <gml:DataBlock>
             <gml:rangeParameters/>
-            <gml:tupleList cs=" " ts=",">-9999</gml:tupleList>
+            <gml:tupleList cs=" " ts=",">-9999,-9999</gml:tupleList>
         </gml:DataBlock>
     </gml:rangeSet>
     <gml:coverageFunction>
@@ -47,7 +47,6 @@
                         </swe:NilValues>
                     </swe:nilValues>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
         </swe:DataRecord>

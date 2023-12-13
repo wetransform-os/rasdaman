@@ -93,9 +93,12 @@ public class WcpsCoverageMetadata {
     private CoveragePyramid coveragePyramid;
     
     // Any axis which is sliced should be kept here for further processing
-    private List<WcpsSliceSubsetDimension> slicedWcpsSubsetDimensions;
+    private List<WcpsSubsetDimension> slicedWcpsSubsetDimensions;
     
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(WcpsCoverageMetadata.class);
+
+    // In case handler is reductionExpression, e.g. count(c) -> set to true
+    private boolean changedToNullByReductionExpression = false;
     
     public WcpsCoverageMetadata() {
         
@@ -169,14 +172,14 @@ public class WcpsCoverageMetadata {
         return this.axes;
     }
 
-    public List<WcpsSliceSubsetDimension> getSlicedWcpsSubsetDimensions() {
+    public List<WcpsSubsetDimension> getSlicedWcpsSubsetDimensions() {
         if (this.slicedWcpsSubsetDimensions == null) {
             this.slicedWcpsSubsetDimensions = new ArrayList<>();
         }
         return slicedWcpsSubsetDimensions;
     }
 
-    public void setSlicedWcpsSubsetDimensions(List<WcpsSliceSubsetDimension> slicedWcpsSubsetDimensions) {
+    public void setSlicedWcpsSubsetDimensions(List<WcpsSubsetDimension> slicedWcpsSubsetDimensions) {
         this.slicedWcpsSubsetDimensions = slicedWcpsSubsetDimensions;
     }
 
@@ -194,6 +197,32 @@ public class WcpsCoverageMetadata {
             i++;
         }
         
+        throw new PetascopeException(ExceptionCode.InvalidRequest, "Cannot find original axis '" + axisName + "' from WCPS coverage metadata.");
+    }
+
+    /**
+     * Find the geo order of an original axis by name or the first time axis order
+     */
+    @JsonIgnore
+    public int getOriginalTimeAxisGeoOrderOrFirstTimeAxisGeoOrder(String axisName) throws PetascopeException {
+        int result = -1;
+        int i = 0;
+        for (Axis originalAxis : this.originalAxes) {
+            if (originalAxis.isTimeAxis()) {
+                result = i;
+            }
+            if (originalAxis.getLabel().equals(axisName)) {
+                return i;
+            }
+
+            i++;
+        }
+
+        if (result >= 0) {
+            // at least one temporal time axis exists
+            return result;
+        }
+
         throw new PetascopeException(ExceptionCode.InvalidRequest, "Cannot find original axis '" + axisName + "' from WCPS coverage metadata.");
     }
 
@@ -315,6 +344,13 @@ public class WcpsCoverageMetadata {
         return originalAxis;
     }
 
+    @JsonIgnore
+    public Axis getAxisByGridOrder(int index) {
+        List<Axis> axesTmp = this.getSortedAxesByGridOrder();
+        Axis axis = axesTmp.get(index);
+        return axis;
+    }
+
     public String getCrsUri() {
         return this.crsUri;
     }
@@ -400,6 +436,17 @@ public class WcpsCoverageMetadata {
         }
         
         throw new CoverageAxisNotFoundExeption(axisName);
+    }
+
+    @JsonIgnore
+    public boolean hasAxisByName(String axisName) {
+        for (Axis axis : this.axes) {
+            if (CrsUtil.axisLabelsMatch(axis.getLabel(), axisName)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public String getGridId() {
@@ -515,6 +562,52 @@ public class WcpsCoverageMetadata {
             }
         }
         return null;
+    }
+
+    @JsonIgnore
+    public Axis getTimeAxisByNameOrFirstTimeAxis(String axisLabel) throws PetascopeException {
+        for (Axis axis : this.axes) {
+            if (CrsUtil.isTimeAxis(axis.getAxisType()) && axis.getLabel().equals(axisLabel)) {
+                return axis;
+            }
+        }
+
+        // Get the first time axis
+        Axis result = getTimeAxis();
+        if (result == null) {
+            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                    "Coverage contains no temporal axes.");
+        }
+
+        return result;
+    }
+
+    @JsonIgnore
+    public Axis getOriginalTimeAxis() {
+        for (Axis originalAxis : this.originalAxes) {
+            if (CrsUtil.isTimeAxis(originalAxis.getAxisType())) {
+                return originalAxis;
+            }
+        }
+        return null;
+    }
+
+    @JsonIgnore
+    public Axis getOriginalTimeAxisByNameOrFirstTimeAxis(String axisLabel) throws PetascopeException {
+        for (Axis originalAxis : this.originalAxes) {
+            if (CrsUtil.isTimeAxis(originalAxis.getAxisType()) && originalAxis.getLabel().equals(axisLabel)) {
+                return originalAxis;
+            }
+        }
+
+        // Get the first time axis
+        Axis result = getOriginalTimeAxis();
+        if (result == null) {
+            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                    "Coverage contains no original temporal axes.");
+        }
+
+        return result;
     }
 
     /**
@@ -652,6 +745,17 @@ public class WcpsCoverageMetadata {
         }
         
         return offsetVector.trim();
+    }
+
+    /**
+     * In case, the metadata is set to null after reduction operation (e.g. max($c))     *
+     */
+    public void setChangedToNullByReductionExpression(boolean value) {
+        this.changedToNullByReductionExpression = value;
+    }
+
+    public boolean isChangedToNullByReductionExpression() {
+        return this.changedToNullByReductionExpression;
     }
 
     /**
@@ -857,6 +961,59 @@ public class WcpsCoverageMetadata {
         
         return result;
     }
+
+    /**
+     * e.g. if coverage has one band -> return 9999
+     * if coverage has multiple bands -> return {33, 334}
+     */
+    @JsonIgnore
+    public String getRasqlNodataWithDefaultNullValue() {
+        String defaultNullValue = "0";
+        String nullValueRepresentation = "0";
+        if (rangeFields.size() == 1) {
+            // Only 1 band
+            if (rangeFields.get(0).getNodata() != null && rangeFields.get(0).getNodata().size() > 0) {
+                // e.g. 0:30 -> 0
+                String nullValueBound = rangeFields.get(0).getNodata().get(0).getNullValueBound();
+                if (nullValueBound != null) {
+                    nullValueRepresentation = nullValueBound;
+                }
+            }
+        } else {
+            // more than one band
+            List<String> nullValuesTmp = new ArrayList<>();
+            for (List<NilValue> nilValues : this.getNilValues()) {
+                if (nilValues != null && nilValues.size() > 0) {
+                    String nullValueBound = nilValues.get(0).getNullValueBound();
+                    nullValuesTmp.add(nullValueBound);
+                }
+            }
+
+            nullValueRepresentation = "{" + ListUtil.join(nullValuesTmp, ",") + "}";
+        }
+
+        return nullValueRepresentation;
+
+    }
    
     
+    /*
+     * When it is the right time, remove any axes which are marked as sliced during the process.
+     */
+    public void stripSlicedAxes() {
+        List<Integer> removeIndexes = new ArrayList<>();
+        int i = 0;
+        for (Axis axis : this.getAxes()) {
+            if (axis.isSlicing()) {
+                removeIndexes.add(i);
+            }
+        }
+
+        // Remove the slicing axes from the coverage
+        int removeIndex = 0;
+        for (int index : removeIndexes) {
+            this.axes.remove(index - removeIndex);
+            removeIndex++;
+        }
+    }
 }

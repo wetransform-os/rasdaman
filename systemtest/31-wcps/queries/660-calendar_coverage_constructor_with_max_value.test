@@ -1,0 +1,13 @@
+for $c in (test_365_days_irregular)
+return 
+ encode(
+
+coverage x
+over $pt ansi(allmonths("2023"))
+values 
+
+  max($c[ansi($pt:$pt)]),
+
+"csv"
+
+)

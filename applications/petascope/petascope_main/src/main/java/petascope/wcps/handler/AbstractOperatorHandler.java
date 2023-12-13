@@ -35,7 +35,7 @@ public abstract class AbstractOperatorHandler {
      * Some operators don't work if coverage is 0D and it should throw exception (e.g: clip(avg(c), ...)
      */
     public static void checkOperandIsCoverage(WcpsResult coverageExpression, String operator) {
-        if (coverageExpression.getMetadata() == null) {
+        if (coverageExpression.getMetadata() == null || coverageExpression.getMetadata().isChangedToNullByReductionExpression()) {
             throw new Coverage0DMetadataNullException(operator);
         }
     }

@@ -45,10 +45,7 @@ import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.rasdaman.exceptions.RasdamanCollectionExistsException;
-import petascope.util.BigDecimalUtil;
-import petascope.util.CrsUtil;
-import petascope.util.ListUtil;
-import petascope.util.StringUtil;
+import petascope.util.*;
 import petascope.util.ras.RasUtil;
 import static petascope.util.ras.RasConstants.RASQL_BOUND_SEPARATION;
 import static petascope.util.ras.RasConstants.RASQL_INTERVAL_SEPARATION;
@@ -62,6 +59,7 @@ import petascope.wcps.metadata.service.CollectionAliasRegistry;
 import petascope.wcps.metadata.service.CoordinateTranslationService;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
 import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
+import petascope.wcps.subset_axis.model.WcpsSliceTemporalSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 import petascope.wcst.helpers.insert.RasdamanDefaultCollectionCreator;
@@ -546,6 +544,11 @@ public class PyramidService {
                         return false;
                     }
                     geoLowerBound = geoAxis.getBoundNumber(sliceSubset.getBound());
+                    geoUpperBound = geoLowerBound;
+                } else if (subsetDimension instanceof WcpsSliceTemporalSubsetDimension) {
+                    WcpsSliceTemporalSubsetDimension sliceTemporalSubsetDimension = (WcpsSliceTemporalSubsetDimension)subsetDimension;
+                    // e.g. "2015-01/P1M" -> "2015-01"
+                    geoLowerBound = geoAxis.getBoundNumber(TimeUtil.getDateTimeWithoutGranularitySuffix(sliceTemporalSubsetDimension.getOriginalBound()));
                     geoUpperBound = geoLowerBound;
                 } else {
                     WcpsTrimSubsetDimension trimSubset = (WcpsTrimSubsetDimension)subsetDimension;

@@ -66,6 +66,10 @@ public class GMLDescribeCoverageBuilder {
     private GMLCoreCIS11Builder gmlCoreCIS11Builder;
     @Autowired
     private WcpsCoverageMetadataTranslator wcpsCoverageMetadataTranslator;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+    @Autowired
+    private CoverageRepositoryService coverageRepositoryService;
     
     /**
      * Build GMLDescribeCoverage for 1 CIS 1.0 / CIS 1.1 coverage
@@ -112,7 +116,7 @@ public class GMLDescribeCoverageBuilder {
 
         for (String coverageId : coverageIds) {
             WcpsCoverageMetadata wcpsCoverageMetadata = this.wcpsCoverageMetadataTranslator.translate(coverageId);
-            
+
             // Transform all coverages CIS 1.0 to CIS 1.1 output
             if (outputType != null && outputType.equals(VALUE_GENERAL_GRID_COVERAGE)) {
                 wcpsCoverageMetadata.setCoverageType(VALUE_GENERAL_GRID_COVERAGE);

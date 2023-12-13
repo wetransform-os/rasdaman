@@ -93,14 +93,26 @@ public abstract class WcpsSubsetDimension extends ParameterResult {
         this.temporal = temporal;
     }
 
+    public void setFixedRasqlGridDomain(String fixedRasqlGridDomain) {
+        this.fixedRasqlGridDomain = fixedRasqlGridDomain;
+    }
+
+    public String getFixedRasqlGridDomain() {
+        return this.fixedRasqlGridDomain;
+    }
+
     public abstract String getStringBounds();
     
     public abstract String toString();
     
     public abstract String toStringWithoutCRS();
+
     
     private String axisName;
     private String crs;
     private boolean temporal = false;
+    // NOTE: used only in the case with temporal axis iterator, when the rasql subset expression $c[ansi($pt)] or $c[ansi($pt:$pt)] for rasql expression is fixed
+    // e.g. c[pt[0]]
+    private String fixedRasqlGridDomain = null;
     public static final String AXIS_ITERATOR_DOLLAR_SIGN = "$";
 }

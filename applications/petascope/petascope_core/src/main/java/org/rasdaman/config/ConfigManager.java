@@ -781,7 +781,7 @@ public class ConfigManager {
     public static boolean enableAuthentication() {
         return !AUTHENTICATION_TYPE.isEmpty();
     }
-
+    
     /**
      * Initialize authentication types in Petascope (e.g: shibboleth and basic authentication header).
      */

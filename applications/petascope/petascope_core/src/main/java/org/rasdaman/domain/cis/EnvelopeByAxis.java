@@ -354,7 +354,7 @@ public class EnvelopeByAxis implements Serializable {
      */
     @JsonIgnore
     public List<String> getCrsList() throws PetascopeException {
-        Set<String> results = new LinkedHashSet<>();
+        List<String> results = new ArrayList<>();
         
         for (AxisExtent axisExtent : this.axisExtents) {
             String shortenedCrs = CrsUtil.getAuthorityCode(axisExtent.getSrsName());

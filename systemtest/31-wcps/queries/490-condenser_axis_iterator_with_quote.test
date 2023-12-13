@@ -1,0 +1,6 @@
+for $c in (test_AverageChloro) return encode(
+  (
+    condense +
+    over $date unix("2015-01-01":"2015-01-01":"P1M")
+  using $c[unix($date), Lat(-20:-20), Long(-30:-30)]) / 9 * 1000
+, "csv")

@@ -1,0 +1,7 @@
+for $c in (test_wcps_12_months_netcdf_irregular)
+
+return encode(
+
+$c[ansi("2023-03 P-1M")],
+
+"csv")

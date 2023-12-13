@@ -26,6 +26,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.KVPSymbols;
 import petascope.core.Pair;
@@ -43,6 +45,8 @@ import org.rasdaman.domain.wmts.TileMatrix;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMTSGetTileService {
     
     @Autowired
@@ -54,7 +58,7 @@ public class WMTSGetTileService {
         
         // NOTE: convert WMTS request to WMS request to handle
         Map<String, String[]> kvpParameters = new LinkedHashMap<>();
-        
+
         // layers
         kvpParameters.put(KVPSymbols.KEY_WMS_LAYERS.toLowerCase(), new String[] { layerName });
         

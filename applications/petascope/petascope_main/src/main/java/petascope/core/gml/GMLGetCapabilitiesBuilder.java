@@ -682,13 +682,21 @@ public class GMLGetCapabilitiesBuilder {
             }
 
             // 1.1.1.1 Children elements of BoundingBox element
-            Element lowerCornerElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_LOWER_CORNER_ASSOCIATE_ROLE), NAMESPACE_OWS);
-            lowerCornerElement.appendChild(envelopeByAxis.getLowerCornerRepresentation());
-            boundingBox.appendChild(lowerCornerElement);
+            try {
+                Element lowerCornerElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_LOWER_CORNER_ASSOCIATE_ROLE), NAMESPACE_OWS);
+                lowerCornerElement.appendChild(envelopeByAxis.getLowerCornerRepresentation());
+                boundingBox.appendChild(lowerCornerElement);
+            } catch (NullPointerException ex) {
+                log.error("Failed to get lower bounds representation for coverage: " + coverageId + " because of null error.", ex);
+            }
 
-            Element upperCornerElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_UPPER_CORNER_ASSOCIATE_ROLE), NAMESPACE_OWS);
-            upperCornerElement.appendChild(envelopeByAxis.getUpperCornerRepresentation());
-            boundingBox.appendChild(upperCornerElement);
+            try {
+                Element upperCornerElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_UPPER_CORNER_ASSOCIATE_ROLE), NAMESPACE_OWS);
+                upperCornerElement.appendChild(envelopeByAxis.getUpperCornerRepresentation());
+                boundingBox.appendChild(upperCornerElement);
+            } catch (NullPointerException ex) {
+                log.error("Failed to get upper bounds representation for coverage: " + coverageId + " because of null error.", ex);
+            }
         }
         
         long endTime = System.currentTimeMillis();

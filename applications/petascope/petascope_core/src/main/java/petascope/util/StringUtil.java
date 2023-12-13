@@ -57,6 +57,10 @@ import static org.rasdaman.config.ConfigManager.OWS;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
+
 /**
  * String utilities.
  *
@@ -88,11 +92,14 @@ public class StringUtil {
     public static final String HEX_COLOR_PREFIX = "0x";
     public static final String JAVA_HEX_COLOR_PREFIX = "#";
     public static final String HEX_RGB_COLOR_FORMAT = "0xRRGGBB";
-    
+
     /**
      * For coverages created temporarily, used for WCPS decode() from uploaded files
      */
     public static final String TEMP_COVERAGE_PREFIX = "WCPS_TEMP_COV";
+
+    private static final ScriptEngineManager manager = new ScriptEngineManager();
+    private static final ScriptEngine engine = manager.getEngineByName("JavaScript");
 
 
     private static String COMMA = ",";
@@ -152,6 +159,13 @@ public class StringUtil {
         return s;
     }
 
+    public static String quoteIfNotAlready(String s) {
+        if (s.startsWith("\"")) {
+            return s;
+        }
+
+        return quote(s);
+    }
     public static String quote(String s) {
         return "\"" + s + "\"";
     }
@@ -165,6 +179,10 @@ public class StringUtil {
             return s.substring(1, s.length() - 1);
         }
         return s;
+    }
+
+    public static boolean isQuoted(String s) {
+        return s.startsWith("\"") && s.endsWith("\"");
     }
 
     public static String combine(String sep, String... s) {
@@ -524,12 +542,25 @@ public class StringUtil {
         String output = input.replace("\"", "");
         return output;
     }
+
+    public static String addQuotesIfNotExists(String input) {
+        if (input.startsWith("\"")) {
+            return input;
+        }
+
+        return "\"" + input + "\"";
+    }
     
     /**
      * Strip any , in aa string
      */
     public static String stripCommas(String input) {
         String output = input.replace(",", "");
+        return output;
+    }
+
+    public static String stripSquareBrackets(String input) {
+        String output = input.replace("[", "").replace("]", "");
         return output;
     }
 
@@ -742,8 +773,24 @@ public class StringUtil {
         }
         
         return results;
-    }    
-    
+    }
+
+    /**
+     * Get all the texts between XML tags
+     * e.g. str is <a>xx</a><a>yy</a>
+     * return ["xx", "yy"] for tagName is a
+     */
+    public static List<String> extractTextsBetweenTags(String str, String tagName) {
+        Pattern TAG_REGEX = Pattern.compile("<" + tagName + ">(.+?)</" + tagName + ">", Pattern.DOTALL);
+        final List<String> tagValues = new ArrayList<>();
+        final Matcher matcher = TAG_REGEX.matcher(str);
+        while (matcher.find()) {
+            tagValues.add(matcher.group(1));
+        }
+
+        return tagValues;
+    }
+
     /**
      * e.g. 123.567000000000000000000 -> 123.567
      *      123.000 -> 123
@@ -878,6 +925,37 @@ public class StringUtil {
 
         Triple<Integer, Integer, Integer> result = new ImmutableTriple<>(color.getRed(), color.getGreen(), color.getBlue());
         return result;
+    }
+
+    /**
+     * Evaluate some simple mathematical expressions in a string to a value in a string.
+     * e.g. str = "3 + 5" -> return output = "8"
+     *
+     */
+    public static String eval(String str) throws PetascopeException {
+        if (str.contains("[")) {
+            // e.g. date[0] from axisIterator in OVER clause
+            return str;
+        }
+        String result = null;
+        try {
+            result = String.valueOf(engine.eval(str));
+        } catch (ScriptException ex) {
+            throw new PetascopeException(ExceptionCode.InternalComponentError, "String: " + str + " is not valid to evaluate. Reason: " + ex.getMessage());
+        }
+        return result;
+    }
+
+    public static boolean isAsterisk(String str) {
+        return str.trim().equals("*");
+    }
+
+    public static boolean startsWithQuote(String str) {
+        return str.startsWith("\"");
+    }
+
+    public static String removeWhiteSpaces(String str) {
+        return str.replaceAll("\\s","");
     }
     
 }

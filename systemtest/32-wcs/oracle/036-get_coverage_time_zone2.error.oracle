@@ -2,7 +2,7 @@
 <ows:ExceptionReport version="2.0.1"
     xsi:schemaLocation="http://www.opengis.net/ows/2.0 http://schemas.opengis.net/ows/2.0/owsExceptionReport.xsd"
     xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <ows:Exception exceptionCode="InvalidSubsetting" >
-        <ows:ExceptionText>lower bound '"1950-01-01T12-01"' must be less than or equal to upper bound '"1950-01-01T12Z"' for axis 't'.</ows:ExceptionText>
+    <ows:Exception exceptionCode="InvalidRequest" >
+        <ows:ExceptionText>Subset on time axis: t has upper bound: "1950-01-01T12:00:00.000Z" which is smaller than lower bound: "1950-01-01T12:01:00.000Z"</ows:ExceptionText>
     </ows:Exception>
 </ows:ExceptionReport>

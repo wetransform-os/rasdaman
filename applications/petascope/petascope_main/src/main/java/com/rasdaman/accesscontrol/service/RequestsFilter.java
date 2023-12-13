@@ -32,7 +32,6 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
-
 import org.apache.commons.lang3.StringUtils;
 import org.rasdaman.CorsFilter;
 import org.rasdaman.config.ConfigManager;
@@ -47,6 +46,10 @@ import org.springframework.stereotype.Component;
 import static org.rasdaman.config.ConfigManager.*;
 import static org.rasdaman.config.ConfigManager.PETASCOPE_ENDPOINT_URL;
 import static petascope.core.KVPSymbols.WCS_SERVICE;
+
+import petascope.controller.OapiController;
+import petascope.controller.OpenEOController;
+
 import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
@@ -75,6 +78,8 @@ public class RequestsFilter implements Filter {
     @Autowired
     private AuthenticationService authenticationService;
 
+    public static String UNAUTHENTICATED_ERROR_MESSAGE = "Missing basic authentication header with username:password encoded in Base64 string";
+
     // NOTE: These requests should bypass authentication in Petascope (i.e: no need to authenticate in any case)
     // Because they are sent internally by petascope / rasfed not by users
     private static final List<String> NO_NEED_TO_AUTHENTICATE_REQUESTS = new ArrayList<>(Arrays.asList(
@@ -90,7 +95,7 @@ public class RequestsFilter implements Filter {
     /**
      * Check if a request should need authentication or not
      */
-    private boolean requireAthenticationRequest(String requestMethod, String requestURI, String queryString) {
+    private boolean requireAuthenticationRequest(String requestMethod, String requestURI, String queryString) {
         
         // Static assets (.html, .js, .css) are not checked
         if (requestURI.matches(".*/.*\\..*")) {
@@ -121,7 +126,25 @@ public class RequestsFilter implements Filter {
             if (requestURI.contains("/" + request)) {
                 return false;
             }
-        }                
+        }
+
+//       -- OAPI
+
+        for (String request : OapiController.NO_NEED_AUTHENTICATION_ENDPOINTS) {
+            // special requests are not checked
+            if (requestURI.endsWith("/" + request) || requestURI.endsWith("/" + request + "/")) {
+                return false;
+            }
+        }        
+
+//      -- openEO
+
+        for (String request : OpenEOController.NO_NEED_AUTHENTICATION_ENDPOINTS) {
+            // special requests are not checked
+            if (requestURI.endsWith("/" + request) || requestURI.endsWith("/" + request + "/")) {
+                return false;
+            }
+        }
 
         return true;
     }
@@ -177,7 +200,7 @@ public class RequestsFilter implements Filter {
             return;
         } 
         
-        String authenticationErrorMessage = "";
+        String unauthenticationErrorMessage = "";
         
         if (ConfigManager.enableAuthentication()) {
             
@@ -186,13 +209,13 @@ public class RequestsFilter implements Filter {
             String authenticationType = ConfigManager.AUTHENTICATION_TYPE;
 
             // Special requests will not need to check
-            if (requireAthenticationRequest(httpServletRequest.getMethod(), httpServletRequest.getRequestURI(), httpServletRequest.getQueryString())) {
+            if (requireAuthenticationRequest(httpServletRequest.getMethod(), httpServletRequest.getRequestURI(), httpServletRequest.getQueryString())) {
                 Pair<String, String> basicAuthCredentialsPair = null;
                 try {
                     basicAuthCredentialsPair = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
                     this.checkValidCredentialsAllowNull(basicAuthCredentialsPair);
                 } catch (PetascopeException ex) {
-                    ExceptionUtil.handle(VersionManager.getLatestVersion(WCS_SERVICE), ex, httpServletResponse);
+                    ExceptionUtil.handle(VersionManager.getLatestVersion(WCS_SERVICE), ex, httpServletRequest, httpServletResponse);
                     return;
                 }
 
@@ -202,9 +225,9 @@ public class RequestsFilter implements Filter {
                             // If rasguest is not set as rasdaman_user and basic header is enabled, then petascope throws error for unauthenticated requests
                             try {
                                 String requestRepresentation = this.petascopeController.getRequestPresentationWithEncodedAmpersands(httpServletRequest);
-                                authenticationErrorMessage = "Missing basic authentication header with username:password encoded in Base64 string from request '" + requestRepresentation + "'";
+                                unauthenticationErrorMessage = UNAUTHENTICATED_ERROR_MESSAGE + " from request '" + requestRepresentation + "'";
                             } catch (Exception ex) {
-                                ExceptionUtil.handle(VersionManager.getLatestVersion(WCS_SERVICE), ex, httpServletResponse);
+                                ExceptionUtil.handle(VersionManager.getLatestVersion(WCS_SERVICE), ex, httpServletRequest, httpServletResponse);
                             }                            
                         } else {
                             // If rasguest is set as rasdaman_user and basic header is enabled, then petascope uses rasguest's credentials for unauthenticated requests
@@ -223,18 +246,18 @@ public class RequestsFilter implements Filter {
                     basicAuthCredentialsPair = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
                     this.checkValidCredentialsAllowNull(basicAuthCredentialsPair);
                 } catch (PetascopeException ex) {
-                    ExceptionUtil.handle(VersionManager.getLatestVersion(WCS_SERVICE), ex, httpServletResponse);
+                    ExceptionUtil.handle(VersionManager.getLatestVersion(WCS_SERVICE), ex, httpServletRequest, httpServletResponse);
                 }
             }
         }
 
-        if (authenticationErrorMessage.isEmpty()) {
+        if (unauthenticationErrorMessage.isEmpty()) {
             // requests has no problem with authentication
             filterChain.doFilter(request, response);
         } else {
             // request is not authenticated
-            PetascopeException petascopeException = new PetascopeException(ExceptionCode.Unauthorized, authenticationErrorMessage);
-            ExceptionUtil.handle(VersionManager.getLatestVersion(WCS_SERVICE), petascopeException, httpServletResponse);
+            PetascopeException petascopeException = new PetascopeException(ExceptionCode.Unauthorized, unauthenticationErrorMessage);
+            ExceptionUtil.handle(VersionManager.getLatestVersion(WCS_SERVICE), petascopeException, httpServletRequest, httpServletResponse);
         }
     }
 
@@ -253,7 +276,7 @@ public class RequestsFilter implements Filter {
 
         public MutableHttpServletRequest(HttpServletRequest request){
             super(request);
-            this.customHeaders = new HashMap<>();
+            this.customHeaders = new HashMap<String, String>();
         }
 
         public void putHeader(String name, String value){

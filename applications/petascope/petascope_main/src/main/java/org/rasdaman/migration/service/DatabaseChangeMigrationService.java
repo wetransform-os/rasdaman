@@ -172,7 +172,7 @@ public class DatabaseChangeMigrationService extends AbstractMigrationService {
                     // Coverage Id is not migrated yet, now read the whole coverage entity from source data source
                     Coverage coverage = this.readCoverageById(coverageId);
                     
-                    // NOTE: this is used to avoid problem with some cases, the ids (primari keys) can be duplicated in rows
+                    // NOTE: this is used to avoid problem with some cases, the ids (primary keys) can be duplicated in rows
                     // which lead to null error (e.g. AxisExtent or Axis object of a coverage is null) when persisting to database
                     Coverage coverageTmp = (Coverage) JSONUtil.clone(coverage);
                     

@@ -53,11 +53,24 @@
             <artifactId>jackson-dataformat-xml</artifactId>
             <version>2.8.7</version>
         </dependency>
+        <!-- java 8 datetime -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-parameter-names</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jdk8</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.networknt</groupId>
             <artifactId>json-schema-validator</artifactId>
             <version>1.0.72</version>
-        </dependency>        
+        </dependency>          
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
@@ -186,6 +199,13 @@
             <artifactId>antlr4</artifactId>
             <version>4.13.0</version>
         </dependency>
+        <!-- stringtemplate4 for WCPS openEO -->
+        <dependency>
+          <groupId>org.antlr</groupId>
+          <artifactId>ST4</artifactId>
+          <version>4.3.4</version>
+          <scope>compile</scope>
+        </dependency>        
         <dependency>
             <groupId>com.intellij</groupId>
             <artifactId>annotations</artifactId>

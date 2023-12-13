@@ -23,9 +23,8 @@ package petascope.wcps.metadata.service;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import petascope.wcps.exception.processing.InvalidIntervalNumberFormat;
-import petascope.wcps.metadata.model.NumericTrimming;
-import petascope.wcps.metadata.model.Subset;
-import petascope.wcps.metadata.model.WcpsCoverageMetadata;
+import petascope.wcps.metadata.model.*;
+import petascope.wcps.subset_axis.model.WcpsSliceTemporalSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 
 import java.math.BigDecimal;
@@ -33,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import com.rasdaman.accesscontrol.service.AuthenticationService;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Service;
@@ -44,10 +42,6 @@ import petascope.util.CrsUtil;
 import petascope.util.TimeUtil;
 import petascope.core.XMLSymbols;
 import petascope.wcps.exception.processing.InvalidSlicingException;
-import petascope.wcps.metadata.model.Axis;
-import petascope.wcps.metadata.model.NumericSlicing;
-import petascope.wcps.metadata.model.NumericSubset;
-import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 import petascope.core.service.CrsComputerService;
@@ -58,6 +52,10 @@ import petascope.util.StringUtil;
 import static petascope.util.WCPSConstants.MSG_STAR;
 import static petascope.util.ras.RasConstants.RASQL_SELECT;
 import petascope.util.ras.RasUtil;
+import petascope.wcs2.parsers.subsets.AbstractSubsetDimension;
+import petascope.wcs2.parsers.subsets.SlicingSubsetDimension;
+import petascope.wcs2.parsers.subsets.TrimmingSubsetDimension;
+
 import static petascope.wcs2.parsers.subsets.AbstractSubsetDimension.ASTERISK;
 
 /**
@@ -111,6 +109,10 @@ public class SubsetParsingService {
         for (WcpsSubsetDimension subsetDimension : subsetDimensions) {
             if (!isSubsetTerminal(subsetDimension)) {
                 nonTerminalSubsetDimensions.add(subsetDimension);
+            } else if (subsetDimension.getFixedRasqlGridDomain() != null) {
+                // e.g. c[ansi($pt)] with $pt from OVER $pt ansi("2015-01-01":"2015-01-02")
+                nonTerminalSubsetDimensions.add(new WcpsSliceSubsetDimension(subsetDimension.getAxisName(),
+                                                                                CrsUtil.GRID_CRS, subsetDimension.getFixedRasqlGridDomain()));
             }
         }
 
@@ -124,6 +126,8 @@ public class SubsetParsingService {
      * @return
      */
     private boolean isSubsetTerminal(WcpsSubsetDimension subset) {
+
+
         //temporal
         if (subset.isTemporal()) {
             return true;
@@ -134,12 +138,20 @@ public class SubsetParsingService {
             String lowerBound = ((WcpsTrimSubsetDimension) subset).getLowerBound();
             String upperBound = ((WcpsTrimSubsetDimension) subset).getUpperBound();
             return isBoundTerminal(lowerBound) && isBoundTerminal(upperBound);
-        } else {
+        } else if (subset instanceof WcpsSliceSubsetDimension) {
             // slice subset dimension
             String bound = ((WcpsSliceSubsetDimension) subset).getBound();
             return isBoundTerminal(bound);
+        } else if (subset instanceof WcpsSliceTemporalSubsetDimension) {
+            // temporal subsetting
+            WcpsSliceTemporalSubsetDimension sliceTemporalSubsetDimension = (WcpsSliceTemporalSubsetDimension)subset;
+
+            String lowerBound = ((WcpsSliceTemporalSubsetDimension) subset).getPetascopeDateTime().getDateTimeMin().toString();
+            String upperBound = ((WcpsSliceTemporalSubsetDimension) subset).getPetascopeDateTime().getDateTimeMax().toString();
+            return isBoundTerminal(lowerBound) && isBoundTerminal(upperBound);
         }
 
+        return false;
     }
 
     /**
@@ -158,10 +170,6 @@ public class SubsetParsingService {
     /**
      * Used in slicing,trimming expression then convert list of subsetDimension
      * to subset
-     *
-     * @param dimensions
-     * @param metadata
-     * @return
      */
     public List<Subset> convertToNumericSubsets(List<WcpsSubsetDimension> dimensions, List<Axis> axes) throws PetascopeException {
         List<Subset> result = new ArrayList();
@@ -260,13 +268,41 @@ public class SubsetParsingService {
     }
 
     /**
-     * Supports * and time in the subset.
+<<<<<<< HEAD
+     * e.g. convert datetime "2015-01-01" to a big decimal value
      *
-     * @param dimension
-     * @param metadata
-     * @return
+=======
+     * Supports * and time in the subset.
+>>>>>>> ticket:000 - NEW - calendar feature
      */
-    private Subset convertToNumericSubset(WcpsSubsetDimension dimension, List<Axis> axes) throws PetascopeException {
+    public AbstractSubsetDimension convertToNumericSubset(AbstractSubsetDimension subsetDimension, Axis axis) throws PetascopeException {
+
+        if (subsetDimension instanceof TrimmingSubsetDimension) {
+            TrimmingSubsetDimension trimmingSubsetDimension = ((TrimmingSubsetDimension) subsetDimension);
+
+            // convert each slicing point of trimming subset to numeric
+            // NOTE: it cannot parse expression in the axis interval (e.g: Lat(1 + 1:2 + avg(c)))
+            BigDecimal lowerBound = convertPointToBigDecimal(true, true, axis, trimmingSubsetDimension.getLowerBound());
+            BigDecimal upperBound = convertPointToBigDecimal(true, false, axis, trimmingSubsetDimension.getUpperBound());
+
+            trimmingSubsetDimension.setLowerBound(lowerBound.toPlainString());
+            trimmingSubsetDimension.setLowerBound(upperBound.toPlainString());
+
+        } else {
+            SlicingSubsetDimension slicingSubsetDimension = ((SlicingSubsetDimension) subsetDimension);
+
+            // NOTE: it cannot parse expression in the axis interval (e.g: Lat(1 + 1))
+            BigDecimal bound = convertPointToBigDecimal(false, true, axis, slicingSubsetDimension.getBound());
+            slicingSubsetDimension.setBound(bound.toPlainString());
+        }
+
+        return subsetDimension;
+    }
+
+    /**
+     * Supports * and time in the subset.
+     */
+    public Subset convertToNumericSubset(WcpsSubsetDimension dimension, List<Axis> axes) throws PetascopeException {
 
         // This needs to be added transform() if dimension has crs which is different with native axis from coverage
         String axisName = dimension.getAxisName();
@@ -303,10 +339,20 @@ public class SubsetParsingService {
             upperBound = convertPointToBigDecimal(true, false, axis, ((WcpsTrimSubsetDimension) dimension).getUpperBound());
 
             numericSubset = new NumericTrimming(lowerBound, upperBound);
-        } else {
+        } else if (dimension instanceof WcpsSliceSubsetDimension) {
             // NOTE: it cannot parse expression in the axis interval (e.g: Lat(1 + 1))
             lowerBound = convertPointToBigDecimal(false, true, axis, ((WcpsSliceSubsetDimension) dimension).getBound());
             numericSubset = new NumericSlicing(lowerBound);
+        } else {
+            // temporal subsetting
+            WcpsSliceTemporalSubsetDimension sliceTemporalSubsetDimension = ((WcpsSliceTemporalSubsetDimension) dimension);
+            String timeGranularityLowerBoundStr = sliceTemporalSubsetDimension.getPetascopeDateTime().getDateTimeMin().toString();
+            String timeGranularityUpperBoundStr = sliceTemporalSubsetDimension.getPetascopeDateTime().getDateTimeMax().toString();
+
+            BigDecimal timeGranularityLowerBound = convertPointToBigDecimal(false, true, axis, timeGranularityLowerBoundStr);
+            BigDecimal timeGranularityUpperBound = convertPointToBigDecimal(false, true, axis, timeGranularityUpperBoundStr);
+
+            numericSubset = new NumericTemporalSlicing(timeGranularityLowerBound, timeGranularityUpperBound);
         }
 
         return new Subset(numericSubset, sourceCrs, axisName);
@@ -453,12 +499,8 @@ public class SubsetParsingService {
      *
      * @param isTrimming    check if subset is trimming
      * @param isLowerPoint  check if point is in lower or upper subset
-     * @param axisName      axis name
      * @param point         the value of slicing point (can be numeric, date time or
      *                      string (throw exception if cannot parse))
-     * @param isScaleExtend is used to check whether should fit the input
-     *                      subsets to coverage bounding box or not (scale / extend intervals can be
-     *                      larger than coverage bounding box).
      * @return
      */
     private BigDecimal convertPointToBigDecimal(boolean isTrimming, boolean isLowerPoint, Axis axis, String point) throws PetascopeException {

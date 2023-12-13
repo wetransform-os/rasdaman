@@ -113,6 +113,7 @@ QUOTE: '"';
 ESCAPED_QUOTE: '\\"';
 PLUS: '+';
 POWER: ('p'|'P')('o'|'O')('w'|'W');
+POLYGONIZE: ('p'|'P')('o'|'O')('l'|'L')('y'|'Y')('g'|'G')('o'|'O')('n'|'N')('i'|'I')('z'|'Z')('e'|'E');
 REAL_PART: ('r'|'R')('e'|'E');
 ROUND: ('r'|'R')('o'|'O')('u'|'U')('n'|'N')('d'|'D');
 RETURN: ('r'|'R')('e'|'E')('t'|'T')('u'|'U')('r'|'R')('n'|'N');
@@ -153,6 +154,27 @@ MULTIPOLYGON: ('m'|'M')('u'|'U')('l'|'L')('t'|'T')('i'|'I')('p'|'P')('o'|'O')('l
 
 PROJECTION: ('p'|'P')('r'|'R')('o'|'O')('j'|'J')('e'|'E')('c'|'C')('t'|'T')('i'|'I')('o'|'O')('n'|'N');
 WITH_COORDINATES: ('w'|'W')('i'|'I')('t'|'T')('h'|'H')(' ')+('c'|'C')('o'|'O')('o'|'O')('r'|'R')('d'|'D')('i'|'I')('n'|'N')('a'|'A')('t'|'T')('e'|'E')('s'|'S');
+VERTICAL_BAR: ('|');
+
+
+// Time extractors
+
+YEARS: ('y'|'Y')('e'|'E')('a'|'A')('r'|'R')('s'|'S');
+MONTHS: ('m'|'M')('o'|'O')('n'|'N')('t'|'T')('h'|'H')('s'|'S');
+DAYS: ('d'|'D')('a'|'A')('y'|'Y')('s'|'S');
+HOURS: ('h'|'H')('o'|'O')('u'|'U')('r'|'R')('s'|'S');
+MINUTES: ('m'|'M')('i'|'I')('n'|'N')('u'|'U')('t'|'T')('e'|'E')('s'|'S');
+SECONDS: ('s'|'S')('e'|'E')('c'|'C')('o'|'O')('n'|'N')('d'|'D')('s'|'S');
+
+// Time truncators
+
+ALL_YEARS: ('a'|'A')('l'|'L')('l'|'L')('y'|'Y')('e'|'E')('a'|'A')('r'|'R')('s'|'S');
+ALL_MONTHS: ('a'|'A')('l'|'L')('l'|'L')('m'|'M')('o'|'O')('n'|'N')('t'|'T')('h'|'H')('s'|'S');
+ALL_DAYS: ('a'|'A')('l'|'L')('l'|'L')('d'|'D')('a'|'A')('y'|'Y')('s'|'S');
+ALL_HOURS: ('a'|'A')('l'|'L')('l'|'L')('h'|'H')('o'|'O')('u'|'U')('r'|'R')('s'|'S');
+ALL_MINUTES: ('a'|'A')('l'|'L')('l'|'L')('m'|'M')('i'|'I')('n'|'N')('u'|'U')('t'|'T')('e'|'E')('s'|'S');
+ALL_SECONDS: ('a'|'A')('l'|'L')('l'|'L')('s'|'S')('e'|'E')('c'|'C')('o'|'O')('n'|'N')('d'|'D')('s'|'S');
+
 
 INTEGER: [0-9]+;
 REAL_NUMBER_CONSTANT: [0-9]+('.'[0-9]*)?;
@@ -163,6 +185,7 @@ COVERAGE_VARIABLE_NAME: [$a-zA-Z0-9_]+;
 COVERAGE_NAME: ([a-zA-Z0-9_][a-zA-Z0-9_\\.-]*':'([0-9]+':')?)?[a-zA-Z_][a-zA-Z0-9_]*;
 
 STRING_LITERAL: '"' [a-zA-Z0-9!#$&.+-^_/ ]+? '"';
+
 WS: [ \n\t\r]+ -> channel(HIDDEN);
 EXTRA_PARAMS:  '"' (~[\\"] | '\\' [\\"])* '"';
 

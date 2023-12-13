@@ -86,7 +86,7 @@ public class AdminUpdateCoverageController extends AbstractController {
 
                 this.adminUpdateCoverageService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         

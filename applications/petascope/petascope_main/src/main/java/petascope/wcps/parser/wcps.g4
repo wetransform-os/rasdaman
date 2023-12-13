@@ -426,8 +426,15 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
 
 		          | domainIntervals
                     #CoverageExpressionDomainIntervalsLabel
+                  | timeExtractorElement
+                    #CoverageExpressionTimeExtractorLabel
+                  | timeTruncatorElement
+                    #CoverageExpressionTimeTruncatorLabel
+
                   | geoXYAxisLabelAndDomainResolution
                     #CoverageExpressionGeoXYAxisLabelAndDomainResolution
+
+
                   | coverageExpression DOT fieldName
                     #CoverageExpressionRangeSubsettingLabel
 
@@ -444,6 +451,7 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                     #CoverageExpressionConstantLabel
                   | decodeCoverageExpression
                     #CoverageExpressionDecodeLabel
+
                   
                   | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE ( dimensionIntervalList  | coverageVariableName )  RIGHT_BRACE
                     RIGHT_PARENTHESIS
@@ -510,7 +518,9 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                   | flipExpression
                     #coverageExpresisonFlipLabel
                   | sortExpression
-                    #coverageExpressionSortLabel;
+                    #coverageExpressionSortLabel
+                  | polygonizeExpression
+                    #coverageExpressionPolygonizeLabel;
 /**
  * Example:
  *   $c1 AND $c2
@@ -717,12 +727,17 @@ scaleDimensionIntervalElement: axisName LEFT_PARENTHESIS
 #TrimScaleDimensionIntervalElementLabel;
 
 
+
+dimensionBoundConcatenationElement: LEFT_PARENTHESIS? coverageExpression RIGHT_PARENTHESIS? ( DOT LEFT_PARENTHESIS? coverageExpression RIGHT_PARENTHESIS? ) *
+#DimensionBoundConcatenationElementLabel;
+
+
                           
 /*
 Use for trimming, slicing of coverage (e.g: Lat:"CRS:1"(0:20))
 */
 dimensionIntervalElement: axisName (COLON crsName)? LEFT_PARENTHESIS
-                            coverageExpression COLON coverageExpression
+                            dimensionBoundConcatenationElement COLON dimensionBoundConcatenationElement
                           RIGHT_PARENTHESIS                                                                             #TrimDimensionIntervalElementLabel
 
 
@@ -734,8 +749,36 @@ dimensionIntervalElement: axisName (COLON crsName)? LEFT_PARENTHESIS
                                                                                                                         #TrimDimensionIntervalByImageCrsDomainElementLabel
 
 
-                        | axisName (COLON crsName)? LEFT_PARENTHESIS coverageExpression
+                        | axisName (COLON crsName)? LEFT_PARENTHESIS dimensionBoundConcatenationElement
                           RIGHT_PARENTHESIS                                                                             #SliceDimensionIntervalElementLabel;
+
+
+// Calendar features
+
+// Time extractors
+
+timeIntervalElement:
+
+                        dimensionBoundConcatenationElement ( COLON dimensionBoundConcatenationElement )?
+                        | domainExpression;
+
+
+timeExtractorElement:  YEARS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | MONTHS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | DAYS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | HOURS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | MINUTES LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | SECONDS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS;
+
+// Time truncators
+
+timeTruncatorElement:  ALL_YEARS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_MONTHS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_DAYS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_HOURS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_MINUTES LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_SECONDS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS;
+
 
 /* e.g: 20 30, 30 40, 50 60 */
 wktPoints: (constant (constant)*) (COMMA constant (constant)*)*
@@ -850,6 +893,11 @@ crsTransformShorthandExpression: CRS_TRANSFORM LEFT_PARENTHESIS
 #CrsTransformShorthandExpressionLabel;
 
 
+
+polygonizeExpression: POLYGONIZE LEFT_PARENTHESIS coverageExpression COMMA STRING_LITERAL ( COMMA INTEGER )?
+#PolygonizeExpressionLabel;
+
+
 /*
  * e.g: { Lat:"http://localhost:8080/def/crs/EPSG/0/4326", Long:"http://localhost:8080/def/crs/EPSG/0/4326"}
 */
@@ -899,10 +947,14 @@ AxisIteratorImageCrsDomainByDimensionLabel
 * $px x (imageCrsdomain(c[Long(0), Lat(0:20)))
 AxisIteratorImageCrsDomainLabel
 */
-axisIterator:   coverageVariableName axisName LEFT_PARENTHESIS  domainIntervals RIGHT_PARENTHESIS
+axisIterator:   coverageVariableName axisName LEFT_PARENTHESIS  domainIntervals (COLON  regularTimeStep) ? RIGHT_PARENTHESIS
                 #AxisIteratorDomainIntervalsLabel
-		          | coverageVariableName axisName LEFT_PARENTHESIS coverageExpression COLON coverageExpression RIGHT_PARENTHESIS
-                #AxisIteratorLabel;
+		          | coverageVariableName axisName LEFT_PARENTHESIS dimensionBoundConcatenationElement COLON dimensionBoundConcatenationElement (COLON regularTimeStep) ? RIGHT_PARENTHESIS
+                #AxisIteratorLabel
+		          | coverageVariableName axisName LEFT_PARENTHESIS dimensionBoundConcatenationElement (COMMA dimensionBoundConcatenationElement)* RIGHT_PARENTHESIS
+		        #AxisIteratorEnumerationListLabel;
+
+regularTimeStep: STRING_LITERAL;
 
 
 intervalExpression: scalarExpression COLON scalarExpression

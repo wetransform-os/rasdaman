@@ -54,6 +54,20 @@ RESULT=$RC_OK
 # functions
 # ------------------------------------------------------------------------------
 
+# return the value of key=value from properties file ($1: the key, $2: the file)
+get_key_value()
+{    
+    key_value=$(grep -E "^$1=" "$2") && echo ${key_value#*=} || echo ""
+}
+
+RASADMIN_USER="$(get_key_value "rasdaman_admin_user" "$SETTINGS")"
+RASADMIN_PASS="$(get_key_value "rasdaman_admin_pass" "$SETTINGS")"
+
+# credentials files for wcst_import to authenticate to petascope
+RASADMIN_CREDENTIALS_FILE="/tmp/rasadmin_credentials.txt"
+echo "$RASADMIN_USER:$RASADMIN_PASS" > "$RASADMIN_CREDENTIALS_FILE"
+chmod 400 "$RASADMIN_CREDENTIALS_FILE"
+
 #
 # logging
 #
@@ -101,7 +115,6 @@ get_value(){
     key_value=$(grep -E "^$1=" "$2") && echo "${key_value#*=}" || echo "$NULL_VALUE"
 }
 
-
 #
 # import
 #
@@ -141,6 +154,13 @@ import_coverage()
 
   rm -f "$RECIPE_FILE"
 }
+
+# Called when the script finishes
+cleanup() {
+  rm -f "$RASADMIN_CREDENTIALS_FILE"
+}
+
+trap cleanup EXIT
 
 # ------------------------------------------------------------------------------
 # work

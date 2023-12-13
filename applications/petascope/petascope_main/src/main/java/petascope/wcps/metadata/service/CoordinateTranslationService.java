@@ -21,6 +21,8 @@
  */
 package petascope.wcps.metadata.service;
 
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import petascope.util.BigDecimalUtil;
 import petascope.wcps.metadata.model.ParsedSubset;
 
@@ -42,6 +44,7 @@ import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.NumericSubset;
 import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
+import petascope.wcps.subset_axis.model.WcpsSliceTemporalSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 
@@ -52,6 +55,8 @@ import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
  * @author <a href="mailto:b.phamhuu@jacobs-university.de">Bang Pham Huu</a>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class CoordinateTranslationService {
     
     private final BigDecimal GDAL_EPSILON_MIN = new BigDecimal("0.001");
@@ -416,18 +421,27 @@ public class CoordinateTranslationService {
         BigDecimal upperLimit = null;
         String originalLowerBound = null;
         String originalUpperBound = null;
-        
-        if (numericSubset.isSlicing()) {
+
+        if (subsetDimension instanceof WcpsTrimSubsetDimension) {
+            lowerLimit = numericSubset.getLowerLimit();
+            upperLimit = numericSubset.getUpperLimit();
+            originalLowerBound = ((WcpsTrimSubsetDimension)subsetDimension).getLowerBound();
+            originalUpperBound = ((WcpsTrimSubsetDimension)subsetDimension).getUpperBound();
+        } else if (subsetDimension instanceof WcpsSliceSubsetDimension) {
             lowerLimit = numericSubset.getSlicingCoordinate();
             upperLimit = numericSubset.getSlicingCoordinate();
             originalLowerBound = ((WcpsSliceSubsetDimension)subsetDimension).getBound();
             originalUpperBound = ((WcpsSliceSubsetDimension)subsetDimension).getBound();
         } else {
+            WcpsSliceTemporalSubsetDimension sliceTemporalSubsetDimension = (WcpsSliceTemporalSubsetDimension)subsetDimension;
+            // special time slicing, here it has time granularity as lowerBound:upperBound
             lowerLimit = numericSubset.getLowerLimit();
             upperLimit = numericSubset.getUpperLimit();
-            originalLowerBound = ((WcpsTrimSubsetDimension)subsetDimension).getLowerBound();
-            originalUpperBound = ((WcpsTrimSubsetDimension)subsetDimension).getUpperBound();
+
+            // in datetime format (e.g. "2023-01") bound input by user
+            originalLowerBound = ((WcpsSliceTemporalSubsetDimension)subsetDimension).getOriginalBound();
         }
+
 
         // e.g: t(148654) in irr_cube_2
         NumericSubset originalGeoBounds = irregularAxis.getOriginalGeoBounds();
@@ -487,14 +501,13 @@ public class CoordinateTranslationService {
         Pair<Long, Long> gridIndicePair = irregularAxis.getGridIndices(lowerCoefficient, upperCoefficient);
         if (gridIndicePair.fst > gridIndicePair.snd) {
             if (irregularAxis.isTimeAxis()) {
-                originalLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, irregularAxis.getOriginalGeoBounds().getLowerLimit(), irregularAxis.getCrsDefinition());
-                originalUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, irregularAxis.getOriginalGeoBounds().getUpperLimit(), irregularAxis.getCrsDefinition());
+                originalLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, lowerLimit, irregularAxis.getCrsDefinition());
+                originalUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, upperLimit, irregularAxis.getCrsDefinition());
             }
             
             throw new IrregularAxisTrimmingCoefficientNotFoundException(irregularAxis.getLabel(), originalLowerBound, originalUpperBound);
         }
         Pair<Long, Long> gridBoundsPair = irregularAxis.calculateGridBoundsByZeroCoefficientIndex(gridIndicePair.fst, gridIndicePair.snd);
-
         return new ParsedSubset(gridBoundsPair.fst, gridBoundsPair.snd);
     }
     

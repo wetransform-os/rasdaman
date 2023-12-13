@@ -391,6 +391,13 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitCoverageExpressionCrsTransformShorthandLabel(wcpsParser.CoverageExpressionCrsTransformShorthandLabelContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code CoverageExpressionTimeTruncatorLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCoverageExpressionTimeTruncatorLabel(wcpsParser.CoverageExpressionTimeTruncatorLabelContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code CoverageExpressionModLabel}
 	 * labeled alternative in {@link wcpsParser#coverageExpression}.
 	 * @param ctx the parse tree
@@ -474,6 +481,13 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitCoverageExpressionExponentialLabel(wcpsParser.CoverageExpressionExponentialLabelContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code coverageExpressionPolygonizeLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCoverageExpressionPolygonizeLabel(wcpsParser.CoverageExpressionPolygonizeLabelContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code CoverageExpressionLogicLabel}
 	 * labeled alternative in {@link wcpsParser#coverageExpression}.
@@ -663,6 +677,13 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitCoverageExpressionExtendLabel(wcpsParser.CoverageExpressionExtendLabelContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code CoverageExpressionTimeExtractorLabel}
+	 * labeled alternative in {@link wcpsParser#coverageExpression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCoverageExpressionTimeExtractorLabel(wcpsParser.CoverageExpressionTimeExtractorLabelContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code CoverageExpressionUnaryArithmeticLabel}
 	 * labeled alternative in {@link wcpsParser#coverageExpression}.
@@ -862,6 +883,13 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitTrimScaleDimensionIntervalElementLabel(wcpsParser.TrimScaleDimensionIntervalElementLabelContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code DimensionBoundConcatenationElementLabel}
+	 * labeled alternative in {@link wcpsParser#dimensionBoundConcatenationElement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitDimensionBoundConcatenationElementLabel(wcpsParser.DimensionBoundConcatenationElementLabelContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code TrimDimensionIntervalElementLabel}
 	 * labeled alternative in {@link wcpsParser#dimensionIntervalElement}.
 	 * @param ctx the parse tree
@@ -882,6 +910,24 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitSliceDimensionIntervalElementLabel(wcpsParser.SliceDimensionIntervalElementLabelContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link wcpsParser#timeIntervalElement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitTimeIntervalElement(wcpsParser.TimeIntervalElementContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link wcpsParser#timeExtractorElement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitTimeExtractorElement(wcpsParser.TimeExtractorElementContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link wcpsParser#timeTruncatorElement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitTimeTruncatorElement(wcpsParser.TimeTruncatorElementContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code wktPointsLabel}
 	 * labeled alternative in {@link wcpsParser#wktPoints}.
@@ -1003,6 +1049,13 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitCrsTransformShorthandExpressionLabel(wcpsParser.CrsTransformShorthandExpressionLabelContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code PolygonizeExpressionLabel}
+	 * labeled alternative in {@link wcpsParser#polygonizeExpression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code DimensionCrsListLabel}
 	 * labeled alternative in {@link wcpsParser#dimensionCrsList}.
 	 * @param ctx the parse tree
@@ -1057,6 +1110,19 @@ public interface wcpsVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitAxisIteratorLabel(wcpsParser.AxisIteratorLabelContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code AxisIteratorEnumerationListLabel}
+	 * labeled alternative in {@link wcpsParser#axisIterator}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitAxisIteratorEnumerationListLabel(wcpsParser.AxisIteratorEnumerationListLabelContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link wcpsParser#regularTimeStep}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitRegularTimeStep(wcpsParser.RegularTimeStepContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code IntervalExpressionLabel}
 	 * labeled alternative in {@link wcpsParser#intervalExpression}.

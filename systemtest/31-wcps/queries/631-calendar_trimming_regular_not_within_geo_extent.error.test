@@ -1,0 +1,2 @@
+for c in (test_3D_Timeseries_Regular_1_day)
+return encode(c[ansi("2015-01-01":"2015-01-04T12:00:00.001")], "csv")

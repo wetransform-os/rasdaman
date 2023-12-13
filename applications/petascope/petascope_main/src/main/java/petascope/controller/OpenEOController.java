@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static org.rasdaman.config.ConfigManager.*;
+import static petascope.controller.OapiController.OAPI_CONFORMANCE;
 import static petascope.core.KVPSymbols.KEY_OPENEO_PROCESS_GRAPH_ID;
 import static petascope.core.KVPSymbols.KEY_OPENEO_PROCESS_GRAPH_JSON_CONTENT;
 import static petascope.util.MIMEUtil.MIME_JSON;
@@ -79,7 +80,6 @@ public class OpenEOController extends AbstractController {
     // --- GDC endpoints
 
     public static final String GDC_CONFORMANCE = GDC + "/conformance";
-    public static final String OAPI_CONFORMANCE = OAPI + "/conformance";
 
     public static final String GDC_WELLKNOWN_CONTEXT_PATH = GDC + "/.well-known/openeo";
     private static final String GDC_FILE_FORMATS_CONTEXT_PATH = GDC + "/file_formats";
@@ -105,15 +105,16 @@ public class OpenEOController extends AbstractController {
                                                         GDC,
                                                         OPENEO,
 
-                                                    GDC_CONFORMANCE,
-                                                    OAPI_CONFORMANCE,
-                                                    GDC_WELLKNOWN_CONTEXT_PATH,
-                                                    GDC_FILE_FORMATS_CONTEXT_PATH,
-                                                    GDC_PROCESSES_CONTEXT_PATH,
+                                                        GDC_CONFORMANCE,
 
-                                                    OPENEO_WELLKNOWN_CONTEXT_PATH,
-                                                    OPENEO_FILE_FORMATS_CONTEXT_PATH,
-                                                    OPENEO_PROCESSES_CONTEXT_PATH);
+                                                        GDC_WELLKNOWN_CONTEXT_PATH,
+                                                        OPENEO_WELLKNOWN_CONTEXT_PATH,
+
+                                                        GDC_FILE_FORMATS_CONTEXT_PATH,
+                                                        OPENEO_FILE_FORMATS_CONTEXT_PATH,
+
+                                                        GDC_PROCESSES_CONTEXT_PATH,
+                                                        OPENEO_PROCESSES_CONTEXT_PATH);
 
     public OpenEOController() {
         

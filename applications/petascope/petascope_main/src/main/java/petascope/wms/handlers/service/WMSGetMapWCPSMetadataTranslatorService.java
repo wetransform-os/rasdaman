@@ -24,6 +24,8 @@ package petascope.wms.handlers.service;
 import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.BoundingBox;
 import petascope.core.Pair;
@@ -39,6 +41,8 @@ import petascope.wms.handlers.model.WMSLayer;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapWCPSMetadataTranslatorService {
    
     @Autowired
@@ -49,10 +53,10 @@ public class WMSGetMapWCPSMetadataTranslatorService {
      */
     public WMSLayer createWMSLayer(String layerName, BoundingBox originalXYBoundsBBox, BoundingBox requestBBox,
                                    BoundingBox extendedRequestBBox, int width, int height
-                                   , List<WcpsSubsetDimension> subsetDimensions
+                                   , List<WcpsSubsetDimension> nonXYSubsetDimensions
                                    , String wmtsTileMatrixName) {
         WMSLayer wmsLayer = new WMSLayer(layerName, originalXYBoundsBBox, requestBBox, extendedRequestBBox, width, height,
-                                        subsetDimensions
+                                        nonXYSubsetDimensions
                                         , wmtsTileMatrixName
                                         ); 
         return wmsLayer;

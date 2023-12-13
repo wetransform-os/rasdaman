@@ -111,7 +111,7 @@ public class AdminOwsServiceInfoController extends AbstractController {
                 this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
                 this.handle(kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         

@@ -41,7 +41,7 @@ import petascope.core.AxisTypes;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.ListUtil;
-import static petascope.wcps.handler.GeneralCondenserHandler.USING;
+import static petascope.wcps.handler.CoverageGeneralCondenserHandler.USING;
 import petascope.wcps.metadata.model.RangeField;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.model.Axis;
@@ -210,7 +210,7 @@ public class WcpsCoverageMetadataTranslator {
                 }
             }
 
-            for (WcpsSliceSubsetDimension sliceSubsetDimension : wcpsCoverageMetadataBase.getSlicedWcpsSubsetDimensions()) {
+            for (WcpsSubsetDimension sliceSubsetDimension : wcpsCoverageMetadataBase.getSlicedWcpsSubsetDimensions()) {
                 String sliceAxisLabel = sliceSubsetDimension.getAxisName();
 
                 if (!(CrsUtil.axisLabelsMatch(subsettedAxisX.getLabel(), sliceAxisLabel)

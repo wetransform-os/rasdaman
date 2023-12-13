@@ -49,7 +49,7 @@ import petascope.wcps.result.WcpsResult;
 public class DomainIntervalsHandler extends Handler {
     
     public static final String DOMAIN_PROPERTY_LOWER_BOUND = "lo";
-    public static final String DOMAIN_PORPERTY_UPPER_BOUND = "hi";
+    public static final String DOMAIN_PROPERTY_UPPER_BOUND = "hi";
     public static final String DOMAIN_PROPERTY_RESOLUTION = "resolution";
     
     public DomainIntervalsHandler() {
@@ -112,7 +112,7 @@ public class DomainIntervalsHandler extends Handler {
             // e.g: imageCrsdomain(c)[0].lo
             if (domainPropertyValue.equalsIgnoreCase(DOMAIN_PROPERTY_LOWER_BOUND)) {
                 result = lowerBound;
-            } else if (domainPropertyValue.equalsIgnoreCase(DOMAIN_PORPERTY_UPPER_BOUND)) {
+            } else if (domainPropertyValue.equalsIgnoreCase(DOMAIN_PROPERTY_UPPER_BOUND)) {
                 result = upperBound;
             }
 

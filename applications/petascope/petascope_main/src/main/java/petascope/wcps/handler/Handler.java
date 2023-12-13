@@ -129,6 +129,17 @@ public abstract class Handler {
         return children;
     }
 
+    public List<Handler> getNonNullChildren() {
+        List<Handler> results = new ArrayList<>();
+        for (Handler handler : this.getChildren()) {
+            if (handler != null) {
+                results.add(handler);
+            }
+        }
+
+        return results;
+    }
+
     @JsonIgnore
     public Handler getFirstChild() throws PetascopeException {
         if (children.size() < 1) {
@@ -313,7 +324,7 @@ public abstract class Handler {
                 || coverageExpressionHandler instanceof ExtendExpressionHandler
                 || coverageExpressionHandler instanceof CoverageConstantHandler
                 || coverageExpressionHandler instanceof CoverageConstructorHandler
-                || coverageExpressionHandler instanceof GeneralCondenserHandler
+                || coverageExpressionHandler instanceof CoverageGeneralCondenserHandler
                 || coverageExpressionHandler instanceof AbstractClipExpressionHandler
                 || coverageExpressionHandler instanceof FlipExpressionHandler
         );

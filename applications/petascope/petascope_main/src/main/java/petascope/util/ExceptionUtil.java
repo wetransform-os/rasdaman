@@ -26,15 +26,21 @@ import java.io.OutputStream;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+
+import com.rasdaman.accesscontrol.service.AuthenticationService;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpHeaders;
 import org.rasdaman.config.ConfigManager;
 import org.rasdaman.config.VersionManager;
 import org.slf4j.LoggerFactory;
 import static petascope.core.KVPSymbols.WCS_SERVICE;
 import static petascope.core.KVPSymbols.WMS_SERVICE;
+
+import petascope.core.Pair;
 import petascope.core.Templates;
 import petascope.exceptions.*;
 import petascope.rasdaman.exceptions.RasdamanException;
@@ -81,13 +87,13 @@ public class ExceptionUtil {
     /**
      * Handle exception and write result to client.
      */
-    public static void handle(String version, Exception ex, HttpServletResponse httpServletResponse) throws RuntimeException {
+    public static void handle(String version, Exception ex, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws RuntimeException {
         httpServletResponse.setContentType(MIMEUtil.MIME_XML);
         
         if (ConfigManager.enableFullStacktrace()) {
             log.error("Caught an exception ", ex);
         } else {
-            Set<String> errorMessages = getFilteredExceptionStacktrace(new LinkedHashSet<String>(), ex);
+            Set<String> errorMessages = getFilteredExceptionStacktrace(new LinkedHashSet<>(), ex);
             String result = "";
             
             for (String errorMessage: errorMessages) {
@@ -122,6 +128,25 @@ public class ExceptionUtil {
                 exceptionReport = ExceptionUtil.exceptionToReportStringSOAP(ex);
             }
 
+            ExceptionCode exceptionCode = null;
+
+            if (ex instanceof PetascopeException) {
+                exceptionCode = ((PetascopeException)ex).getExceptionCode();
+            } else if (ex instanceof RasdamanException) {
+                exceptionCode = ((RasdamanException)ex).getExceptionCode();
+            }
+
+            if (exceptionCode != null) {
+                if (exceptionCode.getHttpErrorCode() == ExceptionCode.Unauthorized.getHttpErrorCode()) {
+                    // Invalid credentials -> 401 error with header
+                    addWwwAuthenticationHeader(httpServletRequest, httpServletResponse);
+                } else if (exceptionCode.getHttpErrorCode() == ExceptionCode.AccessDenied.getHttpErrorCode()
+                        && AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest) == null) {
+                    // Valid credentials but no role / cannot read collection because of trigger
+                    addWwwAuthenticationHeader(httpServletRequest, httpServletResponse);
+                }
+            }
+
             httpServletResponse.setStatus(exceptionReport.getHttpCode());
             try {
                 IOUtils.write(exceptionReport.getExceptionText(), outputStream);
@@ -131,6 +156,14 @@ public class ExceptionUtil {
 
         }
         IOUtils.closeQuietly(outputStream);
+    }
+
+    /**
+     *
+     * 401 error (unauthenticated) -> return an error with WWW-Authenticate header
+     */
+    public static void addWwwAuthenticationHeader(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws PetascopeRuntimeException {
+        httpServletResponse.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Basic realm=\"Petascope Realm\"");
     }
 
     /**

@@ -22,6 +22,7 @@
 package petascope.exceptions;
 
 import java.io.IOException;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -41,7 +42,7 @@ public class ExceptionAdvice {
      */
     @ExceptionHandler(Exception.class)    
     @ResponseBody    
-    public void generalExceptionHandler(Exception ex, HttpServletResponse httpServletResponse) throws IOException {        
-        ExceptionUtil.handle(null, ex, httpServletResponse);
+    public void generalExceptionHandler(Exception ex, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws IOException {
+        ExceptionUtil.handle(null, ex, httpServletRequest, httpServletResponse);
     }
 }

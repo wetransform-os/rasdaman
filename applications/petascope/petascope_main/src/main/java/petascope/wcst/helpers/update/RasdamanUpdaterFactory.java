@@ -72,18 +72,6 @@ public class RasdamanUpdaterFactory {
         }
     }
 
-    private String getInsituMime(String mimeType) {
-        if (mimeType.contains(IOUtil.GRIB_MIMETYPE)) {
-            return IOUtil.GRIB_MIMETYPE;
-        } else if (mimeType.contains(IOUtil.NETCDF_MIMETYPE)) {
-            return IOUtil.NETCDF_MIMETYPE;
-        } else {
-            return IOUtil.GDAL_MIMETYPE;
-        }
-    }
-
-    // -- rasdaman enterprise ends
-
     /**
      * To improves ingestion performance if the data is on the same machine as the rasdaman server, as the network transport is bypassed 
      * we add the filePaths parameter into RangeElement strings

@@ -721,8 +721,16 @@ public class RasUtil {
             } else {
                 throw new RasdamanException("Could not check if credentials for user '" + username + "' are valid in rasdaman. Reason: " + ex.getMessage(), ex);
             }
+        } finally {
+            try {
+                // impl.setUserIdentification(...) implicitly calls connectClient(...),
+                // which registers a client in rasmgr, so it has to be unregistered
+                // with disconnectClient() at the end.
+                impl.disconnectClient();
+            } catch (Exception ex) {
+                log.warn("Failed closing connection to rasdaman, reason: " + ex.getMessage());
+            }
         }
-        
     }
     
     /**

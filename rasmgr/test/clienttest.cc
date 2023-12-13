@@ -34,7 +34,6 @@
 #include "rasmgr/src/useradminrights.hh"
 #include "rasmgr/src/rasmgrconfig.hh"
 #include "rasmgr/src/server.hh"
-#include "rasmgr/src/cpuscheduler.hh"
 
 #include "mocks/mockrasserver.hh"
 #pragma GCC diagnostic ignored "-Wreorder"
@@ -65,7 +64,7 @@ protected:
 
         user.reset(new rasmgr::User(userName, userPassword, dbRights, adminRights));
 
-        client.reset(new Client(clientId, user, clientLifeTime, "", std::make_shared<CpuScheduler>(10)));
+        client.reset(new Client(clientId, user, clientLifeTime, ""));
     }
 
     std::uint32_t clientId;

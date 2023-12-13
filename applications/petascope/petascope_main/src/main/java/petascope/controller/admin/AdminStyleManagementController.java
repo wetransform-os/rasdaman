@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import petascope.controller.AbstractController;
+import petascope.controller.AuthenticationController;
 import petascope.controller.RequestHandlerInterface;
 import petascope.core.KVPSymbols;
 import petascope.exceptions.PetascopeException;
@@ -74,7 +75,7 @@ public class AdminStyleManagementController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
 
                 this.createOrUpdateStyleService.handleAdd(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
@@ -102,7 +103,7 @@ public class AdminStyleManagementController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
 
                 this.createOrUpdateStyleService.handleUpdate(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
@@ -130,7 +131,7 @@ public class AdminStyleManagementController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
 
                 this.adminDeleteStyleService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {

@@ -22,6 +22,8 @@
 package petascope.controller;
 
 import com.rasdaman.accesscontrol.service.AuthenticationService;
+
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -43,6 +45,8 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.maven.wagon.util.FileUtils;
 import org.rasdaman.config.ConfigManager;
+
+import static com.rasdaman.accesscontrol.service.AuthenticationService.*;
 import static org.rasdaman.config.ConfigManager.UPLOADED_FILE_DIR_TMP;
 import static org.rasdaman.config.ConfigManager.UPLOAD_FILE_PREFIX;
 import org.rasdaman.config.VersionManager;
@@ -56,8 +60,6 @@ import petascope.controller.handler.service.AbstractHandler;
 import petascope.controller.handler.service.XMLWCSServiceHandler;
 import petascope.core.KVPSymbols;
 import static petascope.core.KVPSymbols.KEY_ACCEPTVERSIONS;
-
-
 import static petascope.core.KVPSymbols.KEY_REQUEST;
 import static petascope.core.KVPSymbols.VALUE_INSERT_COVERAGE;
 import static petascope.core.KVPSymbols.VALUE_UPDATE_COVERAGE;
@@ -867,8 +869,9 @@ public abstract class AbstractController {
     
     public void logReceivedRequest(Map<String, String[]> kvpParameters) throws PetascopeException {
         String requestTmp = StringUtil.enquoteSingleIfNotEnquotedAlready(this.injectedHttpServletRequest.getRequestURI() + "?" + this.getRequestRepresentation(kvpParameters));
-      
-        log.info("Received request: " + requestTmp);
+        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        String logMessage = "Received request: " + requestTmp + " with user " + credentialsPair.fst;
+        log.info(logMessage);
     }
     
     public void logHandledRequest(boolean requestSuccess, long start, Map<String, String[]> kvpParameters, Exception ex) throws PetascopeException {
@@ -876,10 +879,11 @@ public abstract class AbstractController {
 
         long end = System.currentTimeMillis();
         long totalTime = end - start;
+        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
         if (requestSuccess) {
-            log.info("Processed request: " + requestTmp + " in " + String.valueOf(totalTime) + " ms.");
+            log.info("Processed request: " + requestTmp + " with user " + credentialsPair.fst + " in " + String.valueOf(totalTime) + " ms.");
         } else {
-            String errorMessage = "Failed processing request " + requestTmp 
+            String errorMessage = "Failed processing request: " + requestTmp
                                 + ", evaluation time " + String.valueOf(totalTime) + " ms. Reason: " + ex.getMessage();
             log.error(errorMessage);
         }
@@ -898,8 +902,9 @@ public abstract class AbstractController {
         // e.g req-10
         String requestCounter = REQUEST_COUNTER_PREFIX + REQUEST_COUNTER;
         REQUEST_COUNTER++;
-        
-        log.info("Received request " + requestCounter + ": " + requestTmp);
+
+        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        log.info("Received request: " + requestCounter + ": " + requestTmp + " with user " + credentialsPair.fst);
         
         return new Pair<>(requestCounter, System.currentTimeMillis());
     } 
@@ -912,7 +917,8 @@ public abstract class AbstractController {
             ex = pex.getException();
             version = pex.getVersion();
         }
-        String errorMessage = "Failed processing request " + requestCounter 
+        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        String errorMessage = "Failed processing request: " + requestCounter + " with user " + credentialsPair.fst
                                 + ", evaluation time " + String.valueOf(System.currentTimeMillis() - startTime) + " ms. Reason: " + ex.getMessage();
         // log the error reason here as well, even though it's logged also later in
         // ExceptionUtil: here it's properly identified with the request id,
@@ -922,8 +928,9 @@ public abstract class AbstractController {
         ExceptionUtil.handle(version, ex, injectedHttpServletResponse);
     }
     
-    private void logSuccess(String requestCounter, long startTime) {
-        log.info("Processed request " + requestCounter + " in " + String.valueOf(System.currentTimeMillis() - startTime) + " ms.");
+    private void logSuccess(String requestCounter, long startTime) throws PetascopeException {
+        Pair<String, String> credentialsPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        log.info("Processed request: " + requestCounter + " with user " + credentialsPair.fst + " in " + String.valueOf(System.currentTimeMillis() - startTime) + " ms.");
     }
     
     /**
@@ -990,11 +997,54 @@ public abstract class AbstractController {
         return sourceIP;
     }
 
+    
+    /**
+     * Check if user has a specific role to process request
+     */
+    public void validateUserPermission(HttpServletRequest httpServletRequest, String... inputRoleNames) throws PetascopeException {
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(httpServletRequest);
+        String username = credentialsPair.fst;
+
+        Set<String> userRoles = AuthenticationController.parseRolesFromRascontrol(username);
+
+        for (String roleName : inputRoleNames) {
+            if (!userRoles.contains(roleName)) {
+                String requestRepresentation = this.getRequestPresentationWithEncodedAmpersands(httpServletRequest);
+
+                Pair<String, String> basicAuthCredentialsPair = getBasicAuthUsernamePassword(httpServletRequest);
+
+                ExceptionCode exceptionCode = ExceptionCode.AccessDenied;
+                if (basicAuthCredentialsPair == null) {
+                    // In this case rasguest user is set in petascope.properties, but the user doesn't have the permission to run
+                    exceptionCode = ExceptionCode.Unauthorized;
+                }
+
+                throw new PetascopeException(exceptionCode,
+                                            "User '" + username + "' does not have role '" + roleName + "' to process request '" + requestRepresentation + "'.");
+            }
+        }
+    }
+
+    /**
+     * The user requests must have the role if basic header is enabled, or his IP must be allowed
+     */
+    public void validateWriteRequestByRoleOrAllowedIP(HttpServletRequest httpServletRequest,
+                                                      String roleName) throws PetascopeException {
+
+        if (ConfigManager.enableAuthentication() || getBasicAuthUsernamePassword(httpServletRequest) != null) {
+            // + user must have the specific role, otherwise exception
+            this.validateUserPermission(httpServletRequest, roleName);
+        } else {
+            // + user's IP must be from allowed write request setting, otherwise exception
+            validateWriteRequestFromIP(httpServletRequest);
+        }
+    }
+
     /**
      * If basic authentication header is not enabled, then petascope checks if write request from IP address is valid or not
      * before processing.
      */
-    public void validateWriteRequestFromIP(HttpServletRequest httpServletRequest) throws PetascopeException {
+    private void validateWriteRequestFromIP(HttpServletRequest httpServletRequest) throws PetascopeException {
         if (!ConfigManager.ALLOW_WRITE_REQUESTS_FROM.contains(ConfigManager.PUBLIC_WRITE_REQUESTS_FROM)) {
             
             String sourceIP = this.getRequestIPAddress(httpServletRequest);
@@ -1035,6 +1085,7 @@ public abstract class AbstractController {
                     throw new PetascopeException(ExceptionCode.AccessDenied, 
                                                  "Write request '" + requestRepresentation + "' is not permitted from IP address '" + sourceIP + "'.");
                 }
+                
             }
         }
     }

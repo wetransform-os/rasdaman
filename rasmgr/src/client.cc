@@ -24,7 +24,6 @@
 #include "rasmgr/src/messages/rasmgrmess.pb.h"
 #include "server.hh"
 #include "user.hh"
-#include "cpuscheduler.hh"
 #include "common/uuid/uuid.hh"
 #include "exceptions/duplicatedbsessionexception.hh"
 #include "exceptions/userdbrightsexception.hh"
@@ -44,17 +43,9 @@ using std::map;
 using std::runtime_error;
 using std::string;
 
-std::atomic<std::uint32_t> Client::sessionIdCounter{};
-
 Client::Client(std::uint32_t clientIdArg, std::shared_ptr<User> userArg,
-               std::int32_t lifeTime, const std::string &rasmgrHostArg,
-               const std::shared_ptr<CpuScheduler> &cpuSchedulerArg)
-    : clientId(clientIdArg), user(userArg), timer(lifeTime), rasmgrHost(rasmgrHostArg),
-      cpuScheduler(cpuSchedulerArg)
-{
-}
-
-Client::~Client()
+               std::int32_t lifeTime, const std::string &rasmgrHostArg)
+    : clientId(clientIdArg), user(userArg), timer(lifeTime), rasmgrHost(rasmgrHostArg)
 {
 }
 
@@ -120,23 +111,22 @@ void Client::addDbSession(const std::string &dbName,
     out_dbRights = this->user->getDefaultDbRights();
 
     // TODO(DM) - remove this rights mgmt here
-    if (out_dbRights.hasReadAccess() || out_dbRights.hasWriteAccess())
-    {
-        //Generate a unique session id.
-        out_sessionId = ++sessionIdCounter;
-        sessionId = out_sessionId;
-        LDEBUG << "client " << clientId << " added db session: " << sessionId;
-
-        this->assignedServer = newServer;
-        newServer->allocateClientSession(
-            this->clientId, this->user->getName(), this->user->getPassword(),
-            this->user->getToken(), out_sessionId, dbName, out_dbRights);
-        sessionOpen = true;
-    }
-    else
+    if (!out_dbRights.hasReadAccess() && !out_dbRights.hasWriteAccess())
     {
         throw UserDbRightsException(this->user->getName(), dbName);
     }
+
+    //Generate a unique session id.
+    static std::atomic<std::uint32_t> sessionIdCounter;
+    out_sessionId = ++sessionIdCounter;
+    sessionId = out_sessionId;
+    LDEBUG << "client " << clientId << " added db session: " << sessionId;
+
+    this->assignedServer = newServer;
+    newServer->allocateClientSession(
+        this->clientId, this->user->getName(), this->user->getPassword(),
+        this->user->getToken(), out_sessionId, dbName, out_dbRights);
+    sessionOpen = true;
 }
 
 void Client::removeDbSession(std::uint32_t sessionIdToRemove)

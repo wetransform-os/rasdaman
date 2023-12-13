@@ -43,7 +43,8 @@ class ClientManager;
 class RasServerServiceImpl : public rasnet::service::RasServerService::Service
 {
 public:
-    RasServerServiceImpl(std::shared_ptr<rasserver::ClientManager> clientManagerArg);
+    explicit RasServerServiceImpl(std::shared_ptr<rasserver::ClientManager> clientManagerArg);
+    virtual ~RasServerServiceImpl();
 
     virtual grpc::Status AllocateClient(grpc::ServerContext *context, const rasnet::service::AllocateClientReq *request, rasnet::service::Void *response) override;
 

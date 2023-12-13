@@ -89,16 +89,12 @@ public class WMSGetMapStyleService {
     private WMSGetMapWCPSMetadataTranslatorService wmsGetMapWCPSMetadataTranslatorService;
     @Autowired
     private WcpsCoverageMetadataTranslator wcpsCoverageMetadataTranslator;    
-    
-    // -- rasdaman enteprise begin
-    
+
     public static final String WMS_VIRTUAL_LAYER_EXPECTED_BBOX = "BBOX";
     public static final String WMS_VIRTUAL_LAYER_EXPECTED_WIDTH = "WIDTH";
     public static final String WMS_VIRTUAL_LAYER_EXPECTED_HEIGHT = "HEIGHT";
     public static final String WMS_VIRTUAL_LAYER_EXPECTED_OUTPUT_CRS = "OUTPUT_CRS";
-    
-    // -- rasdaman enterprise end
-    
+
     public static final String FRAGMENT_ITERATOR_PREFIX = "$";
     private static final String COLLECTION_ITERATOR = "c";
     public static final String WCPS_FRAGMENT_ITERATOR = FRAGMENT_ITERATOR_PREFIX + COLLECTION_ITERATOR;

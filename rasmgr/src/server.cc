@@ -57,6 +57,7 @@
 // waitpid
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sched.h>
 
 namespace rasmgr
 {
@@ -77,12 +78,15 @@ using rasnet::service::ServerStatusRepl;
 using rasnet::service::ServerStatusReq;
 using rasnet::service::Void;
 
+using std::chrono::milliseconds;
+using namespace std::chrono_literals;
+
 #define RASEXECUTABLE BINDIR "rasserver"
 
 // give 3 seconds to rasserver to cleanly shutdown, before killing it with a SIGKILL
-const std::int32_t Server::SERVER_CLEANUP_TIMEOUT = 3000000;
+const milliseconds Server::SERVER_CLEANUP_TIMEOUT = 3000ms;
 // 10 milliseconds
-const std::int32_t Server::SERVER_CHECK_INTERVAL = 10000;
+const milliseconds Server::SERVER_CHECK_INTERVAL = 10ms;
 
 Server::Server(const ServerConfig &config)
     : hostName{config.getHostName()},
@@ -100,12 +104,15 @@ Server::Server(const ServerConfig &config)
     auto serverAddress = GrpcUtils::constructAddressString(this->hostName, std::uint32_t(this->port));
     auto channel = grpc::CreateCustomChannel(serverAddress, grpc::InsecureChannelCredentials(),
                                              GrpcUtils::getDefaultChannelArguments());
-    this->service.reset(new RasServerService::Stub(channel));
+    
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
+    this->service = std::make_unique<RasServerService::Stub>(channel);
 }
 
 Server::~Server()
-{
-    boost::lock_guard<boost::shared_mutex> lock(sessionMutex);
+{    
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
+    std::lock_guard<std::shared_mutex> listLock(this->sessionMutex);
     if (dbHost)
     {
         if (this->sessionOpen)
@@ -131,13 +138,10 @@ Server::~Server()
 
 void Server::startProcess()
 {
+    if (this->started)
     {
-        boost::lock_guard<boost::shared_mutex> lock(this->stateMutex);
-        if (this->started)
-        {
-            throw common::InvalidStateException(
-                "The server process " + std::to_string(processId) + " has already been started.");
-        }
+        throw common::InvalidStateException(
+            "The server process " + std::to_string(processId) + " has already been started.");
     }
 
     auto commandVec = this->getStartProcessCommand();
@@ -199,26 +203,37 @@ bool Server::isAlive()
 {
     //Assume the process is dead
     bool result = false;
-
-    boost::lock_guard<boost::shared_mutex> lock(this->stateMutex);
-    if (this->started && common::SystemUtil::isProcessAlive(processId))
+    
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
+    if (this->started)
     {
-        // The process is alive - is the server responding?
-        ServerStatusReq request = ServerStatusReq::default_instance();
-        ServerStatusRepl reply;
-
-        // Set timeout for API
-        ClientContext context;
-        this->configureClientContext(context);
-
-        LTRACE << "Check if server " << this->serverId << " is alive";
-        Status status = this->service->GetServerStatus(&context, request, &reply);
-        result = status.ok();
-        if (!result)
+        if (common::SystemUtil::isProcessAlive(processId))
         {
-            LDEBUG << "Server not alive " << serverId << ": "
-                   << GrpcUtils::convertStatusToString(status);
+            // The process is alive - is the server responding?
+            ServerStatusReq request = ServerStatusReq::default_instance();
+            ServerStatusRepl reply;
+    
+            // Set timeout for API
+            ClientContext context;
+            this->configureClientContext(context);
+    
+            LTRACE << "Check if server " << this->serverId << " is alive";
+            Status status = this->service->GetServerStatus(&context, request, &reply);
+            result = status.ok();
+            if (!result)
+            {
+                LDEBUG << "Server not alive " << serverId << ": "
+                       << GrpcUtils::convertStatusToString(status);
+            }
         }
+        else
+        {
+            LDEBUG << "server process with pid " << processId << " is not alive: " << serverId;
+        }
+    }
+    else
+    {
+        LDEBUG << "server process is not started: " << serverId;
     }
 
     return result;
@@ -237,8 +252,8 @@ bool Server::isStarted()
 bool Server::isClientAlive(std::uint32_t client)
 {
     bool result = false;
-
-    boost::lock_guard<boost::shared_mutex> lock(this->stateMutex);
+    
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
     // The server must be started and responding to messages
     if (this->started)
     {
@@ -285,18 +300,8 @@ void Server::allocateClientSession(std::uint32_t client,
 void Server::deallocateClientSession(std::uint32_t client,
                                      std::uint32_t session)
 {
-    // Remove the client session from rasmgr objects.
-    // Decrease the session count
-    this->dbHost->removeClientSessionFromDB(client, session);
-    {
-        boost::lock_guard<boost::shared_mutex> listLock(this->sessionMutex);
-        sessionOpen = false;
-    }
-    {
-        boost::lock_guard<boost::shared_mutex> stateLock(this->stateMutex);
-        this->clientConnected = false;
-    }
-
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
+    
     // Deallocate on server if the server is started - it may have died from
     // from a segfault for example, in which case the request below is not needed
     if (this->started)
@@ -320,23 +325,30 @@ void Server::deallocateClientSession(std::uint32_t client,
     {
         LDEBUG << "Deallocating client " << client << " on server " << serverId << " - server not started.";
     }
+    
+    // Remove the client session from rasmgr objects.
+    // Decrease the session count
+    this->dbHost->removeClientSessionFromDB(client, session);
+    {
+        std::lock_guard<std::shared_mutex> listLock(this->sessionMutex);
+        this->sessionOpen = false;
+    }
+    this->clientConnected = false;
 
     LDEBUG << "Deallocated client " << client << " on server " << serverId;
 }
 
 void Server::registerServer(const std::string &newServerId)
 {
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
+    if (!this->started)
     {
-        boost::lock_guard<boost::shared_mutex> stateLock(this->stateMutex);
-        if (!this->started)
-        {
-            throw common::RuntimeException("Server not started, cannot register it: " + newServerId);
-        }
-        if (newServerId != this->serverId)
-        {
-            throw common::RuntimeException("Server to register " + newServerId +
-                                           " does not match the server in rasmgr " + this->serverId);
-        }
+        throw common::RuntimeException("Server not started, cannot register it: " + newServerId);
+    }
+    if (newServerId != this->serverId)
+    {
+        throw common::RuntimeException("Server to register " + newServerId +
+                                       " does not match the server in rasmgr " + this->serverId);
     }
 
     if (common::SystemUtil::isProcessAlive(processId))
@@ -351,7 +363,6 @@ void Server::registerServer(const std::string &newServerId)
         Status status = this->service->GetServerStatus(&context, req, &repl);
         if (status.ok())
         {
-            boost::lock_guard<boost::shared_mutex> stateLock(this->stateMutex);
             this->registered = true;
             LDEBUG << "Ok, server registered.";
         }
@@ -397,8 +408,9 @@ void Server::sendSignal(int sig) const
 void Server::stop(KillLevel level)
 {
     LDEBUG << "Stopping server " << serverId << " with level " << KillLevel_Name(level);
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
     if (common::SystemUtil::isProcessAlive(processId))
-    {
+    {    
         switch (level)
         {
         case KillLevel::FORCE:
@@ -417,7 +429,6 @@ void Server::stop(KillLevel level)
                          << " cleanly with a SIGTERM, force-stopping it with a SIGKILL signal.";
                 sendSignal(SIGKILL);
             }
-            boost::unique_lock<boost::shared_mutex> uniqueLock(this->stateMutex);
             LDEBUG << "started set to false";
             this->started = false;
         }
@@ -435,7 +446,7 @@ void Server::stop(KillLevel level)
             if (status.ok())
             {
                 LDEBUG << "Sent Close request to server: " << serverId;
-                usleep(SERVER_CHECK_INTERVAL + 1000);
+                waitUntilServerExits();
             }
             else
             {
@@ -459,47 +470,15 @@ void Server::stop(KillLevel level)
 }
 
 bool Server::isStarting()
-{
-    boost::lock_guard<boost::shared_mutex> stateLock(this->stateMutex);
+{    
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
     return this->started && !this->registered;
-}
-
-bool Server::isFree()
-{
-    LTRACE << "Checking if server " << serverId << " is free";
-    boost::lock_guard<boost::shared_mutex> stateLock(this->stateMutex);
-    if (!this->registered)
-    {
-        LDEBUG << "Error, server " << serverId << " not registered.";
-        throw common::InvalidStateException("The server " + serverId + " is not registered with rasmgr.");
-    }
-    if (!this->started)
-    {
-        LDEBUG << "Error, server " << serverId << " not started.";
-        throw common::InvalidStateException("The server " + serverId + " is not started in rasmgr.");
-    }
-    try
-    {
-        this->clientConnected = this->getHasClients();
-    }
-    catch (common::Exception &ex)
-    {
-        LDEBUG << "Caught exception, server  " << serverId << " is not free: " << ex.what();
-        return false;
-    }
-    catch (...)
-    {
-        LDEBUG << "Caught exception, server  " << serverId << " is not free.";
-        return false;
-    }
-    LTRACE << "Server " << serverId << " is free: " << !this->clientConnected;
-    return !this->clientConnected;
 }
 
 bool Server::isAvailable()
 {
-    LTRACE << "Checking if server " << serverId << " is available";
-    boost::lock_guard<boost::shared_mutex> stateLock(this->stateMutex);
+    LTRACE << "Checking if server " << serverId << " is available";    
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
     if (!this->registered)
     {
         LDEBUG << "Error, server " << serverId << " not registered.";
@@ -545,18 +524,19 @@ const std::string &Server::getServerId() const
 
 void Server::setStarted(bool value)
 {
-    boost::unique_lock<boost::shared_mutex> stateLock(this->stateMutex);
     this->started = value;
 }
 
 std::pair<std::uint32_t, bool> Server::getCurrentClientSession()
 {
-    boost::shared_lock<boost::shared_mutex> listLock(this->sessionMutex);
+    std::shared_lock<std::shared_mutex> listLock(this->sessionMutex);
     return std::pair<std::uint32_t, bool>(clientId, sessionOpen);
 }
 
 bool Server::getHasClients()
 {
+    // NOTE: no mutex here as it is only called from methods where a lock on
+    // stateMutex is established
     LTRACE << "Getting server status for " << serverId;
     ClientContext context;
     this->configureClientContext(context);
@@ -611,7 +591,9 @@ void Server::allocateClientSession(std::uint32_t client,
                                        "it is serving the maximum number of clients " +
                                        std::to_string(int(clientConnected)) + " already.");
     }
-
+    
+    std::lock_guard<std::mutex> stateLock(this->stateMutex);
+    
     LDEBUG << "Allocating client " << client << " on server " << serverId;
     ClientContext context;
     this->configureClientContext(context);
@@ -631,14 +613,12 @@ void Server::allocateClientSession(std::uint32_t client,
     // If everything went well so far, increase the session count for this database
     this->dbHost->addClientSessionOnDB(dbName, client, session);
     {
-        boost::lock_guard<boost::shared_mutex> listLock(this->sessionMutex);
-        clientId = client;
-        sessionId = session;
+        std::lock_guard<std::shared_mutex> listLock(this->sessionMutex);
+        this->clientId = client;
+        this->sessionId = session;
+        this->sessionOpen = true;
     }
-    {
-        boost::lock_guard<boost::shared_mutex> stateLock(this->stateMutex);
-        this->clientConnected = true;
-    }
+    this->clientConnected = true;
 
     // Increase the session counter
     this->sessionNo++;
@@ -716,12 +696,15 @@ std::string Server::convertDatabRights(const UserDatabaseRights &dbRights)
 bool Server::waitUntilServerExits()
 {
     bool alive = true;
-    auto cleanupTimeout = SERVER_CLEANUP_TIMEOUT;
-    while (cleanupTimeout > 0 && (alive = common::SystemUtil::isProcessAlive(processId)))
+    auto cleanupTimeout = 0ms;
+    LDEBUG << "waiting until server exits (process " << processId << " is not alive anymore)";
+    while (cleanupTimeout < SERVER_CLEANUP_TIMEOUT &&
+           (alive = common::SystemUtil::isProcessAlive(processId)))
     {
-        usleep(SERVER_CHECK_INTERVAL);
-        cleanupTimeout -= SERVER_CHECK_INTERVAL;
+        std::this_thread::sleep_for(SERVER_CHECK_INTERVAL);
+        cleanupTimeout += SERVER_CHECK_INTERVAL;
     }
+    LDEBUG << "done waiting for process " << processId << " to exit, alive status: " << alive;
     return alive;
 }
 

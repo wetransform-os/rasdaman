@@ -166,7 +166,7 @@ ExternalProject_add(jsoncpp_project
 include_directories(SYSTEM ${JSONCPP_INCLUDE_DIR})
 
 InstallExternalLibrary(${JSONCPP_LIBRARY} ${JSONCPP_LIBRARY_PATH} jsoncpp_project)
-    
+
 
 ############################################################################
 # Begin FMT
@@ -233,7 +233,7 @@ set_property(TARGET ${GMOCK_LIBRARY} APPEND PROPERTY
 
 
 ############################################################################
-# Begin Google RPC
+# Begin GRPC
 ############################################################################
 # TODO: Convert the Google Protobuf build process to use External Project once we give up Autotools
 
@@ -347,3 +347,73 @@ target_include_directories(${ELPP_LIBRARY} PRIVATE include/
 install(FILES ${ELPP_INCLUDE_DIR}/easylogging++.h
         DESTINATION ${INCLUDE_DIR})
 install(TARGETS ${ELPP_LIBRARY} ARCHIVE DESTINATION ${LIB_DIR})
+
+############################################################################
+# Begin Intel TBB
+############################################################################
+
+if (ENABLE_MULTITHREADING)
+
+include("${CMAKE_SOURCE_DIR}/cmake/modules/GetTargetArchitecture.cmake")
+
+set(TBB_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}/third_party/tbb")
+set(TBB_INCLUDE_DIR "${TBB_SRC_DIR}/include")
+
+# We are using the release build of the library. 
+# TODO: Generate the LIB_DIR release/debug depending on configuration.
+set(TBB_LIB_DIR "${TBB_SRC_DIR}/lib/tbb_release")
+
+set(TBB_LIBRARY "tbb")
+set(TBB_LIBRARY_PATH "${TBB_LIB_DIR}/libtbb.a")
+
+set(TBB_MALLOC_LIBRARY "tbbmalloc")
+set(TBB_MALLOC_LIBRARY_PATH "${TBB_LIB_DIR}/libtbbmalloc.a")
+
+set(TBB_MALLOC_PROXY_LIBRARY "tbbmalloc_proxy")
+set(TBB_MALLOC_PROXY_LIBRARY_PATH "${TBB_LIB_DIR}/libtbbmalloc_proxy.a")
+
+ExternalProject_Add(tbb_project
+    URL "${CMAKE_SOURCE_DIR}/third_party/tbb/2019_U9.tar.gz"
+    SOURCE_DIR ${TBB_SRC_DIR}
+    UPDATE_COMMAND ""
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    BUILD_BYPRODUCTS ${TBB_LIBRARY_PATH} ${TBB_MALLOC_LIBRARY_PATH}
+    LOG_MERGED_STDOUTERR ON
+    LOG_DOWNLOAD ON
+    LOG_OUTPUT_ON_FAILURE ON)
+
+ExternalProject_Add_Step(tbb_project custom_build
+    COMMAND export MAKEFLAGS_AUX=$MAKEFLAGS
+    && export MAKEOVERRIDES_AUX=$MAKEOVERRIDES
+    && export MAKEFLAGS=
+    && export MAKEOVERRIDES=
+    && make -j tbb_build_dir=lib tbb_build_prefix=tbb stdver=c++0x extra_inc=big_iron.inc
+    && export MAKEFLAGS=$MAKEFLAGS_AUX
+    && export MAKEOVERRIDES=$MAKEOVERRIDES_AUX
+    DEPENDEES build
+    DEPENDERS install
+    WORKING_DIRECTORY ${TBB_SRC_DIR}
+    #LOG ON
+    COMMENT "Building Intel TBB library.")
+
+link_directories(${TBB_LIB_DIR})
+include_directories(SYSTEM ${TBB_INCLUDE_DIR})
+
+InstallExternalDynamicLibrary(${TBB_LIBRARY} ${TBB_LIBRARY_PATH} tbb_project)
+InstallExternalDynamicLibrary(${TBB_MALLOC_LIBRARY} ${TBB_MALLOC_LIBRARY_PATH} tbb_project)
+#InstallExternalDynamicLibrary(${TBB_MALLOC_PROXY_LIBRARY} ${TBB_MALLOC_PROXY_LIBRARY_PATH} tbb_project)
+
+# Create a variable to hold the whole collection of libraries.
+set(TBB_LIBRARIES ${TBB_LIBRARY} ${TBB_MALLOC_LIBRARY})
+
+endif() # ENABLE_MULTITHREADING
+
+############################################################################
+# Begin xenium (https://github.com/mpoeter/xenium)
+############################################################################
+
+add_library(xenium INTERFACE)
+include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/third_party/xenium/)
+target_include_directories(xenium INTERFACE ${CMAKE_SOURCE_DIR}/third_party/xenium/)

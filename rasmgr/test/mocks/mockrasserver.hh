@@ -43,7 +43,6 @@ public:
     MOCK_METHOD0(getTotalSessionNo, std::uint32_t(void));
     MOCK_METHOD1(stop, void(KillLevel));
     MOCK_METHOD0(isStarting, bool(void));
-    MOCK_METHOD0(isFree, bool(void));
     MOCK_METHOD0(isAvailable, bool(void));
     MOCK_CONST_METHOD0(getPort, std::int32_t(void));
     MOCK_CONST_METHOD0(getHostName, const std::string &(void));

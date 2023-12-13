@@ -47,13 +47,13 @@ public:
     void registerServerWithRasmgr(const std::string &serverId);
 
 private:
+
     std::string rasmgrHost;
     std::string serverId;
 
+    using RasMgrRasServerService = rasnet::service::RasMgrRasServerService::Stub;
     /// Service stub used to communicate with the rasmgr process
-    std::shared_ptr<rasnet::service::RasMgrRasServerService::Stub> rasmgrService;
-    /// Flag used to indicate if the service was initialized
-    bool rasmgrServiceInitialized{false};
+    std::unique_ptr<RasMgrRasServerService> rasmgrService;
     /// Mutex to serialize access to the rasmgrService from multiple threads
     boost::shared_mutex rasmgrServiceMutex;
 
@@ -61,8 +61,7 @@ private:
 
     // -------------------------------------------------------------------------
 
-    std::shared_ptr<rasnet::service::RasMgrRasServerService::Stub>
-    getRasmgrService(bool throwIfConnectionFailed);
+    const std::unique_ptr<RasMgrRasServerService> &getRasmgrService(bool throwIfConnectionFailed);
 
     void initRasmgrService();
 

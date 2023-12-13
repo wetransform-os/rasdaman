@@ -23,7 +23,6 @@
 #include "servermanagementservice.hh"
 #include "servermanager.hh"
 #include "clientmanager.hh"
-#include "server.hh"
 #include "common/grpc/grpcutils.hh"
 #include "common/exceptions/exception.hh"
 #include <logging.hh>

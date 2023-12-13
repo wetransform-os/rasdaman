@@ -64,6 +64,7 @@
 
 #include "common/logging/signalhandler.hh"
 #include "clientcomm/clientcomm.hh"
+#include "clientcomm/rasnetclientcomm.hh"
 #include "common/commline/cmlparser.hh"
 #include "common/util/fileutils.hh"
 #include "loggingutils.hh"
@@ -429,70 +430,71 @@ void parseParams(int argc, char **argv)
 
 bool openDatabase()
 {
-    if (!dbIsOpen)
-    {
-        NNLINFO << "Opening database " << baseName << " at " << serverName << ":" << serverPort << "... ";
-        db.set_servername(serverName, static_cast<int>(serverPort));
-        db.set_useridentification(user, passwd);
-        db.open(baseName);
-        BLINFO << "ok.\n";
-        dbIsOpen = true;
-    }
-    return dbIsOpen;
+        if (!dbIsOpen)
+        {
+            NNLINFO << "Opening database " << baseName << " at " << serverName << ":" << serverPort << "... ";
+            db.set_servername(serverName, static_cast<int>(serverPort));
+            db.set_useridentification(user, passwd);
+            db.open(baseName);
+            BLINFO << "ok.\n";
+            dbIsOpen = true;
+        }
+        return dbIsOpen;
 }  // openDatabase()
 
 bool closeDatabase()
 {
-    if (dbIsOpen)
-    {
-        LDEBUG << "Closing database...";
-        db.close();
-        LDEBUG << "Successfully closed database.";
-        dbIsOpen = false;
-    }
-    return !dbIsOpen;
+        if (dbIsOpen)
+        {
+            LDEBUG << "Closing database...";
+            db.close();
+            LDEBUG << "Successfully closed database.";
+            dbIsOpen = false;
+        }
+        return !dbIsOpen;
 }  // closeDatabase()
 
 bool openTransaction(bool readwrite)
 {
-    if (!taIsOpen)
-    {
-        LDEBUG << "Opening " << (readwrite ? "rw" : "ro") << " transaction... ";
-        if (readwrite)
+        openDatabase();
+        if (!taIsOpen)
         {
-            ta.begin(r_Transaction::read_write);
+            LDEBUG << "Opening " << (readwrite ? "rw" : "ro") << " transaction... ";
+            if (readwrite)
+            {
+                ta.begin(r_Transaction::read_write);
+            }
+            else
+            {
+                ta.begin(r_Transaction::read_only);
+            }
+    
+            LDEBUG << "Successfully opened transaction.";
+            taIsOpen = true;
         }
-        else
-        {
-            ta.begin(r_Transaction::read_only);
-        }
-
-        LDEBUG << "Successfully opened transaction.";
-        taIsOpen = true;
-    }
-    return taIsOpen;
+        return taIsOpen;
 }  // openTransaction()
 
 bool closeTransaction(bool doCommit)
 {
-    if (taIsOpen)
-    {
-        if (doCommit)
+        if (taIsOpen)
         {
-            LDEBUG << "Committing transaction... ";
-            ta.commit();
-            LDEBUG << "Transaction committed successfully.";
+            if (doCommit)
+            {
+                LDEBUG << "Committing transaction... ";
+                ta.commit();
+                LDEBUG << "Transaction committed successfully.";
+            }
+            else
+            {
+                NNLINFO << "aborting transaction... ";
+                ta.abort();
+                BLINFO << "ok.\n";
+            }
+    
+            taIsOpen = false;
         }
-        else
-        {
-            NNLINFO << "aborting transaction... ";
-            ta.abort();
-            BLINFO << "ok.\n";
-        }
-
-        taIsOpen = false;
-    }
-    return !taIsOpen;
+        return !taIsOpen;
 }  // closeTransaction()
 
 void cleanConnection()
@@ -1235,7 +1237,7 @@ void doStuff(__attribute__((unused)) int argc, __attribute__((unused)) char **ar
             }
         }
     }
-
+    
     auto isInsert = query.is_insert_query();
     if (isInsert || query.is_update_query())  // insert/update
     {
@@ -1276,16 +1278,13 @@ void doStuff(__attribute__((unused)) int argc, __attribute__((unused)) char **ar
     }
 }
 
-void shutdownHandler(int sig, siginfo_t *, void *)
+void shutdownHandler(int sig, siginfo_t *info, void *)
 {
     static bool alreadyExecuting{false};
     if (!alreadyExecuting)
     {
         alreadyExecuting = true;
-        NNLINFO << "\nrasql: Interrupted by signal " << common::SignalHandler::signalName(sig)
-                << "\nClosing server connection... ";
-        // cleanConnection();
-        BLINFO << "done, exiting.";
+        common::SignalHandler::printCrashDetailsASSafe(info);
         exit(sig);
     }
 }
@@ -1296,21 +1295,9 @@ void crashHandler(int sig, siginfo_t *info, void *)
     if (!alreadyExecuting)
     {
         alreadyExecuting = true;
-        NNLERROR << "\nInterrupted by signal " << common::SignalHandler::toString(info)
-                 << "... stacktrace:\n"
-                 << common::SignalHandler::getStackTrace()
-                 << "\nClosing server connection... ";
-        // cleanConnection();
-        BLERROR << "done, exiting.";
+        common::SignalHandler::printCrashDetailsASSafe(info);
+        exit(sig);
     }
-    else
-    {
-        // if a signal comes while the handler has already been invoked,
-        // wait here for max 3 seconds, so that the handler above has some time
-        // (hopefully) finish
-        sleep(3);
-    }
-    exit(sig);
 }
 
 INITIALIZE_EASYLOGGINGPP
@@ -1346,15 +1333,8 @@ int main(int argc, char **argv)
         // put INFO after parsing parameters to respect a '--quiet'
         LINFO << argv[0] << ": rasdaman query tool " << RMANVERSION << ".";
 
-        if (openDatabase())
-        {
-            doStuff(argc, argv);
-            closeDatabase();
-        }
-        else
-        {
-            retval = EXIT_FAILURE;
-        }
+        doStuff(argc, argv);
+        closeDatabase();
     }
     catch (RasqlError &e)
     {

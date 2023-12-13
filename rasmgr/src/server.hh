@@ -28,6 +28,7 @@
 #include "rasnet/messages/rassrvr_rasmgr_service.grpc.pb.h"
 #include "common/grpc/messages/health_service.grpc.pb.h"
 #include "rasmgr/src/messages/rasmgrmess.pb.h"
+#include "common/macros/utildefs.hh"
 
 #include <string>
 #include <cstdint>
@@ -35,8 +36,9 @@
 #include <utility>
 #include <memory>
 #include <sys/types.h>
+#include <atomic>
+#include <shared_mutex>
 
-#include <boost/thread/shared_mutex.hpp>
 #include <grpc++/grpc++.h>
 
 namespace rasmgr
@@ -102,7 +104,7 @@ public:
      *  * dbHost: Reference to the database host to which this server will connect.
      */
     explicit Server(const ServerConfig &config);
-
+    DISABLE_COPY_AND_MOVE(Server)
     virtual ~Server();
 
     /**
@@ -113,7 +115,7 @@ public:
     /**
      * Stop the RasServer process.
      */
-    virtual void stop(KillLevel level);
+    virtual void stop(KillLevel level = KillLevel::NONE);
 
     /**
      * Register this server and transfer it to the FREE state. This is called
@@ -127,11 +129,7 @@ public:
      * @return True if the server process was started but the server has not registered with RasMgr
      */
     virtual bool isStarting();
-    /**
-     * @return True if the server does not have any clients assigned, false otherwise.
-     */
-    virtual bool isFree();
-
+    
     /**
      * @return True if the server has available capacity, false otherwise
      */
@@ -231,39 +229,7 @@ private:
      * in case it fails to send the signal.
      */
     void sendSignal(int sig) const;
-
-    /**
-     * The number of microseconds between a SIGTERM signal and a SIGKILL signal sent to the server.
-     * This timeout allows the server enough time to cleanup after itself.
-    */
-    static const std::int32_t SERVER_CLEANUP_TIMEOUT;
-    /**
-     * Microseconds to wait between checks on whether the server is still alive
-     */
-    static const std::int32_t SERVER_CHECK_INTERVAL;
-
-    std::string hostName;                 /*! Hostname of the RasServer process */
-    std::int32_t port;                    /*! Port of the RasServer process */
-    std::shared_ptr<DatabaseHost> dbHost; /*! Database host to which this server has access */
-    std::string options;
-
-    pid_t processId;      /*! Id of the server process*/
-    std::string serverId; /*! UUID that uniquely identifies the server */
-
-    boost::shared_mutex stateMutex;
-    bool registered;      /*! Flag to indicate if the server is starting but has not yet registered */
-    bool clientConnected; /*! True if any client is connected */
-    bool started;         /*! True after the process is started*/
-
-    std::uint32_t sessionNo;
-
-    std::shared_ptr<::rasnet::service::RasServerService::Stub> service; /*! Service stub used to communicate with the RasServer process */
-
-    boost::shared_mutex sessionMutex; /*!Mutex used for making the object thread safe */
-    std::uint32_t clientId;
-    std::uint32_t sessionId;
-    bool sessionOpen{false};
-
+    
     /**
      * @return the number of clients currently allocated to the the RasServer process.
      * @throws common::Exception if the GRPC GetServerStatus fails or timeouts.
@@ -309,8 +275,42 @@ private:
      * @return true if the server is still alive, false otherwise.
      */
     bool waitUntilServerExits();
+    
+    /**
+     * Milliseconds between a SIGTERM signal and a SIGKILL signal sent to the server.
+     * This timeout allows the server enough time to cleanup after itself.
+    */
+    static const std::chrono::milliseconds SERVER_CLEANUP_TIMEOUT;
+    /**
+     * Milliseconds to wait between checks on whether the server is still alive
+     */
+    static const std::chrono::milliseconds SERVER_CHECK_INTERVAL;
+    
+    // ---------------------------------------------------------------------- //
+
+    std::string hostName;                 /*! Hostname of the RasServer process */
+    std::int32_t port{};                    /*! Port of the RasServer process */
+    std::shared_ptr<DatabaseHost> dbHost; /*! Database host to which this server has access */
+    std::string options;
+
+    pid_t processId{};      /*! Id of the server process*/
+    std::string serverId; /*! UUID that uniquely identifies the server */
+
+    std::mutex stateMutex;
+    std::atomic<bool> registered{};      /*! Flag to indicate if the server is starting but has not yet registered */
+    std::atomic<bool> clientConnected{}; /*! True if any client is connected */
+    std::atomic<bool> started{};         /*! True after the process is started*/
+
+    std::atomic<std::uint32_t> sessionNo{};
+
+    std::shared_mutex sessionMutex; /*!Mutex used for making the object thread safe */
+    std::uint32_t clientId{};
+    std::uint32_t sessionId{};
+    std::atomic<bool> sessionOpen{false};
+
+    std::unique_ptr<::rasnet::service::RasServerService::Stub> service; /*! Service stub used to communicate with the RasServer process */
 };
 
 }  // namespace rasmgr
 
-#endif /* RASMGR_X_SRC_RASSERVER_HH_ */
+#endif  // SERVER_HH

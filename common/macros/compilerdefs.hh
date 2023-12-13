@@ -10,6 +10,7 @@
 
 /// To explicitly mark unused attributes
 #define UNUSED          __attribute__((unused))
+#define MAYBE_UNUSED    [[maybe_unused]]
 
 /// Use when the compiler cannot deduce that some code is unreachable, usually
 /// to silence erroneous warnings:
@@ -32,6 +33,25 @@
 /// Note that unaligned access may segfault on ARM and other architectures; it
 /// mainly works on x86.
 #define PACKED          __attribute__((packed))
+
+/// The [[nodiscard]] attribute can be used to indicate that the return value of 
+/// a function shouldn't be ignored when you do a function call. If the return 
+/// value is ignored, the compiler should give a warning on this.
+/// https://en.cppreference.com/w/cpp/language/attributes/nodiscard
+#define NODISCARD       [[nodiscard]]
+
+/// Whenever a case is ended in a switch, the code of the next case will get
+/// executed. This last one can be prevented by using the ´break` statement. As
+/// this fallthrough behavior can introduce bugs when not intended, compilers
+/// and static analyzers tend give a warning on this. Using this attribute
+/// indicates that the fallthrough behavior is indeed what we want in the code.
+/// https://riptutorial.com/cplusplus/example/18747/--fallthrough--
+#define FALLTHROUGH     [[fallthrough]]
+
+/// Indicate that the function does not return to the caller by either executing 
+/// a return statement, or by reaching the end if it's body. Such a function 
+/// may end by calling exit, or throwing an exception.
+#define NORETURN        [[noreturn]]
 
 // -------------------------------------------------------------------------- //
 // function inlining

@@ -64,7 +64,10 @@ protected:
         this->peerManager = std::make_shared<PeerManagerMock>();
 
         ClientManagerConfig config;
-        this->clientManager = std::make_shared<ClientManagerMock>(config, userManager, serverManager, peerManager);
+        
+        clientServerMatcher = std::make_shared<ClientServerMatcher>(config, serverManager, peerManager);
+
+        this->clientManager = std::make_shared<ClientManagerMock>(config, userManager, peerManager, clientServerMatcher);
 
         this->service.reset(new ClientManagementService(this->clientManager));
     }
@@ -73,6 +76,7 @@ protected:
     std::shared_ptr<ClientManager> clientManager;
     std::shared_ptr<UserManager> userManager;
     std::shared_ptr<PeerManager> peerManager;
+    std::shared_ptr<ClientServerMatcher> clientServerMatcher;
     std::shared_ptr<ServerGroupFactory> serverGroupFactory;
 
     std::shared_ptr<ClientManagementService> service;

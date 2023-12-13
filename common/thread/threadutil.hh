@@ -33,12 +33,27 @@
 namespace common
 {
 
-/**
- * Contains the necessary parts for a commonly occuring pattern in the rasmgr
- * code: a thread that does something every X milliseconds.
- */
+/// Contains the necessary parts for a commonly occuring pattern:
+/// a thread that does something every X milliseconds.
 struct PeriodicTaskExecutor
 {
+    /// the executor thread is waiting on this condition variable, and another
+    /// thread does cv.notify_one() when it needs to stop it.
+    std::condition_variable cv;
+    /// executor thread is running if true; should be set to false when we
+    /// want to stop it.
+    std::atomic<bool> running{true};
+    /// set to true when the executor is awoken outside it's regular repetition
+    std::atomic<bool> awoken{false};
+    
+    /// execute tasks every X ms
+    std::chrono::milliseconds repeatInterval;
+    /// used to safely stop the executor when signaling the cv
+    std::mutex stopMutex;
+    /// thread that will execute the task
+    std::thread executor;
+
+
     PeriodicTaskExecutor(const std::function<void(void)> &task,
                          std::chrono::milliseconds interval)
         : repeatInterval{interval},
@@ -48,25 +63,19 @@ struct PeriodicTaskExecutor
 
     DISABLE_COPY_AND_MOVE(PeriodicTaskExecutor)
 
-    /// execute tasks every X ms
-    std::chrono::milliseconds repeatInterval;
-    /// thread that will execute the task
-    std::thread executor;
-
-    /// used to safely stop the executor when signaling the cv
-    std::mutex stopMutex;
-    /// the executor thread is waiting on this condition variable, and another
-    /// thread does cv.notify_one() when it needs to stop it.
-    std::condition_variable cv;
-    /// executor thread is running if true; should be set to false when we
-    /// want to stop it.
-    std::atomic<bool> running{true};
-    /// set to true when the executor is awoken outside it's regular repetition
-    std::atomic<bool> awoken{false};
+    ~PeriodicTaskExecutor()
+    {
+        stop();
+    }
 
     /// stop the executor; this will block until the thread exits.
     void stop()
     {
+        if (!running)
+        {
+            return;
+        }
+
         {
             std::lock_guard<std::mutex> lock(this->stopMutex);
             this->running = false;
@@ -74,7 +83,7 @@ struct PeriodicTaskExecutor
         this->cv.notify_one();
         this->executor.join();
     }
-    
+
     /// wakeup the executor so it can run immediately; the wakeup is done only
     /// if running is true.
     void wakeup()
@@ -90,7 +99,6 @@ struct PeriodicTaskExecutor
     }
 
 private:
-    
     /// abstracts away the condition variable handling, the user should just
     /// pass their task logic.
     void run(const std::function<void(void)> &task)
@@ -108,6 +116,43 @@ private:
                 task();
             }
         }
+    }
+};
+
+// -------------------------------------------------------------------------- //
+
+/// A simple condition variable wrapper with a bool condition.
+struct BoolConditionVariableWrapper
+{
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::atomic<bool> shouldWakeup{false}; /*! true if the condition variable should finish wating */
+    
+    BoolConditionVariableWrapper() = default;
+    
+    DISABLE_COPY_AND_MOVE(BoolConditionVariableWrapper)
+    
+    ~BoolConditionVariableWrapper()
+    {
+        notify();
+    }
+    
+    void notify()
+    {
+        if (!shouldWakeup)
+        {
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                shouldWakeup = true;
+            }
+            cv.notify_all();
+        }
+    }
+    
+    void wait()
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        cv.wait(lock, [this]() { return shouldWakeup.load(); });
     }
 };
 

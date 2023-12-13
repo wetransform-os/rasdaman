@@ -27,9 +27,9 @@
  */
 package petascope.wcst.handlers;
 
-import com.rasdaman.accesscontrol.service.AuthenticationService;
 import com.rasdaman.admin.layer.service.AdminCreateOrUpdateLayerService;
 
+import petascope.controller.AuthenticationController;
 import petascope.core.Pair;
 import petascope.core.XMLSymbols;
 import petascope.core.gml.cis10.GMLCIS10ParserService;
@@ -143,8 +143,8 @@ public class UpdateCoverageHandler {
     public Response handle(UpdateCoverageRequest request)
             throws WCSTCoverageParameterNotFound, WCSTInvalidXML, PetascopeException, SecoreException, Exception {
         log.debug("Handling coverage update...");
-        
-        this.petascopeController.validateWriteRequestFromIP(httpServletRequest);
+
+        this.petascopeController.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
         
         // persisted coverage
         Coverage currentCoverage = persistedCoverageService.readCoverageByIdFromDatabase(request.getCoverageId());

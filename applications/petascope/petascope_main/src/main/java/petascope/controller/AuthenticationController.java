@@ -33,6 +33,8 @@ import org.rasdaman.rasnet.util.DigestUtils;
 import javax.servlet.http.HttpServletRequest;
 import org.rasdaman.config.ConfigManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import static org.rasdaman.config.ConfigManager.CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH;
+import org.rasdaman.rasnet.util.DigestUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import static org.rasdaman.config.ConfigManager.*;
@@ -89,19 +91,29 @@ public class AuthenticationController extends AbstractController {
     
     public static final String READ_WRITE_RIGHTS = "RW";
 
+    /**
+     * Check if petascope has being enabled authentication in petascope.properties,
+     * then WSClient shows a login form.
+     */
     @RequestMapping(value = CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH)
     private void handleCheckEnableAuthentication() throws Exception {
         if (startException != null) {
             throw startException;
         }
 
+        boolean basicAuthenticationHeaderEnabled = false;
         String rasdamanUser = "";
+
+        if (ConfigManager.enableAuthentication()) {
+            basicAuthenticationHeaderEnabled = true;
+        }
+
         if (!ConfigManager.RASDAMAN_USER.trim().isEmpty()
                 && !ConfigManager.RASDAMAN_PASS.trim().isEmpty()) {
             rasdamanUser = ConfigManager.RASDAMAN_USER;
         }
 
-        AuthIsActiveResult result = new AuthIsActiveResult(false, rasdamanUser);
+        AuthIsActiveResult result = new AuthIsActiveResult(basicAuthenticationHeaderEnabled, rasdamanUser);
         Response response = new Response(Arrays.asList(JSONUtil.serializeObjectToJSONString(result).getBytes()), MIMEUtil.MIME_JSON);
         this.writeResponseResult(response);
     }
@@ -119,7 +131,7 @@ public class AuthenticationController extends AbstractController {
         
         String username = resultPair.fst;
         String password = resultPair.snd;
-        
+
         String result = "";
         
         RasUtil.checkValidUserCredentials(username, password);
@@ -184,7 +196,7 @@ public class AuthenticationController extends AbstractController {
                     }
                 }
             }
-            
+
             return roleNames;
         } catch (IOException ex) {
             throw new PetascopeException(ExceptionCode.IOConnectionError, 

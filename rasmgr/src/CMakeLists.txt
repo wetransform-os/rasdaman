@@ -68,6 +68,7 @@ SET(RASMGR_SOURCES ${GENERATED_PROTO_SOURCES}
         clientcredentials.cc clientcredentials.hh
         clientmanagementservice.cc clientmanagementservice.hh
         clientmanager.cc clientmanager.hh
+        clientservermatcher.cc clientservermatcher.hh
         clientmanagerconfig.cc clientmanagerconfig.hh
         clientserverrequest.cc clientserverrequest.hh
         clientserversession.hh
@@ -103,7 +104,6 @@ SET(RASMGR_SOURCES ${GENERATED_PROTO_SOURCES}
         userauthconverter.cc userauthconverter.hh
         userdatabaserights.cc userdatabaserights.hh
         usermanager.cc usermanager.hh
-        cpuscheduler.cc cpuscheduler.hh
         )
 
 # Create a library from the source files so that we do not have to recompile.
@@ -126,6 +126,7 @@ target_link_libraries(rasmgr_lib
         ${Boost_THREAD_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
         ${CMAKE_THREAD_LIBS_INIT}
+        ${TBB_LIBRARIES}
         )
 
 # Create the rasmgr executable

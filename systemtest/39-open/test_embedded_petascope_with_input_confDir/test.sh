@@ -165,10 +165,6 @@ $WGET -q --spider "http://localhost:$port/rasdaman/ows?service=WCS&version=2.0.1
 # defined in common.sh
 check_result 0 $? "test embedded petascope with customized etc dir"
 
-# Try to delete a coverage, but the IP is not allowed in petascope.properties
-wget -q --spider "http://localhost:$port/rasdaman/ows?service=WCS&version=2.0.1&request=DeleteCoverage&coverageId=test_123"
-check_result 8 $? "test write request: DeleteCoverage is not allowed from localhost"
-
 # Try to insert a test coverage with rasadmin and it should bypass IP check
 fileref="file:/$SCRIPT_DIR/testdata/insertcoverage.gml"
 $WGET -q --spider "http://localhost:$port/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1&REQUEST=InsertCoverage&coverageRef=$fileref"

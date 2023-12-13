@@ -42,12 +42,13 @@ RasServerEntry &RasServerEntry::getInstance()
     return instance;
 }
 
-void RasServerEntry::connectToRasbase()
+void RasServerEntry::connectToRasbase(const std::shared_ptr<rasserver::RasmgrComm> &rasmgrComm)
 {
     auto *admin = AdminIf::instance();
     if (!admin)
         throw r_Error(r_Error::r_Error_BaseDBMSFailed);
     server.setAdmin(admin);
+    server.setRasmgrComm(rasmgrComm);
 }
 
 void RasServerEntry::connectNewClient(std::uint32_t clientId, const char *capability)

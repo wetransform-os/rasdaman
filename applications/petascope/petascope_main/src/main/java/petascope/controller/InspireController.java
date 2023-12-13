@@ -22,7 +22,6 @@
 package petascope.controller;
 
 
-import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.rasdaman.config.ConfigManager;
@@ -71,7 +70,7 @@ public class InspireController extends AbstractController {
     @Override
     protected void requestDispatcher(HttpServletRequest httpServletRequest, Map<String, String[]> kvpParameters) throws PetascopeException {
         
-        this.validateWriteRequestFromIP(httpServletRequest);
+        this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
         
         String coverageId = this.getValueByKeyAllowNull(kvpParameters, KEY_INSPIRE_COVERAGE_ID);
         String metadataURL = this.getValueByKeyAllowNull(kvpParameters, KEY_INSPIRE_METADATA_URL);

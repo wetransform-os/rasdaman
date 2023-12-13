@@ -21,7 +21,6 @@
  */
 package petascope.wcst.handlers;
 
-import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.util.ArrayList;
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
@@ -38,6 +37,7 @@ import org.rasdaman.repository.service.WMSRepostioryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import petascope.controller.AuthenticationController;
 import petascope.controller.PetascopeController;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WMSException;
@@ -55,7 +55,6 @@ import petascope.wcst.parsers.DeleteCoverageRequest;
 import petascope.wms.handlers.service.WMSGetMapCachingService;
 import org.rasdaman.repository.service.WMTSRepositoryService;
 import petascope.util.CrsUtil;
-import petascope.wmts.handlers.service.WMTSGetCapabilitiesService;
 
 /**
  * Handles the deletion of a coverage.
@@ -86,8 +85,8 @@ public class DeleteCoverageHandler {
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(DeleteCoverageHandler.class);
 
     public Response handle(DeleteCoverageRequest request) throws Exception {
-        
-        petascopeController.validateWriteRequestFromIP(httpServletRequest);
+
+        this.petascopeController.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
         
         String username = ConfigManager.RASDAMAN_ADMIN_USER;
         String password = ConfigManager.RASDAMAN_ADMIN_PASS;

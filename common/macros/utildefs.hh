@@ -26,3 +26,19 @@
 
 #define DISABLE_INSTANTIATION(className) \
     className() = delete;
+
+// -------------------------------------------------------------------------- //
+
+/// For testing purposes, only enabled in Debug build to prevent problems from
+/// any accidental commits with this left in the code.
+#ifdef RASDEBUG
+#define CAUSE_SEGFAULT *(int*)0 = 0;
+#else
+#define CAUSE_SEGFAULT
+#endif
+
+
+// -------------------------------------------------------------------------- //
+
+// Round up x to the closes multiple of s
+#define ROUND_UP(x, s) (((x) + ((s)-1)) & -(s))

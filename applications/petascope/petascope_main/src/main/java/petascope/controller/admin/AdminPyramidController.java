@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import petascope.controller.AbstractController;
+import petascope.controller.AuthenticationController;
 import petascope.controller.RequestHandlerInterface;
 import petascope.core.KVPSymbols;
 import petascope.core.response.Response;
@@ -109,7 +110,7 @@ public class AdminPyramidController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
 
                 this.addPyramidMemberService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
@@ -137,7 +138,7 @@ public class AdminPyramidController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
 
                 this.removePyramidMemberService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
@@ -165,7 +166,7 @@ public class AdminPyramidController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
 
                 this.createPyramidMemberService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {

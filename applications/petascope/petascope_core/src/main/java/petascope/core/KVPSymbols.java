@@ -113,7 +113,7 @@ public interface KVPSymbols {
     String KEY_INTERNAL_WCPS_NOT_RUN_RASQL_QUERY = KEY_INTERNAL_PREFIX + "_WCPS_NOT_RUN_RASQL_QUERY";
     // This request is /oapi/coverageId/coverage to get a coverage -> output format is based on the input coverage data dimensions and type
     String KEY_INTERNAL_OAPI_GET_COVERAGE = KEY_INTERNAL_PREFIX + "_GET_COVERAGE";
-    
+
     // WCPS
     String VALUE_PROCESS_COVERAGES = "ProcessCoverages";
     String KEY_QUERY = "query";

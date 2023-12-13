@@ -32,6 +32,7 @@
 
 #include "clientmanagementservice.hh"
 #include "clientmanagerconfig.hh"
+#include "clientservermatcher.hh"
 #include "clientmanager.hh"
 #include "configuration.hh"
 #include "configurationmanager.hh"
@@ -51,21 +52,23 @@
 #include "usermanager.hh"
 #include "common/grpc/grpcutils.hh"
 #include "common/exceptions/resourcebusyexception.hh"
-#include "cpuscheduler.hh"
 #include <logging.hh>
 
 #include <memory>
+#include <chrono>
 #include <grpc++/grpc++.h>
 #include <grpc/support/time.h>
 
 namespace rasmgr
 {
 
+// clang-format off
 RasManager::RasManager(rasmgr::Configuration &config)
     : running{false}, port{config.getPort()}
 {
     RasMgrConfig::getInstance()->setRasMgrPort(std::int32_t(this->port));
 }
+// clang-format on
 
 void RasManager::start()
 {
@@ -89,8 +92,8 @@ void RasManager::start()
     auto peerManager = std::make_shared<PeerManager>();
 
     ClientManagerConfig clientManagerConfig;
-    auto cpuScheduler = std::make_shared<CpuScheduler>(1);
-    auto clientManager = std::make_shared<ClientManager>(clientManagerConfig, userManager, serverManager, peerManager, cpuScheduler);
+    auto clientServerMatcher = std::make_shared<ClientServerMatcher>(clientManagerConfig, serverManager, peerManager);
+    auto clientManager = std::make_shared<ClientManager>(clientManagerConfig, userManager, peerManager, clientServerMatcher);
     auto rascontrol = std::make_shared<RasControl>(userManager, dbhManager, dbManager, serverManager, peerManager, this);
     auto commandExecutor = std::make_shared<ControlCommandExecutor>(rascontrol);
 
@@ -101,7 +104,7 @@ void RasManager::start()
 
     std::shared_ptr<rasnet::service::RasMgrRasServerService::Service> serverManagementService(new rasmgr::ServerManagementService(serverManager, clientManager));
     std::shared_ptr<rasnet::service::RasMgrRasCtrlService::Service> rasctrlService(new rasmgr::ControlService(commandExecutor));
-    std::shared_ptr<rasnet::service::RasmgrClientService::Service> clientService(new rasmgr::ClientManagementService(clientManager));
+    std::shared_ptr<rasnet::service::RasmgrClientService::Service> clientManagementService(new rasmgr::ClientManagementService(clientManager));
     std::shared_ptr<rasnet::service::RasmgrRasmgrService::Service> rasmgrService(new rasmgr::RasmgrService(clientManager));
 
     //The health service will only be used to report on the health of the server
@@ -115,7 +118,7 @@ void RasManager::start()
 
     // Register "service" as the instance through which we'll communicate with
     // clients. In this case it corresponds to a *synchronous* service.
-    builder.RegisterService(clientService.get());
+    builder.RegisterService(clientManagementService.get());
     builder.RegisterService(serverManagementService.get());
     builder.RegisterService(rasctrlService.get());
     builder.RegisterService(rasmgrService.get());
@@ -139,10 +142,20 @@ void RasManager::stop()
 {
     if (this->running)
     {
+        LINFO << "Stopping rasmanager...";
         this->configManager->saveConfiguration(true);
-
-        this->server->Shutdown();
-        LINFO << "Stopping rasmanager.";
+        this->running = false;
+        // set a 5s deadline for shutting down rasmgr; if the deadline is
+        // reached, all pending rpcs should be terminated forcibly.
+        using namespace std::chrono;
+        system_clock::time_point
+            deadline = system_clock::now() + milliseconds(5000);
+        this->server->Shutdown(deadline);
+        LINFO << "Stopped rasmanager.";
+    }
+    else
+    {
+        LDEBUG << "rasmanager is not running.";
     }
 }
 

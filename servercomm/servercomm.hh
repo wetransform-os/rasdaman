@@ -29,6 +29,11 @@ rasdaman GmbH.
 
 #include <mutex>
 
+namespace rasserver
+{
+class RasmgrComm;
+}
+
 // forward declarations
 class AdminIf;
 class BaseType;
@@ -910,6 +915,8 @@ public:
 
     void setAdmin(AdminIf *newAdmin);
 
+    void setRasmgrComm(const std::shared_ptr<rasserver::RasmgrComm> &value);
+
     static const int RESPONSE_ERROR;
     static const int RESPONSE_MDDS;
     static const int RESPONSE_SCALARS;
@@ -954,6 +961,7 @@ protected:
 
     /// pointer to the actual administration interface object
     AdminIf *admin{NULL};
+    std::shared_ptr<rasserver::RasmgrComm> rasmgrComm;
 
     /// flag for active db transaction (stores the clientID of the owner of the active transaction,
     /// or 0 if none open)

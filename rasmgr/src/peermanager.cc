@@ -199,6 +199,7 @@ PeerMgrProto PeerManager::serializeToProto()
 
 std::string PeerManager::remoteClientSessionToString(const RemoteClientSession &clientSession)
 {
-    return clientSession.getClientSessionId() + ":" + clientSession.getDbSessionId();
+    return std::to_string(clientSession.getClientSessionId()) + ":" + 
+            std::to_string(clientSession.getDbSessionId());
 }
 }  // namespace rasmgr

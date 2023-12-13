@@ -28,7 +28,7 @@
 // clang-format off
 /// valid error codes:
 #define ALLDONE                         -1
-#define OK                              0
+#define ALLOK                           0
 #define NOQUERY                         1
 #define ERRORPARSINGCOMMANDLINE         2
 #define ILLEGALOUTPUTTYPE               3

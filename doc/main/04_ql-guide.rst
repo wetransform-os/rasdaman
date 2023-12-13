@@ -3987,7 +3987,7 @@ clip, concat, and geographic reprojection.
 Polygonize operation
 ====================
 
-The `POLYGONIZE` operation creates vector polygons for all connected regions of
+The ``polygonize`` function creates vector polygons for all connected regions of
 pixels in a given array, resulting in a vector format file such as Shapefile.
 This operation is useful in geographical context, providing ability to layer
 additional information on existing maps, for example.
@@ -3995,11 +3995,12 @@ additional information on existing maps, for example.
 **Syntax**
 
 ::
-    POLYGONIZE(mddExp, targetFormat)
-    POLYGONIZE(mddExp, targetFormat, connectedness)
 
-    POLYGONIZE(mddExp, targetFormat, crs, bbox)
-    POLYGONIZE(mddExp, targetFormat, connectedness, crs, bbox)
+    polygonize(mddExp, targetFormat)
+    polygonize(mddExp, targetFormat, connectedness)
+
+    polygonize(mddExp, targetFormat, crs, bbox)
+    polygonize(mddExp, targetFormat, connectedness, crs, bbox)
 
 Where
 
@@ -4041,7 +4042,7 @@ The ``bbox`` parameter is a geographic bounding box given as a string of
 comma-separated floating-point values of the format: "xmin, ymin, xmax, ymax".
 
 As a result, the operation produces a file in the desired target format. If the
-format assumes several output files, they will be packaged in a tar archive.
+format assumes several output files, they will be packaged in a zip archive.
 
 **Limitations**
 
@@ -4057,7 +4058,7 @@ The following query uses default parameters to polygonize ``rgb`` collection: ::
 
     select polygonize(rgb) from rgb
 
-The result is a ``.tar`` archive that consists of the three files in accordance
+The result is a ``.zip`` archive that consists of the three files in accordance
 to the "ESRI Shapefile" format: ``polygonize.shp``, ``polygonize.shx``,
 ``polygonize.dbf``
 
@@ -4068,12 +4069,13 @@ The next query produces the result in ``pdf`` format: ::
 The retrieved file is ``polygonize.pdf``. 
 
 To specify 8-connectedness instead of the default 4, one can use the following query: ::
-    
+
     select polygonize(rgb, "ESRI Shapefile", 8) from rgb
 
 If the input array is geo-referenced, its CRS and geo bbox can be specified: ::
-    
+
     select polygonize(c, "EPSG:4326", "-180, -90, 180, 90") from worldmap as c
+
 
 .. _format-conversion:
 

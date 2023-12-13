@@ -21,8 +21,6 @@
  */
 package com.rasdaman.admin.layer.service;
 
-// -- rasdaman enterprise begin
-
 import com.rasdaman.admin.service.AbstractAdminService;
 import petascope.core.response.Response;
 import java.util.Map;

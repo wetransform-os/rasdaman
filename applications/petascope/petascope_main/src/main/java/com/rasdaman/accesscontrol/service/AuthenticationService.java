@@ -142,6 +142,36 @@ public class AuthenticationService {
         InputStream inputStream = urlConnection.getInputStream();
         return inputStream;
     }
+
+    /**
+     * Return rasdaman user credentials from a request.
+     * NOTE: used only in deeper classes which are behind this requests filter.
+     */
+    public static Pair<String, String> getRasUserCredentials(HttpServletRequest httpServletRequest) throws PetascopeException {
+        String username = ConfigManager.RASDAMAN_USER;
+        String password = ConfigManager.RASDAMAN_PASS;
+        
+        Pair<String, String> basicAuthCredentialsPair = getBasicAuthUsernamePassword(httpServletRequest);
+        if (basicAuthCredentialsPair != null) {
+            username = basicAuthCredentialsPair.fst;
+            password = basicAuthCredentialsPair.snd;
+        }
+        
+        if (ConfigManager.enableAuthentication()) {
+
+            // If request with basic authentication header then just use credentials from it
+            
+            if (basicAuthCredentialsPair != null) {
+                // Basic authentication, credentials always from header
+                username = basicAuthCredentialsPair.fst;
+                password = basicAuthCredentialsPair.snd;
+            }            
+        }
+        
+        Pair<String, String> credentailsPair = new Pair<>(username, password);
+        
+        return credentailsPair;
+    }
     
     // -------------- openEO API
 

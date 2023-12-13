@@ -30,6 +30,7 @@
 #include "common/exceptions/exception.hh"
 #include "common/exceptions/invalidstateexception.hh"
 #include "common/exceptions/invalidargumentexception.hh"
+#include "stacktrace.hh"
 
 #include <logging.hh>
 
@@ -131,13 +132,17 @@ void ServerGroup::stop(KillLevel level)
     }
 }
 
-void ServerGroup::scheduleForRestart()
+void ServerGroup::scheduleForRestart(bool onlyIfSessionCountIsNonZero)
 {
     boost::lock_guard<boost::shared_mutex> groupLock(this->groupMutex);
     if (serverStatus == ServerStatus::RUNNING)
     {
-        this->scheduledForRestart = true;
-        this->restartServer();
+        if (!onlyIfSessionCountIsNonZero ||
+            (runningServer && runningServer->getTotalSessionNo() > 0))
+        {
+            this->scheduledForRestart = true;
+            this->restartServer();
+        }
     }
     else
     {
@@ -175,7 +180,6 @@ bool ServerGroup::tryRegisterServer(const std::string &serverId)
     bool registered = false;
 
     boost::upgrade_lock<boost::shared_mutex> groupLock(this->groupMutex);
-    LDEBUG << "Try register server " << serverId;
 
     //If the server group is stopped, we cannot register new servers.
     if (this->serverStatus == ServerStatus::STOPPED)
@@ -186,6 +190,7 @@ bool ServerGroup::tryRegisterServer(const std::string &serverId)
 
     if (this->serverStatus == ServerStatus::STARTING && runningServer->getServerId() == serverId)
     {
+        LDEBUG << "Try register server " << serverId;
         TRY_CATCH(
             CODE(
                 boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(groupLock);
@@ -193,6 +198,8 @@ bool ServerGroup::tryRegisterServer(const std::string &serverId)
                 registered = true;
                 serverStatus = ServerStatus::RUNNING;),
             CODE(LWARNING << "Failed registering server " << serverId))
+
+        LDEBUG << "Try register server " << serverId << ": " << registered;
 
         // record failed registrations
         if (registered)
@@ -214,7 +221,6 @@ bool ServerGroup::tryRegisterServer(const std::string &serverId)
     }
     // else: the serverId is not found in this server group, nothing to do
 
-    LDEBUG << "Try register server " << serverId << ": " << registered;
     return registered;
 }
 
@@ -236,21 +242,15 @@ bool ServerGroup::tryGetAvailableServer(const std::string &dbName,
     }
     if (this->databaseHost->ownsDatabase(dbName))
     {
+        LTRACE << "server status: " << serverStatusToString(this->serverStatus);
         if (this->serverStatus == ServerStatus::RUNNING && runningServer->isAvailable())
         {
             out_server = runningServer;
             return true;
         }
     }
+    LDEBUG << "no server found.";
     return false;
-}
-
-std::shared_ptr<Server> ServerGroup::getServer(const std::string &serverId)
-{
-    boost::shared_lock<boost::shared_mutex> groupLock(this->groupMutex);
-    return this->runningServer && this->runningServer->getServerId() == serverId
-               ? this->runningServer
-               : nullptr;
 }
 
 ServerGroupConfigProto ServerGroup::getConfig() const
@@ -396,7 +396,8 @@ void ServerGroup::removeDeadServers()
             // check for dead process
             TRY_CATCH(
                 CODE(
-                    killServer = !runningServer->isAlive();),
+                    killServer = !runningServer->isAlive();
+                    if (killServer) LDEBUG << "server is not alive.";),
                 CODE(
                     killServer = true;
                     LWARNING << "Server is not responding to pings " << runningServer->getServerId()))
@@ -405,6 +406,7 @@ void ServerGroup::removeDeadServers()
         {
             // check for starting rasserver that hasn't registered with rasmgr within a timeout
             killServer = startingServerTimer->hasExpired();
+            if (killServer) LDEBUG << "starting server timer expired.";
         }
         else if (this->serverStatus == ServerStatus::STOPPING)
         {
@@ -417,6 +419,7 @@ void ServerGroup::removeDeadServers()
                         runningServer.reset();
                     } else {
                         killServer = stoppingServerTimer->hasExpired();
+                        if (killServer) LDEBUG << "stopping server timer expired.";
                     }),
                 CODE(
                     killServer = true;
@@ -428,6 +431,7 @@ void ServerGroup::removeDeadServers()
             TRY_CATCH(
                 CODE(
                     LDEBUG << "Killing server and marking for restart " << runningServer->getServerId();
+                    LDEBUG << common::stacktrace::StackTrace{}.toString(1);
                     runningServer->stop(KILL);
                     this->scheduledForRestart = false;
                     this->serverStatus = ServerStatus::RESTARTING;
@@ -480,12 +484,12 @@ void ServerGroup::evaluateServersToRestart()
         bool serverIsFree = true;
         TRY_CATCH(
             CODE(
-                serverIsFree = runningServer->isFree();),
+                serverIsFree = runningServer->isAvailable();),
             CODE(LWARNING << "Failed to check if server is free " << runningServer->getServerId()))
         if (serverIsFree)
         {
             LDEBUG << "Killing free server " << runningServer->getServerId() << " so it can be restarted.";
-            runningServer->stop(KILL);
+            runningServer->stop();
             runningServer.reset();
             this->scheduledForRestart = false;
         }
@@ -589,6 +593,20 @@ void ServerGroup::validateAndInitConfig(ServerGroupConfigProto &cfg)
 std::int32_t ServerGroup::getConfiguredPort() const
 {
     return std::int32_t(config.ports(0));
+}
+
+std::string serverStatusToString(ServerStatus st)
+{
+    switch (st)
+    {
+    case ServerStatus::INITIALIZING: return "INITIALIZING";
+    case ServerStatus::RUNNING: return "RUNNING";
+    case ServerStatus::STOPPING: return "STOPPING";
+    case ServerStatus::STOPPED: return "STOPPED";
+    case ServerStatus::STARTING: return "STARTING";
+    case ServerStatus::RESTARTING: return "RESTARTING";
+    default: return "INVALID";
+    }
 }
 
 }  // namespace rasmgr

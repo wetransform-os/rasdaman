@@ -35,12 +35,12 @@ void ClientManagerConfig::setClientLifeTime(const std::int32_t &value)
     clientLifeTime = value;
 }
 
-int32_t ClientManagerConfig::getMaxClientQueueSize() const
+uint32_t ClientManagerConfig::getMaxClientQueueSize() const
 {
     return maxClientQueueSize;
 }
 
-void ClientManagerConfig::setMaxClientQueueSize(const int32_t &value)
+void ClientManagerConfig::setMaxClientQueueSize(const uint32_t &value)
 {
     maxClientQueueSize = value;
 }

@@ -164,6 +164,13 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
         else:
             return [nil_value]
 
+    def _get_file_band_data_type_and_chunk_sizes_from_file(self, band_id):
+        """
+        band_id is the identifier of the band
+        """
+        data_type = GRIBToCoverageConverter.DEFAULT_DATA_TYPE
+        return data_type, None
+
     def _evaluated_messages_to_dict(self, evaluated_messages):
         """
         Converts a list of messages to json friendly data structure

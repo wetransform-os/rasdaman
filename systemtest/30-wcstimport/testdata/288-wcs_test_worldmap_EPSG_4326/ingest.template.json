@@ -15,6 +15,7 @@
   "recipe": {
     "name": "map_mosaic",
     "options": {
+      "tiling": "ALIGNED [0:*, 0:*] tile size 4194304",    
       "wms_import": true
     }
   }

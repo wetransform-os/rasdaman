@@ -29,7 +29,8 @@ from master.helper.user_band import OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_C
 
 
 class RangeTypeField(Model):
-    def __init__(self, name, definition="", description="", nilValues=[], uom=None, observationType=OBSERVATION_TYPE_NUMERIC, codeSpace=None):
+    def __init__(self, name, definition="", description="", nilValues=[], uom=None, observationType=OBSERVATION_TYPE_NUMERIC, codeSpace=None, dataType=None,
+                 chunk_sizes_from_file=None):
         """
         Class to represent the range type field element of range type
         :param str name: the name of the field
@@ -38,6 +39,8 @@ class RangeTypeField(Model):
         :param list[RangeTypeNilValue] nilValues: the nil values for this field
         :param str uom: the unit of measure for the field
         :param str observationType: if omitted -> swe:Quantity, else if set to categorial -> swe:Category
+        :param str dataType: the data type of the input band
+        :param list[int] chunk_sizes_from_file: data block in TIFF file or chunking of a band in netCDF
         """
         self.name = name
         self.definition = definition
@@ -45,9 +48,15 @@ class RangeTypeField(Model):
         self.nilValues = nilValues
         # NOTE: used only for swe:Quantity
         self.uom = uom
+
+        # default it is swe:Quantity
+        if observationType is None:
+            observationType = OBSERVATION_TYPE_NUMERIC
         self.observationType = observationType
         # NOTE: used only for swe:Category
         self.codeSpace = codeSpace
+        self.dataType = dataType
+        self.chunk_sizes_from_file = chunk_sizes_from_file
 
     def get_template_name(self):
         if self.observationType == OBSERVATION_TYPE_NUMERIC:

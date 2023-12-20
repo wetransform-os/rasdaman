@@ -24,7 +24,6 @@
 from config_manager import ConfigManager
 from master.error.runtime_exception import RuntimeException
 from util.crs_util import CRSUtil
-from util.file_util import FileUtil
 from util.gdal_field import GDALField
 from decimal import Decimal
 import json
@@ -366,7 +365,7 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
 
         band1 = self.gdal_dataset.GetRasterBand(1)
         band1_image_metadata = band1.GetMetadata_List("IMAGE_STRUCTURE")
-        if band1_image_metadata  is not None:
+        if band1_image_metadata is not None:
             if "PIXELTYPE=SIGNEDBYTE" in band1_image_metadata:
                 return "SignedByte"
 
@@ -529,33 +528,27 @@ class GDALGmlUtil(metaclass=NoPublicConstructor):
         from osgeo import gdal
         return gdal.GetDataTypeName(numpy_to_gdal_dict[data_type])
 
-
     @staticmethod
-    def open_gdal_dataset_from_any_file(files, session):
+    def get_data_type_size(gdal_data_type):
         """
-        This method is used to open 1 dataset to get the common metadata shared from all input files.
-        :param list files: input files
+        e.g. Size of Byte type is 1, size of int16 is 2
         """
-        gdal_dataset = None
+        gdal_types_to_sizes_dict = {
+            "Byte": 1,
+            "UInt16": 2,
+            "Int16": 2,
+            "UInt32": 4,
+            "Int32": 4,
+            "Float32": 4,
+            "Float64": 8,
+            "CInt16": 4,
+            "CInt32": 8,
+            "CFloat32": 8,
+            "CFloat64": 16
+        }
 
-        for file in files:
-            file_path = file.get_filepath()
-            try:
-                gdal_dataset = GDALGmlUtil.init(file_path)
-                return gdal_dataset
-            except Exception as ex:
-                error_message = "Failed to open GDAL file '{}'. Reason: {}".format(file_path, str(ex))
-                log.warn(error_message)
-
-                # Cannot open file by gdal, try with next file
-                if session.skip_file_that_fail_to_open():
-                    continue
-                else:
-                    raise ex
-
-        if gdal_dataset is None:
-            # Cannot open any dataset from input files, just exit wcst_import process
-            FileUtil.validate_input_file_paths([])
+        result = gdal_types_to_sizes_dict[gdal_data_type]
+        return result
 
     @staticmethod
     def get_gdal_version():

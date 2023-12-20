@@ -853,6 +853,10 @@ class Recipe(BaseRecipe):
         for input_file in input_files:
             try:
                 netcdf_dataset = netcdf4_open(input_file)
+                if first_band_variable_identifier not in netcdf_dataset.variables:
+                    raise RecipeValidationException("Band identifier: " + first_band_variable_identifier
+                                                    + " does not exist in the input netCDF file '{}'.".format(input_file))
+
                 number_of_dimensions = len(netcdf_dataset.variables[first_band_variable_identifier].dimensions)
                 self.__validate_data_bound_axes(user_axes, number_of_dimensions)
                 break

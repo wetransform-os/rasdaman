@@ -15,6 +15,7 @@
     "recipe": {
         "name": "time_series_irregular", 
         "options": {
+              "tiling": "ALIGNED [0:0, 0:1000, 0:500]",
             "time_parameter": { 
                 "filename": {
         	  "regex": "(.*)_(.+?)\\.(.*)", 
@@ -30,7 +31,6 @@
         }     
 
     },
-  "tiling": "ALIGNED [0:0, 0:1000, 0:500]",
   "hooks": [
       {
         "description": "create a struct type manually and petascope needs to create a different cell type to avoid duplicate.",

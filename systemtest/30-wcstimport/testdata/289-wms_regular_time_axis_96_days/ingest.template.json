@@ -17,6 +17,7 @@
     "recipe": {
         "name": "general_coverage",
         "options": {
+           "tiling": "ALIGNED [0:*, 0:*, 0:*] tile size 4194304",        
             "band_names": [
                 "soil_moisture",
                 "soil_moisture_quality_indicator"

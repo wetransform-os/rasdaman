@@ -13,6 +13,7 @@
   "recipe": {
     "name": "general_coverage",
     "options": {
+    "tiling": "ALIGNED [0:*, 0:*, 0:*, 0:*, 0:*, 0:*] tile size 4194304",
       "coverage": {
         "crs": "OGC/0/AnsiDate@OGC/0/Index1D?axis-label=\"ensemble\"@OGC/0/Index1D?axis-label=\"forecast_hour\"@OGC/0/Index1D?axis-label=\"isobaric\"@EPSG/0/4326",
         "metadata": {

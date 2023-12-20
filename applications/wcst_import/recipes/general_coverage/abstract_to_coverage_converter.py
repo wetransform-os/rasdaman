@@ -112,6 +112,14 @@ class AbstractToCoverageConverter:
         pass
 
     @abstractmethod
+    def _get_file_band_data_type_and_chunk_sizes_from_file(self, band_id):
+        """
+        Get the data type of the band by id (e.g. in netCDF it is red, but in coverage the band name is Red)
+        :return: e.g. char, short, int, ...
+        """
+        pass
+
+    @abstractmethod
     def _axis_subset(self, crs_axis, evaluator_slice, resolution=None):
         pass
 
@@ -459,7 +467,10 @@ class AbstractToCoverageConverter:
         for band in self.bands:
             # NOTE: each range (band) should contain only 1 nilValue, e.g: [-99999]
             range_nils = self._get_nil_values(i)
-            range_fields.append(RangeTypeField(band.name, band.definition, band.description, range_nils, band.uomCode, band.observationType, band.codeSpace))
+            band_data_type, chunk = self._get_file_band_data_type_and_chunk_sizes_from_file(band.identifier)
+
+            range_fields.append(RangeTypeField(band.name, band.definition, band.description, range_nils, band.uomCode,
+                                               band.observationType, band.codeSpace, band_data_type, chunk))
             i += 1
 
         return range_fields

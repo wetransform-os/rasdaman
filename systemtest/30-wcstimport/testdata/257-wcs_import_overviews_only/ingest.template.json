@@ -24,6 +24,7 @@
     "recipe": {
         "name": "general_coverage",
         "options": {
+             "tiling": "ALIGNED [0:*, 0:*, 0:*] tile size 4194304",
             "wms_import": true,
             "coverage": {
                 "crs": "OGC/0/AnsiDate@EPSG/0/32637",

@@ -39,7 +39,7 @@ from master.provider.metadata.irregular_axis import IrregularAxis
 from master.provider.metadata.regular_axis import RegularAxis
 from recipes.general_coverage.abstract_to_coverage_converter import AbstractToCoverageConverter
 from util.crs_util import CRSAxis
-from util.file_util import File
+from util.file_util import File, FileUtil
 from master.helper.high_pixel_adjuster import HighPixelAjuster
 from master.helper.point_pixel_adjuster import PointPixelAdjuster
 from util.gdal_util import GDALGmlUtil
@@ -122,7 +122,7 @@ class GdalToCoverageConverter(AbstractToCoverageConverter):
                 return self.default_null_values
 
             # NOTE: all files should have same bands's metadata, so 1 file is ok
-            gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.files, self.session)
+            gdal_dataset = FileUtil.open_dataset_from_any_file(GdalToCoverageConverter.RECIPE_TYPE, self.files, self.session)
             if gdal_dataset is None:
                 return None
             # band in gdal starts with 1
@@ -135,6 +135,12 @@ class GdalToCoverageConverter(AbstractToCoverageConverter):
                 return [RangeTypeNilValue("", nil_value)]
         else:
             return [RangeTypeNilValue("", 0)]
+
+    def _get_file_band_data_type_and_chunk_sizes_from_file(self, band_id):
+        gdal_dataset = FileUtil.open_dataset_from_any_file(GdalToCoverageConverter.RECIPE_TYPE, self.files, self.session)
+        data_type = gdal_dataset.get_band_gdal_type()
+        chunk = gdal_dataset.get_raster_band(1).GetBlockSize()
+        return data_type, chunk
 
     def _axis_subset(self, crs_axis, evaluator_slice, resolution=None):
         """

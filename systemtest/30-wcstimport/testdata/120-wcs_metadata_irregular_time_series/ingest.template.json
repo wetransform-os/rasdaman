@@ -25,6 +25,7 @@
 		"name": "time_series_irregular",
 
 		"options": {
+    		"tiling": "ALIGNED [0:*, 0:*, 0:*] tile size 4194304",
 
 			"coverage": {
 

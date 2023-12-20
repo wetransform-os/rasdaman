@@ -18,6 +18,7 @@
     "recipe": {
         "name": "general_coverage",
         "options": {
+            "tiling": "ALIGNED [0:0, 0:1023, 0:1023]",
             "coverage": {
                 "crs": "OGC/0/AnsiDate@EPSG/0/4326",
                 "metadata": {
@@ -62,8 +63,8 @@
                         }
                     }
                 }
-            },
-            "tiling": "ALIGNED [0:0, 0:1023, 0:1023]"
+            }
+
         }
     }
 }

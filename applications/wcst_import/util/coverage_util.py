@@ -28,6 +28,82 @@ from session import Session
 from util.url_util import validate_and_read_url, url_read_exception
 from util.import_util import decode_res
 from lxml import etree
+from util.gdal_util import GDALGmlUtil
+from util.file_util import FileUtil
+
+
+def generate_tiling(number_of_axes,
+                    spatial_axes_grid_indices,
+                    band_base_type_sizes,
+                    chunk_sizes_from_file=None):
+    """
+    Generate a rasdaman aligned tiling scheme based on the provided parameters before importing a created coverage
+
+    @param number_of_axes the coverage's number of axes, e.g. 3 (time, lat, long axes)
+    @param spatial_axes_grid_indices a list of grid indices (0-based) of the spatial X/Y axes (e.g. Long, Lat axes in TIFF file);
+                                     note: set to None if coverage has no X/Y spatial axes
+    @param band_base_type_sizes a list of sizes in bytes of the datacube bands
+    @param chunk_sizes_from_file an optional chunk specification read from
+    one of the input files; when the input file is chunked, e.g. netcdf or tiff (note: set to None if file is GRIB format),
+    this parameter should be set as a list of sizes for each axis. If a tiff file
+    has 512x512 Block size, this parameter would be a list [512,512].
+    @return if the tiling can be determined, a string specifying the tiling, e.g.
+    "aligned [0:0,0:511,0:511] tile size 4194304". If the tiling cannot be
+    determined, None is returned.
+    """
+    '''
+    TODO: This function should be filled in next release to generate proper tiling if possible
+    '''
+    return None
+
+
+def get_spatial_axes_grid_indices(axis_subsets):
+    """
+    Get the list of axes XY grid indices if they exist in a coverage
+    :param axis_subsets: List[AxisSubset] from the coverage
+    :return: e.g. [1,2] for XY grid orders or None if coverage does not contain XY axes
+    """
+    grid_index_axis_x = -1
+    grid_index_axis_y = -1
+
+    for axis_subset in axis_subsets:
+        crs_axis = axis_subset.coverage_axis.axis.crs_axis
+        axis_type = crs_axis.type
+        if axis_type == crs_axis.AXIS_TYPE_X:
+            grid_index_axis_x = crs_axis.grid_order
+        elif axis_type == crs_axis.AXIS_TYPE_Y:
+            grid_index_axis_y = crs_axis.grid_order
+
+    if grid_index_axis_x == -1 or grid_index_axis_y == -1:
+        # coverage does not have spatial XY axes
+        spatial_axes_grid_indices = None
+    else:
+        spatial_axes_grid_indices = [grid_index_axis_x, grid_index_axis_y]
+
+    return spatial_axes_grid_indices
+
+
+def get_band_base_type_sizes(range_type_fields):
+    """
+    :param range_type_fields: List[RangeTypeField]
+    :return: the list of size corresponding to data type of each specified band of the newly created coverage
+    """
+    results = []
+    for field in range_type_fields:
+        band_size = GDALGmlUtil.get_data_type_size(field.dataType)
+        results.append(band_size)
+
+    return results
+
+
+def get_chunk_sizes_from_file(range_type_fields):
+    """
+    If an input file has chunk (e.g. TIFF or netCDF) then get the chunk as a list of elements
+    """
+    first_band = range_type_fields[0]
+    result = first_band.chunk_sizes_from_file
+
+    return result
 
 
 class CoverageUtil:

@@ -15,6 +15,7 @@
   "recipe": {
     "name": "map_mosaic",
     "options": {
+      "tiling": "ALIGNED [0:1000, 0:1000]",
       "scale_levels": [2,4,6],
       "wms_import": true
     }

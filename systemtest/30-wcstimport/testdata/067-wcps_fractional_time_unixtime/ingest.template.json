@@ -16,6 +16,7 @@
     "recipe": {
         "name": "time_series_irregular", 
         "options": {
+              "tiling": "ALIGNED [0:*, 0:*, 0:*] tile size 4194304",        
             "time_parameter": { 
                 "filename": {
         	  "regex": "(.*)_\\[(.+?)\\]\\.(.*)", 
@@ -29,6 +30,5 @@
                "b2"
 	    ]
         }
-    },
-    "tiling": "ALIGNED [0:10, 0:1000, 0:500]"
+    }
 }

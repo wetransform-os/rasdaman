@@ -18,6 +18,7 @@
   "recipe": {
     "name": "general_coverage",
     "options": {
+      "tiling": "ALIGNED [0:*, 0:*, 0:*] tile size 4194304",
       "coverage": {
         "crs": "OGC/0/AnsiDate@EPSG/0/4326",
         "metadata": {

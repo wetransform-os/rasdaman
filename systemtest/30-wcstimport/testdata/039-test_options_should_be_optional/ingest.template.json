@@ -22,7 +22,10 @@
 
   "recipe": {
 
-    "name": "map_mosaic"
+    "name": "map_mosaic",
+    "options": {
+        "tiling": "ALIGNED [0:*, 0:*] tile size 4194304"
+    }
 
   }
 

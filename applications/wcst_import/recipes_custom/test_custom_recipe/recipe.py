@@ -107,7 +107,11 @@ class Recipe(BaseRecipe):
         pixel_type = gdal_dataset.get_band_gdal_type()
         coverage_id = self.session.get_coverage_id()
         slices = self._get_slices(crs)
-        return Coverage(coverage_id, slices, fields, crs, pixel_type)
+        tiling = None
+        if "options" in self.session.recipe and "tiling" in self.session.recipe["options"]:
+            tiling = self.session.recipe["options"]["tiling"]
+
+        return Coverage(coverage_id, slices, fields, crs, pixel_type, tiling)
 
     def _get_slices(self, crs):
         # Let's first extract all the axes from our crs

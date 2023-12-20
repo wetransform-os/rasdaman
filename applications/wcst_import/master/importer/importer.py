@@ -42,7 +42,8 @@ from master.provider.metadata.grid_axis import GridAxis
 from master.provider.metadata.irregular_axis import IrregularAxis
 from master.provider.metadata.metadata_provider import MetadataProvider
 from master.request.admin import InspireUpdateMetadataURLRequest
-from util.coverage_util import CoverageUtil, CoverageUtilCache
+from util.coverage_util import CoverageUtil, CoverageUtilCache, generate_tiling, get_spatial_axes_grid_indices, \
+                    get_band_base_type_sizes, get_chunk_sizes_from_file
 from util.file_util import File
 from util.import_util import decode_res
 from util.log import log, prepend_time
@@ -52,6 +53,7 @@ from master.request.wcst import WCSTInsertRequest, WCSTUpdateRequest, WCSTSubset
 from master.request.pyramid import CreatePyramidMemberRequest, AddPyramidMemberRequest, ListPyramidMembersRequest
 from util.crs_util import CRSUtil, CRSAxis
 from util.time_util import DateTimeUtil
+from master.error.validate_exception import RecipeValidationException
 
 
 class Importer:
@@ -356,6 +358,16 @@ class Importer:
         executor = ConfigManager.executor
         gml_obj = self._generate_initial_gml_slice()
 
+        number_of_axes = len(self.coverage.slices[0].axis_subsets)
+        grid_domains = str(["0:*" for x in range(0, number_of_axes)]).replace("'", '')
+        self.__create_tiling_if_needed(self.coverage)
+
+        if self.coverage.tiling is None:
+            tiling_default = '"options": { "tiling": "ALIGNED ' + grid_domains + ' tile size 4194304" }"'
+            raise RecipeValidationException("\"tiling\" setting must be specified in the ingredients file. "
+                                            "Hint: if not sure what tiling to specify in the ingredients file,"
+                                            " the following is a reasonable default: \n {}".format(tiling_default))
+
         if ConfigManager.mock:
             request = WCSTInsertRequest(gml_obj.get_url(), False, self.coverage.pixel_data_type,
                                         self.coverage.tiling, executor.insitu, None, ConfigManager.black_listed)
@@ -425,6 +437,24 @@ class Importer:
                     if self.coverage.coverage_id not in base_pyramid_member_coverage_ids:
                         request = AddPyramidMemberRequest(base_coverage_id, self.coverage.coverage_id, self.session.pyramid_harvesting)
                         executor.execute(request, mock=ConfigManager.mock, input_base_url=request.context_path)
+
+    def __create_tiling_if_needed(self, coverage):
+        """
+        Create a good tiling (if not specified in the ingredients file) for the newly imported coverage in petascope
+        :param coverage:
+        :return:
+        """
+        if coverage.tiling is None:
+            axis_subsets = self.coverage.slices[0].axis_subsets
+
+            number_of_axes = 0
+
+            spatial_axes_grid_indices = get_spatial_axes_grid_indices(axis_subsets)
+            band_base_type_sizes = get_band_base_type_sizes(coverage.range_fields)
+            chunk_sizes_from_file = get_chunk_sizes_from_file(coverage.range_fields)
+
+            coverage.tiling = generate_tiling(number_of_axes, spatial_axes_grid_indices,
+                                              band_base_type_sizes, chunk_sizes_from_file)
 
     @staticmethod
     def list_pyramid_member_coverages(coverage_id, mock=False):

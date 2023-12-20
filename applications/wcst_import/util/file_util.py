@@ -32,8 +32,11 @@ import re
 from master.error.runtime_exception import RuntimeException
 import stat
 from util.import_util import import_glob
+from util.netcdf4_util import netcdf4_open
+from util.grib_util import grib_open
 import os
 from os.path import normpath, join
+
 
 class FileUtil:
 
@@ -97,6 +100,49 @@ class FileUtil:
             log.warn("No files provided. Check that the paths you provided are correct. Done.")
             exit(0)
 
+    @staticmethod
+    def open_dataset_from_any_file(recipe_type, files, session):
+        """
+        This method is used to open 1 dataset to get the common metadata shared from all input files.
+        recipe_type: str (e.g. gdal | netcdf | grib)
+        :param list files: input files
+        """
+        dataset = None
+
+        from recipes.general_coverage.gdal_to_coverage_converter import GdalToCoverageConverter
+        from recipes.general_coverage.netcdf_to_coverage_converter import NetcdfToCoverageConverter
+        from recipes.general_coverage.grib_to_coverage_converter import GRIBToCoverageConverter
+        from util.gdal_util import GDALGmlUtil
+
+        for file in files:
+            file_path = file.get_filepath()
+
+            try:
+                if recipe_type == GdalToCoverageConverter.RECIPE_TYPE:
+                    dataset = GDALGmlUtil.init(file_path)
+                    return dataset
+                elif recipe_type == NetcdfToCoverageConverter.RECIPE_TYPE:
+                    dataset = netcdf4_open(file_path)
+                    return dataset
+                elif recipe_type == GRIBToCoverageConverter.RECIPE_TYPE:
+                    dataset = grib_open(file_path)
+                    return dataset
+                else:
+                    log.error("Recipe type: " + recipe_type + " is not supported.")
+                    exit(1)
+            except Exception as ex:
+                error_message = "Failed to open input file '{}'. Reason: {}".format(file_path, str(ex))
+                log.warn(error_message)
+
+                # Cannot open file by gdal, try with next file
+                if session.skip_file_that_fail_to_open():
+                    continue
+                else:
+                    raise ex
+
+        if dataset is None:
+            # Cannot open any dataset from input files, just exit wcst_import process
+            FileUtil.validate_input_file_paths([])
 
     @staticmethod
     def ignore_coverage_slice_from_file_if_possible(file_path, exception, session):

@@ -2812,7 +2812,7 @@ recipe section
 
       "import_order": "descending"
 
-* ``tiling`` - Specifies the tile structure to be created for the coverage
+* ``tiling`` - required setting. Specifies the tile structure to be created for the coverage
   in rasdaman. You can set arbitrary tile sizes for the tiling option only
   if the tile name is ``ALIGNED``. Example:
 

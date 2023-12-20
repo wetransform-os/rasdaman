@@ -25,7 +25,7 @@
         "datetime_format": "YYYY-MM"
       },
       "time_crs": "SECORE_URL/crs/OGC/0/AnsiDate",
-      "tiling": "ALIGNED [0:3600, 0:1800, 3]"
+      "tiling": "ALIGNED [3, 0:3600, 0:1800]"
     }
   }
 }

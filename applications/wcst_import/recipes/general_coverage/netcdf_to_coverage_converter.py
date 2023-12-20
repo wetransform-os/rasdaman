@@ -42,7 +42,7 @@ from master.provider.metadata.irregular_axis import IrregularAxis
 from master.provider.metadata.regular_axis import RegularAxis
 from recipes.general_coverage.abstract_to_coverage_converter import AbstractToCoverageConverter
 from util.crs_util import CRSAxis
-from util.file_util import File
+from util.file_util import File, FileUtil
 from util.gdal_util import MAX_RETRIES_TO_OPEN_FILE
 from util.log import log
 from util.time_util import execute_with_retry_on_timeout
@@ -147,6 +147,17 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
             return None
         else:
             return [RangeTypeNilValue("", nil_value)]
+
+    def _get_file_band_data_type_and_chunk_sizes_from_file(self, band_id):
+        """
+        band_id is the identifier of the band (typically used in netCDF file)
+        """
+        from util.gdal_util import GDALGmlUtil
+        netcdf_dataset = FileUtil.open_dataset_from_any_file(NetcdfToCoverageConverter.RECIPE_TYPE, self.files, self.session)
+        band = netcdf_dataset.variables[band_id]
+        data_type = GDALGmlUtil.data_type_to_gdal_type(band.dtype.name)
+        chunk = band.chunking()
+        return data_type, chunk
 
     def _axis_subset(self, crs_axis, evaluator_slice, resolution=None):
         """

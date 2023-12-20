@@ -16,6 +16,7 @@
   "recipe": {
     "name": "test_custom_recipe_non_exists",
     "options": {      
+      "tiling": "ALIGNED [0:*, 0:*, 0:*] tile size 4194304",
       "time_format": "auto",
       "time_crs": "SECORE_URL/crs/OGC/0/AnsiDate",
       "time_tag": "MY_SPECIAL_TIME_TAG"

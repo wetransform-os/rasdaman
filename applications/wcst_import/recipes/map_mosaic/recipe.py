@@ -166,7 +166,7 @@ class Recipe(BaseRecipe):
         """
         Returns the list of coverages to be used for the importer
         """
-        gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.session.get_files(), self.session)
+        gdal_dataset = FileUtil.open_dataset_from_any_file(GdalToCoverageConverter.RECIPE_TYPE, self.session.get_files(), self.session)
         if gdal_dataset is None:
             return []
 

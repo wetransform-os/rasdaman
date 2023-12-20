@@ -40,6 +40,7 @@ from util.string_util import is_integer, get_petascope_endpoint_without_ows
 from decimal import Decimal
 
 
+
 glob = import_glob()
 
 DEFAULT_PETASCOPE_CONTEXT_PATH = "/rasdaman"
@@ -192,7 +193,21 @@ class Session:
             self.__get_import_overviews()
             self.import_overviews_only = False if "import_overviews_only" not in self.recipe["options"] else bool(self.recipe["options"]["import_overviews_only"])
 
+        self.set_recipe_type()
         self.filter_imported_files()
+
+    def set_recipe_type(self):
+        """
+        If non general_recipe -> gdal, otherwise it can be gdal | netcdf | grib
+        """
+        from recipes.general_coverage.gdal_to_coverage_converter import GdalToCoverageConverter
+        result = GdalToCoverageConverter.RECIPE_TYPE
+        if "options" in self.recipe \
+            and "coverage" in self.recipe["options"] \
+            and "slicer" in self.recipe["options"]["coverage"]:
+            result = self.recipe["options"]["coverage"]["slicer"]["type"]
+
+        self.recipe_type = result
 
     def filter_imported_files(self):
         """

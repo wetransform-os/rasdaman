@@ -83,6 +83,12 @@ public class DimensionBoundConcatenationHandler extends Handler {
             if (visitorResult instanceof ListStringResult) {
                 // e.g. tmp = "2023-01", "2023-02", ...  from allmonths("2023")
                 return visitorResult;
+            } else if (visitorResult instanceof WcpsMetadataResult) {
+                // e.g. domain(c, t) returns ("2015-01-01":"2015-01-03") and the parentheses will be stripped
+                WcpsMetadataResult metadataResult = (WcpsMetadataResult)visitorResult;
+                String tmpValue = StringUtil.stripParentheses(metadataResult.getResult());
+                metadataResult = new WcpsMetadataResult(metadataResult.getMetadata(), tmpValue);
+                return metadataResult;
             } else {
                 if (this.getChildren().size() > 1
                         && StringUtil.stripQuotes(tmp).toUpperCase().startsWith(TimeUtil.PERIODICITY_KEYWORD)) {

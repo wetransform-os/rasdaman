@@ -23,12 +23,16 @@ package petascope.wcps.handler;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.exceptions.WCPSException;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
@@ -51,6 +55,8 @@ public class DomainIntervalsHandler extends Handler {
     public static final String DOMAIN_PROPERTY_LOWER_BOUND = "lo";
     public static final String DOMAIN_PROPERTY_UPPER_BOUND = "hi";
     public static final String DOMAIN_PROPERTY_RESOLUTION = "resolution";
+
+    private static final Pattern DATE_TIME_BOUNDS_PATTERN = Pattern.compile("(\".*\"):(\".*\")");
     
     public DomainIntervalsHandler() {
         
@@ -122,5 +128,23 @@ public class DomainIntervalsHandler extends Handler {
             
         WcpsMetadataResult wcpsMetadataResult = new WcpsMetadataResult(coverageExpression.getMetadata(), result);
         return wcpsMetadataResult;
+    }
+
+    /**
+     *
+     * e.g. "2015-01-01":"2015-02-03" -> pair of datetime lowerBound and upperBound
+     */
+    public static Pair<String, String> parseDateTimeBounds(String trimming) {
+        Matcher matcher = DATE_TIME_BOUNDS_PATTERN.matcher(trimming);
+        String lowerBound = null;
+        String upperBound = null;
+        while (matcher.find()) {
+            lowerBound = matcher.group(1);
+            upperBound = matcher.group(2);
+
+            return new Pair<>(lowerBound, upperBound);
+        }
+
+        return null;
     }
 }

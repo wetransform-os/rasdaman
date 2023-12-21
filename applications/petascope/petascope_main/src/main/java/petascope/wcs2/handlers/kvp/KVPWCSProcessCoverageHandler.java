@@ -25,13 +25,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-import petascope.core.service.GdalFileToCoverageTranslatorService;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpStatus;
 import petascope.util.ListUtil;
 import petascope.wcps.metadata.service.CoverageAliasRegistry;
 import petascope.exceptions.WCSException;
 import petascope.core.response.Response;
 import org.slf4j.LoggerFactory;
 import petascope.exceptions.*;
+import petascope.wcps.result.ParameterResult;
 import petascope.wcps.result.executor.WcpsExecutor;
 import petascope.wcps.result.executor.WcpsExecutorFactory;
 import petascope.wcps.parser.WcpsTranslator;
@@ -58,7 +60,10 @@ import petascope.core.KVPSymbols;
 import static petascope.core.KVPSymbols.KEY_QUERY;
 import static petascope.core.KVPSymbols.KEY_QUERY_SHORT_HAND;
 import petascope.core.Pair;
+import petascope.core.service.GdalFileToCoverageTranslatorService;
 import petascope.util.StringUtil;
+
+import static petascope.core.KVPSymbols.*;
 import static petascope.util.StringUtil.POSITIONAL_PARAMETER_PATTERN;
 
 import petascope.wcps.metadata.service.TempCoverageRegistry;
@@ -163,7 +168,7 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
             if (visitorResult instanceof WcpsMetadataResult) {
                 byte[] bytes = executor.execute(visitorResult);
                 results.add(bytes);
-            } else {
+            } else if (visitorResult instanceof WcpsResult) {
                 wcpsResult = (WcpsResult) visitorResult;
                 // In case of 0D, metadata is null
                 if (wcpsResult.getMetadata() != null) {
@@ -173,6 +178,9 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
                 // create multiple rasql queries from a Rasql query result (if it is multipart)
                 String finalRasqlQuery = wcpsResult.getFinalRasqlQuery();
                 finalRasqlQueries.add(finalRasqlQuery);
+            } else if (visitorResult instanceof ParameterResult) {
+                byte[] bytes = executor.execute(visitorResult);
+                results.add(bytes);
             }
 
             // set metadata and return

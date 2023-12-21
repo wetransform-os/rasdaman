@@ -328,7 +328,12 @@ public class CoverageConstructorHandler extends Handler {
             }
 
             if (segmentedValuesExpressionResult.getMetadata() .getAxes().size() > 0) {
-                Axis temporalAxis = segmentedValuesExpressionResult.getMetadata().getAxisByName(temporalAxisIteratorName);
+                // NOTE: if axis iterator has different axis label than in coverage, then assume it is the first temporal axis
+                Axis temporalAxis = segmentedValuesExpressionResult.getMetadata().getTimeAxis();
+                if (segmentedValuesExpressionResult.getMetadata().hasAxisByName(temporalAxisIteratorName)) {
+                    temporalAxis = segmentedValuesExpressionResult.getMetadata().getAxisByName(temporalAxisIteratorName);
+                }
+
                 String gridLowerBound = String.valueOf(temporalAxis.getGridBounds().getLowerLimit().longValue());
                 String gridUpperBound = String.valueOf(temporalAxis.getGridBounds().getUpperLimit().longValue());
 
@@ -412,7 +417,12 @@ public class CoverageConstructorHandler extends Handler {
                                                     new NumericTrimming(geoLowerBound, geoUpperBound));
 
         // Update the temporal axis with the newly calculated temporal irregular axis
-        int axisGeoOrder = metadataResult.getAxisGeoOrder(temporalAxisIteratorName);
+        // NOTE: if axis itertator has different axis label than in coverage, then assume it is the first temporal axis
+        int axisGeoOrder = metadataResult.getAxisGeoOrder(metadataResult.getTimeAxis().getLabel());
+        if (metadataResult.hasAxisByName(temporalAxisIteratorName)) {
+            axisGeoOrder = metadataResult.getAxisGeoOrder(temporalAxisIteratorName);
+        }
+
         metadataResult.getAxes().set(axisGeoOrder, resultTemporalAxis);
 
         metadataResult.setCoverageType(XMLSymbols.LABEL_REFERENCEABLE_GRID_COVERAGE);

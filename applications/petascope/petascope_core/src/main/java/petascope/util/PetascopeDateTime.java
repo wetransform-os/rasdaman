@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import petascope.exceptions.PetascopeException;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import static petascope.util.TimeUtil.*;
 
@@ -38,6 +39,7 @@ public class PetascopeDateTime {
     private OffsetDateTime dateTimeMax;
 
     private Granularity granularity;
+    public static ZoneOffset DEFAULT_TIME_ZONE = ZoneOffset.UTC;
 
     public enum Granularity {
         YEAR,

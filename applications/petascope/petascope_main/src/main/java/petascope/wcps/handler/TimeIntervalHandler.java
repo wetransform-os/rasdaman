@@ -92,13 +92,22 @@ public class TimeIntervalHandler extends Handler {
             // e.g. "2015-01-01":"2015-02-03"
             Handler secondChildHandler = this.getSecondChild();
 
-            // e.g. "2015-01-01"
-            lowerBound = firstChildHandler.handle(serviceRegistries).getResult();
-            upperBound = lowerBound;
+            String tmp = firstChildHandler.handle(serviceRegistries).getResult();
+            Pair<String, String> dateTimeBoundsPair = DomainIntervalsHandler.parseDateTimeBounds(tmp);
 
-            if (secondChildHandler != null) {
-                // e.g. "2015-01-02"
-                upperBound = secondChildHandler.handle(serviceRegistries).getResult();
+            if (dateTimeBoundsPair != null) {
+                // e.g. domain(c, t) -> "2015-01-02":"2015-03-05"
+                lowerBound = dateTimeBoundsPair.fst;
+                upperBound = dateTimeBoundsPair.snd;
+            } else {
+                // e.g. "2015-01-01"
+                lowerBound = firstChildHandler.handle(serviceRegistries).getResult();
+                upperBound = lowerBound;
+
+                if (secondChildHandler != null) {
+                    // e.g. "2015-01-02"
+                    upperBound = secondChildHandler.handle(serviceRegistries).getResult();
+                }
             }
         }
 

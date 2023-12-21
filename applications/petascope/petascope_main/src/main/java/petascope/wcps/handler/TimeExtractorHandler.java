@@ -27,13 +27,17 @@ import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
 import petascope.util.ListUtil;
 import petascope.util.PetascopeDateTime;
+import petascope.util.StringUtil;
 import petascope.util.TimeUtil;
 import petascope.wcps.result.VisitorResult;
 import petascope.wcps.subset_axis.model.IntervalExpression;
 import petascope.wcps.subset_axis.model.ListStringResult;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
+
+import static petascope.util.PetascopeDateTime.DEFAULT_TIME_ZONE;
 
 /**
  * Handler for time extractor expression
@@ -50,7 +54,7 @@ public class TimeExtractorHandler extends Handler {
     private PetascopeDateTime.Granularity granularity;
     private static final int MAX_DAYS_PER_MONTH = 31;
     private static final int MAX_HOURS_PER_MONTH = 24;
-    private static final int MAX_MILLISECONDS_PER_MINUTE = 60000;
+    private static final int MAX_MILLISECONDS_PER_MINUTE = 60_000;
     private static final int MAX_NANOSECONDS_PER_SECOND = 1_000_000;
 
 
@@ -124,6 +128,34 @@ public class TimeExtractorHandler extends Handler {
         return listStringResult;
     }
 
+    /**
+     * e.g. "2015-01-01" with granularity is year -> return only "2015"
+     *
+     */
+    public static OffsetDateTime stripTimeComponentUpToGranularity(OffsetDateTime offsetDateTime, PetascopeDateTime.Granularity granularity) {
+        OffsetDateTime result = null;
+        if (granularity == PetascopeDateTime.Granularity.YEAR) {
+            result = OffsetDateTime.of(offsetDateTime.getYear(), 1, 1, 0, 0, 0, 0, DEFAULT_TIME_ZONE);
+        } else if (granularity == PetascopeDateTime.Granularity.MONTH) {
+            result = OffsetDateTime.of(offsetDateTime.getYear(), offsetDateTime.getMonthValue(),
+                            1, 0, 0, 0, 0, DEFAULT_TIME_ZONE);
+        } else if (granularity == PetascopeDateTime.Granularity.DAY) {
+            result = OffsetDateTime.of(offsetDateTime.getYear(), offsetDateTime.getMonthValue(),
+                    offsetDateTime.getDayOfMonth(), 0, 0, 0, 0, DEFAULT_TIME_ZONE);
+        } else if (granularity == PetascopeDateTime.Granularity.HOUR) {
+            result = OffsetDateTime.of(offsetDateTime.getYear(), offsetDateTime.getMonthValue(),
+                    offsetDateTime.getDayOfMonth(), offsetDateTime.getHour(), 0, 0, 0, DEFAULT_TIME_ZONE);
+        } else if (granularity == PetascopeDateTime.Granularity.MINUTE) {
+            result = OffsetDateTime.of(offsetDateTime.getYear(), offsetDateTime.getMonthValue(),
+                    offsetDateTime.getDayOfMonth(), offsetDateTime.getHour(), offsetDateTime.getMinute(), 0, 0, DEFAULT_TIME_ZONE);
+        } else if (granularity == PetascopeDateTime.Granularity.SECOND) {
+            result = OffsetDateTime.of(offsetDateTime.getYear(), offsetDateTime.getMonthValue(),
+                    offsetDateTime.getDayOfMonth(), offsetDateTime.getHour(), offsetDateTime.getMinute(), offsetDateTime.getSecond(), 0, DEFAULT_TIME_ZONE);
+        }
+
+        return result;
+    }
+
     // ----- 1. get list of years
 
     /**
@@ -133,11 +165,17 @@ public class TimeExtractorHandler extends Handler {
      */
     private Set<String> getRegularYears(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            results.add(String.valueOf(currentDateTime.getYear()));
-            currentDateTime = currentDateTime.plusYears(1);
+        // e.g. "2015-03-01" -> "2015"
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.YEAR);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.YEAR);
+
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            int value = currentDateTimeTmp.getYear();
+            String tmp = TimeUtil.fillLeadingZero(value);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
+
+            currentDateTimeTmp = currentDateTimeTmp.plusYears(1);
         }
 
         return results;
@@ -151,7 +189,7 @@ public class TimeExtractorHandler extends Handler {
     private Set<String> getIrregularYears(List<PetascopeDateTime> petascopeDateTimes) {
         Set<String> results = new LinkedHashSet<>();
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
-            results.add(String.valueOf(petascopeDateTime.getDateTimeMin().getYear()));
+            results.add( StringUtil.addQuotesIfNotExists(String.valueOf(petascopeDateTime.getDateTimeMin().getYear())) );
         }
 
         return results;
@@ -167,14 +205,16 @@ public class TimeExtractorHandler extends Handler {
      */
     private Set<String> getRegularMonths(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            int value = currentDateTime.getMonth().getValue();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.MONTH);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.MONTH);
+
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            int value = currentDateTimeTmp.getMonthValue();
             String tmp = TimeUtil.fillLeadingZero(value);
-            results.add(tmp);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
-            currentDateTime = currentDateTime.plusMonths(1);
+            currentDateTimeTmp = currentDateTimeTmp.plusMonths(1);
         }
 
         return results;
@@ -189,7 +229,7 @@ public class TimeExtractorHandler extends Handler {
         Set<String> results = new LinkedHashSet<>();
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
             int value = petascopeDateTime.getDateTimeMin().getMonth().getValue();
-            String tmp = TimeUtil.fillLeadingZero(value);
+            String tmp = StringUtil.addQuotesIfNotExists( TimeUtil.fillLeadingZero(value) );
             results.add(tmp);
         }
 
@@ -205,14 +245,16 @@ public class TimeExtractorHandler extends Handler {
      */
     private Set<String> getRegularDays(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            int value = currentDateTime.getDayOfMonth();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.DAY);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.DAY);
+
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            int value = currentDateTimeTmp.getDayOfMonth();
             String tmp = TimeUtil.fillLeadingZero(value);
-            results.add(tmp);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
-            currentDateTime = currentDateTime.plusDays(1);
+            currentDateTimeTmp = currentDateTimeTmp.plusDays(1);
 
             if (results.size() == MAX_DAYS_PER_MONTH) {
                 // A month contains max 31 days
@@ -233,7 +275,7 @@ public class TimeExtractorHandler extends Handler {
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
             int value = petascopeDateTime.getDateTimeMin().getDayOfMonth();
             String tmp = TimeUtil.fillLeadingZero(value);
-            results.add(tmp);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
             if (results.size() == MAX_DAYS_PER_MONTH) {
                 // A month contains max 31 days
@@ -253,14 +295,16 @@ public class TimeExtractorHandler extends Handler {
      */
     private Set<String> getRegularHours(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            int value = currentDateTime.getHour();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.HOUR);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.HOUR);
+
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            int value = currentDateTimeTmp.getHour();
             String tmp = TimeUtil.fillLeadingZero(value);
-            results.add(tmp);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
-            currentDateTime = currentDateTime.plusHours(1);
+            currentDateTimeTmp = currentDateTimeTmp.plusHours(1);
 
             if (results.size() == 24) {
                 // A day contains max 24 hours (00...23)
@@ -281,7 +325,7 @@ public class TimeExtractorHandler extends Handler {
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
             int value = petascopeDateTime.getDateTimeMin().getHour();
             String tmp = TimeUtil.fillLeadingZero(value);
-            results.add(tmp);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
             if (results.size() == 24) {
                 // A day contains max 24 hours (00...23)
@@ -302,14 +346,16 @@ public class TimeExtractorHandler extends Handler {
      */
     private Set<String> getRegularMinutes(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            int value = currentDateTime.getMinute();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.MINUTE);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.MINUTE);
+
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            int value = currentDateTimeTmp.getMinute();
             String tmp = TimeUtil.fillLeadingZero(value);
-            results.add(tmp);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
-            currentDateTime = currentDateTime.plusMinutes(1);
+            currentDateTimeTmp = currentDateTimeTmp.plusMinutes(1);
 
             if (results.size() == 60) {
                 // An hour contains max 60 minutes (00...59)
@@ -330,7 +376,7 @@ public class TimeExtractorHandler extends Handler {
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
             int value = petascopeDateTime.getDateTimeMin().getMinute();
             String tmp = TimeUtil.fillLeadingZero(value);
-            results.add(tmp);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
             if (results.size() == 24) {
                 // A day contains max 24 hours (00...23)
@@ -351,16 +397,17 @@ public class TimeExtractorHandler extends Handler {
      */
     private Set<String> getRegularSeconds(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.SECOND);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.SECOND);
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
             // e.g. "00.111" (1 ms = 1_000_000 nano seconds)
-            int value = currentDateTime.getSecond();
+            int value = currentDateTimeTmp.getSecond();
             String tmp = TimeUtil.fillLeadingZero(value);
-            tmp = tmp + "." + TimeUtil.fillLeadingTwoZeros(currentDateTime.getNano() / MAX_NANOSECONDS_PER_SECOND);
-            results.add(tmp);
+            tmp = tmp + "." + TimeUtil.fillLeadingTwoZeros(currentDateTimeTmp.getNano() / MAX_NANOSECONDS_PER_SECOND);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
-            currentDateTime = currentDateTime.plusNanos(MAX_NANOSECONDS_PER_SECOND);
+            currentDateTimeTmp = currentDateTimeTmp.plusNanos(MAX_NANOSECONDS_PER_SECOND);
 
             if (results.size() == MAX_MILLISECONDS_PER_MINUTE) {
                 // A minute contains max 60 seconds and a second contains max 1000 milliseconds
@@ -383,7 +430,7 @@ public class TimeExtractorHandler extends Handler {
             int value = petascopeDateTime.getDateTimeMin().getSecond();
             String tmp = TimeUtil.fillLeadingZero(value);
             tmp = tmp + "." + TimeUtil.fillLeadingTwoZeros(petascopeDateTime.getDateTimeMin().getNano() / MAX_NANOSECONDS_PER_SECOND);
-            results.add(tmp);
+            results.add( StringUtil.addQuotesIfNotExists(tmp) );
 
             if (results.size() == MAX_MILLISECONDS_PER_MINUTE) {
                 // A minute contains max 60 seconds and a second contains max 1000 milliseconds

@@ -1725,7 +1725,7 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     public Handler visitTimeExtractorElement(wcpsParser.TimeExtractorElementContext ctx) {
         // e.g. years(domain($c, ansi)) or years("2015-01-01":"2018-06-07")
         // which returns a SET of numbers {2015, 2016, 2017, 2018}
-        // or days( "2022-01" : "2023-12" ] ) returns {0,...31} (without duplicate values)
+        // or days( "2022-01" : "2023-12" ) returns {0,...31} (without duplicate values)
         PetascopeDateTime.Granularity granularity = PetascopeDateTime.Granularity.YEAR;
         if (ctx.MONTHS() != null) {
             granularity = PetascopeDateTime.Granularity.MONTH;

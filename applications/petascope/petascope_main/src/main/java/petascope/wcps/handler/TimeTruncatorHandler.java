@@ -36,6 +36,7 @@ import java.time.OffsetDateTime;
 import java.util.*;
 
 import static petascope.util.TimeUtil.*;
+import static petascope.wcps.handler.TimeExtractorHandler.stripTimeComponentUpToGranularity;
 
 /**
  * Handler for time extractor expression
@@ -122,31 +123,33 @@ public class TimeTruncatorHandler extends Handler {
     // ----- 1. get list of years
 
     /**
-     * e.g. granularity = year, and datetime = "2015-01-01"
-     * then return "2015"
+     *  $c extend from 2022-11-01 through 2023-03-31
+     *   allyears($c.domain.date) = < "2022", "2023" >
      *
      */
     private Set<String> getRegularYears(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
+        // e.g. "2015-03-01" -> "2015"
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.YEAR);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.YEAR);
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            results.add(StringUtil.quote(currentDateTime.format(yearDateTimeFormatter)));
-            currentDateTime = currentDateTime.plusYears(1);
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            results.add(StringUtil.addQuotesIfNotExists(currentDateTimeTmp.format(yearDateTimeFormatter)));
+            currentDateTimeTmp = currentDateTimeTmp.plusYears(1);
         }
 
         return results;
     }
 
     /**
-     * e.g. granularity = year, and datetime = "2015-01-01"
-     * then return "2015"
+      $c extend from 2022-11-01 through 2023-03-31
+     *   allyears($c.domain.date) = < "2022", "2023" >
      *
      */
     private Set<String> getIrregularYears(List<PetascopeDateTime> petascopeDateTimes) {
         Set<String> results = new LinkedHashSet<>();
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
-            results.add(StringUtil.quote(petascopeDateTime.getDateTimeMin().format(yearDateTimeFormatter)));
+            results.add(StringUtil.addQuotesIfNotExists(petascopeDateTime.getDateTimeMin().format(yearDateTimeFormatter)));
         }
 
         return results;
@@ -156,32 +159,31 @@ public class TimeTruncatorHandler extends Handler {
     // ----- 2. get list of months
 
     /**
-     * e.g. granularity = month, and datetime = "2015-01-01"
-     * then return "01"
+     *allmonths($c.domain.date) = < "2022-11", "2022-12", "2023-01", "2023-02", "2023-03" >
      *
      */
     private Set<String> getRegularMonths(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.MONTH);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.MONTH);
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            results.add(StringUtil.quote(currentDateTime.format(yearMonthDateTimeFormatter)));
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            results.add(StringUtil.addQuotesIfNotExists(currentDateTimeTmp.format(yearMonthDateTimeFormatter)));
 
-            currentDateTime = currentDateTime.plusMonths(1);
+            currentDateTimeTmp = currentDateTimeTmp.plusMonths(1);
         }
 
         return results;
     }
 
     /**
-     * e.g. granularity = month, and datetime = "2015-01-01"
-     * then return "01"
+     *allmonths($c.domain.date) = < "2022-11", "2022-12", "2023-01", "2023-02", "2023-03" >
      *
      */
     private Set<String> getIrregularMonths(List<PetascopeDateTime> petascopeDateTimes) {
         Set<String> results = new LinkedHashSet<>();
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
-            results.add(StringUtil.quote(petascopeDateTime.getDateTimeMin().format(yearMonthDateTimeFormatter)));
+            results.add(StringUtil.addQuotesIfNotExists(petascopeDateTime.getDateTimeMin().format(yearMonthDateTimeFormatter)));
         }
 
         return results;
@@ -190,32 +192,31 @@ public class TimeTruncatorHandler extends Handler {
     // ----- 3. get list of days
 
     /**
-     * e.g. granularity = day, and datetime = "2015-01-01"
-     * then return "01"
+     * alldays($c.domain.date) = < "2022-11-01", ..., "2023-03-31" >
      *
      */
     private Set<String> getRegularDays(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.DAY);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.DAY);
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            results.add(StringUtil.quote(currentDateTime.format(yearMonthDayDateTimeFormatter)));
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            results.add(StringUtil.addQuotesIfNotExists(currentDateTimeTmp.format(yearMonthDayDateTimeFormatter)));
 
-            currentDateTime = currentDateTime.plusDays(1);
+            currentDateTimeTmp = currentDateTimeTmp.plusDays(1);
         }
 
         return results;
     }
 
     /**
-     * e.g. granularity = day, and datetime = "2015-01-01"
-     * then return "01"
+     * alldays($c.domain.date) = < "2022-11-01", ..., "2023-03-31" >
      *
      */
     private Set<String> getIrregularDays(List<PetascopeDateTime> petascopeDateTimes) {
         Set<String> results = new LinkedHashSet<>();
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
-            results.add(StringUtil.quote(petascopeDateTime.getDateTimeMin().format(yearMonthDayDateTimeFormatter)));
+            results.add(StringUtil.addQuotesIfNotExists(petascopeDateTime.getDateTimeMin().format(yearMonthDayDateTimeFormatter)));
         }
 
         return results;
@@ -224,32 +225,31 @@ public class TimeTruncatorHandler extends Handler {
     // ----- 4. get list of hours
 
     /**
-     * e.g. granularity = hour, and datetime = "2015-01-01T03:00:05"
-     * then return "03"
+     * allhours($c.domain.date) = < "2022-11-01T00", ..., "2023-03-30T23", "2023-03-31T00" >
      *
      */
     private Set<String> getRegularHours(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.HOUR);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.HOUR);
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            results.add(StringUtil.quote(currentDateTime.format(yearMonthDayHourDateTimeFormatter)));
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            results.add(StringUtil.quote(currentDateTimeTmp.format(yearMonthDayHourDateTimeFormatter)));
 
-            currentDateTime = currentDateTime.plusHours(1);
+            currentDateTimeTmp = currentDateTimeTmp.plusHours(1);
         }
 
         return results;
     }
 
     /**
-     * e.g. granularity = hour, and datetime = "2015-01-01T03:00:05"
-     * then return "03"
+     * allhours($c.domain.date) = < "2022-11-01T00", ..., "2023-03-30T23", "2023-03-31T00" >
      *
      */
     private Set<String> getIrregularHours(List<PetascopeDateTime> petascopeDateTimes) {
         Set<String> results = new LinkedHashSet<>();
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
-            results.add(StringUtil.quote(petascopeDateTime.getDateTimeMin().format(yearMonthDayHourDateTimeFormatter)));
+            results.add(StringUtil.addQuotesIfNotExists(petascopeDateTime.getDateTimeMin().format(yearMonthDayHourDateTimeFormatter)));
         }
 
         return results;
@@ -259,26 +259,25 @@ public class TimeTruncatorHandler extends Handler {
     // ----- 5. get list of minutes
 
     /**
-     * e.g. granularity = minute, and datetime = "2015-01-01T03:00:05"
-     * then return "00"
+     * allminutes($c.domain.date) = < "2022-11-01T00:00", ..., "2023-03-30T23:59", "2023-03-31T00:00" >
      *
      */
     private Set<String> getRegularMinutes(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.MINUTE);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.MINUTE);
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
-            results.add(StringUtil.quote(currentDateTime.format(yearMonthDayHourMinuteDateTimeFormatter)));
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
+            results.add(StringUtil.addQuotesIfNotExists(currentDateTimeTmp.format(yearMonthDayHourMinuteDateTimeFormatter)));
 
-            currentDateTime = currentDateTime.plusMinutes(1);
+            currentDateTimeTmp = currentDateTimeTmp.plusMinutes(1);
         }
 
         return results;
     }
 
     /**
-     * e.g. granularity = minute, and datetime = "2015-01-01T03:00:05"
-     * then return "00"
+     * allminutes($c.domain.date) = < "2022-11-01T00:00", ..., "2023-03-30T23:59", "2023-03-31T00:00" >
      *
      */
     private Set<String> getIrregularMinutes(List<PetascopeDateTime> petascopeDateTimes) {
@@ -293,35 +292,34 @@ public class TimeTruncatorHandler extends Handler {
     // ----- 6. get list of seconds
 
     /**
-     * e.g. granularity = second, and datetime = "2015-01-01T03:00:05.333"
-     * then return "05.333".
+     * allseconds($c.domain.date) = < "2022-11-01T00:00:00.000", .., "2023-03-30T23:59.999", "2023-03-31T00:00.000" >
      * NOTE: it needs to contains all the milliseconds as well
      *
      */
     private Set<String> getRegularSeconds(PetascopeDateTime startDateTime, PetascopeDateTime endDateTime) {
         Set<String> results = new LinkedHashSet<>();
-        OffsetDateTime currentDateTime = startDateTime.getDateTimeMin();
+        OffsetDateTime currentDateTimeTmp = stripTimeComponentUpToGranularity(startDateTime.getDateTimeMin(), PetascopeDateTime.Granularity.SECOND);
+        OffsetDateTime endDateTimeTmp = stripTimeComponentUpToGranularity(endDateTime.getDateTimeMax(), PetascopeDateTime.Granularity.SECOND);
 
-        while (currentDateTime.compareTo(endDateTime.getDateTimeMax()) <= 0) {
+        while (currentDateTimeTmp.compareTo(endDateTimeTmp) <= 0) {
             // e.g. "00.111" (1 ms = 1_000_000 nano seconds)
-            results.add(StringUtil.quote(currentDateTime.format(yearMonthDayHourMinuteSecondDateTimeFormatter)));
+            results.add(StringUtil.addQuotesIfNotExists(currentDateTimeTmp.format(yearMonthDayHourMinuteSecondDateTimeFormatter)));
 
-            currentDateTime = currentDateTime.plusNanos(1_000_000);
+            currentDateTimeTmp = currentDateTimeTmp.plusNanos(1_000_000);
         }
 
         return results;
     }
 
     /**
-     * e.g. granularity = second, and datetime = "2015-01-01T03:00:05"
-     * then return "05.333"
+     * allseconds($c.domain.date) = < "2022-11-01T00:00:00.000", .., "2023-03-30T23:59.999", "2023-03-31T00:00.000" >
      *
      */
     private Set<String> getIrregularSeconds(List<PetascopeDateTime> petascopeDateTimes) {
         Set<String> results = new LinkedHashSet<>();
         for (PetascopeDateTime petascopeDateTime : petascopeDateTimes) {
             // e.g. "00.111" (1 ms = 1_000_000 nano seconds)
-            results.add(StringUtil.quote(petascopeDateTime.getDateTimeMin().format(yearMonthDayHourMinuteSecondDateTimeFormatter)));
+            results.add(StringUtil.addQuotesIfNotExists(petascopeDateTime.getDateTimeMin().format(yearMonthDayHourMinuteSecondDateTimeFormatter)));
         }
 
         return results;

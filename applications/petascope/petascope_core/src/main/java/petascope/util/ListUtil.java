@@ -436,11 +436,13 @@ public class ListUtil {
         Collections.sort(inputList, new Comparator<String>() {
             @Override
             public int compare(String lhs, String rhs) {
-                Double tmp = Double.valueOf(lhs) - Double.valueOf(rhs);
+                String lhsTmp = StringUtil.stripQuotes(lhs);
+                String rhsTmp = StringUtil.stripQuotes(rhs);
+                Double tmp = Double.valueOf(lhsTmp) - Double.valueOf(rhsTmp);
                 int value = tmp <= 0 ? -1 : 1;
                 return value;
             }
         });
     }
-    
+
 }

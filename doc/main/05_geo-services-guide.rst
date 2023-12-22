@@ -1764,6 +1764,280 @@ The following examples illustrate the syntax of the ``SORT`` operator.
       encode(
          SORT $c.Red + 30 ALONG unix DESC BY add($c)
       , "json")
+      
+
+Calendar capabilities
+---------------------
+
+Since v10.3, rasdaman supports quite flexible and powerful methods for
+addressing temporal coordinates in WCS / WCPS subsetting and other operations.
+A common use case is aggregating data over a time series per temporal unit,
+e.g. per day, month, year, etc.
+
+.. _cal-temporal-coordinates:
+
+Temporal coordinates
+^^^^^^^^^^^^^^^^^^^^
+
+Temporal coordinates must be specified in ISO datetime format; the full format
+including all components is ``YYYY-MM-DDTHH:MM:SS.SSSZ``, explained as follows:
+
+- ``YYYY``: year
+- ``MM``: month
+- ``DD``: day
+- ``T``: separator between date and time components
+- ``HH``: hour
+- ``SS``: second
+- ``SSS``: milisecond
+- ``Z``: UTC timezone (GMT +0); imported coverages has a fixed timezone UTC
+  currently, there is no support to change to different timezone when importing
+  data
+
+Not all components must be specified: at minimum ``YYYY`` is required.
+
+.. _cal-granularity:
+
+The last component in the datetime value determines its *granularity*; for
+example, the granularity of ``"2015-01-02"`` is *day*, while ``"2015-02"`` has
+granularity *month*. The granularity modifies the range of a datetime string in
+a subset. For example, the datetime value ``"2015-01"`` with
+granularity *month* has a time range from lower bound 
+``"2015-01-01T00:00:00:000Z"`` (first moment of January, 2015) to upper bound 
+``"2015-01-31T23:59:59:999Z"`` (last moment of January, 2015).
+
+.. _cal-shift-temporal-coordinates:
+
+Shifting temporal coordinates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is possible to add or subtract a time period from a datetime value, thereby
+shifting the granularity as well. The shift period is specified separated by a
+whitespace after the datetime string. It is composed of several parts in 
+sequence:
+
+- Initial designator ``P`` (for Period): required
+- Number of years followed by ``Y``
+- Number of months followed by ``M``
+- Number of days followed by ``D``
+- Time designator (separator) ``T`` required only if any time components are specified
+- Number of hours followed by ``H``
+- Number of minutes followed by ``M``
+- Number of seconds followed by ``S``
+
+If any *number* is negative then the preceding datetime is shifted backward
+instead of forward as usual; non-required parts can be omitted.
+
+For example, ``time("2015-01-01 P2Y")`` shifts the input datetime forward by 2
+years to ``time("2017-01-01")``.
+
+.. _cal-concatenate-time-comp:
+
+Concatenating time components
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Individual time components can be concatenated into a full datetime string with
+the ``.`` operator. Each component is either a string or a temporal function
+which returns a string. For example ``time("2015" . "01" . "01")`` is a
+slice which will be resolved as ``time("2015-01-01")``.
+
+.. _cal-temporal-subsets:
+
+Temporal subsets
+^^^^^^^^^^^^^^^^
+
+The semantics of slices and trims in temporal subsets is clarified subsequently.
+
+*Slicing* generally selects a single index on a coverage axis. In temporal
+slices, however, we have to keep in mind the granularity of the datetime value.
+
+- If the time range defined by the granularity of the slice coordinate
+  encompases exactly one grid index, then this index is returned.
+- Otherwise an error is returned, if it does not contain any grid index or
+  contains more than one index. In this case it may be necessary to adjust the
+  slicing to one with larger or smaller granularity, e.g. from ``"2015-01"``
+  with month granularity to ``"2015-01-01"`` with *day* granularity.
+  
+*Trimming* corresponds to selecting all the indices between a lower and upper
+bounds. On a temporal axis, the lower bound is converted to the full ISO 
+datetime format as before, while the upper bound is converted up to the last 
+moment of the granularity of the datetime value. For example, a trim
+``time("2015-01-01":"2015-01-03")`` is first expanded internally to 
+``time("2015-01-01T00:00:00.000Z":"2015-01-03T23:59:59.999Z")``
+before it is used to subset the ``time`` axis.
+  
+For example, selecting only data in January 2023 could be done with
+``time("2023-01":"2023-01")``; note that it is not necessary to specify any
+further time components, e.g. day.
+
+.. _cal-time-axis-iterator:
+
+Time axis iterator
+^^^^^^^^^^^^^^^^^^
+
+Coverage constructors and condensers have an ``OVER`` clause where iterator
+variables over the coordinates of a coverage axis (potentially a subset) can be
+specified. In case of a temporal axis, lists of temporal coordinates are built
+from coverage domain information or time string literals. Afterwards, when the
+constructor or condenser are evaluated, the iterator variable goes over the
+list in sequence.
+
+There are two ways to specify the temporal coordinates for iteration:
+
+1. ``iterVar axis( "lowerBound" : "upperBound" [ : "step" ] )``
+
+   Here ``lowerBound`` and ``upperBound`` are datetime values. The ``step``
+   is an optional parameter with same format as specified earlier in 
+   :ref:`cal-shift-temporal-coordinates`, which indicates that the ``iterVar``
+   steps from the lower to the upper bound in ``step`` increments. If ``step`` 
+   is omitted, then it is derived from the :ref:`granularity <cal-granularity>` of 
+   the ``lowerBound``. For example, ``over $pt date("2014" : "2023" : "P1Y" )``
+   is identical to ``over $pt date("2014" : "2023")``, as the granularity of the
+   lower bound is ``P1Y``; the iterated time coordinates will be ``"2014"``,
+   ``"2015"``, ..., ``"2023"``.
+    
+2. ``iterVar axis( "dateTime1", "dateTime2", ... )``
+
+   Here ``iterVar`` goes through a list of explicitly specified datetime values.
+   For example, this query will build a coverage of maximum values of the
+   data slices at days explicitly listed in the ``over`` clause:
+    
+   .. code-block:: 
+    
+       for c in (testCov)
+       return encode(
+         coverage result
+         over $pt t("2023-01-01", "2023-01-02", "2023-01-03")
+         values max ( c[t($pt : $pt)] )
+       , "csv")
+
+3. ``iterVar axis( timeTruncator(...) )``
+
+   The set of coordinates to iterate through is in this case generated by a 
+   :ref:`time truncator function <cal-time-truncators>`.
+
+
+.. _cal-time-truncators:
+
+Time truncator functions
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time truncators allow to extract the actually present time coordinates, at a
+particular :ref:`granularity <cal-granularity>`, from a particular coverage under
+inspection. They are used typically in :ref:`axis iterators
+<cal-time-axis-iterator>` of coverage constructor / general condenser.
+
+They are a family of functions ``tr: list<datetime> -> list<datetime>`` which
+reduce accuracy beyond the chosen granularity from all time stamps passed and
+returns a set without duplicated values of matched datetimes; ``tr`` is one of
+``allyears, allmonths, alldays, allhours, allminutes, allseconds``.
+
+If ``$c`` is a coverage alias in a ``for`` clause, and its axis ``time`` extends
+from ``2022-11-01`` to ``2023-03-31``, then:
+
+- ``allyears($c.domain.date)`` = ``"2022"``, ``"2023"``
+- ``allmonths($c.domain.date)`` = ``"2022-11"``, ..., ``"2023-03"``
+- ``alldays($c.domain.date)`` = ``"2022-11-01"``, ..., ``"2023-03-31"``
+- ``allhours($c.domain.date)`` = ``"2022-11-01T00"``, ..., ``"2023-03-30T23"``, ``"2023-03-31T00"``
+- ``allminutes($c.domain.date)`` = ``"2022-11-01T00:00"``, ..., ``"2023-03-30T23:59"``, ``"2023-03-31T00:00"``
+- ``allseconds($c.domain.date)`` = ``"2022-11-01T00:00:00.000"``, .., ``"2023-03-30T23:59.999"``, ``"2023-03-31T00:00.000"``
+
+To iterate through all Januars in possible years on the ``time`` axis of a
+coverage, we can write a query as follows:
+
+.. code-block:: 
+
+    for $c in (test_365_days_irregular)
+    return encode(
+
+        coverage result
+        over $pt date( allmonths( domain($c, time) ) )
+        values $c[date($pt . "-01" : $pt . "-01")],
+
+    "json")
+
+Here, ``allyears( domain($c, time) )`` may return a list of ``"2022"`` and
+``"2023"``; then for each ``$pt``, ``date($pt . "-01" : $pt . "-01")`` will be
+resolved as:
+
+- First iteration: ``date("2022-01" : "2022-01")``
+- Second iteration: ``date("2023-01" : "2023-01")``
+
+
+.. _cal-time-extractors:
+
+Time extractor functions
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time extractors allow to extract time components by a
+specified :ref:`granularity <cal-granularity>` in the used function name. They
+are used typically in :ref:`axis iterators <cal-time-axis-iterator>` of
+coverage constructor / general condenser.
+
+They are a family of functions ``s: list<datetime> -> list<numbers>`` which
+return a set without duplicated values of time components contained in the
+input list; ``s`` is one of ``years, months, days, hours, minutes, seconds``.
+
+If ``$c`` is a coverage alias in a ``for`` clause, and its axis ``time`` extends
+from ``2022-11-01`` to ``2023-03-31``, then:
+
+- ``years(domain($c, time))`` = ``"2022"``, ``"2023"``
+- ``months(domain($c, time))`` = ``"01"``, ``"02"``, ``"03"``, ``"11"``, ``"12"``
+- ``days(domain($c, time))`` = ``"01"``, ..., ``"31"``
+- ``hours(domain($c, time))`` = ``"00"``, ..., ``"23"``
+- ``minutes(domain($c, time))`` = ``"00"``, ..., ``"59"``
+- ``second(domain($c, time))`` = ``"00.000"``, .., ``"59.999"``
+
+For example, if the ``time`` axis is irregular with two indexes at
+``"2023-01-01"`` and ``"2023-08-01"``, then ``months( domain($c, time) )`` in
+the query below returns ``"01"`` and ``"08"``, and the iterated subsets in
+``date("2023-" .  $m)`` will be ``"2023-01"`` and ``"2023-08"``:
+
+  .. code-block:: 
+  
+      for $c in (test_cov)
+      return encode(
+             coverage temp_cov
+             OVER $m date( months( domain($c, time) ) )
+             VALUES $c[date("2023-" .  $m)],
+      "csv")
+
+Another example: the ``time`` axis has daily coefficients over years 2020, 2021,
+2022, 2023; this query will return all coefficients in February 2020:
+
+  .. code-block:: 
+  
+      for $c in (test_cov)
+      return encode(
+             coverage temp_cov
+             OVER $d date( days( domain($c[time("2020-02":"2020-02")], time) ) )
+             VALUES $c[date("2020-02-" . $d)],
+      "csv")
+
+Here, ``days( domain($c[time("2020-02":"2020-02")], time)`` returns
+a set of ``01","02",...,"29"``, and for each ``$d`` in the set
+``date("2020-02-" . $d)`` will be resolved as:
+
+- First iteration: ``date("2020-02-01")``
+- Second iteration: ``date("2020-02-02)``
+- ...
+- Last iteration: ``date("2020-02-29)``
+
+.. _cal-incompatibilities:
+
+Incompatibilites
+^^^^^^^^^^^^^^^^
+
+Prior to this calendar feature, subsets on a temporal axis is done like below:
+
+- Slice: e.g. ``time("2015-01-01")``, then this value is converted to ISO datetime format
+  ``"2015-01-01T00:00:00.000Z"`` and the slice is applied on the ``time`` axis.
+  If this axis is irregular and it does not contain the coefficient at the above exact datetime,
+  then petascope throws an exception because the coefficient is not found.
+  
+- Trim: e.g. ``time("2015-01":"2015-12")``, then the subset is converted to ISO datetime format
+  as ``"2015-01-01T00:00:00:000Z":"2015-12-01T00:00:00:000Z"`` and if ``time`` axis is irregular,
+  then petascope will find any coefficients between these subsets and return them.
+        
 
 
 .. _ogc-wms:

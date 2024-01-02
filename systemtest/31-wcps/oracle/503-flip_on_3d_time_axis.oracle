@@ -64,24 +64,36 @@
                 <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
                     <swe:label>Red</swe:label>
                     <swe:description/>
+                    <swe:nilValues>
+                        <swe:NilValues>
+                            <swe:nilValue reason="">0</swe:nilValue>
+                        </swe:NilValues>
+                    </swe:nilValues>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
             <swe:field name="Green">
                 <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
                     <swe:label>Green</swe:label>
                     <swe:description/>
+                    <swe:nilValues>
+                        <swe:NilValues>
+                            <swe:nilValue reason="">0</swe:nilValue>
+                        </swe:NilValues>
+                    </swe:nilValues>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
             <swe:field name="Blue">
                 <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
                     <swe:label>Blue</swe:label>
                     <swe:description/>
+                    <swe:nilValues>
+                        <swe:NilValues>
+                            <swe:nilValue reason="">0</swe:nilValue>
+                        </swe:NilValues>
+                    </swe:nilValues>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
         </swe:DataRecord>

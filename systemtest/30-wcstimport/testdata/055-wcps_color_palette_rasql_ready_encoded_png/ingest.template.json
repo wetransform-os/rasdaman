@@ -5,7 +5,8 @@
     "mock": false,
     "automated": true,
     "track_files": false,
-    "subset_correction": false
+    "subset_correction": false,
+    "default_null_values": [0]
   },
   "input": {
     "coverage_id": "test_color_palette_rasql_ready_encoded_png",

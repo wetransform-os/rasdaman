@@ -5,7 +5,8 @@
     "default_crs": "SECORE_URL/crs/EPSG/0/4326",
     "mock": false,
     "track_files": false,
-    "automated": true
+    "automated": true,
+    "default_null_values": [0]
   },
   "input": {
     "coverage_id": "test_wms_time_approximate_coefficient",

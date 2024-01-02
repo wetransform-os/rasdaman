@@ -4,7 +4,8 @@
     "tmp_directory": "/tmp/",
     "track_files": false,
     "automated": true,
-    "insitu": true
+    "insitu": true,
+    "default_null_values": [0]
   },
   "input": {
     "coverage_id": "test_coverage_pyramid_odd_grid_pixels",

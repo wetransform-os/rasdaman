@@ -204,7 +204,8 @@ public class WMSGetMapService {
     
     private List<WMSLayer> wmsLayers = new ArrayList<>();
 
-    private static final String DEFAULT_ONE_BAND_COLOR_TEMPLATE = "<[0:0,0:0] $VALUEc>";
+    private static final String DEFAULT_ONE_BAND_COLOR_TEMPLATE = "<[0:0,0:0] $VALUE>";
+
     private Triple<Integer, Integer, Integer> backgroundColorTriple = null;
     
     private static Logger log = LoggerFactory.getLogger(WMSGetMapService.class);
@@ -368,9 +369,6 @@ public class WMSGetMapService {
                 backgroundColorFragment = this.getTransparentFragment();
             }
 
-            // If GetMap requests with transparent=true then extract the nodata values from layer to be added to final rasql query
-            List<NilValue> nilValues = new ArrayList<>();
-            
             int styleIndex = 0;
                        
             // e.g layers=layer1,layer2,layer3 then according to WMS standard (leftmost = bottommost)
@@ -383,32 +381,7 @@ public class WMSGetMapService {
                 }
 
                 WcpsCoverageMetadata wcpsCoverageMetadata = wmsLayer.getWcpsCoverageMetadata();
-                
-                if (nilValues.isEmpty()) {
-                    if (wcpsCoverageMetadata.getNilValues().size() > 0) {
-                        for (List<NilValue> nestedNilValues : wcpsCoverageMetadata.getNilValues()) {
-                            nilValues.addAll(nestedNilValues);
-                        }
-                    }
 
-                    // Then, filter any null values which cannot be used in rasql encode() : \"nodata\": [] parameter
-                    Set<NilValue> tmps = new LinkedHashSet<>();
-                    for (NilValue nilValue : nilValues) {
-                        String valueStr = nilValue.getValue();
-                        if (BigDecimalUtil.isNumber(valueStr)) {
-                            BigDecimal value = new BigDecimal(valueStr);
-
-                            // NOTE: WMS GetMap always return valid value betweens 0-255 for encoding()
-                            // so, if null values don't belong to this range values -> filter it
-                            if (value.compareTo(BigDecimal.ZERO) >= 0 && value.compareTo(new BigDecimal("255"))  <= 0) {
-                                tmps.add(nilValue);
-                            }
-                        }
-                    }
-
-                    nilValues = new ArrayList<>(tmps);
-                }
-                
                 List<Axis> xyAxes = wcpsCoverageMetadata.getXYAxes();
                 String nativeCRS = xyAxes.get(0).getNativeCrsUri();
                 
@@ -451,7 +424,7 @@ public class WMSGetMapService {
                 // NOTE: if the layer returns a transparent image, then it needs to set the null value to 0
                 this.transparent = true;
             }
-            String encodeFormatParameters = this.createEncodeFormatParameters(nilValues, wcpsCoverageMetadata);
+            String encodeFormatParameters = this.createEncodeFormatParameters(wcpsCoverageMetadata);
             
             // Create the final Rasql query for all layers's styles of this GetMap request.
             finalRasqlQuery = FINAL_TRANSLATED_RASQL_TEMPLATE
@@ -691,10 +664,10 @@ public class WMSGetMapService {
     
     /**
      * From the list of nodata values from all combined layers, create a nodata string for SELECT encode() query.
-     * NOTE: if layer was imported with lat, long grid axes order (e.g: via netCDF) then it must need tranpose to make the output correctly.
+     * NOTE: if layer was imported with lat, long grid axes order (e.g: via netCDF) then it must need transpose to make the output correctly.
      * 
      */
-    private String createEncodeFormatParameters(List<NilValue> nilValues, WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException {
+    private String createEncodeFormatParameters(WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException {
         
         List<Axis> xyAxes = wcpsCoverageMetadata.getXYAxes();
         
@@ -704,17 +677,6 @@ public class WMSGetMapService {
         
         JsonExtraParams jsonExtraParams = new JsonExtraParams();
 
-        if (this.transparent) {
-            if (nilValues.isEmpty()) {
-                // 0 is default null value if layer doesn't have other values
-                nilValues.add(new NilValue(BigDecimal.ZERO.toPlainString()));
-            }
-            // e.g: {"nodata": [10, 20, 40]}
-            NoData nodata = new NoData(nilValues);
-
-            jsonExtraParams.setNoData(nodata);
-        }
-        
         if (xyAxes.get(0).getRasdamanOrder() > xyAxes.get(1).getRasdamanOrder()) {
             // NOTE: if layer imported with Lat, Long grid order (via netCDF) so it needs to use transpose
             List<Integer> transposeList = new ArrayList<>();
@@ -781,24 +743,23 @@ public class WMSGetMapService {
 
             if (this.backgroundColorTriple == null) {
                 // Then, default color is white color
-                colorFragment = DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", "255");
+                colorFragment = DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", "255c");
             } else {
                 if (numberOfBands != 1 && numberOfBands != 3 && numberOfBands != 4) {
                     throw new WMSUnsupportedBgColorException(numberOfBands);
                 }
                 // BGCOLOR parameter is set with Hex-color RGB -> return band constructor for it
                 // TODO: convert RGB hex color to RGB colors
-                colorFragment = " { ";
-                colorFragment += DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", this.backgroundColorTriple.getLeft().toString()) + ", "
-                             + DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", this.backgroundColorTriple.getMiddle().toString()) + ", "
-                             + DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", this.backgroundColorTriple.getRight().toString());
+                String threeBandsValues = "{ " + this.backgroundColorTriple.getLeft().toString() + "c, "
+                                        + this.backgroundColorTriple.getMiddle().toString() + "c, "
+                                        + this.backgroundColorTriple.getRight().toString() + "c }";
+                colorFragment = DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", threeBandsValues);
 
                 if (numberOfBands == 4) {
                     // alpha band in case layer has 4 bands
-                    colorFragment += ", " + DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", "255");
+                    colorFragment += ", " + DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", "255c");
                 }
 
-                colorFragment += " } ";
             }
 
             result = result.replace("$COLOR_FRAGMENT", colorFragment);

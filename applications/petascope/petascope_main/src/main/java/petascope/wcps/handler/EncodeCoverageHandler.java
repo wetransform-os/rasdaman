@@ -207,8 +207,7 @@ public class EncodeCoverageHandler extends Handler {
                 throw new InvalidJsonDeserializationException();
             } else {
                 // extra params is old style (check if it has "nodata" as parameter to add to metadata)
-                boolean hasNoData = parseNoDataFromExtraParams(extraParams, metadata);
-                jsonOutput = serializationEncodingService.serializeOldStyleExtraParamsToJson(rasqlFormat, metadata, netCDFExtraParams, geoReference, hasNoData,
+                jsonOutput = serializationEncodingService.serializeOldStyleExtraParamsToJson(rasqlFormat, metadata, netCDFExtraParams, geoReference, extraParams,
                                                                                              isGML);
             }
 

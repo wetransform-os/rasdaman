@@ -4,7 +4,8 @@
     "tmp_directory": "/tmp/",
     "mock": false,
     "track_files": false,
-    "automated": true
+    "automated": true,
+    "default_null_values": [0]
   },
   "input": {
     "coverage_id": "test_wms_base_with_2_dates",

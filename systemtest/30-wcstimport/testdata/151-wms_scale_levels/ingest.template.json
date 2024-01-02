@@ -6,7 +6,8 @@
     "tmp_directory": "/tmp/",
     "track_files": false,
     "mock": false,
-    "automated": true
+    "automated": true,
+    "default_null_values": [0]
 
   },
 

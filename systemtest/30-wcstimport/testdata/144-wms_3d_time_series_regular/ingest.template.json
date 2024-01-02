@@ -7,7 +7,8 @@
     "automated": true,
     "track_files": false,
     "retry" : true,
-    "retries" : 5
+    "retries" : 5,
+    "default_null_values": [0]
   },
   "input": {
     "coverage_id": "test_wms_3d_time_series_regular",

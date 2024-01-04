@@ -59,6 +59,7 @@ import petascope.util.ExceptionUtil;
 import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
 
+import static petascope.controller.OpenEOController.GDC_PROCESS_WCPS_CONTEXT_PATH;
 import static petascope.core.KVPSymbols.*;
 import static petascope.util.MIMEUtil.MIME_JSON;
 
@@ -148,15 +149,20 @@ public class OapiController extends AbstractController {
      * Execute a WCPS query, 
      * e.g: https://oapi.rasdaman.org/rasdaman/oapi/wcps?Q=for c in (mean_summer_airtemp) return encode(c, "png")
      */
-    @RequestMapping(path = WCPS_CONTEXT_PATH)
+    @RequestMapping(path = { WCPS_CONTEXT_PATH, GDC_PROCESS_WCPS_CONTEXT_PATH} )
     public void getProcessingWcpsResult(HttpServletRequest httpServletRequest) throws Exception {
         
         this.setBaseURL(httpServletRequest);
         
         Map<String, String[]> kvpParameters = this.parsePostRequestToKVPMap(httpServletRequest);
-        String query = getValueByKeyAllowNull(kvpParameters, KEY_QUERY_SHORT_HAND);
+
 
         RequestHandlerInterface requestHandlerInterface = () -> {
+            String query = getValueByKeyAllowNull(kvpParameters, KEY_QUERY_SHORT_HAND);
+            if (query == null) {
+                query = getValueByKeyAllowNull(kvpParameters, KEY_QUERY);
+            }
+
             if (query == null) {
                 String errorMessage = "Query parameter '" + KEY_QUERY_SHORT_HAND.toUpperCase() + "' is missing.";
                 Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.BAD_REQUEST.value());

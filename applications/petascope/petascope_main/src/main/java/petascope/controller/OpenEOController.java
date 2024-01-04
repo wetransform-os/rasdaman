@@ -84,7 +84,8 @@ public class OpenEOController extends AbstractController {
     public static final String GDC_WELLKNOWN_CONTEXT_PATH = GDC + "/.well-known/openeo";
     private static final String GDC_FILE_FORMATS_CONTEXT_PATH = GDC + "/file_formats";
 
-    private static final String GDC_PROCESSES_CONTEXT_PATH = GDC +  "/processes";
+    private static final String GDC_PROCESSES_CONTEXT_PATH = GDC + "/processes";
+    public static final String GDC_PROCESS_WCPS_CONTEXT_PATH = GDC + "/process";
 
     private static final String GDC_PROCESS_GRAPHS_CONTEXT_PATH = GDC +  "/process_graphs";
     private static final String GDC_RESULT = OPENEO + "/result";
@@ -114,7 +115,9 @@ public class OpenEOController extends AbstractController {
                                                         OPENEO_FILE_FORMATS_CONTEXT_PATH,
 
                                                         GDC_PROCESSES_CONTEXT_PATH,
-                                                        OPENEO_PROCESSES_CONTEXT_PATH);
+                                                        OPENEO_PROCESSES_CONTEXT_PATH,
+
+                                                        GDC_PROCESS_WCPS_CONTEXT_PATH);
 
     public OpenEOController() {
         

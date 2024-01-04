@@ -34,10 +34,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.ExceptionCode;
-<<<<<<< HEAD
 import petascope.core.KVPSymbols;
-=======
->>>>>>> release_10.2
 import petascope.exceptions.PetascopeException;
 import petascope.util.ras.TypeResolverUtil;
 import petascope.wcps.parameters.model.netcdf.NetCDFExtraParams;

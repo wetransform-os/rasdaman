@@ -268,12 +268,9 @@ public class SubsetParsingService {
     }
 
     /**
-<<<<<<< HEAD
      * e.g. convert datetime "2015-01-01" to a big decimal value
      *
-=======
      * Supports * and time in the subset.
->>>>>>> ticket:000 - NEW - calendar feature
      */
     public AbstractSubsetDimension convertToNumericSubset(AbstractSubsetDimension subsetDimension, Axis axis) throws PetascopeException {
 

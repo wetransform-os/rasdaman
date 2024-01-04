@@ -1,27 +1,11 @@
 # This file contains metadata for your plugin.
 
-<<<<<<< HEAD
-# This file should be included when you package your plugin.# Mandatory items:
-=======
 # This file should be included when you package your plugin.
 # Mandatory items:
->>>>>>> release_10.2
 
 [general]
 name=WCPS datacube query
 qgisMinimumVersion=3.0
-<<<<<<< HEAD
-description=Makes WCPS requests to the server
-version=0.1
-author=Nikita Ivlev
-email=viphwydon@outlook.com
-
-about=WCPS datacube query is a plugin that allows sending WCPS (Web Coverage Processing Service) queries to a compliant OGC WCS 2.0 server that implements the Processing extension, and loading the returned result in QGIS. It is known to work with the rasdaman Array DBMS (http://rasdaman.org).
-
-
-tracker=http://bugs
-repository=http://repo
-=======
 description=Query datacubes with WCPS and display results.
 version=4.0
 author=Nikita Ivlev, Dimitar Misev, Bang Pham Huu
@@ -31,7 +15,6 @@ about=This plugin allows sending datacube queries as per OGC Web Coverage Proces
 
 tracker=https://rasdaman.org/trac/
 repository=https://rasdaman.org/trac/browser/applications/qgis-wcps/qgis3/wcps_client
->>>>>>> release_10.2
 # End of mandatory metadata
 
 # Recommended items:
@@ -41,17 +24,10 @@ hasProcessingProvider=no
 # changelog=
 
 # Tags are comma separated with spaces allowed
-<<<<<<< HEAD
-tags=python
-
-homepage=http://homepage
-category=Plugins
-=======
 tags=analytics,coverage,datacube,wcps,wcs
 
 homepage=https://doc.rasdaman.org/11_cheatsheets.html#wcps-qgis-plugin
 category=Raster
->>>>>>> release_10.2
 icon=icon.png
 # experimental flag
 experimental=False
@@ -65,15 +41,7 @@ deprecated=False
 # plugin_dependencies=
 
 Category of the plugin: Raster, Vector, Database or Web
-<<<<<<< HEAD
-# category=
-
-# If the plugin can run on QGIS Server.
-server=False
-
-=======
 # category=Raster
 
 # If the plugin can run on QGIS Server.
 server=False
->>>>>>> release_10.2

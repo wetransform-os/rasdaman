@@ -148,24 +148,14 @@ class WCPSClientDialog(QDialog, Ui_WCPSClient):
         global serv
 
         selected_serv, selected_url = self.get_serv_url()
-<<<<<<< HEAD
-        print('You choose: ', selected_serv, "URL:", selected_url)
-
-        msg = "Your choice:    " + selected_serv + "\n"
-=======
         print(selected_serv, "URL:", selected_url)
 
         msg = "Selected server:    " + selected_serv + "\n"
->>>>>>> release_10.2
         msg = msg + "URL:                   " + selected_url + "\n"
         self.textBrowser_Serv.setText(msg)
 
         # Send GetCapabilities request to get the coverages list
-<<<<<<< HEAD
-        capabilities_url = selected_url + "?service=WCS&request=GetCapabilities"
-=======
         capabilities_url = selected_url + "?service=WCS&version=2.0.1&request=GetCapabilities"
->>>>>>> release_10.2
         username, password = self.get_auth_credentials()
 
         try:

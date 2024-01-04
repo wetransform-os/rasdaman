@@ -854,7 +854,8 @@ public class WcpsCoverageMetadata {
         
         return false;
     }
-    
+
+
     /**
      * Return a BoundingBox object with original lower/upper bounds 
      * on XY axes of a coverage.

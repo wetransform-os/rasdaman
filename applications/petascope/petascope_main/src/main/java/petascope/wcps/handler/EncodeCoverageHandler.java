@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.tomcat.util.http.fileupload.util.mime.MimeUtility;
 import org.rasdaman.domain.cis.NilValue;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +34,10 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.ExceptionCode;
+<<<<<<< HEAD
 import petascope.core.KVPSymbols;
+=======
+>>>>>>> release_10.2
 import petascope.exceptions.PetascopeException;
 import petascope.util.ras.TypeResolverUtil;
 import petascope.wcps.parameters.model.netcdf.NetCDFExtraParams;

@@ -2040,6 +2040,46 @@ Prior to this calendar feature, subsets on a temporal axis is done like below:
         
 
 
+.. _wcps-polygonize-operator:
+
+Polygonize function
+-------------------
+
+
+This operation is useful in geographical context,
+providing ability to layer additional information on existing maps,
+for example.
+For more details, see also :ref:`rasql polygonize <polygonize-operation>`.
+
+When the result includes multiple files, as is the case with ``ESRI Shapefile``,
+the files will be compressed into a single zip archive.
+
+**Syntax**
+
+::
+
+    polygonize(covExp, targetFormat)
+    polygonize(covExp, targetFormat, connectedness)
+
+Where
+
+.. code-block:: text
+
+    covExp: coverage expression
+    targetFormat: StringLit
+    connectedness: integerLit
+
+**Examples**
+
+The following WCPS query vectorizes a 2D geo-referenced coverage
+into shape file format:
+
+    .. code-block:: 
+
+       for $c in (test_mean_summer_airtemp)
+       return 
+           polygonize($c, "ESRI Shapefile")
+
 .. _ogc-wms:
 
 OGC Web Map Service (WMS)

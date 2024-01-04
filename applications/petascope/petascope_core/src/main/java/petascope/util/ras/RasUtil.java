@@ -311,9 +311,16 @@ public class RasUtil {
         if (result.isEmpty()) {
             //no object left, delete the collection so that the name can be reused in the future
             log.info("No objects left in the collection, dropping the collection so the name can be reused in the future.");
-            executeRasqlQuery(TEMPLATE_DROP_COLLECTION.replace(TOKEN_COLLECTION_NAME, collectionName), 
-                              username, password, true);
+            dropCollection(collectionName, username, password);
         }
+    }
+
+    /**
+     * Drop a rasdaman collection
+     */
+    public static void dropCollection(String collectionName, String username, String password) throws PetascopeException {
+        executeRasqlQuery(TEMPLATE_DROP_COLLECTION.replace(TOKEN_COLLECTION_NAME, collectionName),
+                username, password, true);
     }
 
     /**

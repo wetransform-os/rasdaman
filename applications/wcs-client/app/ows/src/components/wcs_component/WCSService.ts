@@ -225,11 +225,7 @@ module rasdaman {
                 data: queryStr
             };
 
-            // TODO: if have new supported binary encodings, add them here.
-            if (queryStr.indexOf("png") >= 0 || queryStr.indexOf("jpeg") >= 0 || queryStr.indexOf("jpeg2000") >= 0 || queryStr.indexOf("tiff") >= 0 || queryStr.indexOf("netcdf") >= 0)  {            
-                // This is needed to save binary file correctly
-                request.responseType = "arraybuffer"; 
-            }
+            request.responseType = "arraybuffer"; 
 
             // send request to Petascope and get response (headers and contents)
             this.$http(request).then(function (data:any) {

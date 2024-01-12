@@ -37,6 +37,7 @@ import petascope.exceptions.PetascopeException;
 import petascope.rasdaman.exceptions.RasdamanException;
 import petascope.util.ListUtil;
 import petascope.util.StringUtil;
+import static petascope.util.ras.RasConstants.RASQL_BOUND_SEPARATION;
 
 /**
  * Keeps track of the types that exist in the tracked rasdaman instance.
@@ -242,9 +243,9 @@ public class TypeRegistry {
      */
     public String getMddTypeForCollectionType(String collectionType) {
         String mddType = "";
-        for (Pair<String, String> i : setTypeDefinitions) {
-            if (collectionType.equals(i.fst)) {
-                mddType = i.snd;
+        for (Map.Entry<String, String> entry : setTypeDefinitions.entrySet()) {
+            if (collectionType.equals(entry.getKey())) {
+                mddType = entry.getValue();
                 break;
             }
         }
@@ -276,10 +277,10 @@ public class TypeRegistry {
                 
         List<String> nilValues = parseSetNullValues(setTypeQuery);
         setTypeNullValues.put(setName, nilValues);
-        
+
+        setTypeDefinitions.put(setName, marrayName);
+
         Pair<String, String> setTypePair = new Pair(setName, marrayName);
-        setTypeDefinitions.add(setTypePair);                
-        
         return setTypePair;
     }
 
@@ -442,14 +443,8 @@ public class TypeRegistry {
         if (this.typeRegistry.containsKey(setType)) {
             this.typeRegistry.remove(setType);
             this.setTypeNullValues.remove(setType);
+            this.setTypeDefinitions.remove(setType);
 
-            for (Iterator<Pair<String, String>> iterator = this.setTypeDefinitions.iterator(); iterator.hasNext();) {
-                Pair<String, String> pair = iterator.next();
-                if (pair.fst.equals(setType)) {
-                    // Remove the current element from the iterator and the list.
-                    iterator.remove();
-                }
-            }
             return true;
         }
         return false;
@@ -515,10 +510,11 @@ public class TypeRegistry {
      * Builds the registry from the collected types gathered by parsing the rasql output
      */
     private void buildRegistry() {
-        for (Pair<String, String> setTypePair : setTypeDefinitions) {
-            TypeRegistryEntry typeRegistryEntry = this.createTypeRegistryEntry(setTypePair);
+        for (Map.Entry<String, String> setTypeEntry : setTypeDefinitions.entrySet()) {
+            Pair<String, String> pair = new Pair<>(setTypeEntry.getKey(), setTypeEntry.getValue());
+            TypeRegistryEntry typeRegistryEntry = this.createTypeRegistryEntry(pair);
             if (typeRegistryEntry != null) {
-                typeRegistry.put(setTypePair.fst, typeRegistryEntry);
+                typeRegistry.put(setTypeEntry.getKey(), typeRegistryEntry);
             }
         }
     }
@@ -624,11 +620,11 @@ public class TypeRegistry {
     private static final String AS = " AS ";
     public static final String STRUCT = "struct";
 
-    private final Map<String, TypeRegistryEntry> typeRegistry = new LinkedHashMap<>();
-    private final Map<String, String> marrayTypeDefinitions = new LinkedHashMap<>();
-    private final List<Pair<String, String>> setTypeDefinitions = new ArrayList<>();
-    private Map<String, List<String>> setTypeNullValues = new LinkedHashMap<>();
-    private Map<String, String> structTypeDefinitions = new LinkedHashMap();
+    public static final Map<String, TypeRegistryEntry> typeRegistry = new LinkedHashMap<>();
+    public static final Map<String, String> marrayTypeDefinitions = new LinkedHashMap<>();
+    public static final Map<String, String> setTypeDefinitions = new LinkedHashMap<>();
+    public static final Map<String, List<String>> setTypeNullValues = new LinkedHashMap<>();
+    public static final Map<String, String> structTypeDefinitions = new LinkedHashMap();
     private final Logger log = LoggerFactory.getLogger(TypeRegistry.class);
     private final static String QUERY_MARRAY_TYPES = "SELECT a FROM RAS_MARRAY_TYPES a";
     private final static String QUERY_STRUCT_TYPES = "SELECT a FROM RAS_STRUCT_TYPES a";

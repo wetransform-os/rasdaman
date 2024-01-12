@@ -866,6 +866,33 @@ For example, the below request will update the metadata of coverage
    curl --form-string "COVERAGEID=test_mr_metadata" 
         -F "file=@/home/rasdaman/Downloads/test_metadata.xml" 
         "http://localhost:8080/rasdaman/admin/coverage/update"
+        
+.. _petascope-update-coverage-nullvalues:        
+        
+Update coverage's null values
+-----------------------------
+
+Coverage's null values can be updated via the non-standard API at
+``/rasdaman/admin/coverage/nullvalues/update`` endpoint
+with two mandatory parameters:
+
+- ``coverageId``: the name of the coverage to be updated
+- ``nullvalues``: null values of coverage's band(s) with the format
+  corresponding to rasql, see :ref:`syntax doc <sec-set-types>`.
+  
+.. NOTE::
+
+  Value of ``nullvalues`` must be encoded in clients properly
+  for special characters such as: ``[, ], {, }``.
+  
+Example of using ``curl`` tool to update null values
+of a 3-bands coverage:
+
+.. code-block:: text
+
+    curl 'http://localhost:8080/rasdaman/admin/coverage/nullvalues/update' 
+        -d 'COVERAGEID=test_rgb&NULLVALUES=[35, 25:35, 35:35]'
+        -u rasadmin:rasadmin        
 
 .. _petascope-make_inspire_coverage:
 

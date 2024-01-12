@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
-import org.rasdaman.config.ConfigManager;
+
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.cis.GeneralGridCoverage;
@@ -48,6 +48,7 @@ import petascope.exceptions.PetascopeException;
 import petascope.util.MIMEUtil;
 import petascope.util.SetUtil;
 import static petascope.core.KVPSymbols.KEY_NEW_COVERAGE_ID;
+
 import petascope.util.XMLUtil;
 
 /**
@@ -56,9 +57,9 @@ import petascope.util.XMLUtil;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
-public class AdminUpdateCoverageService extends AbstractAdminService {
+public class AdminUpdateCoverageIdAndMetadataService extends AbstractAdminService {
 
-    private static Logger log = LoggerFactory.getLogger(AdminUpdateCoverageService.class);
+    private static Logger log = LoggerFactory.getLogger(AdminUpdateCoverageIdAndMetadataService.class);
 
     private static Set<String> VALID_PARAMETERS = SetUtil.createLowercaseHashSet(KEY_COVERAGE_ID, KVPSymbols.KEY_NEW_COVERAGE_ID, KEY_METADATA);
 
@@ -68,13 +69,12 @@ public class AdminUpdateCoverageService extends AbstractAdminService {
     private WMSRepostioryService wmsRepostioryService;
     @Autowired
     private CoveragePyramidRepositoryService coveragePyramidRepositoryService;
-
-    public AdminUpdateCoverageService() {
+    
+    public AdminUpdateCoverageIdAndMetadataService() {
 
     }
 
     private void validate(Map<String, String[]> kvpParameters) throws PetascopeException {
-        
         this.validateRequiredParameters(kvpParameters, VALID_PARAMETERS);
 
         for (Map.Entry<String, String[]> entry : kvpParameters.entrySet()) {
@@ -114,11 +114,12 @@ public class AdminUpdateCoverageService extends AbstractAdminService {
             if (this.wmsRepostioryService.isInLocalCache(currentCoverageId)) {
                 this.wmsRepostioryService.updateLayerName(currentCoverageId, newCoverageId);
             }
+
         }
 
         // update new coverageId and metadata for the coverage if needed
         this.coverageRepositoryService.updateCoverage(currentCoverageId, newCoverageId, metadata);
-            
+
         if (newCoverageId != null) {
 
             // - list all coverages containing this current coverage id and update their's pyramids with the new name
@@ -137,6 +138,7 @@ public class AdminUpdateCoverageService extends AbstractAdminService {
                 this.coverageRepositoryService.save(baseCoverage);
             }
         }
+
         
         Response result = new Response(Arrays.asList("".getBytes()), MIMEUtil.MIME_TEXT);
         return result;

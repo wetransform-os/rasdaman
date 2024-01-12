@@ -40,7 +40,7 @@ import petascope.exceptions.WCPSException;
 import petascope.util.ListUtil;
 import petascope.util.StringUtil;
 
-import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PORPERTY_UPPER_BOUND;
+import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PROPERTY_UPPER_BOUND;
 import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PROPERTY_LOWER_BOUND;
 import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PROPERTY_RESOLUTION;
 

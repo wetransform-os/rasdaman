@@ -268,6 +268,7 @@ public interface KVPSymbols {
     // Update coverage's id by new id
     String KEY_COVERAGE_ID = "coverageId";
     String KEY_NEW_COVERAGE_ID = "newCoverageId";
+    String KEY_NULL_VALUES = "nullValues";
     String KEY_LAYER_ID = "layerId";
     String KEY_SOAP = "SOAP";
 

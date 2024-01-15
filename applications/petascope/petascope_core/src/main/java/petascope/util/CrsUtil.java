@@ -77,10 +77,8 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
 import petascope.core.CrsDefinition;
-import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.PetascopeRuntimeException;
 import petascope.exceptions.SecoreException;
 import petascope.core.AxisTypes;
 import petascope.core.XMLSymbols;
@@ -118,7 +116,8 @@ public class CrsUtil {
 
     // SECORE keywords (URL is set in the ConfigManager)
     public static final String KEY_RESOLVER_CRS = "crs";
-    public static final String KEY_RESOLVER_CCRS = "crs-compound";
+    private static final String KEY_RESOLVER_CRS_QUOTED_BY_SLASHES = "/" + KEY_RESOLVER_CRS + "/";
+    public static final String KEY_RESOLVER_CRS_COMPOUND = "crs-compound";
     public static final String KEY_RESOLVER_EQUAL = "equal";
     public static final char SLICED_AXIS_SEPARATOR = '@';
 
@@ -146,14 +145,18 @@ public class CrsUtil {
     public static final String OGC_AUTH = "OGC";
     public static final String URN_EPSG_PREFIX = "urn:ogc:def:crs:EPSG::";
     public static final String DEFAULT_DATETIME_CRS = "https://www.opengis.net/def/crs/OGC/0/AnsiDate";
-    
+
     // rotated-CRS netCDF
     public static final String COSMO_AUTH = "COSMO";
     // COSMO 101 CRS
     public static final String COSMO_101_AUTHORITY_CODE = COSMO_AUTH + ":101";
     //public static final String IAU_AUTH  = "IAU2000";
     //public static final String UMC_AUTH  = "UMC";
-    public static final List<String> SUPPORTED_AUTHS = Arrays.asList(EPSG_AUTH, ISO_AUTH, AUTO_AUTH, OGC_AUTH); // IAU_AUTH, UMC_AUTH);
+
+    // Add more when needed
+    private static final Set<String> SUPPORTED_AUTHORITY_PREFIXES = new LinkedHashSet<>(Arrays.asList(EPSG_AUTH,
+                                                                                ISO_AUTH, AUTO_AUTH, OGC_AUTH,
+                                                                                COSMO_AUTH));
 
     // WGS84
     public static final String WGS84_EPSG_CODE = "4326";
@@ -1415,8 +1418,8 @@ public class CrsUtil {
     public static boolean crsURIsMatch(String crsURI1, String crsURI2) {
         String strippedCRS1 = CrsUtil.CrsUri.toDbRepresentation(crsURI1).split("\\?")[0];
         String strippedCRS2 = CrsUtil.CrsUri.toDbRepresentation(crsURI2).split("\\?")[0];
-        
-        return strippedCRS1.equals(strippedCRS2);        
+
+        return strippedCRS1.equals(strippedCRS2);
     }
     
     /**
@@ -1605,11 +1608,11 @@ public class CrsUtil {
          * petascope.propeties with SECORE http://abc.com/def/crs/epsg/0/4326,
          * the stored URI with localhost will be not found.
          */
-        public static final String SECORE_URL_PREFIX = "$SECORE_URL$";
+        public static final String SECORE_URL_PREFIX_PLACE_HOLDER = "$SECORE_URL$";
         public static final String LAST_PATH_PATTERN = ".*/(.*)$";
 
         private static final String COMPOUND_SPLIT = "(\\?|&)\\d+=";
-        private static final String COMPOUND_PATTERN = "^" + HTTP_URL_PATTERN + KEY_RESOLVER_CCRS;
+        private static final String COMPOUND_PATTERN = "^" + HTTP_URL_PATTERN + KEY_RESOLVER_CRS_COMPOUND;
 
         private static final String AUTHORITY_KEY = "authority";    // Case-insensitivity is added in the pattern
         private static final String VERSION_KEY = "version";
@@ -1648,7 +1651,7 @@ public class CrsUtil {
             if (isCompound(decUri)) {
                 String[] splitted = decUri.split(COMPOUND_SPLIT);
                 if (splitted.length <= 1) {
-                    log.warn(decUri + " seems invalid: check consitency first.");
+                    log.warn(decUri + " seems invalid: check consistency first.");
                 }
                 if (splitted.length == 2) {
                     log.warn(decUri + " seems compound but only one CRS is listed.");
@@ -2047,7 +2050,7 @@ public class CrsUtil {
                     ccrsOut = crsSet.iterator().next();
                     break;
                 default: // By default, use SECORE host in the CCRS URL
-                    ccrsOut = getDefaultResolverUri() + "/" + KEY_RESOLVER_CCRS + "?";
+                    ccrsOut = getDefaultResolverUri() + "/" + KEY_RESOLVER_CRS_COMPOUND + "?";
                     Iterator it = crsSet.iterator();
                     for (int i = 0; i < crsSet.size(); i++) {
                         ccrsOut += (i + 1) + "=" + it.next();
@@ -2144,7 +2147,7 @@ public class CrsUtil {
             } //compound
             else {
                 List<String> uris = CrsUri.decomposeUri(crsUri);
-                String result = SECORE_URL_PREFIX + "/" + CrsUtil.KEY_RESOLVER_CCRS + "?";
+                String result = SECORE_URL_PREFIX_PLACE_HOLDER + "/" + CrsUtil.KEY_RESOLVER_CRS_COMPOUND + "?";
                 int counter = 1;
                 for (String uri : uris) {
                     result += String.valueOf(counter) + "=" + simpleUriToDbRepresentation(uri);
@@ -2158,19 +2161,52 @@ public class CrsUtil {
         }
 
         /**
-         * When reading coverage's CRS from database, the URI contains SECORE
-         * prefix as string placeholder. So, replace it with SECORE endpoint
-         * configured in petascope.properties. e.g:
-         * %SECORE_URL%/def/crs/epsg/0/4326 to
-         * http://localhost:8080/def/crs/epsg/0/4326
-         *
-         * @param crsUri
-         * @return
+         * When reading coverage's CRS from database, the URI is stored with different SECORE endpoint,
+         * so, replace it with the current working SECORE endpoint
+         * configured in petascope.properties at secore_urls setting
          */
         public static String fromDbRepresentation(String crsUri) {
-            String secoreURL = ConfigManager.SECORE_URLS.get(0);
-            crsUri = crsUri.replace(SECORE_URL_PREFIX, secoreURL);
-            return crsUri;
+            String secoreURL = CrsUtil.currentWorkingResolverURL;
+
+            if (!crsUri.startsWith(HTTP_PREFIX)) {
+                // e.g. input CRS is: EPSG/0/4269
+                return crsUri;
+            }
+
+            String result = null;
+
+            if (crsUri.contains(SECORE_URL_PREFIX_PLACE_HOLDER)) {
+                result = crsUri.replace(SECORE_URL_PREFIX_PLACE_HOLDER, secoreURL);
+            } else {
+
+                if (crsUri.contains(KEY_RESOLVER_CRS_COMPOUND)) {
+                    String[] crsTmps = crsUri.split(KEY_RESOLVER_CRS_QUOTED_BY_SLASHES);
+
+                    List<String> crsUriComponents = new ArrayList<>();
+
+                    int i = 1;
+                    for (String tmp : crsTmps) {
+                        // e.g. OGC or EPSG
+                        String authorityCode = tmp.split("/")[0];
+                        if (SUPPORTED_AUTHORITY_PREFIXES.contains(authorityCode)) {
+                            String crsUriComponent = i + "=" + secoreURL + KEY_RESOLVER_CRS_QUOTED_BY_SLASHES + tmp.split("&")[0];
+                            crsUriComponents.add(crsUriComponent);
+
+                            i++;
+                        }
+
+                    }
+
+                    // e.g. https://crs.rasdaman.com/def/crs-compound?1=https://crs.rasdaman.com/def/crs/OGC/0/AnsiDate&2=https://crs.rasdaman.com/def/crs/EPSG/0/4326
+                    result = secoreURL + "/" + KEY_RESOLVER_CRS_COMPOUND + "?" + ListUtil.join(crsUriComponents, "&");
+                } else {
+                    // e.g. https://crs.rasdaman.com/rasdaman/def/crs/EPSG/0/4326
+                    result = secoreURL + KEY_RESOLVER_CRS_QUOTED_BY_SLASHES + crsUri.split(KEY_RESOLVER_CRS_QUOTED_BY_SLASHES)[1];
+                }
+
+            }
+
+            return result;
         }
 
         /**
@@ -2213,11 +2249,11 @@ public class CrsUtil {
             String result = crsUri;
             
             // Don't try to parse CRS when it is already the abstract URL
-            if (!crsUri.contains(SECORE_URL_PREFIX)) {
+            if (!crsUri.contains(SECORE_URL_PREFIX_PLACE_HOLDER)) {
                 String authority = CrsUri.getAuthority(crsUri);
                 String code = CrsUri.getCode(crsUri);
                 String version = CrsUri.getVersion(crsUri);
-                result = SECORE_URL_PREFIX + "/" + CrsUtil.KEY_RESOLVER_CRS + "/" + authority + "/" + version + "/" + code;
+                result = SECORE_URL_PREFIX_PLACE_HOLDER + "/" + CrsUtil.KEY_RESOLVER_CRS + "/" + authority + "/" + version + "/" + code;
             }
 
             return result;

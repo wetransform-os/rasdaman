@@ -121,8 +121,8 @@ public class ResponseService {
             firstWcpsQuery = wcpsQuery.replace(ENCODE_FORMAT, MIMEUtil.ENCODE_GML);
             secondWcpsQuery = wcpsQuery.replace(ENCODE_FORMAT, encodeFormat);
             log.debug("Generated a mutlipart WCPS query from WCS request: " + firstWcpsQuery);
-            Response firstResponse = processCoverageHandler.processQuery(firstWcpsQuery);
-            Response secondResponse = processCoverageHandler.processQuery(secondWcpsQuery);
+            Response firstResponse = processCoverageHandler.processQuery(firstWcpsQuery, true);
+            Response secondResponse = processCoverageHandler.processQuery(secondWcpsQuery, true);
 
             List<byte[]> datas = new ArrayList<>();
             datas.addAll(firstResponse.getDatas());
@@ -133,7 +133,7 @@ public class ResponseService {
         } else {
             firstWcpsQuery = wcpsQuery.replace(ENCODE_FORMAT, encodeFormat);
             log.debug("Generated a single WCPS query from WCS request: " + firstWcpsQuery);
-            response = processCoverageHandler.processQuery(firstWcpsQuery);
+            response = processCoverageHandler.processQuery(firstWcpsQuery, false);
         }
 
         return response;

@@ -318,9 +318,13 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
     /**
      * Process a WCPS query and returns the Response
      */
-    public Response processQuery(final String wcpsQuery) throws Exception {
+    public Response processQuery(final String wcpsQuery, boolean isMultipart) throws Exception {
         Map<String, String[]> kvpParameters = new HashMap<String, String[]>() {};
         StringUtil.putKeyToKVPMaps(kvpParameters, KVPSymbols.KEY_QUERY, wcpsQuery);
+
+        if (isMultipart) {
+            StringUtil.putKeyToKVPMaps(kvpParameters, KVPSymbols.VALUE_MULTIPART_RELATED, "true");
+        }
         return this.handle(kvpParameters);
     }
 

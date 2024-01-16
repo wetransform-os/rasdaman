@@ -2916,47 +2916,43 @@ are supported:
 openEO
 ------
 
-openEO develops an API that allows users to connect
-to Earth observation cloud back-ends in a simple and unified way, see
-`openEO website <https://openeo.org/>`__ 
-and 
-`openEO APIs <https://m-mohr.github.io/geodatacube-api/#tag/openEO>`__.
+`openEO <https://openeo.org/>`__ is an API that allows users to connect to Earth
+observation cloud back-ends in a simple and unified way. The capabilities are
+similar to the :ref:`OGC WCPS standard <ogc-wcps>`.
 
-In petascope, these endpoints 
-below (prefix context path is ``/rasdaman/openeo``- which is also the landing page)
-are supported:
+Rasdaman supports (partially) `openEO API (1.2.0)
+<https://openeo.org/documentation/1.0/developers/api/reference.html>`__ at
+endpoint ``/rasdaman/openeo``. In particular the following features are
+supported:
 
-- Authentication:
+- ``/processes`` - returns the list of predefined processes
+- ``/process_graphs`` - returns the list of custom user-defined processes
+- ``/process_graphs/{processGraphId}`` - insert / update a user-defined 
+  process via POST HTTP request
+- ``/process_graphs/{processGraphId}`` - delete a user-defined process
+  via DELETE HTTP request
+- ``/result`` - synchronously send a process description in JSON format via a
+  POST HTTP request and get back the result from rasdaman
 
-  - ``/rasdaman/credentials/basic`` - authenticate via basic header mechanism
-    which returns a token which can be used in further openEO requests
-  
-- Other OGC API Coverages listed above with endpoint at ``/rasdaman/openEO``
+For authentication the ``/rasdaman/credentials/basic`` endpoint allows
+authenticate via basic header mechanism, which returns a token that can be used
+in further openEO requests.
 
-- Processes:
-
-  - ``/processes`` - returns the list of predefined processes in JSON format
-  - ``/process_graphs`` - returns the list of stored user processes from database
-  - ``/process_graphs/{processGraphId}`` - insert / update a user defined ``{processGraphId}``
-    to database via ``POST`` request
-  - ``/process_graphs/{processGraphId}`` - delete a user defined ``{processGraphId}``
-    to database via ``DELETE`` request
-  - ``/result`` - sends a process in JSON format via ``POST`` request
-    which is converted to a WCPS  query internally
-    and returns the result accordingly from rasdaman synchronously
 
 .. _ogc-gdc:
 
 OGC Geodatacubes (GDC)
 ----------------------
 
-A combination of listed endpoints from OAPI and openEO API
-with some internal changes in the JSON responses
-accordingly to the GDC standard. GDC endpoints
-start with prefix context path ``/rasdaman/gdc``:
+A combination of listed endpoints from OAPI and openEO API with some internal
+changes in the JSON responses accordingly to the `OGC Geodatacubes
+(GDC) specification <https://m-mohr.github.io/geodatacube-api/>`__. The GDC
+API is at the endpoint ``/rasdaman/gdc``. Following features are supported:
 
-- OGC API Coverages (subsetting, range subsetting, scaling)
-- openEO API (auth, processes, collection, process_graphs mgmt, synchronous process execution)
+- OGC API Coverages: subsetting, range subsetting, scaling (see :ref:`ogc-oapi`)
+- openEO: authentication, predefined and user-defined processes, and synchronous 
+  process execution (see :ref:`openeo`)
+
 
 .. _data-import:
 

@@ -892,7 +892,8 @@ of a 3-bands coverage:
 
     curl 'http://localhost:8080/rasdaman/admin/coverage/nullvalues/update' 
         -d 'COVERAGEID=test_rgb&NULLVALUES=[35, 25:35, 35:35]'
-        -u rasadmin:rasadmin        
+        -u rasadmin:rasadmin
+
 
 .. _petascope-make_inspire_coverage:
 
@@ -1791,7 +1792,6 @@ The following examples illustrate the syntax of the ``SORT`` operator.
       encode(
          SORT $c.Red + 30 ALONG unix DESC BY add($c)
       , "json")
-      
 
 Calendar capabilities
 ---------------------
@@ -2064,7 +2064,6 @@ Prior to this calendar feature, subsets on a temporal axis is done like below:
 - Trim: e.g. ``time("2015-01":"2015-12")``, then the subset is converted to ISO datetime format
   as ``"2015-01-01T00:00:00:000Z":"2015-12-01T00:00:00:000Z"`` and if ``time`` axis is irregular,
   then petascope will find any coefficients between these subsets and return them.
-        
 
 
 .. _wcps-polygonize-operator:
@@ -2848,6 +2847,117 @@ For example, a WMTS ``GetTile`` request in KVP format to get a tile, encoded in 
     &TILECOL=0
 
 
+
+Experimental API
+================
+
+Below are some experimentals APIs which are used for geo services and
+petascope implemented some parts from the standard specifications.
+
+.. note::
+
+  All endpoints may not work accordingly to the current online docs
+  hosted by the standard owners as these standards are changing constantly.
+
+.. _ogc-oapi:
+
+OGC API - Coverages (OAPI)
+--------------------------
+
+The OGC API family of standards is organized by resource type. 
+The standards are developed by the Open Geospatial Consortium (OGC).
+Each resource has an associated API standard.
+These resource-specific API standards are built using shared API modules, 
+see `OGC API (OAPI) Common Specifications <https://github.com/opengeospatial/ogcapi-common>`__.
+
+In petascope, these endpoints 
+below (prefix context path is ``/rasdaman/oapi``- which is also the landing page)
+are supported:
+
+- Collection listing:
+
+  - ``/collections`` - returns the list of names
+    of the collections hosted by the server
+  - ``/collections/{collectionId}`` - returns the collection
+    object identified by ``{collectionId}``
+    
+- Coverage access:
+
+  - ``/collections/{coverageId}`` - returns the full
+    coverage with the specified ``{coverageId}``
+  - ``/collections/{coverageId}?subset={subset}&f={format}`` - returns
+    the coverage subsetted by ``{subset}`` and encoded in ``{format}``;
+    typically called coverage subsetting
+  - ``collections/test_rgb/coverage?properties={selectedBands}&f={format}`` - returns
+    the coverage with bands subsetted by ``{selectedBands}``and
+    encoded in ``{format}``; typically called range subsetting
+  - ``collections/scale-X&f={format}`` with ``X`` is one of ``factor|size|axes`` - returns the
+    scaled coverage encoded in ``{format}``; typically called coverage scaling
+    
+- Coverage component access:
+  
+  - ``/collections/{collectionId}/domainset`` - returns the domain set of the coverage
+    with the specified id
+  - ``/collections/{collectionId}/rangetype`` - returns the range type of the coverage
+    with the specified id
+  - ``/collections/{collectionId}/rangeset`` - returns the range set
+    of the coverage with the specified id
+  - ``/collections/{collectionId}/metadata`` - returns the metadata of the coverage
+    with the specified id
+    
+- Coverage processing by WCPS:
+
+  - ``/wcps?Q={encodedQuery}`` - sends an encoded WCPS query to the OAPI
+    endpoint and return the result accordingly to the query
+
+
+.. _openeo:
+
+openEO
+------
+
+openEO develops an API that allows users to connect
+to Earth observation cloud back-ends in a simple and unified way, see
+`openEO website <https://openeo.org/>`__ 
+and 
+`openEO APIs <https://m-mohr.github.io/geodatacube-api/#tag/openEO>`__.
+
+In petascope, these endpoints 
+below (prefix context path is ``/rasdaman/openeo``- which is also the landing page)
+are supported:
+
+- Authentication:
+
+  - ``/rasdaman/credentials/basic`` - authenticate via basic header mechanism
+    which returns a token which can be used in further openEO requests
+  
+- Other OGC API Coverages listed above with endpoint at ``/rasdaman/openEO``
+
+- Processes:
+
+  - ``/processes`` - returns the list of predefined processes in JSON format
+  - ``/process_graphs`` - returns the list of stored user processes from database
+  - ``/process_graphs/{processGraphId}`` - insert / update a user defined ``{processGraphId}``
+    to database via ``POST`` request
+  - ``/process_graphs/{processGraphId}`` - delete a user defined ``{processGraphId}``
+    to database via ``DELETE`` request
+  - ``/result`` - sends a process in JSON format via ``POST`` request
+    which is converted to a WCPS  query internally
+    and returns the result accordingly from rasdaman synchronously
+
+.. _ogc-gdc:
+
+OGC Geodatacubes (GDC)
+----------------------
+
+A combination of listed endpoints from OAPI and openEO API
+with some internal changes in the JSON responses
+accordingly to the GDC standard. GDC endpoints
+start with prefix context path ``/rasdaman/gdc``:
+
+- OGC API Coverages (subsetting, range subsetting, scaling)
+- openEO API (auth, processes, collection, process_graphs mgmt, synchronous process execution)
+
 .. _data-import:
 
 Data Import
@@ -3133,6 +3243,18 @@ input section
 recipe section
 ^^^^^^^^^^^^^^
 
+.. _recipe-tiling:
+
+* ``tiling`` - (required) Specifies the tile structure to be created for the
+  coverage in rasdaman. You can set arbitrary tile sizes for the tiling option
+  only if the tile name is ``ALIGNED``. Example:
+
+  .. hidden-code-block:: json
+
+      "tiling": "ALIGNED [0:0, 0:1023, 0:1023] TILE SIZE 5000000"
+
+  For more information on tiling check :ref:`storage-layout`
+
 .. _import-order:
 
 * ``import_order`` - Indicate in which order the input files collected with the
@@ -3152,16 +3274,6 @@ recipe section
   .. hidden-code-block:: json
 
       "import_order": "descending"
-
-* ``tiling`` - required setting. Specifies the tile structure to be created for the coverage
-  in rasdaman. You can set arbitrary tile sizes for the tiling option only
-  if the tile name is ``ALIGNED``. Example:
-
-  .. hidden-code-block:: json
-
-      "tiling": "ALIGNED [0:0, 0:1023, 0:1023] TILE SIZE 5000000"
-
-  For more information on tiling check the :ref:`storage-layout`
 
 .. _wms-import:
 

@@ -2167,6 +2167,7 @@ public class CrsUtil {
          */
         public static String fromDbRepresentation(String crsUri) {
             String secoreURL = CrsUtil.currentWorkingResolverURL;
+            crsUri = crsUri.replace(SECORE_URL_PREFIX_PLACE_HOLDER, secoreURL);
 
             if (!crsUri.startsWith(HTTP_PREFIX)) {
                 // e.g. input CRS is: EPSG/0/4269

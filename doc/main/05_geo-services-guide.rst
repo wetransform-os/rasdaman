@@ -2941,13 +2941,12 @@ in further openEO requests.
 
 .. _ogc-gdc:
 
-OGC Geodatacubes (GDC)
-----------------------
+OGC GeoDataCube (GDC)
+---------------------
 
-A combination of listed endpoints from OAPI and openEO API with some internal
-changes in the JSON responses accordingly to the `OGC Geodatacubes
-(GDC) specification <https://m-mohr.github.io/geodatacube-api/>`__. The GDC
-API is at the endpoint ``/rasdaman/gdc``. Following features are supported:
+Rasdaman partially supports the `OGC GeoDataCube (GDC) specification
+<https://m-mohr.github.io/geodatacube-api/>`__ at endpoint ``/rasdaman/gdc``.
+Following features are supported:
 
 - OGC API Coverages: subsetting, range subsetting, scaling (see :ref:`ogc-oapi`)
 - openEO: authentication, predefined and user-defined processes, and synchronous 

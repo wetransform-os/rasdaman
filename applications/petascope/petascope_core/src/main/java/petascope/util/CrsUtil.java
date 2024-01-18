@@ -79,6 +79,7 @@ import org.springframework.stereotype.Service;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.exceptions.SecoreException;
 import petascope.core.AxisTypes;
 import petascope.core.XMLSymbols;
@@ -172,7 +173,7 @@ public class CrsUtil {
 
     // e.g. EPSG/0/4326
     private static final Pattern authorityCodeWithVersionPattern = Pattern.compile("^\\w+/([0-9]*[.])?[0-9]+/[0-9]+$");
-    
+
 
     /* CACHES: avoid EPSG db and SECORE redundant access */
     private static Map<String, CrsDefinition> parsedCRSs = new HashMap<String, CrsDefinition>();        // CRS definitions
@@ -1451,7 +1452,7 @@ public class CrsUtil {
         Matcher matcher = authorityCodeWithVersionPattern.matcher(input);
         return matcher.find();
     }
-    
+
     /**
      * Check if CRS definition is XY axes order (e.g: EPSG:3857) or YX axes order (e.g: EPSG:4326)
      * @param uri URL to CRS definition from SECORE
@@ -2215,7 +2216,22 @@ public class CrsUtil {
          *
          * @return
          */
-        public static String getAuthorityCode(String crsUri) {
+        public static String getAuthorityCode(String crsUri) throws PetascopeException {
+            crsUri = crsUri.trim();
+            if (!crsUri.startsWith(HTTP_PREFIX) && crsUri.contains("/")) {
+                // assume it is EPSG/0/4326
+                String[] tmps = crsUri.split("/");
+                if (tmps.length != 3) {
+                    throw new PetascopeException(ExceptionCode.InvalidRequest,
+                            "Cannot get authority code from the given CRS: " + crsUri);
+                }
+                return tmps[0] + ":" + tmps[2];
+            }
+
+            if (isAuthorityCode(crsUri)) {
+                return crsUri;
+            }
+
             String authorityName = getAuthority(crsUri);
             String codeName = getCode(crsUri);
             String authorityCode = authorityName + ":" + codeName;
@@ -2266,7 +2282,7 @@ public class CrsUtil {
          * "http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326&2=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate"
          * -> EPSG:4326+OGC:AnsiDate
          */
-        public static String getShorthandUri(String inputCRS) {
+        public static String getShorthandUri(String inputCRS) throws PetascopeException {
             List<String> crss = decomposeUri(inputCRS);
 
             List<String> tmps = new ArrayList<>();

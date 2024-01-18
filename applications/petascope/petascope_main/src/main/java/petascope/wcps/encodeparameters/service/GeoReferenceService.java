@@ -21,6 +21,7 @@
 */
 package petascope.wcps.encodeparameters.service;
 
+import petascope.exceptions.PetascopeException;
 import petascope.util.CrsUtil;
 import petascope.core.BoundingBox;
 import petascope.wcps.encodeparameters.model.GeoReference;
@@ -37,7 +38,7 @@ public class GeoReferenceService {
      * @param metadata
      * @return
      */
-    public GeoReference buildGeoReference(WcpsCoverageMetadata metadata) {
+    public GeoReference buildGeoReference(WcpsCoverageMetadata metadata) throws PetascopeException {
         GeoReference geoReference = null;
         // coverage metadata is null in case such as return condense +
         BoundingBoxExtractorService bboxExtractorService = new BoundingBoxExtractorService();

@@ -45,6 +45,7 @@ import petascope.util.XMLUtil;
 import petascope.util.ras.RasUtil;
 import petascope.util.ras.TypeRegistry;
 import petascope.util.ras.TypeResolverUtil;
+import petascope.wms.handlers.service.WMSGetMapCachingService;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
@@ -63,6 +64,11 @@ public class AdminUpdateCoverageNullValueService extends AbstractAdminService {
     private CoverageRepositoryService coverageRepositoryService;
     @Autowired
     private PetascopeController petascopeController;
+
+    @Autowired
+    private WMSRepostioryService wmsRepostioryService;
+    @Autowired
+    private WMSGetMapCachingService wmsGetMapCachingService;
 
     private static Logger log = LoggerFactory.getLogger(AdminUpdateCoverageNullValueService.class);
 
@@ -131,6 +137,12 @@ public class AdminUpdateCoverageNullValueService extends AbstractAdminService {
 
         // then persist the new null values to database
         coverageRepositoryService.save(coverage);
+
+        // Then clear the corresponding WMS cached layer of this coverage as null values changes
+
+        if (this.wmsRepostioryService.isInLocalCache(coverageId)) {
+            this.wmsGetMapCachingService.removeLayerGetMapInCache(coverageId);
+        }
         
         Response result = new Response(Arrays.asList("".getBytes()), MIMEUtil.MIME_TEXT);
         return result;

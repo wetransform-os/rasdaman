@@ -414,7 +414,7 @@ public class CrsTransformHandler extends Handler {
     /**
      * Check if crsTrasnformExpression is valid
      */
-    private void checkValid(Map<String, String> axisCrss) {
+    private void checkValid(Map<String, String> axisCrss) throws PetascopeException {
 
         Set<String> keys = axisCrss.keySet();
         String[] axisNameArray = keys.toArray(new String[keys.size()]);

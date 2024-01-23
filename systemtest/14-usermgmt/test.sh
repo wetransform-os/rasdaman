@@ -72,6 +72,13 @@ INDENT3="$INDENT$INDENT$INDENT"
 USER_NONEX=nonex
 PASSWD_NONEX=nonex
 
+RASTEST_USER=rastest
+RASTEST_PASSWD=ras:test
+RASTEST_PASSWD_ESC=ras\\:test
+
+RASPASS_PATH="$HOME/.raspass"
+RASPASS_ORIG_PATH="$HOME/.raspass-orig.tmp"
+
 # test collection
 TESTCOLL=AuthentTestCollection
 TESTCOLL_TYPE=GreySet
@@ -86,6 +93,37 @@ run_succ()
   rc=$?
   if [ $rc -ne 0 ]; then
     log "$INDENT3 query failed with exit code $rc: rasql -q '$query' --user $user --passwd $pass"
+  fi
+}
+raspass_succ()
+{
+  local user="$2"
+  local content="$1"
+  local query="select a[1,1] from $TESTCOLL as a"
+  local rc
+  echo "$content" > $RASPASS_PATH
+  "$RMANHOME/bin/rasql" --quiet -q "$query" --user "$user" > /dev/null 2>&1
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    log "$INDENT3 query failed with exit code $rc: rasql -q '$query' --user $user"
+  fi
+}
+raspass_fail()
+{
+  local user="$2"
+  local content="$1"
+  local query="select a[1,1] from $TESTCOLL as a"
+  local rc
+  if [ -n "$content" ]; then
+    echo "$content" > $RASPASS_PATH
+  fi
+  "$RMANHOME/bin/rasql" --quiet -q "$query" --user "$user" > /dev/null 2>&1
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    log "$INDENT3 recognized bad case with exit code $rc"
+  else
+    RC=$RC_ERROR
+    log "$INDENT3 bad case did not fail as expected with non-0 exit code: rasql -q '$query' --user $user"
   fi
 }
 run_rw()
@@ -110,6 +148,17 @@ run_fail()
     RC=$RC_ERROR
     log "$INDENT3 bad case did not fail as expected with non-0 exit code: rasql -q '$query' --user $user --passwd $pass"
   fi
+}
+create_raspass()
+{
+  mv $RASPASS_PATH $RASPASS_ORIG_PATH > /dev/null
+  touch $RASPASS_PATH
+  chmod -f 0600 $RASPASS_PATH
+}
+rollback_raspass()
+{
+  rm $RASPASS_PATH
+  mv $RASPASS_ORIG_PATH $RASPASS_PATH > /dev/null 
 }
 
 # --- ACTION --------------------------------------------------------
@@ -139,6 +188,36 @@ log "$INDENT2 set up test env for subsequent cases"
 run_rw "create collection $TESTCOLL $TESTCOLL_TYPE"
 run_rw "insert into $TESTCOLL values marray x in [1:10,1:10] values (char) x[0]"
 
+log "$INDENT2 correct raspass"
+
+"$RMANHOME/bin/rascontrol" -x "define user $RASTEST_USER -passwd $RASTEST_PASSWD -rights R" > /dev/null
+create_raspass
+
+RASPASS_CONTENT="foo:bar
+$RASTEST_USER:$RASTEST_PASSWD_ESC
+baz:baz"
+raspass_succ "$RASPASS_CONTENT" $RASTEST_USER 
+
+RASPASS_CONTENT="foo:
+$RASTEST_USER:$RASTEST_PASSWD_ESC
+baz:baz"
+raspass_succ "$RASPASS_CONTENT" $RASTEST_USER
+
+RASPASS_CONTENT=":
+$RASTEST_USER:$RASTEST_PASSWD_ESC
+baz:baz"
+raspass_succ "$RASPASS_CONTENT" $RASTEST_USER
+
+HOMEOLD=$HOME
+HOME=""
+RASPASS_CONTENT=":
+$RASTEST_USER:$RASTEST_PASSWD_ESC
+baz:baz"
+raspass_succ "$RASPASS_CONTENT" $RASTEST_USER
+HOME=$HOMEOLD
+
+rollback_raspass
+
 log "$INDENT good cases done."
 log ""
 
@@ -156,6 +235,39 @@ run_fail "delete from $TESTCOLL where true" $RASGUEST_USER $RASGUEST_PASS
 log "$INDENT2 wrong passwd"
 run_fail "select a[1,1] from $TESTCOLL as a" $RASGUEST_USER $PASSWD_NONEX
 run_fail "update $TESTCOLL as m set m[1:1,1:1] assign marray x in [1:1,1:1] values 42c" $RASADMIN_USER $RASGUEST_PASS
+
+log "$INDENT2 wrong raspass"
+
+create_raspass
+
+RASPASS_CONTENT="foo:foo
+$RASTEST_USER:${RASTEST_PASSWD_ESC}foo
+bar:baz"
+raspass_fail "$RASPASS_CONTENT" $RASTEST_USER
+
+RASPASS_CONTENT="foo:foo
+${RASTEST_USER}foo:$RASTEST_PASSWD_ESC
+bar:baz"
+raspass_fail "$RASPASS_CONTENT" $RASTEST_USER
+
+RASPASS_CONTENT="foo:foo
+bar:baz"
+raspass_fail "$RASPASS_CONTENT" $RASTEST_USER
+
+rollback_raspass
+
+mv $RASPASS_PATH $RASPASS_ORIG_PATH > /dev/null
+mkdir $RASPASS_PATH
+raspass_fail "" $RASTEST_USER
+rm -r $RASPASS_PATH
+mv $RASPASS_ORIG_PATH $RASPASS_PATH > /dev/null
+
+create_raspass
+chmod -f 666 $RASPASS_PATH
+raspass_fail $empty $RASTEST_USER 
+rollback_raspass
+
+"$RMANHOME/bin/rascontrol" -x "remove user $RASTEST_USER" > /dev/null
 
 log "$INDENT bad cases done."
 log ""

@@ -54,6 +54,10 @@ public:
     static std::unique_ptr<char[]> readFile(const char *filePath);
     /// @return true if filePath is readable, false otherwise
     static bool isReadable(const char *filePath);
+    /// @return true if filePath is regular file, false otherwise
+    static bool isRegularFile(const char *filePath);
+    /// @return true if filePath satisfies permissions specified by mask, false otherwise
+    static bool checkPermissions(const char *filePath, const mode_t mask);
 
     /// write data to a file at filePath
     static bool writeFile(const char *filePath, const char *data, size_t size);
@@ -98,6 +102,8 @@ public:
     /// `/path/to/something.txt` -> `something.txt`. If the last character of
     /// path is `/` then it is first removed, and then the basename is computed.
     static std::string getBasename(const std::string &path);
+    /// @return current user home directory, or empty string in case of failure. 
+    static std::string getHome();
 
     /**
     * Retrieves the directory PATH of file

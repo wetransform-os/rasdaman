@@ -44,6 +44,7 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
+#include <pwd.h>
 #define HAVE_BOOST_FILESYSTEM
 #ifdef HAVE_BOOST_FILESYSTEM
 #include <boost/filesystem.hpp>
@@ -151,6 +152,22 @@ bool FileUtils::isReadable(const char *filePath)
     std::ifstream ifile(filePath, std::ios::in);
     return ifile.good();
 #endif
+}
+
+bool FileUtils::isRegularFile(const char *filePath)
+{
+    struct stat info;
+    if (stat(filePath, &info) != 0)
+        return false;
+    return S_ISREG(info.st_mode);
+}
+
+bool FileUtils::checkPermissions(const char *filePath, const mode_t mask)
+{
+    struct stat info;
+    if (stat(filePath, &info) != 0)
+        return false;
+    return info.st_mode & mask;
 }
 
 bool FileUtils::writeFile(const char *filePath, const char *data, size_t size)
@@ -362,6 +379,20 @@ std::string FileUtils::getBasename(const std::string &path)
         }
     }
     return path;
+}
+
+std::string FileUtils::getHome() 
+{
+    const char* home = getenv("HOME");
+    if (home == NULL || home[0] == '\0')
+    {
+        struct passwd* pwd = getpwuid(geteuid());
+        if (pwd == NULL) 
+            return "";
+        else 
+            home = pwd->pw_dir;
+    }
+    return std::string(home);
 }
 
 std::string FileUtils::dirnameOf(const std::string &fname)

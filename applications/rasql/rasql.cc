@@ -177,6 +177,10 @@ typedef enum
 #define PARAM_DEBUG "debug"
 #define HELP_DEBUG "generate diagnostic output"
 
+#define RASPASS_NAME ".raspass"
+#define RASPASS_MALFORMED(x) "Malformed line #" << x << " in .raspass: " 
+// helper macro to print errorneous .raspass line in logs
+
 #include <logging.hh>
 
 // global variables and default settings
@@ -206,6 +210,7 @@ std::string queryStringFromFile;
 
 bool output = false;
 bool displayType = false;
+bool passwdPresent = false;
 
 OUTPUT_TYPE outputType = DEFAULT_OUT;
 
@@ -248,6 +253,8 @@ void writeStructToFileStream(const r_Structure *const structValue, std::ofstream
 void printResult();
 
 void writeStringToFile(const std::string &str, unsigned int fileNum);
+
+void parseRaspass(const char * username);
 
 r_Marray_Type *
 getTypeFromDatabase(const char *mddTypeName2);
@@ -355,6 +362,7 @@ void parseParams(int argc, char **argv)
         if (clp_passwd.isPresent())
         {
             passwd = clp_passwd.getValueAsString();
+            passwdPresent = true;
         }
 
         // evaluate optional parameter content --------------------------------------
@@ -427,6 +435,122 @@ void parseParams(int argc, char **argv)
         throw RasqlError(ERRORPARSINGCOMMANDLINE);
     }
 }  // parseParams()
+
+void parseRaspass(const char * username)
+{
+    const char separator = ':';
+
+    const std::string home = common::FileUtils::getHome();
+    if (home.empty())
+    {
+        LDEBUG << "Could not determine home directory of current user.";
+        return;
+    }
+
+    const std::string raspass_path = home + "/" + RASPASS_NAME;
+    const char* RASPASS_PATH = raspass_path.c_str();
+
+    LDEBUG << "Trying to parse .raspass (" << raspass_path << ") for credentials...";
+    if (!common::FileUtils::fileExists(RASPASS_PATH))
+    {
+        LDEBUG << RASPASS_PATH << " is not found.";
+        return;
+    }
+    if (!common::FileUtils::isReadable(RASPASS_PATH)) 
+    {
+        LWARNING << RASPASS_PATH << " found but is not readable for current system user.";
+        return;
+    }
+    if (!common::FileUtils::isRegularFile(RASPASS_PATH))
+    {
+        LWARNING << RASPASS_PATH << " found but is not a plain file.";
+        return;
+    }
+    if (common::FileUtils::checkPermissions(RASPASS_PATH, (S_IRWXG | S_IRWXO)))
+    {
+        LWARNING << RASPASS_PATH << " file has group or world access; permissions should be u=rw (0600) or less.";
+        return;
+    }
+
+    LDEBUG << ".raspass found, reading...";
+    std::string fileContents = common::FileUtils::readFileToString(RASPASS_PATH);
+
+    if (fileContents.empty()) 
+    { 
+        LINFO << ".raspass is empty or was removed.";
+        return;
+    }
+
+    std::istringstream ss(fileContents);
+    std::string line;
+    std::size_t lineNum = 0;
+    while(std::getline(ss, line)) 
+    {
+        LDEBUG << "Reading .raspass, line #" << ++lineNum;
+        std::size_t sepPos = 0;
+        for (std::size_t i = 0; i < line.size(); i++)
+        {
+            if (line[i] == separator) 
+            {
+                if (i == 0) 
+                {
+                    LWARNING << RASPASS_MALFORMED(lineNum) << "no username.";
+                    break;
+                }
+                if (i == line.size() - 1) 
+                {
+                    LWARNING << RASPASS_MALFORMED(lineNum) << "no password.";
+                    break; 
+                }
+                if (line[i - 1] == '\\') 
+                { 
+                    continue; 
+                }
+                if (sepPos != 0) 
+                { 
+                    LWARNING << RASPASS_MALFORMED(lineNum) << "multiple separators.";
+                    break;
+                }
+                LDEBUG << "Found separator in .raspass, pos=" << i;
+                sepPos = i;
+            }
+        }
+
+        if (sepPos == 0) 
+        {
+            LINFO << RASPASS_MALFORMED(lineNum) << "no separator or incorrect line.";
+            continue; 
+        }
+
+        if (username == line.substr(0, sepPos))
+        {
+            LDEBUG << "Found username in .raspass, reading password...";
+            
+            std::string passwdSubstr = line.substr(sepPos + 1);
+
+            std::size_t escapeIndex = 0;
+            while (true)
+            {
+                escapeIndex = passwdSubstr.find("\\:", escapeIndex);
+                if (escapeIndex == std::string::npos) 
+                    break;
+
+                passwdSubstr.replace(escapeIndex, 2, ":");
+                escapeIndex += 2;
+            }
+
+            char* passwdBuf = nullptr;
+            auto bufSize = sizeof(passwdBuf) * passwdSubstr.size() + 1;
+            char* passwd_buf = new char[bufSize]; 
+            // the line above leaks, but it is nothing critical, as this function executes once as part of rasql, 
+            // which also executes quickly and this memory will anyway be released by the kernel soon
+            memcpy(passwd_buf, passwdSubstr.c_str(), bufSize);
+
+            passwd = passwd_buf;
+            break;
+        }
+    }
+}
 
 bool openDatabase()
 {
@@ -1328,6 +1452,11 @@ int main(int argc, char **argv)
         if (quietLog)
         {
             logConf.configClientLogging(true);
+        }
+
+        if (!passwdPresent)
+        {
+            parseRaspass(user);
         }
 
         // put INFO after parsing parameters to respect a '--quiet'

@@ -129,7 +129,7 @@ typedef enum
 #define HELP_USER "<user-name> name of user"
 
 #define PARAM_PASSWD "passwd"
-#define HELP_PASSWD "<user-passwd> password of user"
+#define HELP_PASSWD "<user-passwd> password of user. If not specified, rasql will try to find a matching password in ~/.raspass"
 
 #define PARAM_FILE_FLAG 'f'
 #define PARAM_FILE "file"

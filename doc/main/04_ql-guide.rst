@@ -874,13 +874,18 @@ Options:
 
 --user u            name of user (default: rasguest)
 
+.. _rasql-passwd-option:
+
 --passwd p          password of user (default: rasguest). If this option is not specified, 
-                    rasql will try to find a matching password in ~/.raspass. 
-                    ~/.raspass should contain pairs "username:password", each one on a separate line. 
-                    ~/.raspass must have permissions u=rw (0600) or less (that is, not available for read/write for group or world).
-                    If necessary, ':' in password or username can be escaped using slash ('\'): "username:pass\:word" 
-                    will be interpreted as "username" having password "pass:word". 
-                    In case of multiple occurrences, rasql will pick the first line with the matching username.
+                    rasql will try to find a matching password in file ``~/.raspass``
+                    if it exists. This text file should contain ``username:password``
+                    pairs, each one on a separate line, and it must have permissions
+                    u=rw (0600) or less (that is, at most read/writeable for the
+                    owner system user). If ``:`` characters appear in the 
+                    password or username, they must be escaped with a backward 
+                    slash ``\``; e.g. ``username:pass\:word`` will be interpreted
+                    as ``username`` with password ``pass:word``. In case of multiple
+                    lines with matching username, rasql will pick the first one.
 
 --quiet             print no ornament messages, only results and errors
 

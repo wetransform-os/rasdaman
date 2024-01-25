@@ -2925,6 +2925,7 @@ var rasdaman;
             var polygonObj = new WorldWind.SurfacePolygon(boundaries, polygonAttributes);
             polygonObj.coverageId = coverageId;
             polygonObj.highlightAttributes = highlightAttributes;
+            polygonObj.pathType = WorldWind.LINEAR;
             polygonObj.coverageExtent = coverageExtent;
             return polygonObj;
         };

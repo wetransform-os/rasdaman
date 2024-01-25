@@ -283,6 +283,7 @@ module rasdaman {
             // a made-up property to know this polygon belongs to a coverageId
             polygonObj.coverageId = coverageId;
             polygonObj.highlightAttributes = highlightAttributes;
+            polygonObj.pathType = WorldWind.LINEAR;
 
             polygonObj.coverageExtent = coverageExtent;
 

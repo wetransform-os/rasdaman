@@ -24,6 +24,7 @@
 #include "clientcredentials.hh"
 #include "clientmanager.hh"
 #include "servermanager.hh"
+#include "common/exceptions/runtimeexception.hh"
 #include "common/grpc/grpcutils.hh"
 #include <logging.hh>
 
@@ -61,6 +62,11 @@ grpc::Status RasmgrService::TryGetRemoteServer(
         response->set_server_port(clientServerSession.serverPort);
 
         LDEBUG << "Opened DB session for remote client with ID:" << clientSessionId;
+    }
+    catch (common::RuntimeException &ex)
+    {
+        LERROR << "Connect request failed: " << ex.what();
+        status = common::GrpcUtils::convertExceptionToStatus(ex);
     }
     catch (std::exception &ex)
     {

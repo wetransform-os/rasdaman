@@ -60,6 +60,7 @@ SET(RASMGR_SOURCES ${GENERATED_PROTO_SOURCES}
         exceptions/outpeeralreadyexistsexception.cc exceptions/outpeeralreadyexistsexception.hh
         exceptions/servergroupbusyexception.cc exceptions/servergroupbusyexception.hh
         exceptions/servergroupduplicateexception.cc exceptions/servergroupduplicateexception.hh
+        exceptions/clientevaluationexception.cc exceptions/clientevaluationexception.hh
         exceptions/useralreadyexistsexception.cc exceptions/useralreadyexistsexception.hh
         exceptions/userdbrightsexception.cc exceptions/userdbrightsexception.hh
         exceptions/invalidtokenexception.cc exceptions/invalidtokenexception.hh

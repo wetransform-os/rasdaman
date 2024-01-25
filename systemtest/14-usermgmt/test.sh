@@ -217,6 +217,8 @@ raspass_succ "$RASPASS_CONTENT" $RASTEST_USER
 HOME=$HOMEOLD
 
 rollback_raspass
+"$RMANHOME/bin/rascontrol" -x "remove user $RASTEST_USER" > /dev/null
+
 
 log "$INDENT good cases done."
 log ""
@@ -235,6 +237,11 @@ run_fail "delete from $TESTCOLL where true" $RASGUEST_USER $RASGUEST_PASS
 log "$INDENT2 wrong passwd"
 run_fail "select a[1,1] from $TESTCOLL as a" $RASGUEST_USER $PASSWD_NONEX
 run_fail "update $TESTCOLL as m set m[1:1,1:1] assign marray x in [1:1,1:1] values 42c" $RASADMIN_USER $RASGUEST_PASS
+
+"$RMANHOME/bin/rascontrol" -x "define user $RASTEST_USER -passwd $RASTEST_PASSWD" > /dev/null
+
+log "$INDENT2 no rights"
+run_fail "select a[1,1] from $TESTCOLL as a" $RASTEST_USER $RASTEST_PASSWD
 
 log "$INDENT2 wrong raspass"
 

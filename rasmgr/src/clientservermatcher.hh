@@ -59,6 +59,12 @@ class ServerManager;
  */
 struct WaitingClient
 {
+    enum class WaitingStatus {
+        ASSIGNED,
+        FAILED,
+        WAITING
+    };
+
     WaitingClient(const std::shared_ptr<Client> &c, const std::string &db)
         : client(c), serverSession(), dbName(db) {}
 
@@ -77,9 +83,10 @@ struct WaitingClient
     /// database name to open
     const std::string &dbName;
     /// true if a server session was assigned
-    bool assigned{false};
+    WaitingStatus assigned = WaitingStatus::WAITING;
     /// true after the client is done waiting for a server to be assigned
     bool doneWaiting{false};
+    std::string errorMessage;
 };
 
 class ClientServerMatcher

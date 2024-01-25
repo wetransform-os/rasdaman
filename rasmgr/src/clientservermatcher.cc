@@ -22,13 +22,16 @@
 
 #include "clientservermatcher.hh"
 #include "client.hh"
+#include "rasmgr/src/exceptions/clientevaluationexception.hh"
 #include "server.hh"
 #include "servermanager.hh"
 #include "peermanager.hh"
 #include "user.hh"
 #include "common/string/stringutil.hh"
 #include "exceptions/noavailableserverexception.hh"
+#include "exceptions/clientevaluationexception.hh"
 #include <logging.hh>
+#include <mutex>
 
 namespace rasmgr
 {
@@ -58,7 +61,7 @@ ClientServerMatcher::~ClientServerMatcher()
         {
             LDEBUG << "~ClientManager() - lock WaitingClient mutex";
             std::lock_guard<std::mutex> lock(wc->mut);
-            wc->assigned = true;
+            wc->assigned = WaitingClient::WaitingStatus::ASSIGNED;
             LDEBUG << "~ClientManager() - lock WaitingClient mutex done";
         }
         LDEBUG << "~ClientManager() - notify WaitingClient condition variable";
@@ -91,12 +94,16 @@ void ClientServerMatcher::assignServer(const std::shared_ptr<Client> &client,
         LDEBUG << "openClientDbSession - WaitingClient->cv.wait() " << clientId;
         wc->cv.wait(lock, [&wc]
                     {
-                        return wc->assigned;
+                        return (wc->assigned != WaitingClient::WaitingStatus::WAITING);
                     });
         wc->doneWaiting = true;
         LDEBUG << "openClientDbSession - assigning client-server session to currentSession for client " << clientId;
         out_serverSession = wc->serverSession;
         LDEBUG << "openClientDbSession - unique_lock on WaitingClient->mut released " << clientId;
+    }
+    if (wc && wc->assigned == WaitingClient::WaitingStatus::FAILED)
+    {
+        throw ClientEvaluationException(wc->errorMessage);
     }
 }
 
@@ -108,6 +115,20 @@ void ClientServerMatcher::releaseServer()
 void ClientServerMatcher::evaluateWaitingClients()
 {
     bool assigned = true;
+
+    // set waiting client's error message and its status to failed, then notify cv
+    auto notifyFailed = [](WaitingClient *wcl, std::uint32_t clientId, std::string errorMessage) 
+    {
+        {
+            std::unique_lock<std::mutex> lock(wcl->mut);
+            wcl->errorMessage = errorMessage;
+            wcl->assigned = WaitingClient::WaitingStatus::FAILED;
+        }
+        LDEBUG << "evaluateWaitingClients() - WaitingClient->cv.notify_one() " << clientId;
+        wcl->cv.notify_one();
+        LDEBUG << "evaluateWaitingClients() - WaitingClient->cv.notify_one() done: " << clientId;
+    };
+
     while (assigned)
     {
         // get the next waiting client to be assigned a server
@@ -161,11 +182,11 @@ void ClientServerMatcher::evaluateWaitingClients()
                 // notify the original thread that the client has been assigned a server
                 {
                     std::lock_guard<std::mutex> lock(wc->mut);
-                    wc->assigned = true;
+                    wc->assigned = WaitingClient::WaitingStatus::ASSIGNED;
                 }
-                LDEBUG << "evaluateWaitingClients() - WaitingClient->cv.notify_one() " << clientId;
-                wc->cv.notify_one();
-                LDEBUG << "evaluateWaitingClients() - WaitingClient->cv.notify_one() done: " << clientId;
+                    LDEBUG << "evaluateWaitingClients() - WaitingClient->cv.notify_one() " << clientId;
+                    wc->cv.notify_one();
+                    LDEBUG << "evaluateWaitingClients() - WaitingClient->cv.notify_one() done: " << clientId;
             }
             else
             {
@@ -175,14 +196,17 @@ void ClientServerMatcher::evaluateWaitingClients()
         catch (common::Exception &ex)
         {
             LERROR << "Failed evaluating status of waiting client " << clientId << ": " << ex.what();
+            notifyFailed(wc, clientId, ex.what());
         }
         catch (std::exception &ex)
         {
             LERROR << "Failed evaluating status of waiting client " << clientId << ": " << ex.what();
+            notifyFailed(wc, clientId, ex.what());
         }
         catch (...)
         {
             LERROR << "Failed evaluating status of waiting client " << clientId;
+            notifyFailed(wc, clientId, "Unexpected error occurred while evaluating client.");
         }
     }
 }

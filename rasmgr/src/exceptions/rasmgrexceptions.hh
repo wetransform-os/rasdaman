@@ -23,5 +23,6 @@
 #include "servergroupduplicateexception.hh"
 #include "useralreadyexistsexception.hh"
 #include "userdbrightsexception.hh"
+#include "clientevaluationexception.hh"
 
 #endif  // RASMGR_X_SRC_EXCEPTIONS_RASMGREXCEPTIONS

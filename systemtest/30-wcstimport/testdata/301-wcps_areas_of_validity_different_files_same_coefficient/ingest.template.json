@@ -1,0 +1,57 @@
+{
+    "config": {
+        "service_url": "PETASCOPE_URL",
+        "tmp_directory": "/tmp/",
+        "mock": false,
+        "automated": true,
+        "track_files": false,
+        "skip": false
+    },
+    "input": {
+        "coverage_id": "wcps_areas_of_validity_different_files_same_coefficient",
+        "paths": [
+            "*.tif"
+        ]
+    },
+    "recipe": {
+        "name": "general_coverage",
+        "options": {
+            "coverage": {
+                "crs": "OGC/0/AnsiDate@EPSG/0/4326",
+                "metadata": {
+                    "type": "json",
+                    "global": { "aas": "Asd222asd"}                  
+                },
+                "slicer": {
+                    "type": "gdal",
+                    "axes": {
+                        "ansi": {
+                            "statements": "from datetime import datetime, timedelta; from dateutil.relativedelta import relativedelta",
+                            "min": "datetime.strptime(regex_extract('${file:name}', '(.*)_(.*).tif', 1), '%Y%m%d').replace(month=1, day=1).isoformat()",
+                            "areasOfValidity": [
+                                {
+                                    "start": "2000",
+                                    "end": "2002"
+                                }                
+                                ],
+                            "dataBound": false,
+                            "irregular": true
+                        },
+                        "Long": {
+                            "min": "${gdal:minX}",
+                            "max": "${gdal:maxX}",
+                            "resolution": "${gdal:resolutionX}"
+                        },
+                        "Lat": {
+                            "min": "${gdal:minY}",
+                            "max": "${gdal:maxY}",
+                            "resolution": "${gdal:resolutionY}"
+                        }
+                    }
+                }
+            },
+            "wms_import": true,
+            "tiling": "ALIGNED [0:0, 0:500, 0:500]"
+        }
+    }
+}

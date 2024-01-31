@@ -154,9 +154,8 @@ public class AdminCreateOrUpdateLayerService {
                     String axisUoM = axis.getAxisUoM();
                     axisExtent = minGeoBound + VALUE_WMS_DIMENSION_MIN_MAX_SEPARATE_CHARACTER + maxGeoBound + VALUE_WMS_DIMENSION_MIN_MAX_SEPARATE_CHARACTER + resolution + axisUoM;
                 } else {
-                    // if it is irregular, the extent will be the list of seperate values: value1,value2,...valueN
-                    axisExtent = ((IrregularAxis) axis).getRepresentationCoefficients();
-                    axisExtent = axisExtent.replace(" ", ",");
+                    // if it is irregular, the extent will be the list of separated values: value1,value2,...valueN
+                    axisExtent = ((IrregularAxis) axis).getRepresentationCoefficients(",");
                 }
                 dimension.setExtent(axisExtent);
                 dimensions.add(dimension);

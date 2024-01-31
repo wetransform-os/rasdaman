@@ -683,6 +683,52 @@ Clipping Examples
 .. NOTE::
 
    :ref:`Subspace <sec-clipping-subspace>` clipping is not supported in WCS or WCPS.
+   
+
+.. _wcps-areas-of-validity:
+
+Areas of validity on irregular axes
+-----------------------------------
+
+By default, coefficients on an irregular axes act as single points: subsetting
+on such an axis must specify exactly the coefficient (slice), or contain the
+coefficient itself in the lower/upper bounds (trim).
+
+It is possible to customize this behavior when importing data by specifying
+*areas of validity* which extend the coefficients from single points into
+intervals with a start and an end; this concept is also known as *footprints*
+or *sample space*. Refer to the corresponding `import documentation 
+<wcst_import-areas-of-validity>` on how to specify the areas of validity.
+
+The areas of validity specify a closed interval ``[start, end]`` around each
+coefficient on an irregular axis, such that ``start <= coefficient <= end``.
+Areas of validity may not overlap.
+
+The start and end may be specified with less than millisecond precision, e.g.
+``"2010"`` and ``"2012-05"``. In this case they are expanded to millisecond
+precision internally such that start is the earliest possible datetime
+starting with ``"2010"`` (i.e. ``"2010-01-01T00:00:00.000Z"``) and end is the
+latest possible datetime starting with ``"2012-05"``
+(i.e. ``"2012-05-31T23:59:59.999Z"``). The same semantics applies in
+subsetting in queries, see :ref:`cal-temporal-subsets`.
+
+The effect on subsetting is as follows:
+
+- ''slicing'': a coordinate ``C`` will select the coefficient with area of
+  validity that intersects ``C``. For example if the coefficient is ``"2010"`` 
+  (resolved when importing in petascope as ``"2010-01-01T00:00:00.000Z"``) and
+  its area of validity has start ``"2009-01-01"`` and end ``"2011-12-31"``, then
+  slicing at coordinate ``"2009-05-01"`` will return the coefficient, as will 
+  at ``"2010-12-31"``, and anything else between the start and (not including) 
+  the end.
+
+- ''trimming'': an interval ``lo:hi`` will select all coefficients with areas of
+  validity that intersect or are contained in the ``[lo,hi]`` interval.
+
+If a coverage was imported with custom areas of validity, they will be listed in
+the WCS ``DescribeCoverage`` response under XML element
+``<rasdaman:covMetadata>``.  
+   
 
 .. _ogc-wcst:
 
@@ -1793,6 +1839,9 @@ The following examples illustrate the syntax of the ``SORT`` operator.
          SORT $c.Red + 30 ALONG unix DESC BY add($c)
       , "json")
 
+
+.. _cal-capabilities:
+           
 Calendar capabilities
 ---------------------
 
@@ -2851,28 +2900,25 @@ For example, a WMTS ``GetTile`` request in KVP format to get a tile, encoded in 
 Experimental API
 ================
 
-Below are some experimentals APIs which are used for geo services and
-petascope implemented some parts from the standard specifications.
-
-.. note::
-
-  All endpoints may not work accordingly to the current online docs
-  hosted by the standard owners as these standards are changing constantly.
+The following sections cover API supported by rasdaman, which are still
+experimental in their standardization or implementation. As the corresponding
+specifications have not been released in stable version and are mostly still in
+flux, the implementation in rasdaman my be out of sync to some extent.
 
 .. _ogc-oapi:
 
 OGC API - Coverages (OAPI)
 --------------------------
 
-The OGC API family of standards is organized by resource type. 
-The standards are developed by the Open Geospatial Consortium (OGC).
-Each resource has an associated API standard.
-These resource-specific API standards are built using shared API modules, 
-see `OGC API (OAPI) Common Specifications <https://github.com/opengeospatial/ogcapi-common>`__.
+The OGC API family of standards is organized by resource type. `OGC API -
+Coverages <https://docs.ogc.org/DRAFTS/19-087.html>`__ specifies the
+fundamental API building blocks for interacting with coverages. The spatial
+data community uses the term 'coverage' for homogeneous collections of values
+located in space/time, such as spatio-temporal sensor, image, simulation, and
+statistics data.
 
-In petascope, these endpoints 
-below (prefix context path is ``/rasdaman/oapi``- which is also the landing page)
-are supported:
+Following the ``/rasdaman/oapi`` endpoint prefix, several features from 
+OGC API - Coverages are supported:
 
 - Collection listing:
 
@@ -4031,6 +4077,54 @@ bounds and resolution corresponding to each file.
   * ``sliceGroupSize`` - Group multiple input slices into a single slice in the
     created coverage, e.g., multiple daily data files onto a single week index
     on the coverage time axis; explained in more detail :ref:`here <slice-group-size>`;
+    
+  .. _wcst_import-areas-of-validity:
+  
+  * ``areasOfValidity`` - Specify a list of ``start`` and ``end`` bounds for each
+    coefficient in an irregular axis to extend their areas to ``[start, end]``
+    intervals (see :ref:`wcps-areas-of-validity`). The start/end intervals must
+    not overlap, and the number of pairs must equal the number of coefficients
+    imported. 
+
+    The start and end may be specified with less than millisecond precision, e.g.
+    ``"2010"`` and ``"2012-05"``. In this case they are expanded to millisecond
+    precision internally such that start is the earliest possible datetime
+    starting with ``"2010"`` (i.e. ``"2010-01-01T00:00:00.000Z"``) and end is the
+    latest possible datetime starting with ``"2012-05"``
+    (i.e. ``"2012-05-31T23:59:59.999Z"``). The same semantics applies in
+    subsetting in queries, see :ref:`cal-temporal-subsets`.
+
+    By default if not specified, a coefficient is a single point.
+  
+    The example below imports 3 input files with the datetime coefficients for 
+    the irregular axis ``ansi`` collected from the filename
+    (``"dataBound": false``) and custom areas of validity for the 3 coefficients:
+  
+      .. hidden-code-block:: json
+            
+          "axes": {
+            "ansi": {
+              "statements": "from datetime import datetime, timedelta; from dateutil.relativedelta import relativedelta",
+              "min": "datetime.strptime(regex_extract('${file:name}', '(.*)_(.*).tif', 1), '%Y%m%d').isoformat()",
+              "areasOfValidity": [
+                {
+                  "start": "2000",
+                  "end": "2003"
+                },
+                {
+                  "start": "2004",
+                  "end": "2008"
+                },
+                {
+                  "start": "2009",
+                  "end": "2011"
+                }
+              ],
+              "dataBound": false,
+              "irregular": true
+            }
+          }
+    
 
 .. _data-import-recipe-general-coverage-examples:
 

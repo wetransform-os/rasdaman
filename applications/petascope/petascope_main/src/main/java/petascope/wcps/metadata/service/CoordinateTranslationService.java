@@ -450,21 +450,16 @@ public class CoordinateTranslationService {
         if (originalGeoDomainMin.compareTo(originalGeoDomainMax) > 0) {
             originalGeoDomainMin = originalGeoDomainMax;
         }
-        
-        BigDecimal lowerCoefficient = (lowerLimit.subtract(originalGeoDomainMin)).divide(scalarResolution);
-        BigDecimal upperCoefficient = (upperLimit.subtract(originalGeoDomainMin)).divide(scalarResolution);
-        
-        BigDecimal firstCoefficient = irregularAxis.getLowestCoefficientValue();
-        lowerCoefficient = lowerCoefficient.add(firstCoefficient);
-        upperCoefficient = upperCoefficient.add(firstCoefficient);
-        
-        if (numericSubset.isSlicing()) {
-            // e.g: irregular date axis has values "2015-01", "2016-01", "2018-01" and request "2017-01"
-            if (irregularAxis.getIndexOfCoefficient(lowerCoefficient) < 0) {
-                throw new IrreguarAxisCoefficientNotFoundException(irregularAxis.getLabel(), originalLowerBound);
-            }
+
+
+        BigDecimal lowerCoefficient = (lowerLimit.subtract(irregularAxis.getCoefficientZeroValueAsNumber())).divide(scalarResolution);
+        BigDecimal upperCoefficient = (upperLimit.subtract(irregularAxis.getCoefficientZeroValueAsNumber())).divide(scalarResolution);
+
+        if (irregularAxis.isFlippedCoefficients()) {
+            lowerCoefficient = (irregularAxis.getCoefficientZeroValueAsNumber().subtract(lowerLimit)).divide(scalarResolution);
+            upperCoefficient = (irregularAxis.getCoefficientZeroValueAsNumber().subtract(upperLimit)).divide(scalarResolution);
         }
-        
+
         // In case of flip(), lowerbound and upperbound are swapped
         BigDecimal originalLowerBoundNumber = originalGeoBounds.getLowerLimit().compareTo(originalGeoBounds.getUpperLimit()) < 0 
                                                 ? originalGeoBounds.getLowerLimit() 
@@ -499,7 +494,11 @@ public class CoordinateTranslationService {
         
         // Return the grid indices of the lower and upper coefficients in an irregular axis
         Pair<Long, Long> gridIndicePair = irregularAxis.getGridIndices(lowerCoefficient, upperCoefficient);
-        if (gridIndicePair.fst > gridIndicePair.snd) {
+        Long gridLowerBound = gridIndicePair.fst;
+        Long gridUpperBound = gridIndicePair.snd;
+
+        if (gridLowerBound == null || gridUpperBound == null
+            || gridLowerBound > gridUpperBound) {
             if (irregularAxis.isTimeAxis()) {
                 originalLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, lowerLimit, irregularAxis.getCrsDefinition());
                 originalUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, upperLimit, irregularAxis.getCrsDefinition());

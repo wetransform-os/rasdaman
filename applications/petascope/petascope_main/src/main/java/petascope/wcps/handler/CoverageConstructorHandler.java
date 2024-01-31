@@ -396,8 +396,10 @@ public class CoverageConstructorHandler extends Handler {
         BigDecimal geoLowerBound = TimeConversionService.getTimeInGridPointForIrregularAxis(temporalAxis, dateTimeLowerBound.getDateTimeMinISOFormatStr());
         BigDecimal geoUpperBound = TimeConversionService.getTimeInGridPointForIrregularAxis(temporalAxis, dateTimeUpperBound.getDateTimeMinISOFormatStr());
 
-        // Then, recalculate the list of coefficients for this newly created irregular axis
+        // Then, recalculate the list of coefficientsStart for this newly created irregular axis
         List<BigDecimal> coefficients = new ArrayList<>();
+        List<BigDecimal> coefficientsAreaOfValidityStarts = null;
+        List<BigDecimal> coefficientsAreaOfValidityEnds = null;
 
         if (!dateTimeCoefficients.isEmpty()) {
             // In this case, coverage expression in VALUES / USING clause has an irregular axis
@@ -413,7 +415,10 @@ public class CoverageConstructorHandler extends Handler {
                                                     temporalAxis.getNativeCrsUri(), temporalAxis.getCrsDefinition(),
                                                     temporalAxis.getAxisType(), temporalAxis.getAxisUoM(),
                                                     temporalAxis.getRasdamanOrder(),
-                                                    geoLowerBound, org.rasdaman.domain.cis.IrregularAxis.DEFAULT_RESOLUTION, coefficients,
+                                                    geoLowerBound, org.rasdaman.domain.cis.IrregularAxis.DEFAULT_RESOLUTION,
+                                                    coefficients,
+                                                    coefficientsAreaOfValidityStarts,
+                                                    coefficientsAreaOfValidityEnds,
                                                     new NumericTrimming(geoLowerBound, geoUpperBound));
 
         // Update the temporal axis with the newly calculated temporal irregular axis

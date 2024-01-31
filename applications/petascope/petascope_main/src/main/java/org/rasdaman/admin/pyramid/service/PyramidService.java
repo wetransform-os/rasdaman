@@ -247,7 +247,7 @@ public class PyramidService {
                 org.rasdaman.domain.cis.IrregularAxis baseIrregularAxis = ((org.rasdaman.domain.cis.IrregularAxis)baseGeoAxis);
                 org.rasdaman.domain.cis.IrregularAxis pyramidMemberIrregularAxis = ((org.rasdaman.domain.cis.IrregularAxis)pyramidMemberGeoAxis);
                 
-                pyramidMemberIrregularAxis.setDirectPositions(baseIrregularAxis.getDirectPositionsAsNumbers());
+                pyramidMemberIrregularAxis.setDirectPositionsAsNumbers(baseIrregularAxis.getDirectPositionsAsNumbers());
             }
             
         }
@@ -572,7 +572,7 @@ public class PyramidService {
                 
                 if (geoAxis instanceof IrregularAxis) {
                     IrregularAxis irregularAxis = (IrregularAxis)geoAxis;
-                    BigDecimal coefficientZeroGeoBound = irregularAxis.getCoefficientZeroBoundNumber();
+                    BigDecimal coefficientZeroGeoBound = irregularAxis.getCoefficientZeroValueAsNumber();
                     
                     // Check if subset on irregular axis of this pyramid member touches the existing coefficients
                     // NOTE: a pyramid member can contain less coefficients than the base coverage

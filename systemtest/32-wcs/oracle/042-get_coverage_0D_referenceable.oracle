@@ -46,7 +46,6 @@
                         </swe:NilValues>
                     </swe:nilValues>
                     <swe:uom code="10^0"/>
-                    <swe:constraint/>
                 </swe:Quantity>
             </swe:field>
         </swe:DataRecord>
@@ -63,7 +62,6 @@
                         <units>10</units>
                     </band_1>
                 </bands>
-                <axes/>
                 <description>This is a test coverage</description>
             </rasdaman:covMetadata>
         </gmlcov:Extension>

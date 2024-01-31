@@ -368,15 +368,16 @@ public class WcpsCoverageMetadataGeneralService {
                         normalizedLowerBound = normalizedLowerBound.add(irregularAxis.getLowestCoefficientValue());
                         normalizedUpperBound = normalizedUpperBound.add(irregularAxis.getLowestCoefficientValue());
 
-                        List<BigDecimal> newCoefficients = irregularAxis.getAllCoefficientsInInterval(normalizedLowerBound, normalizedUpperBound);
-                        irregularAxis.setDirectPositions(newCoefficients);
+                        // Then, strip all the coefficients which are not in the subset
+                        irregularAxis.setCoefficientsAndAreasOfValidityBetweenInterval(normalizedLowerBound, normalizedUpperBound);
+                        List<BigDecimal> newCoefficients = irregularAxis.getDirectPositions();
 
                         // Also update the geo bounds according to the existing coefficients after subsetting
                         // e.g. subset=k(4,5) which returns the grid indices 4:4 and the lower bound which matches with grid index 4th is 5
                         BigDecimal lowerCoefficient = newCoefficients.get(0);
                         BigDecimal upperCoefficient = newCoefficients.get(newCoefficients.size() - 1);
 
-                        BigDecimal coefficientZeroValue = irregularAxis.getCoefficientZeroBoundNumberFromOriginalDirectPositions();
+                        BigDecimal coefficientZeroValue = irregularAxis.getCoefficientZeroValueAsNumber();
 
                         BigDecimal newGeoLowerBound = coefficientZeroValue.add(lowerCoefficient);
                         BigDecimal newGeoUpperBound = coefficientZeroValue.add(upperCoefficient);
@@ -1498,8 +1499,8 @@ public class WcpsCoverageMetadataGeneralService {
                     List<String> secondCoefficients;
                     
                     try {
-                        firstCoefficients = ((IrregularAxis)firstAxis).getCoefficientValues();
-                        secondCoefficients = ((IrregularAxis)secondAxis).getCoefficientValues();
+                        firstCoefficients = ((IrregularAxis)firstAxis).getRepresentationCoefficientsList();
+                        secondCoefficients = ((IrregularAxis)secondAxis).getRepresentationCoefficientsList();
                     } catch (PetascopeException ex) {
                         throw new WCPSException(ExceptionCode.InternalComponentError, 
                                                 "Failed to get coefficients from axis '" + firstAxisName + "'. Reason: " + ex.getExceptionText(), ex);

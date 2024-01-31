@@ -58,6 +58,7 @@ from master.helper.user_band import OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_C
 class Recipe(BaseRecipe):
 
     RECIPE_TYPE = "general_coverage"
+    AREAS_OF_VALIDITY = "areasOfValidity"
 
     def __init__(self, session):
         """
@@ -387,6 +388,7 @@ class Recipe(BaseRecipe):
                     "Could not find a definition for axis '" + crs_axis.label + "' in the axes parameter.")
             axis = axes_configurations[crs_axis.label]
             max = axis["max"] if "max" in axis else None
+
             if "type" in axis:
                 type = axis["type"]
             elif crs_axis.is_date_axis():
@@ -444,9 +446,16 @@ class Recipe(BaseRecipe):
                     raise RuntimeException("Cannot set 'resolution' value for irregular axis '{}' in ingredient file."
                                            " Given '{}'.".format(crs_axis.label, resolution))
 
+                areas_of_validity = []
+                if Recipe.AREAS_OF_VALIDITY in axis:
+                    areas_of_validity = axis[Recipe.AREAS_OF_VALIDITY]
+
+                    number_of_input_files = len(self.session.files)
+                    number_of_areas_of_validity = len(areas_of_validity)
+
                 user_axes.append(
                     IrregularUserAxis(crs_axis.label, resolution, order, axis["min"], axis["directPositions"], max,
-                                      type, dataBound, statements, slice_group_size))
+                                      type, dataBound, statements, slice_group_size, areas_of_validity))
 
         number_of_specified_axes = len(axes_configurations.items())
         number_of_crs_axes = len(crs_axes)
@@ -652,11 +661,12 @@ class Recipe(BaseRecipe):
 
         return {}
 
-    def _axes_metadata_fields(self):
+    def _axes_metadata_fields(self, user_axes):
         """
         Returns the axes metadata fields which are used to add to dimensions (axes) of output file which supports this option (e.g: netCDF)
         :rtype: dict
         """
+        axes_metadata = {}
         if "metadata" in self.options['coverage']:
             if "axes" in self.options['coverage']['metadata']:
                 # a list of user defined axes
@@ -676,9 +686,8 @@ class Recipe(BaseRecipe):
                         raise RuntimeException(
                             "Metadata of axis with name '" + axis + "' does not exist in user defined axes.")
 
-                # it is a valid definition
-                return axes_metadata
-        return {}
+        axes_metadata = escape_metadata_nested_dicts(axes_metadata)
+        return axes_metadata
 
     def _netcdf_axes_metadata_fields(self):
         """
@@ -819,7 +828,7 @@ class Recipe(BaseRecipe):
                                            self.options['tiling'], self._global_metadata_fields(),
                                            self._local_metadata_fields(),
                                            self._bands_metadata_fields(),
-                                           self._axes_metadata_fields(),
+                                           self._axes_metadata_fields(user_axes),
                                            self._metadata_type(),
                                            self.options['coverage']['grid_coverage'],
                                            self.options['import_order'],
@@ -900,6 +909,8 @@ class Recipe(BaseRecipe):
         if 'pixelIsPoint' in self.options['coverage']['slicer'] and self.options['coverage']['slicer']['pixelIsPoint']:
             pixel_is_point = True
 
+        user_axes = self._read_axes(crs)
+
         coverage = GRIBToCoverageConverter(self.resumer, self.session.default_null_values,
                                            recipe_type,
                                            sentence_evaluator, self.session.get_coverage_id(),
@@ -908,7 +919,7 @@ class Recipe(BaseRecipe):
                                            self.options['tiling'], self._global_metadata_fields(),
                                            self._local_metadata_fields(),
                                            self._bands_metadata_fields(),
-                                           self._axes_metadata_fields(),
+                                           self._axes_metadata_fields(user_axes),
                                            self._metadata_type(),
                                            self.options['coverage']['grid_coverage'], pixel_is_point,
                                            self.options['import_order'],

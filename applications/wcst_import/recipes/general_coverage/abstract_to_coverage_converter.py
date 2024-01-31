@@ -60,6 +60,8 @@ from util.file_util import FileUtil
 from util.timer import Timer
 from util.s2metadata_util import S2MetadataUtil
 import copy
+from dateutil import parser
+from util.time_util import DateTimeUtil
 
 
 class AbstractToCoverageConverter:
@@ -154,35 +156,92 @@ class AbstractToCoverageConverter:
                 if user_axis.directPositions != AbstractToCoverageConverter.DIRECT_POSITIONS_SLICING:
                     direct_positions = self.sentence_evaluator.evaluate(user_axis.directPositions, evaluator_slice, user_axis.statements)
 
+            areas_of_validity = user_axis.areas_of_validity
+
+            if user_axis.evaluated_areas_of_validity is False and areas_of_validity is not None:
+                from recipes.general_coverage.recipe import Recipe
+
+                if user_axis.dataBound is True and isinstance(areas_of_validity, str):
+                    # Used in case with coefficients specified in directPositions
+                    pass
+                elif isinstance(areas_of_validity, list):
+                    for granularity_obj in areas_of_validity:
+                        # e.g. "2015" and it is coefficient start -> "2015-01-01T00:00.000Z"
+                        start_value_sentence = granularity_obj["start"]
+                        start_value = str(self.sentence_evaluator.evaluate(start_value_sentence, evaluator_slice,
+                                                                            user_axis.statements))
+                        start_value = DateTimeUtil.get_iso_datetime_string_based_on_input_datetime_granularity(start_value, False)
+
+                        # e.g. "2015" and it is coefficient end -> "2015-12-31T00:00:000Z"
+                        end_value_sentence = granularity_obj["end"]
+                        end_value = str(self.sentence_evaluator.evaluate(end_value_sentence, evaluator_slice,
+                                                                       user_axis.statements))
+                        end_value = DateTimeUtil.get_iso_datetime_string_based_on_input_datetime_granularity(end_value,
+                                                                                                               True)
+
+                        if user_axis.type == UserAxisType.DATE \
+                            and start_value is not None and end_value is not None:
+                            # e.g. 2018 -> convert to ISO datetime format
+                            start_value = parser.parse(start_value).isoformat()
+                            end_value = parser.parse(end_value).isoformat()
+
+                        granularity_obj["start"] = start_value
+                        granularity_obj["end"] = end_value
+
+                # all sentences of areas of validity validated
+                user_axis.evaluated_areas_of_validity = True
+
             return IrregularUserAxis(user_axis.name, resolution, user_axis.order, min, direct_positions, max,
                                      user_axis.type, user_axis.dataBound, [], user_axis.slice_group_size)
 
-    def _translate_number_direct_position_to_coefficients(self, origin, direct_positions):
+    def _translate_number_direct_position_to_coefficients(self, origin, direct_positions, areas_of_validity):
         # just translate 1 -> 1 as origin is 0 (e.g: irregular Index1D)
         if direct_positions == self.DIRECT_POSITIONS_SLICING:
             return self.COEFFICIENT_SLICING
         else:
-            return [decimal.Decimal(str(x)) - decimal.Decimal(str(direct_positions[0])) for x in direct_positions]
+            return [decimal.Decimal(str(x)) - decimal.Decimal(str(direct_positions[0]))
+                    for x in direct_positions]
 
-    def _translate_seconds_date_direct_position_to_coefficients(self, origin, direct_positions):
+    def _translate_seconds_date_direct_position_to_coefficients(self, origin, direct_positions, areas_of_validity):
         # just translate 1 -> 1 as origin is 0 (e.g: irregular UnixTime)
         if direct_positions == self.DIRECT_POSITIONS_SLICING:
             return self.COEFFICIENT_SLICING
         else:
-            return [(decimal.Decimal(str(arrow.get(x).float_timestamp)) - decimal.Decimal(str(origin))) for x in direct_positions]
+            results = []
+            for datetime_value in direct_positions:
+                coefficient = (decimal.Decimal(str(arrow.get(datetime_value).float_timestamp)) - decimal.Decimal(str(origin)))
+                results.append(coefficient)
 
-    def _translate_day_date_direct_position_to_coefficients(self, origin, direct_positions):
+            return results
+    def __calculate_datetime_coefficient(self, datetime_origin, datetime_value):
+        """
+        Calculate the datetime coefficient of a datetime value with the datetime origin of a temporal CRS
+        :param datetime_origin: valid datetime format of temporal axis lowerbound (origin)
+        :param datetime_value: a valid datetime value
+        """
+        result = ((decimal.Decimal(str(arrow.get(datetime_value).float_timestamp)) - decimal.Decimal(str(datetime_origin)))
+                 / decimal.Decimal(DateTimeUtil.DAY_IN_SECONDS))
+        return result
+
+    def _translate_day_date_direct_position_to_coefficients(self, origin, direct_positions, areas_of_validity):
         # coefficients in AnsiDate (day) -> coefficients in UnixTime (seconds)
         coeff_list = []
         # as irregular axis gotten from fileName so it is slicing
         if direct_positions == self.DIRECT_POSITIONS_SLICING:
             return self.COEFFICIENT_SLICING
         else:
-            for coeff in direct_positions:
+            i = 0
+            for datetime_value in direct_positions:
                 # (current_datetime in seconds - origin in seconds) / 86400
-                coeff_seconds = ((decimal.Decimal(str(arrow.get(coeff).float_timestamp)) - decimal.Decimal(str(origin)))
-                                 / decimal.Decimal(DateTimeUtil.DAY_IN_SECONDS))
-                coeff_list.append(coeff_seconds)
+                coefficient = self.__calculate_datetime_coefficient(origin, datetime_value)
+
+                if areas_of_validity is not None and len(areas_of_validity) > 0:
+                    # e.g. "2015-01-01":"2015-03-05" is a footprint (granularity interval) of a coefficient
+                    coefficient_end = areas_of_validity[i]["end"]
+                    coefficient = str(coefficient) + ":" + str(self.__calculate_datetime_coefficient(origin, coefficient_end))
+
+                coeff_list.append(coefficient)
+                i += 1
 
             return coeff_list
 
@@ -349,7 +408,7 @@ class AbstractToCoverageConverter:
         metadata_str = serializer.serialize(global_extra_metadata)
         return metadata_str
 
-    def _generate_local_metadata(self, axis_subsets, evaluator_slice):
+    def _generate_local_metadata(self, axis_subsets, evaluator_slice, axes_metadata=None):
         """
         Factory method to generate local metadata defined in ingredient file to xml/json and appended as
         WCS coverage's local extra metadata via WCS-T UpdateCoverage request.
@@ -358,10 +417,16 @@ class AbstractToCoverageConverter:
         :param FileEvaluatorSlice evaluator_slice: evaluator for a specific recipe type (gdal/netcdf/grib)
         :return: str
         """
-        if not self.local_metadata_fields:
+        if self.metadata_type is None:
             return ""
 
         serializer = ExtraMetadataSerializerFactory.get_serializer(self.metadata_type)
+        if not self.local_metadata_fields:
+            if axes_metadata is None:
+                return ""
+            else:
+                metadata_str = serializer.serialize(axes_metadata)
+                return metadata_str
 
         metadata_entry_subsets = []
         for axis in axis_subsets:
@@ -373,7 +438,7 @@ class AbstractToCoverageConverter:
         extra_local_metadata_collector = ExtraLocalMetadataCollector(
                                                 self.sentence_evaluator,
                                                 ExtraLocalMetadataIngredientInformation(self.local_metadata_fields),
-                                                ExtraMetadataEntry(evaluator_slice, metadata_entry_subsets))
+                                                ExtraMetadataEntry(evaluator_slice, metadata_entry_subsets), axes_metadata)
 
         local_extra_metadata = extra_local_metadata_collector.collect()
         metadata_str = serializer.serialize(local_extra_metadata)
@@ -502,7 +567,7 @@ class AbstractToCoverageConverter:
                     # after that, the band's metadata for the current attribute is evaluated
                     setattr(band, key, evaluated_value)
 
-    def _create_coverage_slices(self, coverage_crs, crs_axes, calculated_evaluator_slice=None, axis_resolutions=None):
+    def _create_coverage_slices(self, coverage_crs, crs_axes, calculated_evaluator_slice=None, axis_resolutions=None, user_axes=None):
         """
         Returns the slices for the collection of files given
         :param crs_axes:
@@ -538,7 +603,7 @@ class AbstractToCoverageConverter:
                 if self.data_type is None:
                     self.data_type = self.evaluator_slice.get_data_type(self)
 
-                coverage_slice = self._create_coverage_slice(file, crs_axes, self.evaluator_slice, axis_resolutions)
+                coverage_slice = self._create_coverage_slice(file, crs_axes, self.evaluator_slice, axis_resolutions, user_axes)
                 ok_files.append(file)
             except Exception as ex:
                 # If skip: true then just ignore this file from importing, else raise exception
@@ -596,7 +661,7 @@ class AbstractToCoverageConverter:
         self.files = ok_files
         return slices_dict
 
-    def _create_coverage_slice(self, file, crs_axes, evaluator_slice, axis_resolutions=None):
+    def _create_coverage_slice(self, file, crs_axes, evaluator_slice, axis_resolutions=None, user_axes=None):
         """
         Returns a coverage slice for a file
         :param File file: the path to the importing file
@@ -617,8 +682,43 @@ class AbstractToCoverageConverter:
             axis_subset = self._axis_subset(crs_axes[i], evaluator_slice, resolution)
             axis_subsets.append(axis_subset)
 
+        from recipes.general_coverage.recipe import Recipe
+
+        axes_metadata = None
+        for user_axis in user_axes:
+            if isinstance(user_axis, IrregularUserAxis) \
+                and user_axis.areas_of_validity is not None \
+                and len(user_axis.areas_of_validity) > 0:
+                # There is areasOfValidity for this axis specified in the ingredients file
+                axes_metadata = {}
+                if "axes" not in axes_metadata:
+                    axes_metadata["axes"] = {}
+                    axes_metadata["axes"][user_axis.name] = {}
+
+                if user_axis.dataBound is False:
+                    # in case of dataBound is false
+                    length = len(self.session.files)
+
+                    axes_metadata["axes"][user_axis.name][Recipe.AREAS_OF_VALIDITY] = []
+
+                    if len(user_axis.areas_of_validity) == 1:
+                        # In this case import multiple files (e.g. multiple Sentinel 2 scenes to one date - one coefficient)
+                        # TODO: is that good enough?
+                        axes_metadata["axes"][user_axis.name][Recipe.AREAS_OF_VALIDITY].append(user_axis.areas_of_validity[0])
+                    else:
+                        # NOTE: Only generate the corresponding areas of validity as local metadata of GML file
+                        # for the current importing file
+                        for i in range(0, length):
+                            if self.session.files[i].filepath == evaluator_slice.file.filepath:
+                                axes_metadata["axes"][user_axis.name][Recipe.AREAS_OF_VALIDITY].append(user_axis.areas_of_validity[i])
+                                break
+                            i += 1
+                else:
+                    # in case of coefficients evaluated as same as directPositions
+                    axes_metadata["axes"][user_axis.name][Recipe.AREAS_OF_VALIDITY] = user_axis.areas_of_validity
+
         # Generate local metadata string for current coverage slice
-        local_metadata = self._generate_local_metadata(axis_subsets, evaluator_slice)
+        local_metadata = self._generate_local_metadata(axis_subsets, evaluator_slice, axes_metadata)
 
         return Slice(axis_subsets, FileDataProvider(file, file_structure), local_metadata)
 
@@ -631,7 +731,7 @@ class AbstractToCoverageConverter:
 
         if coverage_slices_dict is None:
             # Build list of coverage slices from input files
-            coverage_slices_dict = self._create_coverage_slices(self.crs, crs_axes)
+            coverage_slices_dict = self._create_coverage_slices(self.crs, crs_axes, None, None, self.user_axes)
 
         global_metadata = None
         first_coverage_slice = None

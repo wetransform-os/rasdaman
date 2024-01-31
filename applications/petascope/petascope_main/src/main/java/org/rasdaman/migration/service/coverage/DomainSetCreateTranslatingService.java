@@ -37,7 +37,6 @@ import org.rasdaman.migration.domain.legacy.LegacyCoverageMetadata;
 import petascope.util.CrsUtil;
 import org.rasdaman.migration.domain.legacy.LegacyDbMetadataSource;
 import org.rasdaman.migration.domain.legacy.LegacyDomainElement;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.util.TimeUtil;
 import org.rasdaman.migration.domain.legacy.LegacyAxisTypes;
@@ -115,7 +114,7 @@ public class DomainSetCreateTranslatingService {
                 irregularAxis.setAxisLabel(domainElement.getLabel());
                 irregularAxis.setLowerBound(lowerBound);
                 irregularAxis.setUpperBound(upperBound);
-                irregularAxis.setDirectPositions(directPositions);
+                irregularAxis.setDirectPositionsAsNumbers(directPositions);
                 // Default it is 1
                 irregularAxis.setResolution(domainElement.getDirectionalResolution());
                 irregularAxis.setUomLabel(domainElement.getUom());

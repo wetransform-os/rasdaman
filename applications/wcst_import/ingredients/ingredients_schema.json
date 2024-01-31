@@ -328,6 +328,30 @@
                                                         "dataBound": {
                                                             "type": [ "boolean", "string" ]
                                                         },
+                                                        "areasOfValidity": {
+                                                            "type": [ "array", "string" ],
+                                                            "items": {
+                                                                "type": "object",
+                                                                "required": [
+                                                                    "start",
+                                                                    "end"
+                                                                ],
+                                                                "properties": {
+                                                                    "start": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "number"
+                                                                        ]
+                                                                    },
+                                                                    "end": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "number"
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
                                                         "sliceGroupSize": {
                                                             "type": "number"
                                                         },

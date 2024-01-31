@@ -314,7 +314,9 @@ class Recipe(GeneralCoverageRecipe):
                 # Fixed values for 3 axes of Sentinel 2 coverage
                 axis_resolutions = self.RES_DICT[res]
 
-                slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice, axis_resolutions)
+                user_axes = self._read_axes(conv.crs)
+
+                slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice, axis_resolutions, user_axes)
                 if conv.coverage_slices == {}:
                     conv.coverage_slices = slices_dict
                 else:

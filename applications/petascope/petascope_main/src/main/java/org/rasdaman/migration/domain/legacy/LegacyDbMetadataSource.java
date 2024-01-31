@@ -2359,7 +2359,7 @@ public class LegacyDbMetadataSource implements LegacyIMetadataSource {
     public List<BigDecimal> getAllCoefficients(String covName, int iOrder)
             throws Exception {
 
-        List<BigDecimal> coefficients = new ArrayList<BigDecimal>();
+        List<BigDecimal> coefficients = new ArrayList<>();
         Statement s = null;
 
         try {

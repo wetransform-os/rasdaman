@@ -31,6 +31,7 @@ import javax.persistence.PrimaryKeyJoinColumn;
 import javax.persistence.Table;
 import petascope.core.AxisTypes;
 import petascope.exceptions.PetascopeException;
+import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.TimeUtil;
 
@@ -118,13 +119,14 @@ public class GeoAxis extends Axis implements Serializable {
     @JsonIgnore
     public BigDecimal getBoundNumber(String bound) throws PetascopeException {
         BigDecimal number = null;
-        if (bound.contains("\"")) {
+        if (BigDecimalUtil.isNumber(bound)) {
+            return new BigDecimal(bound);
+        } else {
+            // assume it is temporal
             String axisUoM = this.getUomLabel();
             String datumOrigin = CrsUtil.getDatumOrigin(this.getSrsName());
             number = TimeUtil.countOffsets(datumOrigin, bound, axisUoM, BigDecimal.ONE);
             return number;
-        } else {
-            return new BigDecimal(bound);
         }
     }
 

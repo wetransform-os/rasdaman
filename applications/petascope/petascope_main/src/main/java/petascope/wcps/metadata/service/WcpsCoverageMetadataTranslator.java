@@ -27,6 +27,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.rasdaman.domain.cis.*;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.repository.service.CoverageRepositoryService;
@@ -458,10 +460,32 @@ public class WcpsCoverageMetadataTranslator {
             // Check domainElement's type
             if (geoAxis.isIrregular()) {
                 // All stored coefficients for irregular axis in coverage
-                List<BigDecimal> directPositions = ((org.rasdaman.domain.cis.IrregularAxis) geoAxis).getDirectPositionsAsNumbers();
+                org.rasdaman.domain.cis.IrregularAxis irregularAxis = ((org.rasdaman.domain.cis.IrregularAxis) geoAxis);
+
+                List<BigDecimal> directPositions = irregularAxis.getDirectPositionsAsNumbers();
+                List<BigDecimal> directPositionsAreaOfValidityStarts = irregularAxis.getDirectPositionsAreaOfValidityStartsAsNumbers();
+                List<BigDecimal> directPositionsAreaOfValidityEnds = irregularAxis.getDirectPositionsAreaOfValidityEndsAsNumbers();
+
+                if (irregularAxis.getDirectPositionsAreaOfValidityStarts().size() > 0) {
+                    // NOTE: in case coefficients have areas of validity -> the geo domains of the irregular axis is extend and allow to query larger
+                    // then the original geo bounds imported by directPositions (!)
+                    // and the coefficients in areas of validity starts / ends are calculated based on value of coefficient zero number in directPositions
+                    // e.g. coefficientZero number is "2001-01" then areas of validity start with date = "2000-01" will contain coefficient value = -366
+                    BigDecimal smallestCoefficientOfAreasOfValidityStart = new BigDecimal(irregularAxis.getDirectPositionsAreaOfValidityStarts().get(0));
+                    BigDecimal biggestCoefficientOfAreasOfValidityEnd = new BigDecimal(irregularAxis.getDirectPositionsAreaOfValidityEnds().get( irregularAxis.getDirectPositionsAreaOfValidityEnds().size() - 1 ));
+
+                    BigDecimal adjustedGeoLowerBound = irregularAxis.getCoefficientZeroValueAsNumber().add(smallestCoefficientOfAreasOfValidityStart);
+                    BigDecimal adjustedGeoUpperBound = irregularAxis.getCoefficientZeroValueAsNumber().add(biggestCoefficientOfAreasOfValidityEnd);
+                    originalGeoBounds = new NumericTrimming(adjustedGeoLowerBound, adjustedGeoUpperBound);
+                    geoBounds = new NumericTrimming(adjustedGeoLowerBound, adjustedGeoUpperBound);
+                }
+
                 result.add(new IrregularAxis(axisLabel, geoBounds, originalGridBounds, gridBounds,
                         crsUri, crsDefinition, axisType, axisUoM, gridAxisOrder,
-                        originNumber, scalarResolution, directPositions, originalGeoBounds));
+                        originNumber, scalarResolution, directPositions,
+                        directPositionsAreaOfValidityStarts,
+                        directPositionsAreaOfValidityEnds,
+                        originalGeoBounds));
             } else {
 
                 result.add(new RegularAxis(axisLabel, geoBounds, originalGridBounds, gridBounds,

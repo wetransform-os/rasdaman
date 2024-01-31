@@ -28,6 +28,7 @@ import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
+import petascope.core.Pair;
 import petascope.core.XMLSymbols;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -93,6 +94,11 @@ public class StringUtil {
     public static final String JAVA_HEX_COLOR_PREFIX = "#";
     public static final String HEX_RGB_COLOR_FORMAT = "0xRRGGBB";
 
+
+    // e.g. "2015-02-03":"2015-06-06"
+    public static final String START_AND_END_TEMPORAL_DELIMITER = "\":\"";
+    public static final String START_AND_END_NON_TEMPORAL_DELIMITER = ":";
+
     /**
      * For coverages created temporarily, used for WCPS decode() from uploaded files
      */
@@ -100,6 +106,7 @@ public class StringUtil {
 
     private static final ScriptEngineManager manager = new ScriptEngineManager();
     private static final ScriptEngine engine = manager.getEngineByName("JavaScript");
+
 
 
     private static String COMMA = ",";
@@ -943,6 +950,38 @@ public class StringUtil {
         } catch (ScriptException ex) {
             throw new PetascopeException(ExceptionCode.InternalComponentError, "String: " + str + " is not valid to evaluate. Reason: " + ex.getMessage());
         }
+        return result;
+    }
+
+
+    /**
+     * e.g. "2015-03-05":"2015-06-07" -> Pair("2015-03-05", "2015-06-07")
+     */
+    public static Pair<String, String> parseLowerAndUpperBoundsPair(String pairStr) {
+        Pair<String, String> result;
+        String delimiter = START_AND_END_NON_TEMPORAL_DELIMITER;
+        boolean isTemporalAxis = pairStr.startsWith("\"");
+
+        if (isTemporalAxis) {
+            delimiter = START_AND_END_TEMPORAL_DELIMITER;
+        }
+
+        String[] tmps = pairStr.split(delimiter);
+        String startValue = tmps[0];
+        String endValue = null;
+
+        if (tmps.length > 1) {
+            endValue = tmps[1];
+        }
+
+        if (isTemporalAxis) {
+            startValue = startValue + "\"";
+            if (endValue != null) {
+                endValue = "\"" + endValue;
+            }
+        }
+
+        result = new Pair<>(startValue, endValue);
         return result;
     }
 

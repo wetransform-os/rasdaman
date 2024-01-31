@@ -253,7 +253,7 @@ public class GMLCoreCIS10Builder {
             OffsetVector offsetVector = this.buildOffsetVector(wcpsCoverageMetadata, axis);
             String coefficients = "";
             if (axis instanceof IrregularAxis) {
-                coefficients = ((IrregularAxis) axis).getRepresentationCoefficients();
+                coefficients = ((IrregularAxis) axis).getRepresentationCoefficients(" ");
             }
             String gridAxesSpanned = axis.getLabel();
             

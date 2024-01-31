@@ -142,7 +142,7 @@ public class BeanApplicationConfiguration implements Condition {
         // NOTE: Do not initialize/update petascopedb if petascope failed to start properly.
         if (AbstractController.startException != null) {
             runLiquibase = false;
-            log.error("Error occured when starting petascope, liquibase will not run. Reason: " + AbstractController.startException.getMessage());
+            log.error("Error occurred when starting petascope, liquibase will not run. Reason: " + AbstractController.startException.getMessage());
             liquibase.setShouldRun(runLiquibase);
             return liquibase;
         }

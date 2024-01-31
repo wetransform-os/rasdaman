@@ -33,7 +33,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.rasdaman.domain.cis.AllowedValue;
 import org.rasdaman.domain.cis.Axis;
 import org.rasdaman.domain.cis.AxisExtent;
-import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.DataRecord;
 import org.rasdaman.domain.cis.Envelope;
 import org.rasdaman.domain.cis.EnvelopeByAxis;
@@ -553,7 +552,7 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
 
                 geoAxes.add(regularAxis);
             } else {
-                // Has coeffcients in GML string -> Irregular axis
+                // Has coefficients in GML string -> Irregular axis
                 IrregularAxis irregularAxis = new IrregularAxis();
                 irregularAxis.setAxisLabel(axisLabel);
                 irregularAxis.setLowerBound(lowerUpperBound.fst);
@@ -564,8 +563,8 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
                 
                 irregularAxis.setAxisType(axisType);
                 
-                // and the cofficients for axis
-                irregularAxis.setDirectPositions(coefficients);
+                // and the coefficients for axis
+                irregularAxis.setDirectPositionsAsNumbers(coefficients);
 
                 geoAxes.add(irregularAxis);
             }
@@ -604,10 +603,11 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
                     String coefficientValues = coefficientsElement.get(0).getValue().trim();
                     if (!coefficientValues.isEmpty()) {
                         //split after space in case there are more than 1
-                        String[] split = coefficientValues.split(" ");
+                        String[] coefficientsTmp = coefficientValues.split(" ");
                         List<BigDecimal> coefficients = new ArrayList<>();
-                        for (String coeffieicent : split) {
-                            coefficients.add(new BigDecimal(coeffieicent));
+
+                        for (String coefficient : coefficientsTmp) {
+                            coefficients.add(new BigDecimal(coefficient));
                         }
 
                         // grid axisOrder -> coefficientList

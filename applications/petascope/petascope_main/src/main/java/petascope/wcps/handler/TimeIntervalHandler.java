@@ -86,7 +86,7 @@ public class TimeIntervalHandler extends Handler {
             if (dateTimeAxis instanceof IrregularAxis) {
                 // Here, get all the direct positions of it, not just the lower and upper bound
                 IrregularAxis irregularAxis = (IrregularAxis)dateTimeAxis;
-                directPositions = irregularAxis.getCoefficientValues();
+                directPositions = irregularAxis.getRepresentationCoefficientsList();
             }
         } else {
             // e.g. "2015-01-01":"2015-02-03"

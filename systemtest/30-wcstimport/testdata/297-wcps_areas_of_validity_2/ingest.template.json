@@ -1,0 +1,62 @@
+{
+    "config": {
+        "service_url": "PETASCOPE_URL",
+        "tmp_directory": "/tmp/",
+        "mock": false,
+        "automated": true,
+        "track_files": false,
+        "skip": false
+    },
+    "input": {
+        "coverage_id": "test_wcps_areas_of_validity_2",
+        "paths": [
+            "*.tif"
+        ]
+    },
+    "recipe": {
+        "name": "general_coverage",
+        "options": {
+            "coverage": {
+                "crs": "OGC/0/AnsiDate@EPSG/0/4326",
+                "metadata": {
+                    "type": "json",
+                    "global": { "aas": "Asd222asd"}                  
+                },
+                "slicer": {
+                    "type": "gdal",
+                    "axes": {
+                        "ansi": {
+                            "statements": "from datetime import datetime, timedelta; from dateutil.relativedelta import relativedelta",
+                            "min": "datetime.strptime(regex_extract('${file:name}', '(.*)_(.*).tif', 1), '%Y%m%d').isoformat()",
+                            "areasOfValidity": [                                
+                                {
+                                    "start": "2007",
+                                    "end": "2008"
+                                },
+                                
+                                {
+                                    "start": "2014",
+                                    "end": "2016"
+                                }                 
+                                ],
+                            "dataBound": false,
+                            "irregular": true
+                        },
+                        "Long": {
+                            "min": "${gdal:minX}",
+                            "max": "${gdal:maxX}",
+                            "resolution": "${gdal:resolutionX}"
+                        },
+                        "Lat": {
+                            "min": "${gdal:minY}",
+                            "max": "${gdal:maxY}",
+                            "resolution": "${gdal:resolutionY}"
+                        }
+                    }
+                }
+            },
+            "wms_import": true,
+            "tiling": "ALIGNED [0:0, 0:500, 0:500]"
+        }
+    }
+}

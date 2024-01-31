@@ -79,7 +79,8 @@ public class CoverageMetadata {
      * to not show in the result if serialization
      */
     public void stripEmptyProperties() {
-        if (this.axesMetadata != null && this.axesMetadata.getAxesAttributesMap().isEmpty()) {
+        if (this.axesMetadata != null
+                && this.axesMetadata.getAxesAttributesMap().isEmpty()) {
             this.setAxesMetadata(null);
         }
         if (this.bandsMetadata != null && this.bandsMetadata.getBandsAttributesMap().isEmpty()) {
@@ -183,7 +184,7 @@ public class CoverageMetadata {
      * Add a new localMetadata to list of local metadata root.
      */
     public void addLocalMetadataToList(LocalMetadataChild localMetadata) {
-        if (this.localMetadata != null) {
+        if (this.localMetadata != null && localMetadata.getBoundedBy() != null && localMetadata.getLocalMetadataAttributesMap() != null) {
             this.localMetadata.getLocalMetadataChildList().add(localMetadata);
         }
     }

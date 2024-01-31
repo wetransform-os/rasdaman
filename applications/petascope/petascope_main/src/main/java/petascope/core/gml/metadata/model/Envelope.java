@@ -126,7 +126,7 @@ public class Envelope {
      * Return the number of axes in coverage's metadata
      */
     @JsonIgnore
-    public int getNumerOfAxes() {
+    public int getNumberOfAxes() {
         return this.axisLabels.split(" ").length;
     }
     

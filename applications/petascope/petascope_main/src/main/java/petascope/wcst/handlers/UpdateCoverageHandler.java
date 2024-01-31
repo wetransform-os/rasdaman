@@ -29,6 +29,7 @@ package petascope.wcst.handlers;
 
 import com.rasdaman.admin.layer.service.AdminCreateOrUpdateLayerService;
 
+import org.antlr.v4.runtime.misc.Triple;
 import petascope.controller.AuthenticationController;
 import petascope.core.Pair;
 import petascope.core.XMLSymbols;
@@ -67,14 +68,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import javax.servlet.http.HttpServletRequest;
 import nu.xom.Elements;
-import org.rasdaman.domain.cis.Coverage;
-import org.rasdaman.domain.cis.Axis;
-import org.rasdaman.domain.cis.AxisExtent;
-import org.rasdaman.domain.cis.CoveragePyramid;
-import org.rasdaman.domain.cis.GeneralGridCoverage;
-import org.rasdaman.domain.cis.GeoAxis;
-import org.rasdaman.domain.cis.IndexAxis;
-import org.rasdaman.domain.cis.IrregularAxis;
+import org.rasdaman.domain.cis.*;
 import org.rasdaman.domain.cis.IrregularAxis.CoefficientStatus;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,6 +78,8 @@ import petascope.core.gml.cis.service.GMLCISParserService;
 import petascope.core.gml.metadata.model.CoverageMetadata;
 import petascope.core.gml.metadata.model.LocalMetadataChild;
 import petascope.core.gml.metadata.service.CoverageMetadataService;
+
+import static petascope.core.gml.metadata.model.LocalMetadataChild.*;
 import static petascope.core.service.CrsComputerService.GRID_POINT_EPSILON_WCPS;
 import petascope.exceptions.ExceptionCode;
 import org.rasdaman.admin.pyramid.service.PyramidService;
@@ -95,6 +91,7 @@ import petascope.wcps.metadata.model.ParsedSubset;
 import static petascope.util.ras.RasConstants.RASQL_BOUND_SEPARATION;
 import static petascope.util.ras.RasConstants.RASQL_OPEN_SUBSETS;
 import static petascope.util.ras.RasConstants.RASQL_CLOSE_SUBSETS;
+import static petascope.wcps.encodeparameters.model.AreaOfValidity.*;
 
 import org.rasdaman.repository.service.WMSRepostioryService;
 import petascope.controller.PetascopeController;
@@ -129,10 +126,11 @@ public class UpdateCoverageHandler {
     @Autowired
     private HttpServletRequest httpServletRequest;
     @Autowired
-    private PetascopeController petascopeController;
-    @Autowired
     private RemoteCoverageUtil remoteCoverageUtil;
     private static final String FILE_PROTOCOL = "file://";
+    
+    @Autowired
+    private PetascopeController petascopeController;
 
     /**
      * Handles the update of an existing WCS coverage.
@@ -202,6 +200,32 @@ public class UpdateCoverageHandler {
         UpdateCoverageValidator updateCoverageValidator = new UpdateCoverageValidator(currentCoverage, inputCoverage,
                 dimensionSubsets, request.getRangeComponent());
         updateCoverageValidator.validate();
+
+        List<GeoAxis> currentGeoAxes = ((GeneralGridCoverage)currentCoverage).getGeoAxes();
+        List<GeoAxis> inputGeoAxes = ((GeneralGridCoverage)inputCoverage).getGeoAxes();
+
+        int i = 0;
+        for (GeoAxis currentGeoAxis : currentGeoAxes) {
+            if (currentGeoAxis instanceof IrregularAxis) {
+                IrregularAxis currentIrregularAxis = (IrregularAxis) currentGeoAxis;
+                IrregularAxis inputIrregularAxis = (IrregularAxis) ((GeneralGridCoverage)inputCoverage).getGeoAxisByName(currentGeoAxis.getAxisLabel());
+
+                if (inputIrregularAxis == null) {
+                    // NOTE: Input coverage does not have irregular axis because the axis is created with dataBound=false
+                    // then, create this axis manually just to be able to set the areas of validity parsed from input coverage's metadata
+                    inputIrregularAxis = new IrregularAxis(Arrays.asList(BigDecimal.ZERO.toPlainString()),
+                            new ArrayList<>(), new ArrayList<>(), currentIrregularAxis.getAxisLabel(),
+                            currentIrregularAxis.getUomLabel(), currentIrregularAxis.getSrsName(),
+                            null, null, currentIrregularAxis.getResolution().toPlainString(), currentIrregularAxis.getAxisType());
+                    inputGeoAxes.add(i, inputIrregularAxis);
+                }
+            }
+
+            i++;
+        }
+
+        // Since version 9.7, WCST_Import can add local metadata from slice (input file) to coverage's metadata in Petascope.
+        this.addLocalMetadataToCoverageMetadata(inputCoverage, currentCoverage);
 
         //handle subset coefficients if necessary for coverage with irregular axis
         Pair<String, Integer> expandedAxisDimensionPair = handleSubsetCoefficients(request, currentCoverage, dimensionSubsets, inputCoverage);
@@ -303,8 +327,6 @@ public class UpdateCoverageHandler {
             }
         }
 
-        // Since version 9.7, WCST_Import can add local metadata from slice (input file) to coverage's metadata in Petascope.
-        this.addLocalMetadataToCoverageMetadata(inputCoverage, currentCoverage);
     }
     
     /**
@@ -324,8 +346,14 @@ public class UpdateCoverageHandler {
         
         if (!localMetadata.isEmpty()) {
             // Only update current coverage's metadata if input coverage has metadata to be added            
-            LocalMetadataChild inputLocalMetadata = null;
-            inputLocalMetadata = this.coverageMetadataService.deserializeLocalMetadata(inputCoverage.getMetadata());
+            LocalMetadataChild inputLocalMetadata = this.coverageMetadataService.deserializeLocalMetadata(inputCoverage.getMetadata());
+
+            if (inputLocalMetadata.getBoundedBy().getEnvelope().getAxisLabels() == null) {
+                inputLocalMetadata.setBoundedBy(null);
+            }
+
+            // Parse the areasOfValidity for irregular axes as metadata of input coverage and update them in the corresponding lists
+            parseIrregularAxisAreasOfValidity((GeneralGridCoverage) inputCoverage, inputLocalMetadata, (GeneralGridCoverage) currentCoverage);
             
             CoverageMetadata currentCoverageMetadata = this.coverageMetadataService.deserializeCoverageMetadata(currentCoverage.getMetadata());
             
@@ -348,7 +376,97 @@ public class UpdateCoverageHandler {
             currentCoverage.setMetadata(updatedCurrentCoverageMetadataStr);            
         }
     }
-    
+
+    /**
+     * In case in coverage's metadata of the input updating coverage in WCS-T UpdateCoverage request
+     * has the areasOfValidity for an irregular axis -> parse these values (start / end)
+     * and convert them to coefficients based on the zero coefficient value of the axis' direct positions
+     */
+    private void parseIrregularAxisAreasOfValidity(GeneralGridCoverage inputCoverage,
+                                                   LocalMetadataChild inputCoverageLocalMetadataChild, GeneralGridCoverage currentCoverage) throws PetascopeException {
+        // e.g. "ansi" -> [ { "start" -> "2000", "end" -> "2001" } ]
+        Map<String, Map<String, List<LinkedHashMap>>> inputAxesMetadata =
+                                                    (Map<String, Map<String, List<LinkedHashMap>>>) inputCoverageLocalMetadataChild.getLocalMetadataAttributesMap().get(LOCAL_METADATA_CHILD_AXES);
+
+        if (inputAxesMetadata != null) {
+            for (Map.Entry<String, Map<String,  List<LinkedHashMap>>> entry : inputAxesMetadata.entrySet()) {
+                String axisLabel = entry.getKey();
+
+                IrregularAxis currentIrregularAxis = (IrregularAxis)currentCoverage.getGeoAxisByName(axisLabel);
+                IrregularAxis inputIrregularAxis = (IrregularAxis)inputCoverage.getGeoAxisByName(axisLabel);
+
+                // NOTE: if input axis has null bounds then the coverage imported with dataBound=false
+                boolean isTrimming = inputIrregularAxis.getLowerBound() != null;
+
+                // each map contains: start and end keys
+                List<LinkedHashMap> linkedHashMaps = new ArrayList<>();
+                Object objTmp = entry.getValue().get(AXES_AREAS_OF_VALIDITY);
+                if (objTmp instanceof List) {
+                    linkedHashMaps = (List<LinkedHashMap>) objTmp;
+                } else {
+                    linkedHashMaps.add((LinkedHashMap) objTmp);
+                }
+
+                if (!linkedHashMaps.isEmpty()) {
+
+                    if (inputIrregularAxis.getDirectPositionsAreaOfValidityStarts() == null) {
+                        inputIrregularAxis.setDirectPositionsAreaOfValidityStarts(new ArrayList<>());
+                    }
+                    if (inputIrregularAxis.getDirectPositionsAreaOfValidityEnds() == null) {
+                        inputIrregularAxis.setDirectPositionsAreaOfValidityEnds(new ArrayList<>());
+                    }
+
+                    for (LinkedHashMap<String, Object> linkedHashMap : linkedHashMaps) {
+                        // NOTE: only coverage's metadata in XML format has this extra metadata property
+                        /**
+                         * e.g.
+                         * <areasOfValidity>
+                         *     <area start="..." end="..."/>
+                         *     ....
+                         * </areasOfValidity>
+                         */
+                        List<LinkedHashMap> areasList = new ArrayList<>();
+
+                        if (linkedHashMap.get(AXES_AREAS_OF_VALIDITY_XML_ONLY_AREA) instanceof LinkedHashMap) {
+                            // dataBound:false in XML
+                            areasList.add((LinkedHashMap) linkedHashMap.get(AXES_AREAS_OF_VALIDITY_XML_ONLY_AREA));
+                        } else if (linkedHashMap.get(AXES_AREAS_OF_VALIDITY_XML_ONLY_AREA) instanceof List) {
+                            // dataBound:true in XML
+                            areasList = (List<LinkedHashMap>) linkedHashMap.get(AXES_AREAS_OF_VALIDITY_XML_ONLY_AREA);
+                        } else {
+                            // in this case coverage's metadata is in JSON format
+                            areasList = Arrays.asList(linkedHashMap);
+                        }
+
+                        for (LinkedHashMap<String, String> xmlArea : areasList) {
+                            for (Map.Entry<String, String> nestedEntry : xmlArea.entrySet()) {
+                                if (nestedEntry.getKey().equals(AXES_AREAS_OF_VALIDITY_START)) {
+                                    // lower bound of areas of validity of the input file to be updated (<= the updating coefficient)
+                                    String startValue = nestedEntry.getValue();
+
+                                    BigDecimal coefficientStart = this.computeCoefficientOffset(currentIrregularAxis, currentIrregularAxis, startValue, isTrimming);
+                                    inputIrregularAxis.getDirectPositionsAreaOfValidityStarts().add(coefficientStart.toPlainString());
+                                } else if (nestedEntry.getKey().equals(AXES_AREAS_OF_VALIDITY_END)) {
+                                    // upper bound of areas of validity of the input file to be updated (>= the updating coefficient)
+                                    String endValue = nestedEntry.getValue();
+                                    BigDecimal coefficientEnd = this.computeCoefficientOffset(currentIrregularAxis, currentIrregularAxis, endValue, isTrimming);
+                                    inputIrregularAxis.getDirectPositionsAreaOfValidityEnds().add(coefficientEnd.toPlainString());
+                                }
+                            }
+
+                        }
+                    }
+                }
+            }
+        }
+
+        // This extra metadata is not stored in coverage's metadata afterwards
+        inputCoverageLocalMetadataChild.getLocalMetadataAttributesMap().remove(LOCAL_METADATA_CHILD_AXES);
+        if (inputCoverageLocalMetadataChild.getLocalMetadataAttributesMap().isEmpty()) {
+            inputCoverageLocalMetadataChild.setLocalMetadataAttributesMap(null);
+        }
+    }
+
     /**
      * Same as behavior from gdal_merge.py to shift an odd number to the nearest rounded number.
      * NOTE: it is very important to shift like this or the grid/geo domains from coveraged imported by WCS-T 
@@ -573,41 +691,95 @@ public class UpdateCoverageHandler {
 
                 // or also called directPositions
                 // NOTE: this coefficient is normalized in inputCoverage but not with currentCoverage
-                List<BigDecimal> unnormalizedCoefficients = new ArrayList<>();
+                List<Triple<BigDecimal, BigDecimal, BigDecimal>> unnormalizedTripleCoefficients = new ArrayList<>();
+                // data bound, coefficients provided in the input coverage
+                // This axis should be irregular in inputCoverage as well
+                // NOTE: all the coefficients from input irregular axis were normalized in wcst_import
+                // with the lowerBound of current subset
+                // e.g: This axis contains 4 coefficients, then the values are 0, 3, 5, 8
+                IrregularAxis inputIrregularAxis = ((IrregularAxis) inputGeoAxis);
+                // unformalized: for 4 days (lowerBound: 2008-01-01, 2008-01-04, 2008-01-06, upperBound: 2008-01-09)
+                List<BigDecimal> inputCoefficients = inputIrregularAxis.getDirectPositionsAsNumbers();
+                List<String> inputCoefficientAreaOfValidityStarts = inputIrregularAxis.getDirectPositionsAreaOfValidityStarts();
+                List<String> inputCoefficientAreaOfValidityEnds = inputIrregularAxis.getDirectPositionsAreaOfValidityEnds();
 
-                if (inputGeoAxis == null) {
-                    // non data bound, coefficient is calculated from the input subset dimension (slicing) and first lower bound of irregular axis
-                    unnormalizedCoefficients.add(BigDecimal.ZERO);
-                } else {
-                    // data bound, coefficients provided in the input coverage
-                    // This axis should be irregular in inputCoverage as well
-                    // NOTE: all the coefficients from input irregular axis were normalized in wcst_import
-                    // with the lowerBound of current subset
-                    // e.g: This axis contains 4 coefficients, then the values are 0, 3, 5, 8                    
-                    IrregularAxis inputIrregularAxis = ((IrregularAxis) inputGeoAxis);
-                    // unformalized: for 4 days (lowerBound: 2008-01-01, 2008-01-04, 2008-01-06, upperBound: 2008-01-09)
-                    unnormalizedCoefficients.addAll(inputIrregularAxis.getDirectPositionsAsNumbers());
+
+                if (currentIrregularAxis.getDirectPositionsAreaOfValidityStarts().isEmpty()) {
+                    if (inputCoefficientAreaOfValidityStarts != null && !inputCoefficientAreaOfValidityStarts.isEmpty()) {
+                        // First slice updating
+                        currentIrregularAxis.setDirectPositionsAreaOfValidityStarts(inputCoefficientAreaOfValidityStarts);
+                        currentIrregularAxis.setDirectPositionsAreaOfValidityEnds(inputCoefficientAreaOfValidityEnds);
+                    }
+                }
+
+                for (int i = 0; i < inputCoefficients.size(); i++) {
+                    BigDecimal inputCoefficient = inputCoefficients.get(i);
+                    BigDecimal inputCoefficientAreaOfValidityStart = null;
+                    BigDecimal inputCoefficientAreaOfValidityEnd = null;
+
+                    if (inputCoefficientAreaOfValidityStarts != null && !inputCoefficientAreaOfValidityStarts.isEmpty()) {
+                        inputCoefficientAreaOfValidityStart = new BigDecimal(inputCoefficientAreaOfValidityStarts.get(i));
+                        inputCoefficientAreaOfValidityEnd = new BigDecimal(inputCoefficientAreaOfValidityEnds.get(i));
+                    }
+
+                    unnormalizedTripleCoefficients.add(new Triple<>(inputCoefficientAreaOfValidityStart, inputCoefficient, inputCoefficientAreaOfValidityEnd));
+                }
+
+
+                String point = "";
+                boolean isTrimming = false;
+                if (dimensionSubset instanceof TrimmingSubsetDimension) {
+                    TrimmingSubsetDimension trimSubset = (TrimmingSubsetDimension) dimensionSubset;
+                    point = trimSubset.getLowerBound();
+                    isTrimming = true;
+                } else if (dimensionSubset instanceof SlicingSubsetDimension) {
+                    point = ((SlicingSubsetDimension) dimensionSubset).getBound();
                 }
 
                 // NOTE: Coefficients of input axis are calculated with the input domain lowerBound which is not current domain lowerBound
                 // so need to calculate the offset between the input axis lowerBound and current axis lowerBound first
-                BigDecimal coefficientOffset = computeCoefficientOffset(currentIrregularAxis, dimensionSubset);
-                for (BigDecimal unnormalizedCoefficient : unnormalizedCoefficients) {
+                BigDecimal coefficientOffset = computeCoefficientOffset(currentIrregularAxis, inputIrregularAxis, point, isTrimming);
+
+                for (Triple<BigDecimal, BigDecimal, BigDecimal> unnormalizedCoefficientTriple : unnormalizedTripleCoefficients) {
+                    BigDecimal unnormalizedCoefficient;
+                    unnormalizedCoefficient = unnormalizedCoefficientTriple.b;
+
                     // Normalized input coefficient with offset from current axis lowerBound
                     BigDecimal normalizedCoefficient = unnormalizedCoefficient.add(coefficientOffset);
+                    // area of validity lower bound
+                    BigDecimal normalizedCoefficientStart = unnormalizedCoefficientTriple.a;
+                    // area of validity upper bound
+                    BigDecimal normalizedCoefficientEnd = unnormalizedCoefficientTriple.c;
 
-                    // Check if this normalizedCoefficient is not in current axis list of directPositions then add it
                     boolean isInsitu = false;
+
                     CoefficientStatus coefficientStatus = currentIrregularAxis.validateCoefficient(isInsitu, normalizedCoefficient);
 
                     if (coefficientStatus == coefficientStatus.APPEND_TO_TOP) {
                         // add coefficient to top
                         currentIrregularAxis.getDirectPositions().add(normalizedCoefficient.toPlainString());
                         currentIrregularAxis.getDirectPositionsAsNumbers().add(normalizedCoefficient);
+
+
+                        if (normalizedCoefficientStart != null) {
+                            currentIrregularAxis.getDirectPositionsAreaOfValidityStarts().add(normalizedCoefficientStart.toPlainString());
+                        }
+
+                        if (normalizedCoefficientEnd != null) {
+                            currentIrregularAxis.getDirectPositionsAreaOfValidityEnds().add(normalizedCoefficientEnd.toPlainString());
+                        }
                     } else if (coefficientStatus == coefficientStatus.APPEND_TO_BOTTOM) {
                         // add coefficient to bottom
                         currentIrregularAxis.getDirectPositions().add(0, normalizedCoefficient.toPlainString());
                         currentIrregularAxis.getDirectPositionsAsNumbers().add(0, normalizedCoefficient);
+
+                        if (normalizedCoefficientStart != null) {
+                            currentIrregularAxis.getDirectPositionsAreaOfValidityStarts().add(0, normalizedCoefficientStart.toPlainString());
+                        }
+
+                        if (normalizedCoefficientEnd != null) {
+                            currentIrregularAxis.getDirectPositionsAreaOfValidityEnds().add(0, normalizedCoefficientEnd.toPlainString());
+                        }
                     }
                 }
             }
@@ -619,30 +791,22 @@ public class UpdateCoverageHandler {
     /**
      * Computes the offset in coefficients for a domain extensions of the
      * coverage.
-     *
-     * @param subset the subset with which the coverage is extended
      * @return the coefficient corresponding to the first slice of the subset
      * @throws PetascopeException
      */
-    private BigDecimal computeCoefficientOffset(IrregularAxis currentIrregularAxis, AbstractSubsetDimension subset) throws PetascopeException, SecoreException {
-        String point = "";
-        boolean isTrimming = false;
-        if (subset instanceof TrimmingSubsetDimension) {
-            TrimmingSubsetDimension trimSubset = (TrimmingSubsetDimension) subset;
-            point = trimSubset.getLowerBound();
-            isTrimming = true;
-        } else if (subset instanceof SlicingSubsetDimension) {
-            point = ((SlicingSubsetDimension) subset).getBound();
-        }
+    private BigDecimal computeCoefficientOffset(IrregularAxis currentIrregularAxis, IrregularAxis inputIrregularAxis, String point, boolean isTrimming) throws PetascopeException {
+        boolean isNummeric = !currentIrregularAxis.isTimeAxis();
 
         // The value of coefficient which is calculated with resolution and lowerBound of irregular axis
         BigDecimal normalizedSlicePoint;
         // by default resolution is 1 for IrregularAxis
         BigDecimal resolution = currentIrregularAxis.getResolution();
 
-        if (subset.isNumeric()) {
+        if (isNummeric) {
+            // non-temporal axis
             normalizedSlicePoint = BigDecimalUtil.divide(new BigDecimal(point), resolution);
         } else {
+            // temporal axis
             // datetime format which needs to be translated to number first
             String axisCRS = currentIrregularAxis.getSrsName();
             String axisUoM = currentIrregularAxis.getUomLabel();
@@ -651,9 +815,7 @@ public class UpdateCoverageHandler {
             normalizedSlicePoint = TimeUtil.countOffsets(datumOrigin, point, axisUoM, resolution);
         }
 
-        // The geo value of lowest directPositions
-        // NOTE: need to normalize based on the first coverage slice (coefficient zero)
-        BigDecimal coefficientZeroBoundNumber = currentIrregularAxis.getCoefficientZeroBoundNumber();
+        BigDecimal coefficientZeroBoundNumber = currentIrregularAxis.getCoefficientZeroValueAsNumber();
         
         if (isTrimming && coefficientZeroBoundNumber.equals(currentIrregularAxis.getUpperBoundNumber())) {
             // In case coverage was imported with reversed coefficients (e.g: 10000 7500 5000)
@@ -778,8 +940,9 @@ public class UpdateCoverageHandler {
                 low = ((TrimmingSubsetDimension) dimensionSubset).getLowerBound();
                 high = ((TrimmingSubsetDimension) dimensionSubset).getUpperBound();
             } else if (dimensionSubset instanceof SlicingSubsetDimension) {
-                low = ((SlicingSubsetDimension) dimensionSubset).getBound();
-                high = ((SlicingSubsetDimension) dimensionSubset).getBound();
+                String slicingBound = ((SlicingSubsetDimension) dimensionSubset).getBound();
+                low = slicingBound;
+                high = low;
             }
 
             ParsedSubset<String> parsedSubset = new ParsedSubset<>(low, high);
@@ -812,14 +975,45 @@ public class UpdateCoverageHandler {
      *
      * @param currentCoverage
      */
-    private void updateAxisExtents(Coverage currentCoverage) {
+    private void updateAxisExtents(Coverage currentCoverage) throws PetascopeException {
         // Only supports GeneralGridCoverage now
         List<GeoAxis> geoAxes = ((GeneralGridCoverage) currentCoverage).getGeoAxes();
         for (GeoAxis geoAxis : geoAxes) {
             String axisLabel = geoAxis.getAxisLabel();
             AxisExtent axisExtent = currentCoverage.getEnvelope().getEnvelopeByAxis().getAxisExtentByLabel(axisLabel);
-            axisExtent.setLowerBound(geoAxis.getLowerBound());
-            axisExtent.setUpperBound(geoAxis.getUpperBound());
+
+            if (geoAxis instanceof IrregularAxis) {
+                IrregularAxis irregularAxis = (IrregularAxis) geoAxis;
+
+                // NOTE: in case coefficient has areas of validity -> update axis extent of the irregular axis
+                // with the **adjusted** lower and upper bounds so in GetCapabilities result they will show properly (!)
+                if (irregularAxis.getDirectPositionsAreaOfValidityStarts() != null
+                        && !irregularAxis.getDirectPositionsAreaOfValidityStarts().isEmpty()) {
+
+                    BigDecimal lowestCoefficientStart = new BigDecimal(irregularAxis.getDirectPositionsAreaOfValidityStarts().get(0));
+                    BigDecimal adjustedLowestCoefficientStart = irregularAxis.getCoefficientZeroValueAsNumber().add(lowestCoefficientStart);
+
+                    BigDecimal biggestCoefficientEnd = new BigDecimal(irregularAxis.getDirectPositionsAreaOfValidityEnds().get(irregularAxis.getDirectPositionsAreaOfValidityEnds().size() - 1));
+                    BigDecimal adjustedBiggestCoefficientEnd = irregularAxis.getCoefficientZeroValueAsNumber().add(biggestCoefficientEnd);
+
+
+                    if (irregularAxis.isTimeAxis()) {
+                        CrsDefinition crsDefinition = CrsUtil.getCrsDefinition(irregularAxis.getSrsName());
+                        String timeLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, adjustedLowestCoefficientStart, crsDefinition);
+                        String timeUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, adjustedBiggestCoefficientEnd, crsDefinition);
+
+                        axisExtent.setLowerBound(timeLowerBound);
+                        axisExtent.setUpperBound(timeUpperBound);
+                    } else {
+                        axisExtent.setLowerBound(adjustedLowestCoefficientStart.toPlainString());
+                        axisExtent.setUpperBound(adjustedBiggestCoefficientEnd.toPlainString());
+                    }
+                }
+
+            } else {
+                axisExtent.setLowerBound(geoAxis.getLowerBound());
+                axisExtent.setUpperBound(geoAxis.getUpperBound());
+            }
         }
     }
 
@@ -843,17 +1037,18 @@ public class UpdateCoverageHandler {
             GeoAxis currentGeoAxis = ((GeneralGridCoverage) currentCoverage).getGeoAxisByName(inputAxisLabel);
             GeoAxis inputGeoAxis = ((GeneralGridCoverage) inputCoverage).getGeoAxisByName(inputAxisLabel);
 
-            if (inputGeoAxis == null) {
-                // Axis does not belong in input coverage (dataBound: false, e.g: time value from file name)
+            if (inputGeoAxis == null || inputGeoAxis.getLowerBound() == null) {
+                // Axis does not belong to input coverage (dataBound: false, e.g: time value from file name)
                 if (dimensionSubset instanceof TrimmingSubsetDimension) {
                     low = ((TrimmingSubsetDimension) dimensionSubset).getLowerBound();
                     high = ((TrimmingSubsetDimension) dimensionSubset).getUpperBound();
                 } else if (dimensionSubset instanceof SlicingSubsetDimension) {
-                    low = ((SlicingSubsetDimension) dimensionSubset).getBound();
-                    high = ((SlicingSubsetDimension) dimensionSubset).getBound();
+                    String slicingBound = ((SlicingSubsetDimension) dimensionSubset).getBound();
+                    low = slicingBound;
+                    high = low;
                 }
             } else {
-                // Axis belong in input coverage
+                // Axis belongs to input coverage
                 low = inputGeoAxis.getLowerBound();
                 high = inputGeoAxis.getUpperBound();
             }
@@ -886,7 +1081,7 @@ public class UpdateCoverageHandler {
                 inputUpperBound = TimeUtil.countOffsets(datumOrigin, high, uom, BigDecimal.ONE);
 
                 // NOTE: If time axis is regular (e.g: dataBound is false as time from file name, then the origin is the value from the file name, but the bounds will act as another regular geo bounds)
-                // InputLowerBound = InputUperBound when only 1 Time value is sent as slice
+                // InputLowerBound = InputUpperBound when only 1 Time value is sent as slice
                 if (!currentGeoAxis.isIrregular() && inputLowerBound.equals(inputUpperBound)) {
                     inputLowerBound = inputLowerBound.subtract(currentGeoAxis.getResolution().multiply(new BigDecimal("0.5")));
                     inputUpperBound = inputUpperBound.add(currentGeoAxis.getResolution().multiply(new BigDecimal("0.5")));

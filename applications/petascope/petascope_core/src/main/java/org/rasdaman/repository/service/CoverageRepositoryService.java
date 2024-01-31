@@ -708,7 +708,7 @@ public class CoverageRepositoryService {
     }
 
     /**
-     * Persit a coverage to database if it is new or existing coverage
+     * Persist a coverage to database if it is new or existing coverage
      */
     @Transactional
     public void save(Coverage coverage) throws PetascopeException {
@@ -723,14 +723,6 @@ public class CoverageRepositoryService {
         coverage.setCoverageSizeInBytes(coverageSize);
 
         this.calculateCoverageSizeInBytesWithPyramid(coverage);
-        
-        // Add geo bounds and grid bounds from IndexAxes to AxisExtents so it can be queried faster from basic coverage metadata objects
-        List<GeoAxis> geoAxes = ((GeneralGridDomainSet) coverage.getDomainSet()).getGeneralGrid().getGeoAxes();
-        this.updateGeoBoundsForAxisExtents(coverage.getEnvelope().getEnvelopeByAxis(), geoAxes);
-        
-        
-        List<IndexAxis> indexAxes = ((GeneralGridDomainSet) coverage.getDomainSet()).getGeneralGrid().getGridLimits().getIndexAxes();
-        this.updateGridBoundsForAxisExtents(coverage.getEnvelope().getEnvelopeByAxis(), indexAxes);
 
         // NOTE: Recalculate the wgs84 bbox if it should be when updating the coverage (!)
         this.createCoverageExtent(coverage);

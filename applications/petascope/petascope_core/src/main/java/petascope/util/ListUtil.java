@@ -38,14 +38,7 @@
 package petascope.util;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import nu.xom.Node;
@@ -443,6 +436,33 @@ public class ListUtil {
                 return value;
             }
         });
+    }
+
+    /**
+     * Zip two lists to one list, list1 must be not null and not be empty
+     */
+    public static List<String> getCombinedListFromTwoLists(List<String> list1, List<String> list2) {
+        if (list2 == null || list2.isEmpty()) {
+            return list1;
+        }
+
+        List<String> results = new ArrayList<>();
+        for (int i = 0; i < list1.size(); i++) {
+            String tmp = list1.get(i);
+            tmp += ":" + list2.get(i);
+
+            results.add(tmp);
+        }
+
+        return results;
+    }
+
+    public static List<String> convertBigDecimalSetsToListString(Set<BigDecimal> inputSet) {
+        List<String> results = new ArrayList<>();
+        for (BigDecimal value : inputSet) {
+            results.add(value.toPlainString());
+        }
+        return results;
     }
 
 }

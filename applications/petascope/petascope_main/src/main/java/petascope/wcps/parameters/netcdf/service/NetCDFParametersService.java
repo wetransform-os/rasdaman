@@ -21,6 +21,8 @@
  */
 package petascope.wcps.parameters.netcdf.service;
 
+import petascope.util.CrsUtil;
+import petascope.wcps.encodeparameters.model.AxisMetadata;
 import petascope.wcps.parameters.model.netcdf.BandVariableMetadata;
 import petascope.wcps.parameters.model.netcdf.DimensionVariable;
 import petascope.wcps.parameters.model.netcdf.NetCDFExtraParams;
@@ -32,11 +34,8 @@ import petascope.exceptions.PetascopeException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import petascope.core.Pair;
@@ -44,7 +43,6 @@ import petascope.wcps.encodeparameters.model.AxesMetadata;
 import petascope.wcps.encodeparameters.model.BandsMetadata;
 import petascope.core.gml.metadata.model.CoverageMetadata;
 import petascope.core.gml.metadata.model.GridMapping;
-import petascope.exceptions.ExceptionCode;
 import petascope.util.BigDecimalUtil;
 import petascope.util.StringUtil;
 import petascope.util.TimeUtil;
@@ -84,13 +82,9 @@ public class NetCDFParametersService {
         // NOTE: this needs to write with grid axis order
         List<String> dimensions = this.buildDimensions(metadata.getSortedAxesByGridOrder());
         List<Variable> vars = this.buildVariables(metadata);
-        // variables in JSON uses as a Map: { "variableName": { object }, "variableName1": { object1 }, .... }
-        Map<String, Variable> variables = new LinkedHashMap<>();
-        for (Variable var : vars) {
-            variables.put(var.getName(), var);
-        }
+        // variables in JSON uses as a List: [ { object1 }, { object2 }, .... ]
 
-        NetCDFExtraParams netCDFExtraParams = new NetCDFExtraParams(dimensions, variables);
+        NetCDFExtraParams netCDFExtraParams = new NetCDFExtraParams(dimensions, vars);
         
         return netCDFExtraParams;
     }
@@ -114,8 +108,8 @@ public class NetCDFParametersService {
 
     /**
      * Build the dimensions's variables parameters of netCDF encoding, e.g:
-     * \"variables\":{\"i\":{\"type\":\"double\",\"data\":[0.5],\"name\":\"i\",\"metadata\":{\"standard_name\":\"i\",\"units\":\"GridSpacing\",\"axis\":\"X\"}}
-     *               ,\"j\":{\"type\":\"double\",\"data\":[-0.5],\"name\":\"j\",\"metadata\":{\"standard_name\":\"j\",\"units\":\"GridSpacing\",\"axis\":\"Y\"}}
+     * \"variables\":[{\"type\":\"double\",\"data\":[0.5],\"name\":\"i\",\"metadata\":{\"standard_name\":\"i\",\"units\":\"GridSpacing\",\"axis\":\"X\"}}
+     *               ,{\"type\":\"double\",\"data\":[-0.5],\"name\":\"j\",\"metadata\":{\"standard_name\":\"j\",\"units\":\"GridSpacing\",\"axis\":\"Y\"}}]
      * @return
      * @throws PetascopeException 
      */
@@ -143,9 +137,16 @@ public class NetCDFParametersService {
             
             if (axesMetadata != null) {
                 // Axes's metadata exists in coverage's metadata
-                for (Map.Entry<String, Map<String, String>> axisAttribute : axesMetadata.getAxesAttributesMap().entrySet()) {
-                    if (axis.getLabel().equals(axisAttribute.getKey())) {
-                        axesMetadataMap = axisAttribute.getValue();
+                for (Map.Entry<String, AxisMetadata> axisAttribute : axesMetadata.getAxesAttributesMap().entrySet()) {
+                    if (CrsUtil.axisLabelsMatch(axis.getLabel(), axisAttribute.getKey())) {
+                        if (axisAttribute.getValue().getAxesAttributesMap().size() > 0) {
+                            axesMetadataMap = new LinkedHashMap<>();
+                        }
+
+                        for (Map.Entry<String, String> entry : axisAttribute.getValue().getAxesAttributesMap().entrySet()) {
+                            axesMetadataMap.put(entry.getKey(), entry.getValue());
+                        }
+
                         break;
                     }
                 }
@@ -256,7 +257,7 @@ public class NetCDFParametersService {
             } else {
                 IrregularAxis irregularAxis = ((IrregularAxis)axis);
                 
-                BigDecimal origin = irregularAxis.getCoefficientZeroBoundNumberFromOriginalDirectPositions();
+                BigDecimal origin = irregularAxis.getCoefficientZeroValueAsNumber();
                 
                 for (BigDecimal coefficient : irregularAxis.getDirectPositions()) {
                     BigDecimal coord = origin.add(coefficient.multiply(resolution));
@@ -329,35 +330,36 @@ public class NetCDFParametersService {
      * Check if coverage contains valid metadata for time axis to adjust, based on cf-convention.
      */
     private Pair<String, String> getTimeUnitsCalendarFromAxisMetadata(String inputAxisLabel, CoverageMetadata coverageMetadata) {
-        for (Map.Entry<String, Map<String, String>> entry : coverageMetadata.getAxesMetadata().getAxesAttributesMap().entrySet()) {
+        for (Map.Entry<String, AxisMetadata> entry : coverageMetadata.getAxesMetadata().getAxesAttributesMap().entrySet()) {
             // axis -> map of (key, value)
             String axisLabel = entry.getKey();
             
-            if (axisLabel.equals(inputAxisLabel)) {
+            if (CrsUtil.axisLabelsMatch(axisLabel, inputAxisLabel)) {
                 String units = null;
                 String calendar = null;
                     
                 // iterate metadata of an axis
-                for (Map.Entry<String, String> metadataEntry : entry.getValue().entrySet()) {
+                for (Map.Entry<String, String> metadataEntry : entry.getValue().getAxesAttributesMap().entrySet()) {
                     String key = metadataEntry.getKey();
-                    String value = metadataEntry.getValue();
-                    
+                    String value = metadataEntry.getValue().toString();
+
                     if (key.equals("units")) {
                         units = value;
                     } else if (key.equals("calendar")) {
                         calendar = value;
                     }
-                    
+
                     if (units != null && calendar != null) {
                         // doc: https://cfconventions.org/Data/cf-conventions/cf-conventions-1.9/cf-conventions.html#calendar
                         // NOTE: only supports 2 calendars
                         if (calendar.equals("standard") || calendar.equals("proleptic_gregorian")) {
                             return new Pair<>(units, calendar);
                         }
-                        
+
                         log.warn("NetCDF calendar not supported: " + calendar);
                         return null;
                     }
+
                 }
                 
                 return null;

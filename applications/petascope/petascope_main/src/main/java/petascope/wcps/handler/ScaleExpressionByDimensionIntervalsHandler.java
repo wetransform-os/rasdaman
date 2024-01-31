@@ -26,7 +26,6 @@ import java.math.BigDecimal;
 import java.util.*;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.rasdaman.domain.wms.Dimension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -34,12 +33,9 @@ import org.springframework.stereotype.Service;
 import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.WCPSException;
-import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.JSONUtil;
 
-import static petascope.util.CrsUtil.GRID_CRS;
 import static petascope.wcps.handler.AbstractOperatorHandler.checkOperandIsCoverage;
 
 import petascope.util.StringUtil;
@@ -51,7 +47,6 @@ import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsMetadataResult;
 import petascope.wcps.result.WcpsResult;
 import petascope.wcps.subset_axis.model.*;
-import petascope.wcps.xml.handler.DimensionInterval;
 
 import javax.servlet.http.HttpServletRequest;
 

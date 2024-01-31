@@ -195,13 +195,16 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
             if user_axis.type == UserAxisType.DATE:
                 if crs_axis.is_time_day_axis():
                     coefficients = self._translate_day_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                            user_axis.directPositions)
+                                                                                            user_axis.directPositions,
+                                                                                            user_axis.areas_of_validity)
                 else:
                     coefficients = self._translate_seconds_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                                user_axis.directPositions)
+                                                                                                user_axis.directPositions,
+                                                                                                user_axis.areas_of_validity)
             else:
                 coefficients = self._translate_number_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                      user_axis.directPositions)
+                                                                                      user_axis.directPositions,
+                                                                                      user_axis.areas_of_validity)
 
             self._update_for_slice_group_size(self.coverage_id, user_axis, crs_axis, coefficients)
 
@@ -352,15 +355,16 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
             if variable_axis_label is not None:
 
                 if variable_axis_label in netcdf_dataset.variables:
-                    axes_metadata[crs_axis_label] = {}
 
                     attrs_list = netcdf_dataset.variables[variable_axis_label].ncattrs()
-                    for attr in attrs_list:
-                        try:
-                            # crs axis (e.g: Long) -> variable axis (e.g: lon)
-                            axes_metadata[crs_axis_label][attr] = str(getattr(netcdf_dataset.variables[variable_axis_label], attr))
-                        except:
-                            log.warn(
-                                "Attribute '" + attr + "' of axis '" + variable_axis_label + "' cannot be parsed as string, ignored.")
+                    if len(attrs_list) > 0:
+                        axes_metadata[crs_axis_label] = {}
+                        for attr in attrs_list:
+                            try:
+                                # crs axis (e.g: Long) -> variable axis (e.g: lon)
+                                axes_metadata[crs_axis_label][attr] = str(getattr(netcdf_dataset.variables[variable_axis_label], attr))
+                            except:
+                                log.warn(
+                                    "Attribute '" + attr + "' of axis '" + variable_axis_label + "' cannot be parsed as string, ignored.")
 
         return axes_metadata

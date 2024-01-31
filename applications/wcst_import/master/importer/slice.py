@@ -27,7 +27,7 @@ from master.provider.data.data_provider import DataProvider
 
 
 class Slice:
-    def __init__(self, axis_subsets, data_provider, local_metadata=None):
+    def __init__(self, axis_subsets, data_provider, local_metadata=None, axes_metadata_str=None):
         """
         Class to represent one slice of the coverage
         :param list[AxisSubset] axis_subsets: the position of this slice in the coverage represented through a list

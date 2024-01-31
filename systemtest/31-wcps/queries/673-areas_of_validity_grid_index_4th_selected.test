@@ -1,0 +1,2 @@
+for c in (test_wcps_areas_of_validity_with_gaps)
+return avg(c[ansi("2009-08-05":"2011-08-06")])

@@ -33,11 +33,14 @@ else:
 from lib.arrow import api as arrow
 from lib.arrow.parser import ParserError
 from master.error.runtime_exception import RuntimeException
-from util.string_util import stringify
+from util.string_util import stringify, enquote_start_and_end_regex
+import re
 
 
 import signal
 from functools import wraps
+import dateutil.parser
+from dateutil.relativedelta import relativedelta
 
 
 # Decorator to be used for functions which need timeout after some seconds
@@ -148,6 +151,19 @@ class DateTimeUtil:
 
     """" AnsiDate To UnixTime """
     DAY_IN_SECONDS = 24 * 3600
+
+    """ Parse ISO datetime string """
+    WITH_TIME_ZONE_OPTION = "([+-][0-2]\d:[0-5]\d|Z)?"
+
+    YEAR_REGEX = "\d{4}" + WITH_TIME_ZONE_OPTION
+    MONTH_REGEX = YEAR_REGEX + "-" + "[01]\d" + WITH_TIME_ZONE_OPTION
+    DAY_REGEX = MONTH_REGEX + "-" + "[0-3]\d" + WITH_TIME_ZONE_OPTION
+    HOUR_REGEX = DAY_REGEX + "T" + "[0-2]\d" + WITH_TIME_ZONE_OPTION
+    MINUTE_REGEX = HOUR_REGEX + ":" + "[0-5]\d" + WITH_TIME_ZONE_OPTION
+    SECOND_REGEX = MINUTE_REGEX + ":" + "[0-5]\d" + WITH_TIME_ZONE_OPTION
+    MILLISECOND_REGEX = SECOND_REGEX + "\.\d+" + WITH_TIME_ZONE_OPTION
+
+
 
     def __init__(self, datetime, dt_format=None, time_crs=None):
         """
@@ -327,6 +343,55 @@ class DateTimeUtil:
             result = result / (60 * 60 * 24 * 7)
         else:
             raise RuntimeException("UoM for time CRS is not supported. Given '" + target_uom + "'.")
+
+        return result
+
+    @staticmethod
+    def get_iso_datetime_string_based_on_input_datetime_granularity(datetime_value, is_interval_end):
+        """
+        e.g. 2015, then granularity is 1 year -> convert it to the last moment of this datetime in iso format
+        "2015-12-31T23:59:59.999Z"
+        :param datetime_value: valid iso datetime components, at least years must be specified
+        """
+        result = None
+        time_component = None
+
+        if re.match(enquote_start_and_end_regex(DateTimeUtil.YEAR_REGEX), datetime_value) is not None:
+            # input is year component
+            time_component = "years"
+        elif re.match(enquote_start_and_end_regex(DateTimeUtil.MONTH_REGEX), datetime_value) is not None:
+            # input is year-month components
+            time_component = "months"
+        elif re.match(enquote_start_and_end_regex(DateTimeUtil.DAY_REGEX), datetime_value) is not None:
+            # input is year-month-day components
+            time_component = "days"
+        elif re.match(enquote_start_and_end_regex(DateTimeUtil.HOUR_REGEX), datetime_value) is not None:
+            # input is year-month-dayThour components
+            time_component = "hours"
+        elif re.match(enquote_start_and_end_regex(DateTimeUtil.MINUTE_REGEX), datetime_value) is not None:
+            # input is year-month-dayThour:minute components
+            time_component = "minutes"
+        elif re.match(enquote_start_and_end_regex(DateTimeUtil.SECOND_REGEX), datetime_value) is not None:
+            # input is year-month-dayThour:minute:second components
+            time_component = "seconds"
+        elif re.match(enquote_start_and_end_regex(DateTimeUtil.MILLISECOND_REGEX), datetime_value) is not None:
+            # input is year-month-dayThour:minute:second.millisecond components
+            time_component = None
+        else:
+            raise RuntimeException("Datetime value is not ISO format. Given: " + datetime_value)
+
+        if time_component is not None:
+            iso_datetime = dateutil.parser.isoparse(datetime_value)
+            if is_interval_end:
+                kwargs = {}
+                kwargs[time_component] = 1
+                kwargs["microseconds"] = -1000
+
+                # e.g. 2015 with granularity = 1 year will be resolved as 2015-12-31T23:59:59.999Z (last moment of the year)
+                result = (iso_datetime + relativedelta(**kwargs)).isoformat()
+            else:
+                # e.g. 2015 as interval start -> 2015-01-01T00:00:00.000Z
+                result = iso_datetime.isoformat()
 
         return result
 

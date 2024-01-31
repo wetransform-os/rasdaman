@@ -336,12 +336,14 @@ class Recipe(GeneralCoverageRecipe):
             conv.files = [file_pair]
             crs_axes = CRSUtil(conv.crs).get_axes(self.coverage_id)
 
+            user_axes = self._read_axes(conv.crs)
+
             # Different file contains different datetime from its name
             evaluator_slice = EvaluatorSliceFactory.get_evaluator_slice(
                                 GdalToCoverageConverter.RECIPE_TYPE, file)
 
             conv.data_type = band_data_type
-            slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice)
+            slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice, None, user_axes)
             slices_dict = self.__filter_invalid_geo_bounds(slices_dict)
 
             if conv.coverage_slices == {}:

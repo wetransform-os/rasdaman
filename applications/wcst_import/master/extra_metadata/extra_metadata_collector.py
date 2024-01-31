@@ -104,7 +104,9 @@ class ExtraGlobalMetadataCollector:
                     for key, value in axis_attributes.items():
                         # if value is empty (e.g: metadata "time_of_coverage": "") then should not evaluate this value
                         # output of extra metadata should be string in any cases
-                        if str(value) != "":
+                        if isinstance(value, list):
+                            axes_metadata[axis][key] = value
+                        elif str(value) != "":
                             axes_metadata[axis][key] = str(self.evaluator.evaluate(value, self.metadata_entry.evalutor_slice))
                         else:
                             axes_metadata[axis][key] = str(value)
@@ -118,7 +120,7 @@ class ExtraGlobalMetadataCollector:
 
 
 class ExtraLocalMetadataCollector:
-    def __init__(self, evaluator, extra_metadata_info, metadata_entry):
+    def __init__(self, evaluator, extra_metadata_info, metadata_entry, axes_metadata):
         """
         The local metadata collector provides functionality for extracting metadata according to a user defined metadata description
         from a dataset of slices
@@ -130,6 +132,7 @@ class ExtraLocalMetadataCollector:
         self.evaluator = evaluator
         self.extra_metadata_info = extra_metadata_info
         self.metadata_entry = metadata_entry
+        self.axes_metadata = axes_metadata
 
     def collect(self):
         """
@@ -150,7 +153,11 @@ class ExtraLocalMetadataCollector:
 
         local_metadata = escape_metadata_nested_dicts(local_metadata)
 
-        return LocalExtraMetadata(local_metadata, self.metadata_entry.slice_subsets)
+        if self.axes_metadata is not None:
+            if "axes" in self.axes_metadata:
+                local_metadata["axes"] = self.axes_metadata["axes"]
+
+        return LocalExtraMetadata(local_metadata, self.metadata_entry.slice_subsets, self.axes_metadata)
 
     def collect_local_metadata_file(self, local_metadata, sentence):
         """

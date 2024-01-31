@@ -107,8 +107,11 @@ class JsonExtraMetadataSerializer(ExtraMetadataSerializer):
 
             # First collect all local metadata attributes as key -> value
             for key, value in tmp_dict.items():
-                result = '"{}": "{}"'.format(key, value)
-                json_return.append(result)
+                if key == "axes":
+                    json_return.append('"axes": ' + json.dumps(tmp_dict["axes"]) + "")
+                else:
+                    result = '"{}": "{}"'.format(key, value)
+                    json_return.append(result)
 
             axis_labels, no_of_dimensions, lower_corner, upper_corner = self._create_elements_for_bounded_by(slice_subsets)
             # as lower_corner or upper_corner can contain "datetime"
@@ -170,12 +173,35 @@ class XMLExtraMetadataSerializer(ExtraMetadataSerializer):
                 value = result_dict[key]
                 # each band of bands is a dictionary of keys, values for band's metadata
                 result = "<" + key + ">"
-                for band_key, band_attributes in value.items():
-                    band_el = self.__xml_key(band_key)
-                    result += "<" + band_el + ">"
-                    for band_attribute_key, band_attribute_value in band_attributes.items():
-                        result += "<{0}>{1}</{0}>".format(self.__xml_key(band_attribute_key), band_attribute_value)
-                    result += "</" + band_el + ">"
+                for nested_key, nested_attributes in value.items():
+                    nested_el = self.__xml_key(nested_key)
+                    result += "<" + nested_el + ">"
+                    if isinstance(nested_attributes, list):
+                        for obj in nested_attributes:
+                            for key_tmp, value_tmp in obj.items():
+                                result += "<{0}>{1}</{0}>".format(self.__xml_key(key_tmp), value_tmp)
+                    elif isinstance(nested_attributes, dict):
+                        for nested_key_tmp, nested_value_tmp in nested_attributes.items():
+                            result += "<" + nested_key_tmp + ">"
+
+                            if isinstance(nested_value_tmp, list):
+                                for dict_obj_tmp in nested_value_tmp:
+                                    result += "<area "
+                                    for dict_obj_tmp_key, dict_obj_tmp_value in dict_obj_tmp.items():
+                                        """
+                                        <areasOfValidity>
+                                            <area start="..." end="..."/>
+                                        </areasOfValidity>
+                                        """
+                                        result += '{0}="{1}" '.format(dict_obj_tmp_key, dict_obj_tmp_value)
+                                    result += "/>"
+                            else:
+                                result += nested_value_tmp
+
+                            result += "</" + nested_key_tmp + ">"
+                    else:
+                        result += "<{0}>{1}</{0}>".format(self.__xml_key(nested_key), nested_attributes)
+                    result += "</" + nested_el + ">"
                 result += "</" + key + ">"
                 xml_return.append(result)
         else:

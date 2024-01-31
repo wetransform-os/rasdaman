@@ -321,14 +321,17 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             if user_axis.type == UserAxisType.DATE:
                 if crs_axis.is_time_day_axis():
                     coefficients = self._translate_day_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                            user_axis.directPositions)
+                                                                                            user_axis.directPositions,
+                                                                                            user_axis.areas_of_validity)
                 else:
                     coefficients = self._translate_seconds_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                                user_axis.directPositions)
+                                                                                                user_axis.directPositions,
+                                                                                                user_axis.areas_of_validity)
             else:
                 # number axis like Index1D
                 coefficients = self._translate_number_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                      user_axis.directPositions)
+                                                                                      user_axis.directPositions,
+                                                                                      user_axis.areas_of_validity)
 
             self._update_for_slice_group_size(self.coverage_id, user_axis, crs_axis, coefficients)
 
@@ -398,7 +401,7 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             if user_axis.name == crs_axis_name:
                 return user_axis
 
-    def _create_coverage_slice(self, grib_file, crs_axes, evaluator_slice=None, axis_resolutions=None):
+    def _create_coverage_slice(self, grib_file, crs_axes, evaluator_slice=None, axis_resolutions=None, user_axes=None):
         """
         Returns a slice for a grib file
         :param File grib_file: the path to the grib file

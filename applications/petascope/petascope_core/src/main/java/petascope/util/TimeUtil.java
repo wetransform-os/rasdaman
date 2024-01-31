@@ -121,6 +121,7 @@ public class TimeUtil {
     // e.g. "2013-01-01/P1M" here even last time component is 1 day, but granularity is actually 1 month
     public static String TIME_AND_GRANULARITY_DELIMITER = "/";
 
+
     // Logger
     private static Logger log = LoggerFactory.getLogger(TimeUtil.class);
 
@@ -364,7 +365,7 @@ public class TimeUtil {
      * Converts the time coefficients to ISO datetime stamp
      * yyyy-MM-dd'T'HH:mm:ssZ (e.g: 2008-01-01T00:00:00Z)
      *
-     * @param firstPoint the value of first coefficient from origin (e.g: 2008-01-01 is 148654 from AnsiDate origin: 1601-01-01)
+     * @param originOfDateTimeCRS the value of first coefficient from origin (e.g: 2008-01-01 is 148654 from AnsiDate origin: 1601-01-01)
      * @param coeffs time coefficients from time axis (NOTE: added with the
      * SubsetLow of start date)
      * @param crsDefinition contains information of Time CRS     
@@ -372,7 +373,8 @@ public class TimeUtil {
      * stamp
      * @throws petascope.exceptions.PetascopeException
      */
-    public static List<String> listValuesToISODateTime(BigDecimal firstPoint, List<BigDecimal> coeffs, CrsDefinition crsDefinition) throws PetascopeException {
+    public static List<String> listValuesToISODateTime(BigDecimal originOfDateTimeCRS,
+                                                       BigDecimal firstCoefficient, List<BigDecimal> coeffs, CrsDefinition crsDefinition) throws PetascopeException {
         List<String> isoDateTimes = new ArrayList<>();
 
         // Get the UOM in milliseconds (e.g: ansidate uom: d is 86 400 000 millis, unixtime uom: seconds is 1000 millis)
@@ -382,11 +384,10 @@ public class TimeUtil {
         // NOTE: When doing a trim subset on an irregular axis (time) then the coefficients of the result are not corresponding to the new subsetted time interval.
         // (i.e: first coefficient should be 0 when not doing subset, but it is a value > 0), therefore need to substract for first coefficient to normalize the list of 
         // subsetted coefficients or it will return wrong values for time axis.
-        BigDecimal firstCoefficient = coeffs.get(0);
         for (BigDecimal coeff : coeffs) {
             BigDecimal tempCoeff = coeff.subtract(firstCoefficient);
             // formula: (firstPoint + Time Coefficients) * UOM in milliSeconds
-            long duration = ((firstPoint.add(tempCoeff)).multiply(new BigDecimal(milliSeconds))).setScale(0, RoundingMode.HALF_UP).longValue();
+            long duration = ((originOfDateTimeCRS.add(tempCoeff)).multiply(new BigDecimal(milliSeconds))).setScale(0, RoundingMode.HALF_UP).longValue();
             DateTime dt = dateTime.plus(duration);
 
             // Then convert the added date to ISO 8601 datetime (Z means UTC)
@@ -888,6 +889,7 @@ public class TimeUtil {
 
         return String.valueOf(value);
     }
+
 
     /**
      * Get the number of milliseconds fitting in the provided UoM (UCUM

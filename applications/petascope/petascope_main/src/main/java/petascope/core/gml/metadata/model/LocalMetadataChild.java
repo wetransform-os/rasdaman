@@ -40,6 +40,9 @@ public class LocalMetadataChild {
     
     public static final String LOCAL_METADATA_TAG = "slice";
 
+    // Used to store the metadata per WCS-T UpdateCoverage request
+    public static final String LOCAL_METADATA_CHILD_AXES = "axes";
+
     private Map<String, Object> localMetadataAttributesMap;
     
     private BoundedBy boundedBy;
@@ -60,10 +63,16 @@ public class LocalMetadataChild {
     public Map<String, Object> getLocalMetadataAttributesMap() {
         return localMetadataAttributesMap;
     }
+
+    public void setLocalMetadataAttributesMap(Map<String, Object> localMetadataAttributesMap) {
+        this.localMetadataAttributesMap = localMetadataAttributesMap;
+    }
+
     
     public BoundedBy getBoundedBy() {
         return this.boundedBy;
     }
+
 
     public void setBoundedBy(BoundedBy boundedBy) {
         this.boundedBy = boundedBy;

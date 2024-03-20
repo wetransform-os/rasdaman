@@ -24,29 +24,47 @@
 from config_manager import ConfigManager
 from master.error.runtime_exception import RuntimeException
 from util.crs_util import CRSUtil
-from util.file_util import FileUtil
 from util.gdal_field import GDALField
 from decimal import Decimal
 import json
-from util.log import log
+from util.log import log, prepend_time
 from util.import_util import decode_res
+from util.time_util import timeout, execute_with_retry_on_timeout
+from util.s2metadata_util import S2MetadataUtil
+from util.type_util import NoPublicConstructor
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 _spatial_ref_cache = {}
 _gdal_dataset_cache = {}
 
+# in seconds
+TIME_OUT_IF_FILE_CANNOT_BE_OPENED = 60
 
-class GDALGmlUtil:
+MAX_RETRIES_TO_OPEN_FILE = 3
+
+
+class GDALGmlUtil(metaclass=NoPublicConstructor):
+
+    @classmethod
+    def get(cls, filepath, recipe=None):
+        """Use this method instead of the __init__ constructor directly."""
+        enabled_in_recipe = recipe is not None and S2MetadataUtil.enabled_in_ingredients(recipe)
+        if enabled_in_recipe or S2MetadataUtil.is_s2_data(filepath):
+            dataset = S2MetadataUtil.get(filepath)
+            if dataset is not None:
+                return dataset
+        return cls._create(filepath)
+
+    @classmethod
+    def init(cls, filepath):
+        return cls._create(filepath)
+
     def __init__(self, gdal_file_path):
         """
-        Utility class to extract information from a gdal file. Best to isolate
-        all gdal fuctionality to one class as gdallib is known to be problematic
-        in imports.
+        Utility class to extract information from a gdal file.
+        Do not use this constructor directly, use the get(filepath) method instead.
         :param str gdal_file_path: the file path to the gdal supported file
         """
-        # GDAL wants filename in utf8 or filename with spaces could not open
-        filepath = str(gdal_file_path).encode('utf8')
-        gdal_file_path = filepath
-
         self.gdal_file_path = gdal_file_path
         self.gdal_dataset = None  # properly set below
 
@@ -57,9 +75,9 @@ class GDALGmlUtil:
             # (-1: unlimited or N > 0: maximum number of files in cache)
             global _gdal_dataset_cache
 
-            if filepath not in _gdal_dataset_cache:
-                self.gdal_dataset = self._gdal_open(filepath)
-                _gdal_dataset_cache[filepath] = self.gdal_dataset
+            if gdal_file_path not in _gdal_dataset_cache:
+                self.gdal_dataset = self.gdal_open(gdal_file_path)
+                _gdal_dataset_cache[gdal_file_path] = self.gdal_dataset
             else:
                 self.gdal_dataset = _gdal_dataset_cache[gdal_file_path]
 
@@ -69,7 +87,7 @@ class GDALGmlUtil:
 
         else:
             # cache of gdal datasets is not enabled (--gdal-cache-size is set to 0)
-            self.gdal_dataset = self._gdal_open(filepath)
+            self.gdal_dataset = self.gdal_open(gdal_file_path)
 
     def __clear_gdal_dataset_cache(self):
         """
@@ -86,15 +104,25 @@ class GDALGmlUtil:
         else:
             return False
 
-    def _gdal_open(self, filepath):
+    def gdal_open(self, file_path):
+        dataset = execute_with_retry_on_timeout(MAX_RETRIES_TO_OPEN_FILE,
+                                                "Failed to open GDAL file '{}'",
+                                                self.__gdal_open_dataset, file_path)
+        return dataset
+
+    @timeout(TIME_OUT_IF_FILE_CANNOT_BE_OPENED)
+    def __gdal_open_dataset(self, *args):
         """
         :param str filepath: path to a valid file which gdal can decode
         :return: gdal_dataset for further analyzing
         """
-        import osgeo.gdal as gdal
+        filepath = args[0][0]
+        from util.import_util import import_gdal
+        gdal = import_gdal()
         gdal_dataset = None
         try:
-            gdal_dataset = gdal.Open(filepath)
+            # GDAL wants filename in utf8 or filename with spaces could not open
+            gdal_dataset = gdal.Open(str(filepath).encode('utf8'))
         except RuntimeError as e:
             msg = str(e)
             if "Too many open files" in msg:
@@ -114,7 +142,7 @@ class GDALGmlUtil:
             raise RuntimeException("The file at path '" + filepath +
                                    "' is not a valid GDAL decodable file.")
         return gdal_dataset
-    
+
     def close(self):
         """
         Close the dataset if it was open.
@@ -281,12 +309,14 @@ class GDALGmlUtil:
         Returns the range type fields from a dataset
         :rtype: list[GDALField]
         """
-        import osgeo.gdal as gdal
+        from util.import_util import import_gdal
+        gdal = import_gdal()
 
         fields = []
 
         number_of_bands = self.gdal_dataset.RasterCount
 
+        has_nested_null_elements_list = False
         for i in range(1, number_of_bands + 1):
             band = self.gdal_dataset.GetRasterBand(i)
 
@@ -298,16 +328,31 @@ class GDALGmlUtil:
 
             if ConfigManager.default_null_values is not None:
                 nil_values = ConfigManager.default_null_values
+
+                if nil_values is not None and len(nil_values) > 0 and isinstance(nil_values[0], list):
+                    # e.g. "default_null_values": [ [3, 5, 6], [6], [8] ]
+                    number_of_null_elements = len(nil_values)
+                    if number_of_null_elements != number_of_bands:
+                        raise RuntimeException("Number of null values list elements specfied in \"default_null_values\" setting"
+                                               " do not match with number of GDAL bands. Given: {} and {} respectively.".format(number_of_null_elements, number_of_bands))
+                    has_nested_null_elements_list = True
             else:
                 # If not, then detects it from file's bands
                 nil_value = repr(band.GetNoDataValue()) if band.GetNoDataValue() is not None else ""
-                nil_values = [nil_value]
+                nil_values = []
+                if nil_value != "":
+                    nil_values = [RangeTypeNilValue("", nil_value)]
 
             # Get the unit of measure
             uom = band.GetUnitType() if band.GetUnitType() else ConfigManager.default_unit_of_measure
 
             # Add it to the list of fields
-            fields.append(GDALField(field_name, uom, nil_values))
+            if not has_nested_null_elements_list:
+                 # e.g. "default_null_values": [3, 5, 6] then 3 bands have the same list of null values
+                fields.append(GDALField(field_name, uom, nil_values))
+            else:
+                # e.g.  "default_null_values": [ [3], [5], ["7:8"] ] then band1 has null value 3 and so on
+                fields.append(GDALField(field_name, uom, nil_values[i - 1]))
 
         return fields
 
@@ -320,7 +365,7 @@ class GDALGmlUtil:
 
         band1 = self.gdal_dataset.GetRasterBand(1)
         band1_image_metadata = band1.GetMetadata_List("IMAGE_STRUCTURE")
-        if band1_image_metadata  is not None:
+        if band1_image_metadata is not None:
             if "PIXELTYPE=SIGNEDBYTE" in band1_image_metadata:
                 return "SignedByte"
 
@@ -483,29 +528,27 @@ class GDALGmlUtil:
         from osgeo import gdal
         return gdal.GetDataTypeName(numpy_to_gdal_dict[data_type])
 
-
     @staticmethod
-    def open_gdal_dataset_from_any_file(files):
+    def get_data_type_size(gdal_data_type):
         """
-        This method is used to open 1 dataset to get the common metadata shared from all input files.
-        :param list files: input files
+        e.g. Size of Byte type is 1, size of int16 is 2
         """
-        gdal_dataset = None
+        gdal_types_to_sizes_dict = {
+            "Byte": 1,
+            "UInt16": 2,
+            "Int16": 2,
+            "UInt32": 4,
+            "Int32": 4,
+            "Float32": 4,
+            "Float64": 8,
+            "CInt16": 4,
+            "CInt32": 8,
+            "CFloat32": 8,
+            "CFloat64": 16
+        }
 
-        for file in files:
-            try:
-                gdal_dataset = GDALGmlUtil(file.get_filepath())
-                return gdal_dataset
-            except Exception as ex:
-                # Cannot open file by gdal, try with next file
-                if ConfigManager.skip:
-                    continue
-                else:
-                    raise
-
-        if gdal_dataset is None:
-            # Cannot open any dataset from input files, just exit wcst_import process
-            FileUtil.validate_input_file_paths([])
+        result = gdal_types_to_sizes_dict[gdal_data_type]
+        return result
 
     @staticmethod
     def get_gdal_version():

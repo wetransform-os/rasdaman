@@ -40,8 +40,8 @@ public class WcpsResult extends VisitorResult {
 
     //the rasql string resulting from the evaluation
     private String rasql;
-    // list of rasql queries to be executed to rasdaman
-    private List<String> finalRasqlQueries = new ArrayList<>();
+    // Final rasql query to be executed to rasdaman
+    private String finalRasqlQuery;
     
     private DimensionIntervalList dimensionIntervalList;
     
@@ -81,12 +81,12 @@ public class WcpsResult extends VisitorResult {
         return rasql;
     }
 
-    public List<String> getFinalRasqlQueries() {
-        return finalRasqlQueries;
+    public String getFinalRasqlQuery() {
+        return finalRasqlQuery;
     }
 
-    public void setFinalRasqlQueries(List<String> finalRasqlQueries) {
-        this.finalRasqlQueries = finalRasqlQueries;
+    public void setFinalRasqlQuery(String finalRasqlQuery) {
+        this.finalRasqlQuery = finalRasqlQuery;
     }
 
     public WcpsCoverageMetadata getMetadata() {
@@ -131,4 +131,13 @@ public class WcpsResult extends VisitorResult {
     public void setWithCoordinates(boolean withCoordinates) {
         this.withCoordinates = withCoordinates;
     }
+
+    public static String getResult(VisitorResult inputResult) {
+        if (inputResult instanceof WcpsMetadataResult) {
+            return ((WcpsMetadataResult)inputResult).getResult();
+        } else {
+            return ((WcpsResult)inputResult).getRasql();
+        }
+    }    
+    
 }

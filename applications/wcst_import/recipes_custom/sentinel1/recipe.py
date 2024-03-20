@@ -40,6 +40,7 @@ from util.file_util import FileUtil, File, FilePair
 from util.gdal_util import GDALGmlUtil
 from util.log import log, make_bold
 from master.importer.resumer import Resumer
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 import re
 
@@ -67,7 +68,7 @@ class Recipe(GeneralCoverageRecipe):
     VAR_POLARISATION = '${polarisation}'
 
     # 1 tiff file contains 1 band
-    BAND = UserBand("0", "Grey", "", "", "", [], "")
+    BAND = UserBand("0", "Grey", "", "")
 
     DEFAULT_PRODUCT = "GRD"
     SLC_PRODUCT = "SLC"
@@ -119,7 +120,7 @@ class Recipe(GeneralCoverageRecipe):
         log.info(make_bold("Mocked: ") + str(ConfigManager.mock))
         if ConfigManager.track_files:
             log.info(make_bold("Track files: ") + str(ConfigManager.track_files))
-        if ConfigManager.skip:
+        if self.session.skip_is_enabled():
             log.info(make_bold("Skip: ") + str(ConfigManager.skip))
         if ConfigManager.retry:
             log.info(make_bold("Retries: ") + str(ConfigManager.retries))
@@ -222,11 +223,11 @@ class Recipe(GeneralCoverageRecipe):
         """
         for file in self.session.get_files():
             try:
-                gdal_ds = GDALGmlUtil(file.get_filepath())
+                gdal_ds = GDALGmlUtil.init(file.get_filepath())
                 self.epsg_xy_crs = gdal_ds.get_crs()
                 break
             except Exception as e:
-                if ConfigManager.skip == True:
+                if self.session.skip_file_that_fail_to_open():
                     pass
                 else:
                     raise e
@@ -335,12 +336,14 @@ class Recipe(GeneralCoverageRecipe):
             conv.files = [file_pair]
             crs_axes = CRSUtil(conv.crs).get_axes(self.coverage_id)
 
+            user_axes = self._read_axes(conv.crs)
+
             # Different file contains different datetime from its name
             evaluator_slice = EvaluatorSliceFactory.get_evaluator_slice(
                                 GdalToCoverageConverter.RECIPE_TYPE, file)
 
             conv.data_type = band_data_type
-            slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice)
+            slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice, None, user_axes)
             slices_dict = self.__filter_invalid_geo_bounds(slices_dict)
 
             if conv.coverage_slices == {}:
@@ -394,7 +397,7 @@ class Recipe(GeneralCoverageRecipe):
         default_null_values = []
 
         if self.product == self.DEFAULT_PRODUCT:
-            default_null_values = [self.DEFAULT_NULL_VALUE]
+            default_null_values = [RangeTypeNilValue("", self.DEFAULT_NULL_VALUE)]
 
         return GdalToCoverageConverter(self.resumer,
                                        default_null_values,

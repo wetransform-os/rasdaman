@@ -1,0 +1,4 @@
+service=WCS&version=2.0.1&request=GetCoverage&coverageId=test_rgb
+&rangesubset=*,0,1,*,1,*&
+format=tiff
+&subset=i(110,112),j(110,113)

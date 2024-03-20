@@ -47,10 +47,19 @@ module rasdaman {
                     return;
                 }
 
-                if (errorInformation.data == null) {
+                if (errorInformation.data == null) {                    
+                    let url = null;
+                    if (errorInformation.hasOwnProperty("config") && errorInformation.config.hasOwnProperty("url")) {
+                        url = errorInformation.config.url;
+                    }
                     if (errorInformation.status == 404 || errorInformation.status == -1) {
                         // No error in data and HTTP code 404 or -1 then, Petascope cannot connect.
-                        this.notificationService.error("Cannot connect to petascope, please check if petascope is running.");
+                        let errorMesssage = "Cannot connect to petascope, please check if petascope is running.";
+                        if (url != null) {
+                            errorMesssage += " Given URL: " + url;
+                        }
+
+                        this.notificationService.error(errorMesssage);
                     } else {
                         this.notificationService.error("The request failed with HTTP code:" + errorInformation.status + "(" + errorInformation.statusText + ")");
                     }                

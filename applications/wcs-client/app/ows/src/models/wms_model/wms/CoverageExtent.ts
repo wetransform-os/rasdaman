@@ -33,13 +33,12 @@ module wms {
         // NOTE: in WMS, a layer name is equivalent to a coverageId.
         public coverageId:string;
         public bbox:BBox;
-        public displayFootprint:boolean;
-
-        public constructor(coverageId, xmin, ymin, xmax, ymax) {            
+        public sizeInBytes:number;
+ 
+        public constructor(coverageId, xmin, ymin, xmax, ymax, sizeInBytes) {            
             this.coverageId = coverageId;
             this.bbox = new BBox(xmin, ymin, xmax, ymax);
-            // all layer in WMS is geo-referenced but not load footprint on globe by default
-            this.displayFootprint = false;
+            this.sizeInBytes = sizeInBytes;
         }        
     }
 }

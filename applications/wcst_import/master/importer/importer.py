@@ -42,7 +42,8 @@ from master.provider.metadata.grid_axis import GridAxis
 from master.provider.metadata.irregular_axis import IrregularAxis
 from master.provider.metadata.metadata_provider import MetadataProvider
 from master.request.admin import InspireUpdateMetadataURLRequest
-from util.coverage_util import CoverageUtil, CoverageUtilCache
+from util.coverage_util import CoverageUtil, CoverageUtilCache, generate_tiling, get_spatial_axes_grid_indices, \
+                    get_band_base_type_sizes, get_chunk_sizes_from_file
 from util.file_util import File
 from util.import_util import decode_res
 from util.log import log, prepend_time
@@ -52,6 +53,7 @@ from master.request.wcst import WCSTInsertRequest, WCSTUpdateRequest, WCSTSubset
 from master.request.pyramid import CreatePyramidMemberRequest, AddPyramidMemberRequest, ListPyramidMembersRequest
 from util.crs_util import CRSUtil, CRSAxis
 from util.time_util import DateTimeUtil
+from master.error.validate_exception import RecipeValidationException
 
 
 class Importer:
@@ -60,6 +62,8 @@ class Importer:
     coverage_exists_dict = {}
 
     DEFAULT_INSERT_VALUE = "0"
+
+    processed_files_count = 0
 
     def __init__(self, resumer, coverage, insert_into_wms=False, scale_levels=None, grid_coverage=False, session=None, scale_factors=None):
         """
@@ -207,11 +211,20 @@ class Importer:
             # no data collected to be imported
             return slices
 
+        number_of_coverage_slices = len(coverages[0].slices)
+        index = 0
+        if len(coverages) > 1:
+            # NOTE: here if a file contains overviews and in the ingredients file it has "import_overviews_only": true
+            # then, the base file will not be imported, only the overviews embedded in the input file will be imported
+            number_of_coverage_slices = len(coverages[1].slices)
+            index = 1
+
         # If number of files < 5 print all files, or only print first 5 files
         max = ConfigManager.description_max_no_slices \
-            if ConfigManager.description_max_no_slices < len(coverages[0].slices) else len(coverages[0].slices)
+            if ConfigManager.description_max_no_slices < number_of_coverage_slices else number_of_coverage_slices
         for i in range(0, max):
-            slices.append(coverages[0].slices[i])
+            slices.append(coverages[index].slices[i])
+
         return slices
 
     def __get_grid_domains(self, slice):
@@ -235,25 +248,16 @@ class Importer:
         """
         Insert the slices of the coverage
         """
-        is_loggable = True
         is_ingest_file = True
         file_name = ""
 
-        log_file = None
-
-        try:
-            log_file = open(ConfigManager.resumer_dir_path + "/" + ConfigManager.ingredient_file_name + ".log", "a+")
-            log_file.write("\n-------------------------------------------------------------------------------------")
-            log_file.write(prepend_time("Ingesting coverage '{}'...".format(self.coverage.coverage_id)))
-        except Exception as e:
-            is_loggable = False
-            log.warn("\nCannot create log file for this ingestion process, only log to console.")
+        log.info("\n-------------------------------------------------------------------------------------")
+        log.info(prepend_time("Ingesting coverage '{}'...".format(self.coverage.coverage_id)))
 
         add_pyramid_members = False
 
         for i in range(self.processed, self.total):
             try:
-                index = "{}/{}".format(str(i + 1), str(self.total))
                 # Log the time to send the slice (file) to server to ingest
                 # NOTE: in case of using wcs_extract recipe, it will fetch file from server, so don't know the file size
                 if hasattr(self.coverage.slices[i].data_provider, "file"):
@@ -262,13 +266,26 @@ class Importer:
                     file_size_in_mb = 0
                     try:
                         file_size_in_mb = round((float)(os.path.getsize(file_path)) / (1000*1000), 2)
-                    except:
+                    except Exception as ex:
                         file_name = file_path
                         pass
                     start_time = time.time()
                     self._insert_slice(self.coverage.slices[i])
                     grid_domains = self.__get_grid_domains(self.coverage.slices[i])
-                    self._log_file_ingestion(index, file_name, start_time, grid_domains, file_size_in_mb, is_loggable, log_file)
+
+                    import_with_blocking = True
+                    if self.session is not None and self.session.blocking is False:
+                        import_with_blocking = False
+
+                    if import_with_blocking is True:
+                        # Default mode, analyze all files then import
+                        index = "{}/{}".format(str(i + 1), str(self.total))
+                    else:
+                        # Analyze one file then import this file
+                        Importer.processed_files_count += 1
+                        index = "{}/{}".format(str(Importer.processed_files_count), str(self.session.total_files_to_import))
+
+                    self._log_ingestion(index, file_name, start_time, grid_domains, file_size_in_mb)
 
                     if add_pyramid_members is False \
                             and (self.session is not None and self.session.import_overviews_only is False):
@@ -287,32 +304,29 @@ class Importer:
                 if hasattr(self.coverage.slices[i].data_provider, "file"):
                     imported_file = self.coverage.slices[i].data_provider.file
                     if self.session is not None:
-                        if self.session.blocking == True:
+                        if self.session.blocking is True:
                             self.session.imported_files.append(imported_file)
                         else:
                             # import file by file with blocking: false
                             self.session.imported_files = [imported_file]
             except Exception as e:
-                if ConfigManager.skip:
-                    log.warn("Skipped slice " + str(self.coverage.slices[i]))
-                    if is_loggable and is_ingest_file:
-                        log_file.write("\nSkipped file: " + file_name + ".")
-                        log_file.write("\nReason: " + str(e))
+                if self.session.skip_file_in_any_cases():
+                    log.warn("Skipped slice: " + str(self.coverage.slices[i]) + ". Error message: " + str(e))
+                    if is_ingest_file:
+                        log.warn("\nSkipped file: " + file_name + ".")
+                        log.warn("\nReason: " + str(e))
                 else:
-                    if is_loggable and is_ingest_file:
-                        log_file.write("\nError file: " + file_name + ".")
-                        log_file.write("\nReason: " + str(e))
-                        log_file.write("\nResult: failed.")
-                        log_file.close()
+                    if is_ingest_file:
+                        log.error("\nError file: " + file_name + ".")
+                        log.error("\nReason: " + str(e))
+                        log.error("\nResult: failed.")
 
                     raise e
             self.processed += 1
 
-        if is_loggable:
-            log_file.write("\nResult: success.")
-            log_file.close()
+        log.info("\nResult: success.")
     
-    def _log_file_ingestion(self, index, file_name, start_time, grid_domains, file_size_in_mb, is_loggable, log_file):
+    def _log_ingestion(self, index, file_name, start_time, grid_domains, file_size_in_mb):
         end_time = time.time()
         time_to_ingest = round(end_time - start_time, 2)
         if time_to_ingest < 0.0000001:
@@ -335,9 +349,7 @@ class Importer:
         log_text = prepend_time(log_text)
         # write to console
         log.info(log_text)
-        if is_loggable:
-            # write to log file
-            log_file.write(log_text)
+
         
     def _initialize_coverage(self):
         """
@@ -345,6 +357,16 @@ class Importer:
         """
         executor = ConfigManager.executor
         gml_obj = self._generate_initial_gml_slice()
+
+        number_of_axes = len(self.coverage.slices[0].axis_subsets)
+        grid_domains = str(["0:*" for x in range(0, number_of_axes)]).replace("'", '')
+        self.__create_tiling_if_needed(self.coverage)
+
+        if self.coverage.tiling is None:
+            tiling_default = '"options": { "tiling": "ALIGNED ' + grid_domains + ' tile size 4194304" }"'
+            raise RecipeValidationException("\"tiling\" setting must be specified in the ingredients file. "
+                                            "Hint: if not sure what tiling to specify in the ingredients file,"
+                                            " the following is a reasonable default: \n {}".format(tiling_default))
 
         if ConfigManager.mock:
             request = WCSTInsertRequest(gml_obj.get_url(), False, self.coverage.pixel_data_type,
@@ -373,7 +395,7 @@ class Importer:
                     # if downscaled level coverage id exists, then add the timestamp as suffix to avoid conflict
                     downscaled_level_coverage_id = add_date_time_suffix(downscaled_level_coverage_id)
 
-                scale_factors = self._get_scale_factors(level)
+                scale_factors = self.get_scale_factors(self.coverage.crs, level)
                 request = CreatePyramidMemberRequest(self.coverage.coverage_id, downscaled_level_coverage_id, scale_factors)
                 executor.execute(request, mock=ConfigManager.mock, input_base_url=request.context_path)
 
@@ -416,6 +438,24 @@ class Importer:
                         request = AddPyramidMemberRequest(base_coverage_id, self.coverage.coverage_id, self.session.pyramid_harvesting)
                         executor.execute(request, mock=ConfigManager.mock, input_base_url=request.context_path)
 
+    def __create_tiling_if_needed(self, coverage):
+        """
+        Create a good tiling (if not specified in the ingredients file) for the newly imported coverage in petascope
+        :param coverage:
+        :return:
+        """
+        if coverage.tiling is None:
+            axis_subsets = self.coverage.slices[0].axis_subsets
+
+            number_of_axes = 0
+
+            spatial_axes_grid_indices = get_spatial_axes_grid_indices(axis_subsets)
+            band_base_type_sizes = get_band_base_type_sizes(coverage.range_fields)
+            chunk_sizes_from_file = get_chunk_sizes_from_file(coverage.range_fields)
+
+            coverage.tiling = generate_tiling(number_of_axes, spatial_axes_grid_indices,
+                                              band_base_type_sizes, chunk_sizes_from_file)
+
     @staticmethod
     def list_pyramid_member_coverages(coverage_id, mock=False):
         """
@@ -456,7 +496,8 @@ class Importer:
             request = AddPyramidMemberRequest(base_coverage_id, pyramid_member_coverage_id, pyramid_haversting)
             executor.execute(request, mock=ConfigManager.mock, input_base_url=request.context_path)
 
-    def _get_scale_factors(self, level):
+    @staticmethod
+    def get_scale_factors(coverage_crs, level):
         """
         Return the array of scale factors for each axis, based on the input scale level
         """
@@ -464,7 +505,7 @@ class Importer:
 
         NO_SCALING_SCALE_FACTOR = 1
 
-        crs_util = CRSUtil(self.coverage.crs)
+        crs_util = CRSUtil(coverage_crs)
         for crs_axis in crs_util.axes:
             scale_factor = NO_SCALING_SCALE_FACTOR
             if crs_axis.type == CRSAxis.AXIS_TYPE_X or crs_axis.type == CRSAxis.AXIS_TYPE_Y:
@@ -665,6 +706,10 @@ class Importer:
         """
         if self.current_data_provider is not None:
             self.resumer.add_imported_data(self.current_data_provider)
+
+        # NOTE: this is important to really exist the daemon process when it is terminated via SIGTERM by another daemon
+        # process (use case: wcst_import.sh ingest.json --daemon restart)
+        exit(0)
 
     def __register_signal_handlers(self):
         """

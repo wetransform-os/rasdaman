@@ -63,7 +63,8 @@ public interface CoverageRepository extends CrudRepository<Coverage, String> {
         + "from BaseLocalCoverage a \n"     
         + "JOIN FETCH a.envelope as b \n"
         + "JOIN FETCH b.envelopeByAxis as c \n"            
-        + "JOIN FETCH c.axisExtents as d \n"        
+        + "JOIN FETCH c.axisExtents as d \n"  
+        + "JOIN FETCH a.rasdamanRangeSet as f \n"                
         + "LEFT JOIN FETCH c.wgs84BBox as e \n"
         + "LEFT JOIN FETCH a.pyramid as a2 \n")
     List<BaseLocalCoverage> readAllBasicCoverageMetadatas();
@@ -113,5 +114,7 @@ public interface CoverageRepository extends CrudRepository<Coverage, String> {
     @Modifying
     @Query("update Coverage set inspireMetadataURL = :inspireMetadataURL where id = :coverageAutoId")
     void saveCoverageInspireMetadataURL(@Param("coverageAutoId") long coverageAutoId, @Param("inspireMetadataURL") String inspireMetadataURL);
+    
+    
 }
 

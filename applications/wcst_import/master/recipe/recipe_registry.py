@@ -93,11 +93,11 @@ class RecipeRegistry:
         try:
             log.info("Executing shell command '{}'...".format(command))
             output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)
-            output = decode_res(output)
+            output = decode_res(output).strip()
             if output != "":
                 log.info("Output result '{}'".format(output))
         except subprocess.CalledProcessError as exc:
-            log.warn("Failed, status code '{}', error message '{}'.".format(exc.returncode, str(exc.output).strip()))
+            log.warn("Failed, status code '{}', error message '{}'.".format(exc.returncode, str(decode_res(exc.output)).strip()))
             if abort_on_error:
                 log.error("wcst_import terminated on running hook command.")
                 exit(1)
@@ -138,9 +138,6 @@ class RecipeRegistry:
         for hook in hooks:
             abort_on_error = False if "abort_on_error" not in hook else bool(hook["abort_on_error"])
 
-            if "description" in hook:
-                log.info("Executing hook '{}'...".format(make_bold(hook["description"])))
-
             replace_paths = []
             replace_path_template = None
             if "replace_path" in hook:
@@ -166,10 +163,17 @@ class RecipeRegistry:
                 raise RecipeValidationException("A hook can contain either \"cmd\" or \"python_cmd\" setting.")
 
             files = session.files
-            if after_ingestion is True:
-                files = session.imported_files
-
             for file in files:
+                if after_ingestion is True:
+                    execute_if = hook["execute_if"]
+
+                    if ( execute_if == "import_succeeded" and file not in session.imported_files ) \
+                        or ( execute_if == "import_failed" and file in session.imported_files ):
+                        continue
+
+                if "description" in hook:
+                    log.info("Executing hook '{}'...".format(make_bold(hook["description"])))
+
                 evaluator_slice = EvaluatorSliceFactory.get_evaluator_slice(recipe_type, file)
 
                 if cmd_template != "":
@@ -282,7 +286,7 @@ class RecipeRegistry:
                     session.files = [file]
                     self.__run_recipe(session, recipe)
 
-            log.success("Recipe executed successfully")
+            log.success("Recipe at '{}' executed successfully".format(ConfigManager.ingredients_file_path))
 
 
 def update_progress(processed_items, total):

@@ -27,27 +27,33 @@ rasdaman GmbH.
  * Created on May 8, 2014, 6:05 PM
  */
 
-#include "sqlitewrapper.hh"        // for SQLiteQuery
+#include "sqlitewrapper.hh"  // for SQLiteQuery
 #ifdef BASEDB_SQLITE
 
-#include "sqlglobals.h"            // for QUERY_MAXLEN
-#include "raslib/error.hh"         // for r_Error, DATABASE_CONNECT_FAILED
-#include <logging.hh>              // for Writer, CDEBUG, LDEBUG, CFATAL
+#include "sqlglobals.h"     // for QUERY_MAXLEN
+#include "raslib/error.hh"  // for r_Error, DATABASE_CONNECT_FAILED
+#include <logging.hh>       // for Writer, CDEBUG, LDEBUG, CFATAL
 
-#include <sqlite3.h>               // for sqlite3_busy_timeout, sqlite3_exec
-#include <cstdarg>                 // for va_end, va_list, va_start
-#include <cstdio>                  // for vsnprintf, NULL
-#include <memory>                  // for unique_ptr
-#include <stdexcept>               // for runtime_error
-#include <string>                  // for string
+#include <sqlite3.h>  // for sqlite3_busy_timeout, sqlite3_exec
+#include <cstdarg>    // for va_end, va_list, va_start
+#include <cstdio>     // for vsnprintf, NULL
+#include <memory>     // for unique_ptr
+#include <stdexcept>  // for runtime_error
+#include <string>     // for string
 #include <cassert>
 #include <unistd.h>
+
+struct BusyHandlerAttr
+{
+    int maxRetry;
+    int sleepMs;
+};
 
 // globally defined here, used as an extern in the new engine as well.
 sqlite3 *sqliteConn = NULL;
 
-SQLiteQuery::SQLiteQuery(char q[]) :
-    stmt(nullptr), query(q), columnCounter(0)
+SQLiteQuery::SQLiteQuery(const char *q)
+    : stmt(nullptr), query(q), columnCounter(0)
 {
     LTRACE << "SQL query: " << query;
     if (sqliteConn)
@@ -63,22 +69,34 @@ SQLiteQuery::SQLiteQuery(char q[]) :
     }
 }
 
-SQLiteQuery::SQLiteQuery(const char *format, ...)
-    : stmt(nullptr), query(""), columnCounter(0)
+SQLiteQuery::SQLiteQuery(const std::string &q)
+    : stmt(nullptr), query(q), columnCounter(0)
 {
-    std::unique_ptr<char[]> tmpQuery(new char[QUERY_MAXLEN]);
-    va_list args;
-    va_start(args, format);
-    vsnprintf(tmpQuery.get(), QUERY_MAXLEN, format, args);
-    va_end(args);
-    query = std::string(tmpQuery.get());
     LTRACE << "SQL query: " << query;
 
     if (sqliteConn)
     {
         sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
-        sqlite3_prepare_v2(sqliteConn, tmpQuery.get(), -1, &stmt, nullptr);
-        failOnError(tmpQuery.get());
+        sqlite3_prepare_v2(sqliteConn, query.c_str(), -1, &stmt, nullptr);
+        failOnError(query.c_str());
+    }
+    else
+    {
+        LERROR << "Connection to RASBASE has not been opened, cannot execute query: " << query;
+        throw r_Error(DATABASE_CONNECT_FAILED);
+    }
+}
+
+SQLiteQuery::SQLiteQuery(std::string &&q)
+    : stmt(nullptr), query(std::move(q)), columnCounter(0)
+{
+    LTRACE << "SQL query: " << query;
+
+    if (sqliteConn)
+    {
+        sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
+        sqlite3_prepare_v2(sqliteConn, query.c_str(), -1, &stmt, nullptr);
+        failOnError(query.c_str());
     }
     else
     {
@@ -173,28 +191,19 @@ void SQLiteQuery::execute(const char *q)
     }
     else
     {
-        LERROR << "Connection to RASBASE has not been opened, cannot execute query: "
-               << q;
+        LERROR << "Connection to RASBASE has not been opened, cannot execute query: " << q;
         throw r_Error(DATABASE_CONNECT_FAILED);
     }
 }
 
-void SQLiteQuery::executeWithParams(const char *format, ...)
+void SQLiteQuery::execute(std::string &&q)
 {
-    std::unique_ptr<char[]> qtmp(new char[QUERY_MAXLEN]);
-    va_list args;
-    va_start(args, format);
-    vsnprintf(qtmp.get(), QUERY_MAXLEN, format, args);
-    va_end(args);
-
-    const auto *q = qtmp.get();
     LTRACE << "SQL query: " << q;
-
     if (sqliteConn)
     {
         sqlite3_busy_timeout(sqliteConn, SQLITE_BUSY_TIMEOUT_MS);
-        sqlite3_exec(sqliteConn, q, nullptr, nullptr, nullptr);
-        failOnError(q);
+        sqlite3_exec(sqliteConn, q.c_str(), nullptr, nullptr, nullptr);
+        failOnError(q.c_str());
     }
     else
     {
@@ -205,7 +214,7 @@ void SQLiteQuery::executeWithParams(const char *format, ...)
 
 bool SQLiteQuery::returnsRows(const std::string &format)
 {
-    SQLiteQuery query(format.c_str());
+    SQLiteQuery query(format);
     return static_cast<bool>(query.nextRow());
 }
 
@@ -244,7 +253,7 @@ int SQLiteQuery::nextColumnInt()
     return ret;
 }
 
-long long SQLiteQuery::nextColumnLong()
+long SQLiteQuery::nextColumnLong()
 {
     assert(stmt);
     auto ret = sqlite3_column_int64(stmt, columnCounter++);
@@ -323,8 +332,11 @@ void SQLiteQuery::openConnection(const char *globalConnectId)
     else
     {
         LDEBUG << "Connected successfully to '" << globalConnectId << "'";
-        std::string options = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=" +
-                              std::to_string(SQLITE_BUSY_TIMEOUT_MS);
+        BusyHandlerAttr attr;
+        attr.sleepMs = SQLITE_BUSY_WAIT;
+        attr.maxRetry = SQLITE_BUSY_TIMEOUT_MS / SQLITE_BUSY_WAIT;
+        sqlite3_busy_handler(sqliteConn, busyHandler, &attr);
+        std::string options = "PRAGMA journal_mode=WAL";
         sqlite3_exec(sqliteConn, options.c_str(), NULL, 0, NULL);
         failOnError(options.c_str());
         sqlite3_extended_result_codes(sqliteConn, 1);
@@ -334,7 +346,8 @@ void SQLiteQuery::openConnection(const char *globalConnectId)
 
 void SQLiteQuery::interruptTransaction()
 {
-    if (sqliteConn != nullptr) {
+    if (sqliteConn != nullptr)
+    {
         sqlite3_interrupt(sqliteConn);
     }
 }
@@ -342,6 +355,23 @@ void SQLiteQuery::interruptTransaction()
 bool SQLiteQuery::isConnected()
 {
     return sqliteConn != nullptr;
+}
+
+int SQLiteQuery::busyHandler(void *data, int retry)
+{
+    BusyHandlerAttr *attr = (BusyHandlerAttr *)data;
+
+    if (retry < attr->maxRetry)
+    {
+        // sleep some ms before retrying
+        LDEBUG << "RASBASE is locked for transaction, waiting before retrying for the "
+               << retry << " time.";
+        sqlite3_sleep(attr->sleepMs);
+        // return non-zero to let caller retry again
+        return 1;
+    }
+    // sleeping timed out, return zero to let caller return SQLITE_BUSY
+    return 0;
 }
 
 void SQLiteQuery::failOnError(const char *stmt)
@@ -375,7 +405,7 @@ void SQLiteQuery::warnOnError(const char *stmt)
     {
         auto rc = sqlite3_errcode(sqliteConn);
         if (rc != SQLITE_OK && rc != SQLITE_ROW && rc != SQLITE_DONE &&
-                rc != SQLITE_NOTICE && rc != SQLITE_WARNING)
+            rc != SQLITE_NOTICE && rc != SQLITE_WARNING)
         {
             const auto *msg = sqlite3_errstr(rc);
             LWARNING << "SQL query failed \"" << stmt << "\", "

@@ -1,0 +1,113 @@
+{
+  "type" : "CoverageByDomainAndRangeType",
+  "id" : "test_eobstest",
+  "envelope" : {
+    "type" : "EnvelopeByAxisType",
+    "srsName" : "http://localhost:8080/rasdaman/def/crs/EPSG/0/4326",
+    "axisLabels" : [ "Lat", "Long" ],
+    "axis" : [ {
+      "type" : "AxisExtentType",
+      "axisLabel" : "Lat",
+      "lowerBound" : 30,
+      "upperBound" : 30.5,
+      "uomLabel" : "degree"
+    }, {
+      "type" : "AxisExtentType",
+      "axisLabel" : "Long",
+      "lowerBound" : 40,
+      "upperBound" : 40.5,
+      "uomLabel" : "degree"
+    } ]
+  },
+  "domainSet" : {
+    "type" : "DomainSetType",
+    "generalGrid" : {
+      "type" : "GeneralGridCoverageType",
+      "srsName" : "http://localhost:8080/rasdaman/def/crs/EPSG/0/4326",
+      "axisLabels" : [ "Lat", "Long" ],
+      "axis" : [ {
+        "type" : "RegularAxisType",
+        "axisLabel" : "Lat",
+        "lowerBound" : 30,
+        "upperBound" : 30.5,
+        "uomLabel" : "degree",
+        "resolution" : -0.5
+      }, {
+        "type" : "RegularAxisType",
+        "axisLabel" : "Long",
+        "lowerBound" : 40,
+        "upperBound" : 40.5,
+        "uomLabel" : "degree",
+        "resolution" : 0.5
+      } ],
+      "gridLimits" : {
+        "type" : "GridLimitsType",
+        "srsName" : "http://www.opengis.net/def/crs/OGC/0/Index2D",
+        "axisLabels" : [ "i", "j" ],
+        "axis" : [ {
+          "type" : "IndexAxisType",
+          "axisLabel" : "i",
+          "lowerBound" : 19,
+          "upperBound" : 19
+        }, {
+          "type" : "IndexAxisType",
+          "axisLabel" : "j",
+          "lowerBound" : 0,
+          "upperBound" : 0
+        } ]
+      }
+    }
+  },
+  "rangeType" : {
+    "type" : "DataRecordType",
+    "field" : [ {
+      "type" : "QuantityType",
+      "name" : "tg",
+      "description" : "Count of the number of observations from the MERIS sensor contributing to this bin cell",
+      "definition" : "ogcType:signedShort",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "-9999"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      }
+    } ]
+  },
+  "metadata" : {
+    "bands" : {
+      "tg" : {
+        "long_name" : "mean temperature",
+        "units" : "Celsius",
+        "standard_name" : "air_temperature",
+        "_FillValue" : "-9999",
+        "scale_factor" : "0.01"
+      }
+    },
+    "axes" : {
+      "Lat" : {
+        "long_name" : "Latitude values",
+        "units" : "degrees_N",
+        "standard_name" : "latitude"
+      },
+      "Long" : {
+        "long_name" : "Longitude values",
+        "units" : "degrees_E",
+        "standard_name" : "longitude"
+      }
+    },
+    "Title" : "This is a test file",
+    "Project" : "This is another test file",
+    "Creator" : "This is a test creator file"
+  },
+  "rangeSet" : {
+    "type" : "RangeSetType",
+    "dataBlock" : {
+      "type" : "VDataBlockType",
+      "values" : [ -9999 ]
+    }
+  }
+}

@@ -42,26 +42,11 @@ module rasdaman {
            
             $rootScope.loggedIn = false;
             // default show only login tab
-            $scope.tabs = [$scope.adminLogin];
-            
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
-                // logged in, show other tabs
-                if (newValue) {
-                    $scope.tabs = [$scope.adminOWSMetadataManagement];
-                } else {
-                    // logged out, show login tab
-                    $scope.tabs = [$scope.adminLogin];
-                }
-            });
+            $scope.tabs = [$scope.adminOWSMetadataManagement];
+        
         }
 
         private initializeTabs($scope:AdminMainControllerScope) {     
-            $scope.adminLogin = {
-                heading: "Login",
-                view: "admin_login",
-                active: true,
-                disabled: false
-            }
             $scope.adminOWSMetadataManagement = {
                 heading: "OWS Metadata Management",
                 view: "admin_ows_metadata_management",

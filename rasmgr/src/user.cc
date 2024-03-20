@@ -20,21 +20,26 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-#include "rasmgr/src/messages/rasmgrmess.pb.h"
 #include "user.hh"
+#include "rasmgr/src/messages/rasmgrmess.pb.h"
 
 namespace rasmgr
 {
-using std::pair;
-using std::map;
-using std::string;
 using std::move;
 
 User::User(std::string name, std::string password,
-           const UserDatabaseRights &defaultDbRights, const UserAdminRights &adminRights) :
-    name(move(name)), password(move(password)),
-    defaultDbRights(defaultDbRights), adminRights(adminRights)
-{}
+           const UserDatabaseRights &defaultDbRights, const UserAdminRights &adminRights)
+    : name(move(name)), password(move(password)), token(""),
+      defaultDbRights(defaultDbRights), adminRights(adminRights)
+{
+}
+
+User::User(std::string name, std::string password, std::string token,
+           const UserDatabaseRights &defaultDbRights, const UserAdminRights &adminRights)
+    : name(move(name)), password(move(password)), token(move(token)),
+      defaultDbRights(defaultDbRights), adminRights(adminRights)
+{
+}
 
 const UserAdminRights &User::getAdminRights() const
 {
@@ -59,6 +64,16 @@ const std::string &User::getName() const
 void User::setName(const std::string &name)
 {
     this->name = name;
+}
+
+const std::string &User::getToken() const
+{
+    return token;
+}
+
+void User::setToken(const std::string &token)
+{
+    this->token = token;
 }
 
 const std::string &User::getPassword() const

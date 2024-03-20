@@ -29,9 +29,9 @@
 #include <string>  // for string
 #include <vector>  // for vector
 #include <memory>  // for unique_ptr
+#include <unordered_set>
 
 class BlobFSConfig;
-
 
 /**
  * Handles blob file storage transactions: insert, remove, update. This is a
@@ -83,11 +83,11 @@ public:
     /// Finalize an interrupted transaction (e.g. by a crash).
     void finalizeUncompleted();
 
-    /// Given a blob ID return its absolute file path in the final 
+    /// Given a blob ID return its absolute file path in the final
     /// $RASDATA/TILES location.
     std::string getFinalBlobPath(long long blobId);
 
-    /// Given a blob ID return its absolute file path in the temporary 
+    /// Given a blob ID return its absolute file path in the temporary
     /// transaction directory (under $RASDATA/TRANSACTIONS).
     std::string getTmpBlobPath(long long blobId);
 
@@ -108,7 +108,7 @@ protected:
      */
     void finalizeRasbaseCrash();
 
-    /// Add the blob files in the temp transaction directory to the pending 
+    /// Add the blob files in the temp transaction directory to the pending
     /// blobIds.
     void collectBlobIds();
 
@@ -116,17 +116,17 @@ protected:
     /// successful (blob file is a number > 0)
     bool addBlobId(const std::string &blobPath);
 
-    /// Create and lock a temporary transaction directory under 
+    /// Create and lock a temporary transaction directory under
     /// $RASDATA/TRANSACTIONS for a given transaction type
     void initTransactionDirectory(const std::string &transactionType);
-    
+
     /// Create temporary transaction directory under $RASDATA/TRANSACTIONS
     /// for a given transaction type
     /// @throws r_Error if it failes to create the temp directory.
     void createTransactionDir(const std::string &trSubdir);
-    
+
     void createGeneralLock();
-    
+
     /// Check if the created transaction dir is valid.
     void validateTransactionDir(const std::string &trSubdir, bool first);
 
@@ -137,7 +137,7 @@ protected:
     std::string transactionPath;
 
     /// Blob ids participating in the current transaction.
-    std::vector<long long> blobIds;
+    std::unordered_set<long long> blobIds;
 
     /// Underlying transaction lock handler, used in the commit/abort handlers.
     std::unique_ptr<BlobFSTransactionLock> transactionLock;
@@ -145,21 +145,20 @@ protected:
     static const std::string INSERT_TRANSACTIONS_SUBDIR;
     static const std::string UPDATE_TRANSACTIONS_SUBDIR;
     static const std::string REMOVE_TRANSACTIONS_SUBDIR;
-    
+
     // number of directories to create per directory in TILES
-    static const long tileDirsPerDir; 
+    static const long tileDirsPerDir;
     // number of tiles to store per leaf directory in TILES
     static const long tilesPerDir;
 
     static const long long INVALID_DIR_INDEX = -1;
-
 };
 
 class BlobFSInsertTransaction : public BlobFSTransaction
 {
 public:
-    BlobFSInsertTransaction(BlobFSConfig &config,
-                            const std::string &trPath = std::string());
+    explicit BlobFSInsertTransaction(BlobFSConfig &config,
+                                     const std::string &trPath = std::string());
     void add(BlobData &blobData) override;
     /// To be called after commit to RASBASE
     void postRasbaseCommit() override;
@@ -170,8 +169,8 @@ public:
 class BlobFSUpdateTransaction : public BlobFSTransaction
 {
 public:
-    BlobFSUpdateTransaction(BlobFSConfig &config,
-                            const std::string &trPath = std::string());
+    explicit BlobFSUpdateTransaction(BlobFSConfig &config,
+                                     const std::string &trPath = std::string());
     void add(BlobData &blobData) override;
     /// To be called after commit to RASBASE
     void postRasbaseCommit() override;
@@ -182,8 +181,8 @@ public:
 class BlobFSRemoveTransaction : public BlobFSTransaction
 {
 public:
-    BlobFSRemoveTransaction(BlobFSConfig &config,
-                            const std::string &trPath = std::string());
+    explicit BlobFSRemoveTransaction(BlobFSConfig &config,
+                                     const std::string &trPath = std::string());
     void add(BlobData &blobData) override;
     /// To be called before commit to RASBASE
     void preRasbaseCommit() override;
@@ -199,4 +198,3 @@ public:
     explicit BlobFSSelectTransaction(BlobFSConfig &config);
     void add(BlobData &blobData) override;
 };
-

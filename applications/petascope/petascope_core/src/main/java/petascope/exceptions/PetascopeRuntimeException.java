@@ -33,13 +33,21 @@ public class PetascopeRuntimeException extends RuntimeException {
     
     // default is 2.0.1
     private String version = VersionManager.WCS_VERSION_20;
-
+    
     public PetascopeRuntimeException(String version, Exception exception) {
         if (version != null) {
             this.version = version;
         }
         this.exception = exception;
     }
+
+    public PetascopeRuntimeException(ExceptionCode exceptionCode, String errorMessage) {
+        this(new PetascopeException(exceptionCode, errorMessage));
+    }
+    
+    public PetascopeRuntimeException(Exception exception) {
+        this(null, exception);
+    }    
 
     public String getVersion() {
         return version;

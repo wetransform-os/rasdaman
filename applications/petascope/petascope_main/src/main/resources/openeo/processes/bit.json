@@ -1,0 +1,107 @@
+{
+    "id": "bit",
+    "summary": "Extract bit value",
+    "description": "Extract the value of a bit at a non-negative position `y` in the binary representation of an integer `x` (*`bit(x, y)`*). Position counting starts from 0, and runs from least to most significant bit; the operation is effectively equivalent to `(x >> y) & 1`.\n\nEach operand can be a scalar number, or a datacube. If both operands are datacubes, they must have matching domain sets.\n\n\nThe result is a scalar number if both operands are scalars, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element types of the operands:\n\n```\n| first operand type        | second operand type       | result type   |\n|---------------------------|---------------------------|---------------|\n| [unsigned] char,short,int | [unsigned] char,short,int | bool          |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "y",
+            "description": "The bit position.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "Null where `x` is null, otherwise the extracted bit as a boolean value.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": 5,
+                "y": 2
+            },
+            "returns": true
+        },
+        {
+            "arguments": {
+                "x": 5,
+                "y": "DatacubeA"
+            },
+            "returns": "DatacubeB"
+        },
+        {
+            "arguments": {
+                "x": "DatacubeA",
+                "y": "DatacubeB"
+            },
+            "returns": "DatacubeC"
+        },
+        {
+            "arguments": {
+                "x": 5,
+                "y": null
+            },
+            "returns": null
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "https://en.cppreference.com/w/cpp/language/operator_arithmetic#Bitwise_logic_operators",
+            "title": "Bitwise logic operators in C++"
+        },
+        {
+            "rel": "about",
+            "href": "https://en.wikipedia.org/wiki/Bitwise_operation",
+            "title": "Bitwise operations by Wikipedia"
+        }
+    ],
+    "wcps": "bit(<x>, <y>)",
+    "categories": [
+        "Bitwise"
+    ]
+}

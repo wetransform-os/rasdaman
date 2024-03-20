@@ -1,0 +1,90 @@
+{
+    "id": "sort",
+    "summary": "Sort a datacube along a dimension",
+    "description": "Sorts a datacube `x` along a given `dimension`. The sorting is done by slicing the datacube along the dimensions,\ncalculating a slice rank for each of the slices, and then rearranging the slices according to their ranks, in an ascending or descending order.\n\n\nThe result datacube has same domain as the input datacube `x`.",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "Operand datacube to be sorted.",
+            "schema": {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        },
+        {
+            "name": "dimension",
+            "description": "The name of the dimension to sort along.",
+            "schema": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            }
+        },
+        {
+            "name": "rank_process",
+            "description": "A process that accepts a datacube, and returns a *rank* as a double floating-point number.",
+            "schema": {
+                "type": "process-graph",
+                "parameters": [
+                    {
+                        "name": "x",
+                        "description": "The datacube slice to be aggregated into a rank value.",
+                        "schema": {
+                            "type": "object",
+                            "subtype": "datacube"
+                        }
+                    }
+                ],
+                "returns": {
+                    "description": "The rank value calculated for the given datacube.",
+                    "schema": {
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        {
+            "name": "asc",
+            "description": "The default sort order is ascending, from smaller to larger values. To sort in reverse (descending) order, set this parameter to `false`.",
+            "schema": {
+                "type": "boolean"
+            },
+            "default": true,
+            "optional": true
+        }
+    ],
+    "returns": {
+        "description": "The sorted datacube.",
+        "schema": {
+            "type": "object",
+            "subtype": "datacube"
+        }
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": [
+                    3,
+                    2,
+                    5
+                ],
+                "asc": true,
+                "rank_process": "sum(x[dimension])"
+            },
+            "returns": [
+                2,
+                3,
+                5
+            ]
+        }
+    ],
+    "links": [
+        "Sort operator in rasdaman WCPS",
+        "https://doc.rasdaman.org/05_geo-services-guide.html#sort-operator-in-wcps"
+    ],
+    "wcps": "SORT <x> ALONG <dimension> <if(asc)>ASC<else>DESC<endif> BY <rank_exp>",
+    "categories": [
+        "Comparison"
+    ]
+}

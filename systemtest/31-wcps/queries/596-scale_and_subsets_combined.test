@@ -1,0 +1,14 @@
+for $c0 in (test_wcps_irregular_time_germany),
+    $c1 in (test_wcps_irregular_time_germany_repeat)
+
+return encode(
+scale(
+        ($c0 + ( $c1 ) * 0.1 )[ansi:"CRS:1"(0)],   
+
+{
+
+Long:"CRS:1"(0:60)
+}),
+
+       "png"
+)

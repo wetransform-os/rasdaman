@@ -21,7 +21,7 @@
 # SYNOPSIS
 #	test.sh
 # Description
-#   Test create, insert (update), delete rasdaman collections via RasdaPy API (systemtest/testcases_mandatory/test_rasdapy/rasql.py)
+#   Test create, insert (update), delete rasdaman collections via RasdaPy API (systemtest/xx-rasdapy/rasql.py)
 #   It is called in systemtest/util/test_oracle.sh for importing data and is imported in systesmtest/util/common.sh to run queries.
 PROG=`basename $0`
 

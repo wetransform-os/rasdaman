@@ -23,17 +23,14 @@ package petascope.core.gml.cis11;
 
 import nu.xom.Attribute;
 import nu.xom.Element;
-import static petascope.core.XMLSymbols.ATT_ID;
-import static petascope.core.XMLSymbols.NAMESPACE_GML;
-import static petascope.core.XMLSymbols.PREFIX_CIS11;
-import static petascope.core.XMLSymbols.PREFIX_GML;
 import petascope.core.gml.cis.AbstractGMLCISGetCoverage;
 import petascope.core.gml.cis11.model.rangeset.RangeSetCIS11;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.util.XMLUtil;
-import static petascope.core.XMLSymbols.NAMESPACE_CIS_11;
+
+import static petascope.core.XMLSymbols.*;
 
 /**
  * Class to build result for WCS GetCoverage request in GML. 
@@ -94,29 +91,34 @@ public class GMLCIS11GetCoverage extends AbstractGMLCISGetCoverage {
         Element coverageTypeElement = new Element(XMLUtil.createXMLLabel(PREFIX_CIS11, this.coverageType), NAMESPACE_CIS_11);
         Attribute attributeId = XMLUtil.createXMLAttribute(NAMESPACE_GML, PREFIX_GML, ATT_ID, this.coverageId);
         coverageTypeElement.addAttribute(attributeId);
-        
-        // <gml:envelope>
-        Element envelopeElement = this.getGmlCore().getEnvelope().serializeToXMLElement();
-        coverageTypeElement.appendChild(envelopeElement);
-        
-        // <gml:coverageFunction>
+
+        // <ciss11:CoverageFunction>
         Element coverageFunctionElement = this.getGmlCore().getCoverageFunction().serializeToXMLElement();
+        coverageFunctionElement.setNamespacePrefix(PREFIX_CIS11);
+        coverageFunctionElement.setLocalName(LABEL_COVERAGE_FUNCTION_CIS_111);
+        coverageFunctionElement.setNamespaceURI(NAMESPACE_CIS_11);
+
         coverageTypeElement.appendChild(coverageFunctionElement);
         
-        // <gml:domainSet>
+        // <cis11:envelope>
+        Element envelopeElement = this.getGmlCore().getEnvelope().serializeToXMLElement();
+        coverageTypeElement.appendChild(envelopeElement);
+
+        // <cis11:domainSet>
         Element domainSetElement = this.getGmlCore().getDomainSet().serializeToXMLElement();
         coverageTypeElement.appendChild(domainSetElement);
-        
-        // <gml:rangeType>
-        Element rangeTypeElement = this.getGmlCore().getRangeType().serializeToXMLElement();
-        coverageTypeElement.appendChild(rangeTypeElement);
-        
-        // <gml:rangeSet>
+
+        // <cis11:rangeSet>
         if (this.rangeSet != null) {
             Element rangeSetElement = this.getRangeSet().serializeToXMLElement();
             coverageTypeElement.appendChild(rangeSetElement);
         }
         
+        // <cis11:rangeType>
+        Element rangeTypeElement = this.getGmlCore().getRangeType().serializeToXMLElement();
+        coverageTypeElement.appendChild(rangeTypeElement);
+
+
         // <cis11:metadata>
         Element metadataElement;
         try {
@@ -125,7 +127,7 @@ public class GMLCIS11GetCoverage extends AbstractGMLCISGetCoverage {
             throw new PetascopeException(ExceptionCode.XmlNotValid, "Cannot serialize coverage's metadata to XML element. Reason: " + ex.getMessage(), ex);
         }
         coverageTypeElement.appendChild(metadataElement);
-        
+
         
         return coverageTypeElement;
     }

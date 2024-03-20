@@ -1,0 +1,37 @@
+# http://rasdaman.org/ticket/2651
+017-climate_over_earth.test
+018-climate_over_water.test
+
+# jp2000 slight values always changed
+053-jpeg2000-params-filling.test
+157-extra_params_json_jpeg2000.test
+
+# http://rasdaman.org/ticket/2737
+506-flip_on_2d_encode_netcd.test
+
+# http://rasdaman.org/ticket/2738
+507-sort_on_2d.test
+
+# http://rasdaman.org/ticket/2732
+520-scale_by_imgCrsdomain_with_let_clauses.test
+593-scale_switch_case_with_LET_clause.test
+
+# rasql does not work on community
+505-flip_on_3d_time_axis_with_subset.test
+
+# http://rasdaman.org/ticket/2736
+542-complex_query_encoded_in_json.test
+543-create_multi_dimensional_coverage_constructors.test
+554-scale_up_out_of_grid_bounds_on_irregular_axis.test
+563-domain_time_axis_iterator_coverage_constructor.test
+
+
+# values of MARRAY is not atomic or scalar
+632-calendar_coverage_constructor_over_list_of_datetimes.test
+633-calendar_coverage_constructor_over_all_days.test
+634-calendar_coverage_constructor_years_concatenating.test
+635-calendar_coverage_constructor_time_step.test
+636-calendar_coverage_constructor_with_nested_condenser.test
+656-calendar_coverage_constructor_max_in_january.test
+662-calendar_different_axis_label_in_coverage_constructor.test
+665-calendar_coverage_constructor_with_different_axis_label_in_axis_iterator.test

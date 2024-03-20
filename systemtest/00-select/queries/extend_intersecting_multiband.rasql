@@ -1,0 +1,1 @@
+select encode(extend(c[100:120,110:130], [115:120,110:150]), "png") from test_rgb2 as c

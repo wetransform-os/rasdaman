@@ -110,9 +110,9 @@ public class AdminCreatePyramidMemberService extends AbstractAdminService {
     }
     
     private String parseMemberCoverageId(Map<String, String[]> kvpParameters, GeneralGridCoverage baseCoverage) throws PetascopeException {
-        // NOTE: this coverage id must not exist in local and remote caches
+        // NOTE: this coverage id must not exist in local cache
         String memberCoverageId = getValueByKey(kvpParameters, KEY_MEMBER);
-        if (this.coverageRepositoryService.isInCache(memberCoverageId)) {
+        if (this.coverageRepositoryService.isInLocalCache(memberCoverageId)) {
             throw new PetascopeException(ExceptionCode.InvalidRequest, "Coverage '" + memberCoverageId + "' already exists.");
         } else if (baseCoverage.hasPyramidMember(memberCoverageId)) {
             throw new PetascopeException(ExceptionCode.InvalidRequest, 
@@ -237,6 +237,11 @@ public class AdminCreatePyramidMemberService extends AbstractAdminService {
         
         // then, add this pyramid member coverage to the base coverage's pyramid set
         baseCoverage.getPyramid().add(coveragePyramid);
+
+        // NOTE: then, sort the pyramid members by scalefactors first
+        List<CoveragePyramid> sortedPyramid = this.pyramidService.sortByScaleFactors(baseCoverage.getPyramid());
+        baseCoverage.setPyramid(sortedPyramid);
+
         this.coverageRepositoryService.save(baseCoverage);  
         
         // Recreate WMTS TileMatrixSet for this base layer
@@ -266,8 +271,21 @@ public class AdminCreatePyramidMemberService extends AbstractAdminService {
         this.pyramidService.initDownscaledLevelCollection(downscaledLevelCoverage, scaleFactors, username, password);
         String downscaledLevelCollectionName = downscaledLevelCoverage.getRasdamanRangeSet().getCollectionName();
 
+        boolean runUpdateQuery = false;
+        for (IndexAxis indexAxis : baseCoverage.getIndexAxes()) {
+            if (indexAxis.getLowerBound() < indexAxis.getUpperBound()) {
+                runUpdateQuery = true;
+                break;
+            }
+        }
+        
+        if (!runUpdateQuery) {
+            // In this case, the base coverage has no pixel -> no need to run an UPDATE query to pyramid member collection 
+            return;
+        }
+
         // scale factors are geo CRS order (e.g: time,lat,long) -> grid oder (time,long,lat)
-        List<BigDecimal> targetScaleFactorsByGridOrder = this.pyramidService.sortScaleFactorsByGridOder(baseCoverage, scaleFactors);
+        List<BigDecimal> targetScaleFactorsByGridOrder = this.pyramidService.sortScaleFactorsByGridOrder(baseCoverage, scaleFactors);
         
         List<String> gridDomains = new ArrayList<>();
 

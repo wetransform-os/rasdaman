@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -53,11 +55,11 @@ public class UnaryBooleanExpressionHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
         WcpsResult scalarExpression = null;
         if (this.getSecondChild() != null) {
-            scalarExpression = (WcpsResult) this.getSecondChild().handle();
+            scalarExpression = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
         }
         
         WcpsResult result = this.handle(coverageExpression, scalarExpression);

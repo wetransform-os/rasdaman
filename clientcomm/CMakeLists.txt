@@ -46,15 +46,13 @@ target_link_libraries(clientcomm
     mymalloc_cln
     common_logging
     common_exceptions
-    common_crypto
-    common_uuid 
+    common_string
     ${Boost_SYSTEM_LIBRARY}
     ${GRPCPP_LIBRARY}
     ${GRPC_LIBRARY}
-    ${ZLIB_LIBRARIES}
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(clientcomm REUSE_FROM common_logging)
 endif()
 

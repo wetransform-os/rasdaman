@@ -26,9 +26,9 @@ rasdaman GmbH.
 #ifndef _SHORTTYPE_HH_
 #define _SHORTTYPE_HH_
 
-#include <iosfwd>         // for ostream
-#include "integraltype.hh"  // for IntegralType
-#include "raslib/odmgtypes.hh"     // for r_Long
+#include <iosfwd>               // for ostream
+#include "integraltype.hh"      // for IntegralType
+#include "raslib/odmgtypes.hh"  // for r_Long
 
 class OId;
 
@@ -45,7 +45,7 @@ values. The value of a Short is stored in four chars.
 class ShortType : public IntegralType
 {
 public:
-    ShortType(const OId &id);
+    explicit ShortType(const OId &id);
 
     ShortType();
 
@@ -64,7 +64,6 @@ public:
     char *makeFromCULong(char *cell, const r_ULong *value) const override;
 
     static const char *Name;
-
 };
 
 #endif

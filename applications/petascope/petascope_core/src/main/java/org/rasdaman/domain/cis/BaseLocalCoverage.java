@@ -100,12 +100,13 @@ public class BaseLocalCoverage implements Serializable {
     // Store the calculated size of coverage in bytes for overview
     protected Long coverageSizeInBytesWithPyramid = 0L;    
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = Coverage.FK_COVERAGE_ID)
     @OrderColumn
     protected List<CoveragePyramid> pyramid = new ArrayList<>();
     
-    @Transient
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @JoinColumn(name = RasdamanRangeSet.COLUMN_ID)
     private RasdamanRangeSet rasdamanRangeSet;
     
     @Column(name = "inspire_metadata_url")

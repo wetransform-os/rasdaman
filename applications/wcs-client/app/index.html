@@ -31,7 +31,7 @@
         <meta name="description" content="The rasdaman WCS client">
         <meta name="author" content="rasdaman GmbH">
 
-        <title>OGC Web Services (OWS) Client</title>
+        <title>OGC Web Services (OWS) Client - rasdaman.org</title>
 
         <!-- Bootstrap Core CSS -->
         <link href="ows/assets/components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -44,6 +44,7 @@
         <link href="ows/assets/components/nvd3/nv.d3.min.css" rel="stylesheet">
 
         <link href="ows/assets/css/custom.css" rel="stylesheet">
+        <link href="ows/assets/img/favicon.ico" rel="icon" type="image/x-icon" />
 
         <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
         <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
@@ -56,21 +57,47 @@
             [ng-cloak] {
                display:none;
             }
+
+            .long-link-wrap-text {
+                /* These are technically the same, but use both */
+                overflow-wrap: break-word;
+                word-wrap: break-word;
+
+                -ms-word-break: break-all;
+                /* This is the dangerous one in WebKit, as it breaks things wherever */
+                word-break: break-all;
+                /* Instead use this non-standard one: */
+                word-break: break-word;
+
+                /* Adds a hyphen where the word breaks, if supported (No Blink) */
+                -ms-hyphens: auto;
+                -moz-hyphens: auto;
+                -webkit-hyphens: auto;
+                hyphens: auto;
+            }
         </style>
 
     </head>
     <body ng-controller="rasdaman.RootController"> 
         <img class="logo" src="ows/assets/img/rasdaman-logo.png" align="right">
        
-        <div ng-show="homeLoggedIn == true" ng-cloak="" style="position: absolute;right: 8%;margin-top: 4%;">
+        <!-- For user already logged in -->
+        <div ng-show="homeLoggedIn == true" ng-cloak="" style="position: absolute;right: 8%; margin-top: 4%;">
             
             Logged in as: 
             <b>
                 {{usernameLoggedIn}}
             </b> <br/>
             
-            <input ng-show="homeLoggedIn == true" ng-cloak="" style="margin-top: 10px; font-size: 20px; color: orange; color: white;" 
+            <input style="margin-top: 10px; font-size: 20px; color: orange; color: white;" 
                 type="button" class="btn btn-warning" value="Log out" ng-click="homeLogOutEvent()"/>
+        </div>
+
+        <!-- For user not yet logged in, he can click on Login button to show Login form to authenticate as a different rasdaman user -->
+        <div ng-show="homeLoggedIn == false" ng-cloak="" style="position: absolute;right: 8%; margin-top: 4%;">
+                        
+            <input style="margin-top: 10px; font-size: 20px; color: orange; color: white;" 
+                type="button" class="btn btn-success" value="Log in" title="Log in with credentials of a rasdaman user" ng-click="homeLogInEvent()"/>
         </div>
         
         <!-- Show this loading icon when an Ajax request sent -->

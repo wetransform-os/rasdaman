@@ -1,0 +1,14 @@
+for $c0 in (test_wcps_irregular_time_germany),
+    $c1 in (test_wcps_irregular_time_germany_repeat)
+
+let $sub := $c0[ansi:"CRS:1"(0)] + $c1[ansi:"CRS:1"(0)],
+    $bands := $sub * 255 
+return encode(
+         scale(
+           $bands,
+           { 
+             Long:"CRS:1"(0:60), Lat:"CRS:1"(0:70)
+           } 
+        ) + avg($sub),   
+       "png"
+)

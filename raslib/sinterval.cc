@@ -31,15 +31,15 @@
 */
 
 #include "raslib/sinterval.hh"
-#include "raslib/mddtypes.hh"      // for r_Range, r_Bytes
+#include "raslib/mddtypes.hh"  // for r_Range, r_Bytes
 #include "raslib/error.hh"
 
-#include <logging.hh>              // for Writer, CFATAL, LOG
-#include <string.h>                // for strdup
+#include <logging.hh>  // for Writer, CFATAL, LOG
+#include <string.h>    // for strdup
 #include <cassert>
-#include <algorithm>               // for max, min
-#include <stdexcept>               // for runtime_error
-#include <string>                  // for basic_string
+#include <algorithm>  // for max, min
+#include <stdexcept>  // for runtime_error
+#include <string>     // for basic_string
 
 using namespace std;
 
@@ -50,13 +50,12 @@ r_Sinterval::r_Sinterval(const char *stringRep)
 {
     if (!stringRep)
     {
-        LERROR << "Cannot create interval from null string.";
-        throw r_Eno_interval();
+        throw r_Error(NOINTERVAL, "given null string");
     }
 
     // for parsing the string
     std::istringstream str(stringRep);
-    
+
     char charToken;
     str >> charToken;
     if (charToken == '*')
@@ -75,7 +74,7 @@ r_Sinterval::r_Sinterval(const char *stringRep)
     if (charToken != ':')
     {
         LERROR << "Cannot create interval from string (" << stringRep << "), expected pattern a:b";
-        throw r_Eno_interval();
+        throw r_Error(NOINTERVAL, stringRep);
     }
 
     str >> charToken;
@@ -92,14 +91,12 @@ r_Sinterval::r_Sinterval(const char *stringRep)
     }
 }
 
-r_Sinterval::r_Sinterval(r_Range low, r_Range high)
-    : lower_bound(low), upper_bound(high), low_fixed(true), high_fixed(true)
+r_Sinterval::r_Sinterval(r_Range lo, r_Range hi)
+    : lower_bound(lo), upper_bound(hi), low_fixed(true), high_fixed(true)
 {
-    if (low > high)
+    if (lo > hi)
     {
-        LERROR << "Invalid interval: lower bound (" << lower_bound
-               << ") is greater than the upper bound (" << high << ").";
-        throw r_Eno_interval();
+        throw r_Einvalid_interval_bounds(lo, hi);
     }
 }
 
@@ -110,24 +107,27 @@ r_Sinterval::r_Sinterval(r_Range point)
 
 r_Sinterval::r_Sinterval(char, r_Range newHigh)
     : upper_bound(newHigh), high_fixed(true)
-{}
+{
+}
 
 r_Sinterval::r_Sinterval(r_Range newLow, char)
     : lower_bound(newLow), low_fixed(true)
-{}
+{
+}
 
 r_Sinterval::r_Sinterval(char, char)
-{}
+{
+}
 
 bool r_Sinterval::operator==(const r_Sinterval &o) const
 {
 #define BOUNDS_EQUAL(bound, fixed) \
     (fixed ? (o.fixed && bound == o.bound) : !o.fixed)
-    
-    return BOUNDS_EQUAL(lower_bound, low_fixed) && 
-           BOUNDS_EQUAL(upper_bound, high_fixed) && 
+
+    return BOUNDS_EQUAL(lower_bound, low_fixed) &&
+           BOUNDS_EQUAL(upper_bound, high_fixed) &&
            slice == o.slice;
-    
+
 #undef BOUNDS_EQUAL
 }
 
@@ -139,7 +139,7 @@ bool r_Sinterval::operator!=(const r_Sinterval &o) const
 Offset r_Sinterval::get_extent() const
 {
     assert(upper_bound >= lower_bound);
-    
+
     if (low_fixed && high_fixed)
     {
         return static_cast<Offset>(upper_bound - lower_bound + 1);
@@ -147,9 +147,7 @@ Offset r_Sinterval::get_extent() const
     else
     {
         // TODO: eliminate this check into an assert
-        LERROR << "Cannot get extent of interval (" << *this
-               << ") as lower or upper bounds are not fixed.";
-        throw r_Error(INTERVALOPEN);
+        throw r_Error(INTERVALOPEN, "cannot get extent of interval " + to_string());
     }
 }
 
@@ -162,9 +160,7 @@ void r_Sinterval::set_low(r_Range newLow)
 {
     if (high_fixed && newLow > upper_bound)
     {
-        LERROR << "Invalid interval: lower bound (" << newLow
-               << ") is greater than the upper bound (" << upper_bound << ").";
-        throw r_Eno_interval();
+        throw r_Einvalid_interval_bounds(newLow, upper_bound);
     }
     lower_bound = newLow;
     low_fixed = true;
@@ -174,9 +170,7 @@ void r_Sinterval::set_high(r_Range newHigh)
 {
     if (low_fixed && newHigh < lower_bound)
     {
-        LERROR << "Invalid interval: lower bound (" << lower_bound
-               << ") is greater than the upper bound (" << newHigh << ").";
-        throw r_Eno_interval();
+        throw r_Einvalid_interval_bounds(lower_bound, newHigh);
     }
     upper_bound = newHigh;
     high_fixed = true;
@@ -186,9 +180,7 @@ void r_Sinterval::set_interval(r_Range newLow, r_Range newHigh)
 {
     if (newLow > newHigh)
     {
-        LERROR << "Invalid interval: lower bound (" << newLow
-               << ") is greater than the upper bound (" << newHigh << ").";
-        throw r_Eno_interval();
+        throw r_Einvalid_interval_bounds(newLow, newHigh);
     }
     lower_bound = newLow;
     upper_bound = newHigh;
@@ -225,6 +217,21 @@ void r_Sinterval::set_slice() noexcept
     slice = true;
 }
 
+const string &r_Sinterval::get_axis_name() const
+{
+    return axis_name;
+}
+
+void r_Sinterval::set_axis_name(const std::string &axis_name_arg)
+{
+    axis_name = axis_name_arg;
+}
+
+bool r_Sinterval::has_axis_name() const
+{
+    return !axis_name.empty();
+}
+
 Offset r_Sinterval::get_offset_to(r_Sinterval::BoundType o) const noexcept
 {
     assert(o >= lower_bound);
@@ -249,7 +256,7 @@ bool r_Sinterval::intersects_with(const r_Sinterval &interval) const
 {
     int classnr = classify(*this, interval);
 
-    return classnr !=  1 && classnr !=  6 && classnr != 16 && classnr != 21 &&
+    return classnr != 1 && classnr != 6 && classnr != 16 && classnr != 21 &&
            classnr != 26 && classnr != 31 && classnr != 34 && classnr != 37;
 }
 
@@ -329,9 +336,9 @@ bool r_Sinterval::inside_of(const r_Sinterval &interval) const
 {
     int classnr = classify(*this, interval);
 
-    return classnr == 5 || classnr ==  11 || classnr == 12 || classnr == 13 || classnr == 15 ||
-           classnr == 18 || classnr == 20 || classnr == 22 || classnr == 23 || classnr == 24 || classnr == 25  || 
-           classnr == 29 || classnr == 30  || classnr == 36  || classnr == 39  || classnr == 40  || classnr == 41  ||
+    return classnr == 5 || classnr == 11 || classnr == 12 || classnr == 13 || classnr == 15 ||
+           classnr == 18 || classnr == 20 || classnr == 22 || classnr == 23 || classnr == 24 || classnr == 25 ||
+           classnr == 29 || classnr == 30 || classnr == 36 || classnr == 39 || classnr == 40 || classnr == 41 ||
            (classnr >= 44 && classnr <= 52);
 }
 
@@ -351,9 +358,17 @@ r_Sinterval r_Sinterval::create_closure(const r_Sinterval &interval) const
 }
 void r_Sinterval::print_status(std::ostream &s) const
 {
+    if (has_axis_name())
+    {
+        s << axis_name << "(";
+    }
     s << (low_fixed ? std::to_string(lower_bound) : "*");
     s << ":";
     s << (high_fixed ? std::to_string(upper_bound) : "*");
+    if (has_axis_name())
+    {
+        s << ")";
+    }
 }
 
 r_Bytes r_Sinterval::get_storage_size() const
@@ -367,9 +382,9 @@ r_Sinterval r_Sinterval::calc_union(const r_Sinterval &a, const r_Sinterval &b) 
 
     switch (classify(a, b))
     {
-    case  2:
-    case  7:
-    case  9:
+    case 2:
+    case 7:
+    case 9:
     case 12:
     case 22:
     case 23:
@@ -387,9 +402,9 @@ r_Sinterval r_Sinterval::calc_union(const r_Sinterval &a, const r_Sinterval &b) 
         else
             result.set_high('*');
         break;
-        
-    case  4:
-    case  8:
+
+    case 4:
+    case 8:
     case 10:
     case 13:
     case 17:
@@ -409,7 +424,7 @@ r_Sinterval r_Sinterval::calc_union(const r_Sinterval &a, const r_Sinterval &b) 
             result.set_high('*');
         break;
 
-    case  3:
+    case 3:
     case 11:
     case 14:
     case 15:
@@ -426,7 +441,7 @@ r_Sinterval r_Sinterval::calc_union(const r_Sinterval &a, const r_Sinterval &b) 
         result = a;
         break;
 
-    case  5:
+    case 5:
     case 24:
     case 25:
     case 29:
@@ -441,17 +456,18 @@ r_Sinterval r_Sinterval::calc_union(const r_Sinterval &a, const r_Sinterval &b) 
 
     default:  // case in { 1, 6, 16, 21, 26, 31, 34, 37 }
     {
-        LDEBUG << "Cannot calculate union of intervals " << a << " and " << b << ".";
-        throw r_Eno_interval();
+        throw r_Error(NOINTERVAL, "cannot calculate union of intervals " + a.to_string() + " and " + b.to_string());
     }
     }
-    
+
     if (a.is_slice() && b.is_slice())
         result.set_slice();
 
+    if (a.has_axis_name())
+        result.set_axis_name(a.get_axis_name());
+
     return result;
 }
-
 
 r_Sinterval
 r_Sinterval::calc_difference(const r_Sinterval &a, const r_Sinterval &b) const
@@ -460,8 +476,8 @@ r_Sinterval::calc_difference(const r_Sinterval &a, const r_Sinterval &b) const
 
     switch (classify(a, b))
     {
-    case  2:
-    case  9:
+    case 2:
+    case 9:
     case 20:
     case 23:
     case 28:
@@ -480,10 +496,10 @@ r_Sinterval::calc_difference(const r_Sinterval &a, const r_Sinterval &b) const
             result.set_high('*');
         break;
 
-    case  1:
-    case  6:
-    case  7:
-    case  8:
+    case 1:
+    case 6:
+    case 7:
+    case 8:
     case 16:
     case 17:
     case 21:
@@ -499,7 +515,7 @@ r_Sinterval::calc_difference(const r_Sinterval &a, const r_Sinterval &b) const
         result = a;
         break;
 
-    case  4:
+    case 4:
     case 10:
     case 15:
     case 18:
@@ -517,16 +533,17 @@ r_Sinterval::calc_difference(const r_Sinterval &a, const r_Sinterval &b) const
             result.set_high('*');
         break;
 
-    default: // case in { 3, 5, 11, 12, 13, 14, 19, 24, 25, 29, 30, 40, 41, 44, 45, 46, 47, 50, 51, 52 }
+    default:  // case in { 3, 5, 11, 12, 13, 14, 19, 24, 25, 29, 30, 40, 41, 44, 45, 46, 47, 50, 51, 52 }
     {
-        LDEBUG << "Cannot calculate difference of intervals " << a << " and " << b << ".";
-        throw r_Eno_interval();
+        throw r_Error(NOINTERVAL, "cannot calculate difference of intervals " + a.to_string() + " and " + b.to_string());
     }
     }
+
+    if (a.has_axis_name())
+        result.set_axis_name(a.get_axis_name());
 
     return result;
 }
-
 
 r_Sinterval
 r_Sinterval::calc_intersection(const r_Sinterval &a, const r_Sinterval &b) const
@@ -535,7 +552,7 @@ r_Sinterval::calc_intersection(const r_Sinterval &a, const r_Sinterval &b) const
 
     switch (classify(a, b))
     {
-    case  4:
+    case 4:
     case 18:
     case 33:
     case 39:
@@ -550,7 +567,7 @@ r_Sinterval::calc_intersection(const r_Sinterval &a, const r_Sinterval &b) const
             result.set_high('*');
         break;
 
-    case  2:
+    case 2:
     case 23:
     case 28:
     case 36:
@@ -565,7 +582,7 @@ r_Sinterval::calc_intersection(const r_Sinterval &a, const r_Sinterval &b) const
             result.set_high('*');
         break;
 
-    case  5:
+    case 5:
     case 11:
     case 12:
     case 13:
@@ -584,8 +601,8 @@ r_Sinterval::calc_intersection(const r_Sinterval &a, const r_Sinterval &b) const
         result = a;
         break;
 
-    case  3:
-    case  9:
+    case 3:
+    case 9:
     case 10:
     case 14:
     case 15:
@@ -599,7 +616,7 @@ r_Sinterval::calc_intersection(const r_Sinterval &a, const r_Sinterval &b) const
         result = b;
         break;
 
-    case  7:
+    case 7:
     case 22:
     case 27:
     case 35:
@@ -610,7 +627,7 @@ r_Sinterval::calc_intersection(const r_Sinterval &a, const r_Sinterval &b) const
             result.set_interval('*', '*');
         break;
 
-    case  8:
+    case 8:
     case 17:
     case 32:
     case 38:
@@ -621,14 +638,16 @@ r_Sinterval::calc_intersection(const r_Sinterval &a, const r_Sinterval &b) const
             result.set_interval('*', '*');
         break;
 
-    default: // case in { 1, 6, 16, 21, 26, 31, 34, 37 }
-        LDEBUG << "Cannot calculate intersection of intervals " << a << " and " << b << ".";
-        throw r_Eno_interval();
+    default:  // case in { 1, 6, 16, 21, 26, 31, 34, 37 }
+        throw r_Error(NOINTERVAL, "cannot calculate intersection of intervals " + a.to_string() + " and " + b.to_string());
     }
-    
+
     if (a.is_slice() || b.is_slice())
         result.set_slice();
-    
+
+    if (a.has_axis_name())
+        result.set_axis_name(a.get_axis_name());
+
     return result;
 }
 
@@ -646,9 +665,11 @@ r_Sinterval::calc_closure(const r_Sinterval &a, const r_Sinterval &b) const
     else
         closure.set_high(std::max(a.high(), b.high()));
 
+    if (a.has_axis_name())
+        closure.set_axis_name(a.get_axis_name());
+
     return closure;
 }
-
 
 /*************************************************************
  * Method name...: classify
@@ -916,31 +937,31 @@ int r_Sinterval::classify(const r_Sinterval &a, const r_Sinterval &b) const
             classification = 45;
         }
     }
-    else  if (!a.is_low_fixed() && !a.is_high_fixed() &&  b.is_low_fixed() &&  b.is_high_fixed())
+    else if (!a.is_low_fixed() && !a.is_high_fixed() && b.is_low_fixed() && b.is_high_fixed())
     {
         classification = 46;
     }
-    else  if (a.is_low_fixed() &&  a.is_high_fixed() && !b.is_low_fixed() && !b.is_high_fixed())
+    else if (a.is_low_fixed() && a.is_high_fixed() && !b.is_low_fixed() && !b.is_high_fixed())
     {
         classification = 47;
     }
-    else  if (!a.is_low_fixed() && !a.is_high_fixed() && !b.is_low_fixed() &&  b.is_high_fixed())
+    else if (!a.is_low_fixed() && !a.is_high_fixed() && !b.is_low_fixed() && b.is_high_fixed())
     {
         classification = 48;
     }
-    else  if (!a.is_low_fixed() && !a.is_high_fixed() &&  b.is_low_fixed() && !b.is_high_fixed())
+    else if (!a.is_low_fixed() && !a.is_high_fixed() && b.is_low_fixed() && !b.is_high_fixed())
     {
         classification = 49;
     }
-    else  if (!a.is_low_fixed() &&  a.is_high_fixed() && !b.is_low_fixed() && !b.is_high_fixed())
+    else if (!a.is_low_fixed() && a.is_high_fixed() && !b.is_low_fixed() && !b.is_high_fixed())
     {
         classification = 50;
     }
-    else  if (a.is_low_fixed() && !a.is_high_fixed() && !b.is_low_fixed() && !b.is_high_fixed())
+    else if (a.is_low_fixed() && !a.is_high_fixed() && !b.is_low_fixed() && !b.is_high_fixed())
     {
         classification = 51;
     }
-    else //   !a.is_low_fixed() && !a.is_high_fixed() && !b.is_low_fixed() && !b.is_high_fixed()
+    else  //   !a.is_low_fixed() && !a.is_high_fixed() && !b.is_low_fixed() && !b.is_high_fixed()
     {
         classification = 52;
     }
@@ -964,6 +985,10 @@ string r_Sinterval::to_string() const
         ret += ":";
         ret += high_fixed ? std::to_string(upper_bound) : "*";
     }
+    if (has_axis_name())
+    {
+        ret = axis_name + "(" + ret + ")";
+    }
     return ret;
 }
 
@@ -979,29 +1004,23 @@ r_Sinterval::low() const noexcept
     return lower_bound;
 }
 
-
 r_Range
 r_Sinterval::high() const noexcept
 {
     return upper_bound;
 }
 
-
-bool
-r_Sinterval::is_low_fixed() const noexcept
+bool r_Sinterval::is_low_fixed() const noexcept
 {
     return low_fixed;
 }
 
-bool
-r_Sinterval::is_low_unbounded() const noexcept
+bool r_Sinterval::is_low_unbounded() const noexcept
 {
     return !low_fixed;
 }
 
-
-bool
-r_Sinterval::is_high_fixed() const noexcept
+bool r_Sinterval::is_high_fixed() const noexcept
 {
     return high_fixed;
 }
@@ -1016,17 +1035,14 @@ bool r_Sinterval::is_slice() const noexcept
     return slice;
 }
 
-void
-r_Sinterval::set_low(char) noexcept
+void r_Sinterval::set_low(char) noexcept
 {
-    lower_bound  = 0;
+    lower_bound = 0;
     low_fixed = false;
 }
 
-void
-r_Sinterval::set_high(char) noexcept
+void r_Sinterval::set_high(char) noexcept
 {
-    upper_bound   = 0;
+    upper_bound = 0;
     high_fixed = false;
 }
-

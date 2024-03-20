@@ -44,7 +44,6 @@ rasdaman GmbH.
 
 #include "stgmddconfig.hh"
 #include "relstorageif/dbstoragelayout.hh"
-#include "relstorageif/storageid.hh"
 #include "raslib/mddtypes.hh"
 #include "raslib/minterval.hh"
 #include "raslib/point.hh"

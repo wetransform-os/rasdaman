@@ -59,7 +59,7 @@ target_link_libraries(rascontrol_lib commline rasnet
 add_executable(rascontrol rascontrol_main.cc)
 target_link_libraries(rascontrol rascontrol_lib)
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rascontrol_lib REUSE_FROM common_logging)
 target_precompile_headers(rascontrol REUSE_FROM common_logging)
 endif()

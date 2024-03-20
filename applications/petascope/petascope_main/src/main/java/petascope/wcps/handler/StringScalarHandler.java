@@ -26,6 +26,8 @@ import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.wcps.result.WcpsResult;
 
+import java.util.List;
+
 /**
  * Translator class for string scalars (leaf node)
  *
@@ -38,6 +40,8 @@ import petascope.wcps.result.WcpsResult;
 public class StringScalarHandler extends Handler {
     
     private String value;
+    // e.g. $pt from axis Iterator
+    private String originalValue;
     
     public StringScalarHandler() {
         
@@ -46,15 +50,29 @@ public class StringScalarHandler extends Handler {
     public StringScalarHandler create(String value) {
         StringScalarHandler result = new StringScalarHandler();
         result.value = value;
+        result.originalValue = value;
         return result;
     }
     
-    public WcpsResult handle() {
+    public WcpsResult handle(List<Object> serviceRegistries) {
         WcpsResult result = new WcpsResult(null, this.value);
         return result;
     }
-    
+
+    public void setValue(String value) {
+        this.value = value;
+    }
+
     public String getValue() {
         return this.value;
+    }
+
+    /**
+     *
+     * e.g. return $pt from axis iterator,
+     * while getValue() returned the replaced value, e.g. "2015-01-01":"2015-01-02"
+     */
+    public String getOriginalValue() {
+        return this.originalValue;
     }
 }

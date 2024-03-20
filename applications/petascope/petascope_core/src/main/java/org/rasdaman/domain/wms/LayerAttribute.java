@@ -71,12 +71,9 @@ public class LayerAttribute implements Serializable {
     @Column
     private int cascaded = 0;
 
-    // 7.2.4.7.4 Opaque vs. transparent layers
-    // the server shall send an image with a transparent background if and only if the client requests
-    // TRANSPARENT=TRUE and a picture FORMAT that supports transparency.
-    // Default set to true (1) as it is not transparent without the transparent=true
     @Column
-    private int opaque = 1;
+    // 0, false: map data represents **vector features** that probably do not completely fill space.
+    private int opaque = 0;
 
     // false (0): WMS can map a subset of full bounding box, true (1): cannot do subset
     @Column
@@ -117,7 +114,8 @@ public class LayerAttribute implements Serializable {
     }
 
     public int getOpaque() {
-        return opaque;
+        // this opaque is used only for vector features
+        return 0;
     }
 
     public void setOpaque(int opaque) {

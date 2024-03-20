@@ -46,7 +46,6 @@ import org.rasdaman.repository.service.OWSMetadataRepostioryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.rasdaman.config.VersionManager;
-import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.cis.Wgs84BoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,122 +56,14 @@ import static petascope.core.KVPSymbols.VALUE_PROCESS_COVERAGES;
 import static petascope.core.KVPSymbols.VALUE_UPDATE_COVERAGE;
 import static petascope.core.KVPSymbols.WCS_SERVICE;
 import petascope.core.Pair;
-import petascope.core.XMLSymbols;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
 import petascope.util.ListUtil;
 import petascope.util.MIMEUtil;
 import petascope.util.XMLUtil;
-import static petascope.core.XMLSymbols.ATT_CRS;
-import static petascope.core.XMLSymbols.ATT_DIMENSIONS;
-import static petascope.core.XMLSymbols.ATT_HREF;
-import static petascope.core.XMLSymbols.ATT_METADATA_URL;
-import static petascope.core.XMLSymbols.ATT_NAME;
-import static petascope.core.XMLSymbols.ATT_VALUE_POST_ENDCODING;
-import static petascope.core.XMLSymbols.LABEL_ABSTRACT;
-import static petascope.core.XMLSymbols.LABEL_ACCESS_CONSTRAINTS;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETERS;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER_NAME;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER_VALUE;
-import static petascope.core.XMLSymbols.LABEL_ADDRESS;
-import static petascope.core.XMLSymbols.LABEL_ADMINISTRATIVE_AREA;
-import static petascope.core.XMLSymbols.LABEL_ALLOWED_VALUES;
-import static petascope.core.XMLSymbols.LABEL_BOUNDING_BOX;
-import static petascope.core.XMLSymbols.LABEL_CAPABILITIES;
-import static petascope.core.XMLSymbols.LABEL_CITY;
-import static petascope.core.XMLSymbols.LABEL_CONSTRAINT_ASSOCIATE_ROLE;
-import static petascope.core.XMLSymbols.LABEL_CONTACT_INFO;
-import static petascope.core.XMLSymbols.LABEL_CONTACT_INSTRUCTIONS;
-import static petascope.core.XMLSymbols.LABEL_CONTENTS;
-import static petascope.core.XMLSymbols.LABEL_COUNTRY;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_ID;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUBTYPE;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUBTYPE_PARENT;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUMMARY;
-import static petascope.core.XMLSymbols.LABEL_CRS_METADATA;
-import static petascope.core.XMLSymbols.LABEL_CRS_SUPPORTED;
+import static petascope.core.XMLSymbols.*;
+import petascope.util.HttpUtil;
+import static petascope.wcs2.handlers.kvp.service.KVPWCSGetCoverageScalingService.NEAREST_INTERPOLATION;
 
-import static petascope.core.XMLSymbols.LABEL_DCP;
-import static petascope.core.XMLSymbols.LABEL_DELIVERY_POINT;
-import static petascope.core.XMLSymbols.LABEL_DESCRIBE_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_EMAIL_ADDRESS;
-import static petascope.core.XMLSymbols.LABEL_EXTENSION;
-import static petascope.core.XMLSymbols.LABEL_FACSIMILE;
-import static petascope.core.XMLSymbols.LABEL_FEES;
-import static petascope.core.XMLSymbols.LABEL_FORMAT_SUPPORTED;
-import static petascope.core.XMLSymbols.LABEL_GET;
-import static petascope.core.XMLSymbols.LABEL_GET_CAPABILITIES;
-import static petascope.core.XMLSymbols.LABEL_GET_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_HOURS_OF_SERVICE;
-import static petascope.core.XMLSymbols.LABEL_HTTP;
-import static petascope.core.XMLSymbols.LABEL_INDIVIDUAL_NAME;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_CODE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_DEFAULT_LANGUAGE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_EXTENDED_CAPABILITIES;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_LANGUAGE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_MEDIATYPE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_METADATA_URL;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_NAMESPACE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_RESPONSE_LANGUAGE;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_SPATIAL_DATASET_IDENTIFIER;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_SUPPORTED_LANGUAGES;
-import static petascope.core.XMLSymbols.LABEL_INSPIRE_URL;
-import static petascope.core.XMLSymbols.LABEL_INTERPOLATION_METADATA;
-import static petascope.core.XMLSymbols.LABEL_INTERPOLATION_SUPPORTED;
-import static petascope.core.XMLSymbols.LABEL_KEYWORD;
-import static petascope.core.XMLSymbols.LABEL_KEYWORDS;
-import static petascope.core.XMLSymbols.LABEL_LOWER_CORNER_ASSOCIATE_ROLE;
-import static petascope.core.XMLSymbols.LABEL_ONLINE_RESOURCE;
-import static petascope.core.XMLSymbols.LABEL_OPERATION;
-import static petascope.core.XMLSymbols.LABEL_OPERATIONS_METADATA;
-import static petascope.core.XMLSymbols.LABEL_PHONE;
-import static petascope.core.XMLSymbols.LABEL_POSITION_NAME;
-import static petascope.core.XMLSymbols.LABEL_POST;
-import static petascope.core.XMLSymbols.LABEL_POSTAL_CODE;
-import static petascope.core.XMLSymbols.LABEL_PROFILE;
-import static petascope.core.XMLSymbols.LABEL_PROVIDER_NAME;
-import static petascope.core.XMLSymbols.LABEL_PROVIDER_SITE;
-import static petascope.core.XMLSymbols.LABEL_ROLE;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_CONTACT;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_IDENTIFICATION;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_METADATA;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_PROVIDER;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_TYPE;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_TYPE_VERSION;
-import static petascope.core.XMLSymbols.LABEL_TITLE;
-import static petascope.core.XMLSymbols.LABEL_UPPER_CORNER_ASSOCIATE_ROLE;
-import static petascope.core.XMLSymbols.LABEL_VALUE;
-import static petascope.core.XMLSymbols.LABEL_VERSION;
-import static petascope.core.XMLSymbols.LABEL_VOICE;
-import static petascope.core.XMLSymbols.LABEL_WGS84_BOUNDING_BOX;
-import static petascope.core.XMLSymbols.NAMESPACE_INTERPOLATION;
-import static petascope.core.XMLSymbols.NAMESPACE_OWS;
-import static petascope.core.XMLSymbols.NAMESPACE_XLINK;
-import static petascope.core.XMLSymbols.PREFIX_INT;
-import static petascope.core.XMLSymbols.PREFIX_OWS;
-import static petascope.core.XMLSymbols.PREFIX_WCS;
-import static petascope.core.XMLSymbols.PREFIX_XLINK;
-import static petascope.core.XMLSymbols.VALUE_CONSTRAINT_POST_ENCODING_SOAP;
-import static petascope.core.XMLSymbols.VALUE_CONSTRAINT_POST_ENCODING_XML;
-import static petascope.core.XMLSymbols.NAMESPACE_WCS_20;
-import static petascope.core.XMLSymbols.NAMESPACE_WCS_21;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_WCS_21_GET_CAPABILITIES;
-import static petascope.core.XMLSymbols.VALUE_FALSE;
-import static petascope.core.XMLSymbols.VALUE_TRUE;
-import petascope.util.ras.RasUtil;
-import static petascope.core.XMLSymbols.NAMESPACE_CRS;
-import static petascope.core.XMLSymbols.NAMESPACE_INSPIRE_COMMON;
-import static petascope.core.XMLSymbols.NAMESPACE_INSPIRE_DLS;
-import static petascope.core.XMLSymbols.PREFIX_CRS;
-import static petascope.core.XMLSymbols.PREFIX_INSPIRE_COMMON;
-import static petascope.core.XMLSymbols.PREFIX_INSPIRE_DLS;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_INSPIRE1;
-import static petascope.core.XMLSymbols.SCHEMA_LOCATION_INSPIRE2;
-import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES;
-import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_AXIS_NAMES_LIST;
-import static petascope.core.XMLSymbols.VALUE_CUSTOMIZED_METADATA_COVERAGE_SIZE_IN_BYTES_WITH_PYRAMID_LEVELS;
 
 /**
  * Class to represent result of WCS GetCapabilities request.
@@ -195,7 +86,6 @@ public class GMLGetCapabilitiesBuilder {
     // EncodeFormatExtensions
     private static final String GML_IDENTIFIER = "http://www.opengis.net/spec/GMLCOV/1.0/conf/gml";
     private static final String GMLCOV_IDENTIFIER = "http://www.opengis.net/spec/GMLCOV/1.0/conf/gml-coverage";
-    private static final String GEOTIFF_IDENTIFIER = "http://www.opengis.net/spec/WCS_coverage-encoding_geotiff/1.0/";
     private static final String GMLJP2_IDENTIFIER = "http://www.opengis.net/spec/GMLJP2/2.0/";
     private static final String JPEG2000_IDENTIFIER = "http://www.opengis.net/spec/WCS_coverage-encoding_jpeg2000/1.0/";
     private static final String CSV_IDENTIFIER = "https://www.ietf.org/rfc/rfc4180.txt";
@@ -223,7 +113,7 @@ public class GMLGetCapabilitiesBuilder {
     // CRS Projection
     private static final String CRS_IDENTIFIER = "http://www.opengis.net/spec/WCS_service-extension_crs/1.0/conf/crs";
 
-    // Interpoltation Extension
+    // Interpolation Extension
     public static final String OGC_CITE_INTEPOLATION_NEAR = "http://www.opengis.net/def/interpolation/OGC/1.0/nearest-neighbor";
     public static final String INTERPOLATION_NEAR = "http://www.opengis.net/def/interpolation/OGC/1.0/near";
     public static final String INTERPOLATION_BILINEAR = "http://www.opengis.net/def/interpolation/OGC/1.0/bilinear";
@@ -238,13 +128,15 @@ public class GMLGetCapabilitiesBuilder {
     public static final String INTERPOLATION_Q1 = "http://www.opengis.net/def/interpolation/OGC/1.0/q1";
     public static final String INTERPOLATION_Q3 = "http://www.opengis.net/def/interpolation/OGC/1.0/q3";
     
-    public static List<String> SUPPORTED_INTERPOLATIONS = null;
+    public static List<String> SUPPORTED_INTERPOLATIONS = new ArrayList<>();
+    // e.g. near, bilinear, ...
+    public static List<String> SUPPORTED_SHORTHANDS_INTERPOLATIONS = new ArrayList<>();
     // This one lists the EPSG CRSs for WCS CRS extension as it can be very long, so just list one popular CRS
     private static final String CRS_EPSG_4326 = "http://www.opengis.net/def/crs/EPSG/0/4326";
     private static List<String> SUPPORTED_CRSS = ListUtil.valuesToList(CRS_EPSG_4326);
 
     // Singleton object to store all the extensions (profiles) of WCS
-    private static List<String> profiles;
+    private static Set<String> profiles;
     
     static {
         if (ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
@@ -256,6 +148,14 @@ public class GMLGetCapabilitiesBuilder {
                                                             INTERPOLATION_MIN, INTERPOLATION_MED, INTERPOLATION_Q1, INTERPOLATION_Q3
                                                             );
         }
+        
+        SUPPORTED_SHORTHANDS_INTERPOLATIONS.add(NEAREST_INTERPOLATION);
+        
+        for (String interpolation : SUPPORTED_INTERPOLATIONS) {
+            // e.g. http://www.opengis.net/def/interpolation/OGC/1.0/near -> near
+            String shorthandInterpolation = HttpUtil.getLastSegmentOfURL(interpolation);
+            SUPPORTED_SHORTHANDS_INTERPOLATIONS.add(shorthandInterpolation);
+        }
     }
 
     /**
@@ -264,12 +164,12 @@ public class GMLGetCapabilitiesBuilder {
      * @return
      */
     private static List<String> getProfiles() {
-        if (profiles == null) {
-            profiles = new ArrayList<>();
+        if (profiles == null || profiles.isEmpty()) {
+            profiles = new LinkedHashSet<>();
+
             // Decode formats extension
             profiles.add(GML_IDENTIFIER);
             profiles.add(GMLCOV_IDENTIFIER);
-            profiles.add(GEOTIFF_IDENTIFIER);
             profiles.add(GMLJP2_IDENTIFIER);
             profiles.add(JPEG2000_IDENTIFIER);
             profiles.add(CSV_IDENTIFIER);
@@ -297,7 +197,7 @@ public class GMLGetCapabilitiesBuilder {
             profiles.add(CRS_IDENTIFIER);
         }
 
-        return profiles;
+        return new ArrayList<>(profiles);
     }
 
     /**
@@ -368,73 +268,73 @@ public class GMLGetCapabilitiesBuilder {
     /**
      * Build the ServiceProvider element
      */
-    public Element buildServiceProvider(OwsServiceMetadata owsServiceMetadata) {
+    public Element buildServiceProvider(OwsServiceMetadata owsServiceMetadata, String owsNamespace) {
         ServiceProvider serviceProvider = owsServiceMetadata.getServiceProvider();
 
         // 1. parent element
-        Element serviceProviderElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_SERVICE_PROVIDER), NAMESPACE_OWS);
+        Element serviceProviderElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_SERVICE_PROVIDER), owsNamespace);
 
         // 1.1. children elements
-        Element providerNameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_PROVIDER_NAME), NAMESPACE_OWS);
+        Element providerNameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_PROVIDER_NAME), owsNamespace);
         providerNameElement.appendChild(serviceProvider.getProviderName());
         serviceProviderElement.appendChild(providerNameElement);
 
-        Element providerSiteElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_PROVIDER_SITE), NAMESPACE_OWS);
+        Element providerSiteElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_PROVIDER_SITE), owsNamespace);
         Attribute providerSiteAttribute = new Attribute(XMLUtil.createXMLLabel(PREFIX_XLINK, ATT_HREF), NAMESPACE_XLINK,  serviceProvider.getProviderSite());
         providerSiteElement.addAttribute(providerSiteAttribute);
         serviceProviderElement.appendChild(providerSiteElement);
 
         ServiceContact serviceContact = serviceProvider.getServiceContact();
-        Element serviceContactElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_SERVICE_CONTACT), NAMESPACE_OWS);
+        Element serviceContactElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_SERVICE_CONTACT), owsNamespace);
         serviceProviderElement.appendChild(serviceContactElement);
 
         // 1.1.1 grand children elements (*children of ServiceContact element*)
-        Element individualNameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_INDIVIDUAL_NAME), NAMESPACE_OWS);
+        Element individualNameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_INDIVIDUAL_NAME), owsNamespace);
         individualNameElement.appendChild(serviceContact.getIndividualName());
         serviceContactElement.appendChild(individualNameElement);
 
-        Element positionNameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_POSITION_NAME), NAMESPACE_OWS);
+        Element positionNameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_POSITION_NAME), owsNamespace);
         positionNameElement.appendChild(serviceContact.getPositionName());
         serviceContactElement.appendChild(positionNameElement);
 
-        Element contactInfoElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_CONTACT_INFO), NAMESPACE_OWS);
+        Element contactInfoElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_CONTACT_INFO), owsNamespace);
         ContactInfo contactInfo = serviceContact.getContactInfo();
         serviceContactElement.appendChild(contactInfoElement);
 
         // 1.1.1.1 *children of ContactInfo element*        
         Phone phone = contactInfo.getPhone();
-        Element phoneElement = this.buildPhoneElement(phone);
+        Element phoneElement = this.buildPhoneElement(phone, owsNamespace);
         if (phoneElement.getChildCount() > 0) {
             contactInfoElement.appendChild(phoneElement);
         }
 
         Address address = contactInfo.getAddress();
-        Element addressElement = this.buildAddressElement(address);
+        Element addressElement = this.buildAddressElement(address, owsNamespace);
         if (addressElement.getChildCount() > 0) {
             contactInfoElement.appendChild(addressElement);
         }
 
         if (contactInfo.getOnlineResource() != null) {
-            Element onlineResourceElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ONLINE_RESOURCE), NAMESPACE_OWS);
+            Element onlineResourceElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ONLINE_RESOURCE), owsNamespace);
             Attribute onlineResourceHrefAttribute = new Attribute(XMLUtil.createXMLLabel(PREFIX_XLINK, ATT_HREF), NAMESPACE_XLINK, contactInfo.getOnlineResource());
             onlineResourceElement.addAttribute(onlineResourceHrefAttribute);
             contactInfoElement.appendChild(onlineResourceElement);
         }
 
         if (contactInfo.getHoursOfService() != null) {
-            Element hoursOfServiceElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_HOURS_OF_SERVICE), NAMESPACE_OWS);
+            Element hoursOfServiceElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_HOURS_OF_SERVICE), owsNamespace);
             hoursOfServiceElement.appendChild(contactInfo.getHoursOfService());
             contactInfoElement.appendChild(hoursOfServiceElement);
         }
 
         if (contactInfo.getContactInstructions() != null) {
-            Element contactInstructionsElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_CONTACT_INSTRUCTIONS), NAMESPACE_OWS);
+            Element contactInstructionsElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_CONTACT_INSTRUCTIONS), owsNamespace);
             contactInstructionsElement.appendChild(contactInfo.getContactInstructions());
             contactInfoElement.appendChild(contactInstructionsElement);
         }
 
         // 1.1.1 *children of ServiceContact element*
-        Element roleNameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ROLE), NAMESPACE_OWS);
+        Element roleNameElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ROLE), owsNamespace);
         roleNameElement.appendChild(serviceContact.getRole());
         serviceContactElement.appendChild(roleNameElement);
 
@@ -445,46 +345,46 @@ public class GMLGetCapabilitiesBuilder {
      * Build the address element of ContactInfo of ServiceContact of
      * ServiceProvider element
      */
-    private Element buildAddressElement(Address address) {
-        Element addressElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ADDRESS), NAMESPACE_OWS);
+    private Element buildAddressElement(Address address, String owsNamespace) {
+        Element addressElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ADDRESS), owsNamespace);
 
         // Children elements
         if (address.getDeliveryPoints().size() > 0) {
             for (String deliverPoint : address.getDeliveryPoints()) {
-                Element deliveryPointElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_DELIVERY_POINT), NAMESPACE_OWS);
+                Element deliveryPointElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_DELIVERY_POINT), owsNamespace);
                 deliveryPointElement.appendChild(deliverPoint);
                 addressElement.appendChild(deliveryPointElement);
             }
         }
 
         if (address.getCity() != null) {
-            Element cityElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_CITY), NAMESPACE_OWS);
+            Element cityElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_CITY), owsNamespace);
             cityElement.appendChild(address.getCity());
             addressElement.appendChild(cityElement);
         }
 
         if (address.getAdministrativeArea() != null) {
-            Element administrativeAreaElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ADMINISTRATIVE_AREA), NAMESPACE_OWS);
+            Element administrativeAreaElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_ADMINISTRATIVE_AREA), owsNamespace);
             administrativeAreaElement.appendChild(address.getAdministrativeArea());
             addressElement.appendChild(administrativeAreaElement);
         }
 
         if (address.getPostalCode() != null) {
-            Element postalCodeElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_POSTAL_CODE), NAMESPACE_OWS);
+            Element postalCodeElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_POSTAL_CODE), owsNamespace);
             postalCodeElement.appendChild(address.getPostalCode());
             addressElement.appendChild(postalCodeElement);
 
         }
 
         if (address.getCountry() != null) {
-            Element countryElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_COUNTRY), NAMESPACE_OWS);
+            Element countryElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_COUNTRY), owsNamespace);
             countryElement.appendChild(address.getCountry());
             addressElement.appendChild(countryElement);
         }
 
         if (address.getElectronicMailAddresses().size() > 0) {
             for (String email : address.getElectronicMailAddresses()) {
-                Element eMailElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_EMAIL_ADDRESS), NAMESPACE_OWS);
+                Element eMailElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_EMAIL_ADDRESS), owsNamespace);
                 eMailElement.appendChild(email);
                 addressElement.appendChild(eMailElement);
             }
@@ -497,13 +397,13 @@ public class GMLGetCapabilitiesBuilder {
      * Build the Phone element of ContactInfo of ServiceContact of
      * ServiceProvider element
      */
-    private Element buildPhoneElement(Phone phone) {
-        Element phoneElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_PHONE), NAMESPACE_OWS);
+    private Element buildPhoneElement(Phone phone, String owsNamespace) {
+        Element phoneElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_PHONE), owsNamespace);
 
         // Children elements
         if (phone.getVoicePhones().size() > 0) {
             for (String voicePhone : phone.getVoicePhones()) {
-                Element voiceElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_VOICE), NAMESPACE_OWS);
+                Element voiceElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_VOICE), owsNamespace);
                 voiceElement.appendChild(voicePhone);
                 phoneElement.appendChild(voiceElement);
             }
@@ -511,7 +411,7 @@ public class GMLGetCapabilitiesBuilder {
 
         if (phone.getFacsimilePhones().size() > 0) {
             for (String facSimile : phone.getFacsimilePhones()) {
-                Element facSimileElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_FACSIMILE), NAMESPACE_OWS);
+                Element facSimileElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_FACSIMILE), owsNamespace);
                 facSimileElement.appendChild(facSimile);
                 phoneElement.appendChild(facSimileElement);
             }
@@ -645,13 +545,15 @@ public class GMLGetCapabilitiesBuilder {
      */
     private Element buildServiceMetadataElement(String version) {
         
-        String wcsNameSpace = this.getWCSNameSpace(version);        
-        Element serviceMetadataElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_SERVICE_METADATA), wcsNameSpace);
+        String wcsNameSpace = this.getWCSNameSpace(version);
+        String wcsPrefix = this.getWCSPrefix(version);
+
+        Element serviceMetadataElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_SERVICE_METADATA), wcsNameSpace);
 
         // Children elements
         // List of supported encode format extensions
         for (String mimeType : MIMEUtil.getAllMimeTypes()) {
-            Element formatSupportedElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_FORMAT_SUPPORTED), wcsNameSpace);
+            Element formatSupportedElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_FORMAT_SUPPORTED), wcsNameSpace);
             formatSupportedElement.appendChild(mimeType);
 
             serviceMetadataElement.appendChild(formatSupportedElement);
@@ -668,9 +570,11 @@ public class GMLGetCapabilitiesBuilder {
      * Build wcs:Extension of wcs:ServiceMetadata element
      */
     private Element buildExtensionElement(String version) {
+
+        String wcsPrefix = this.getWCSPrefix(version);
         
         String wcsNameSpace = this.getWCSNameSpace(version);
-        Element wcsExtensionElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_EXTENSION), wcsNameSpace);
+        Element wcsExtensionElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_EXTENSION), wcsNameSpace);
 
         // 1.1 Children elements of wcsExtension element
         Element interpolationMetadataElement = new Element(XMLUtil.createXMLLabel(PREFIX_INT, LABEL_INTERPOLATION_METADATA), NAMESPACE_INTERPOLATION);
@@ -703,7 +607,9 @@ public class GMLGetCapabilitiesBuilder {
      */
     private Element buildContentsElement(Element operationsMetadataElement, String version) throws PetascopeException {
 
-        Element contentsElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_CONTENTS), this.getWCSNameSpace(version));
+        String wcsPrefix = this.getWCSPrefix(version);
+
+        Element contentsElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_CONTENTS), this.getWCSNameSpace(version));
         List<Pair<Coverage, Boolean>> importedCoveragePairs = this.coverageRepositoryService.readAllLocalCoveragesBasicMetatataFromCache();
         List<Coverage> inspireCoverages = new ArrayList<>();
         
@@ -727,16 +633,16 @@ public class GMLGetCapabilitiesBuilder {
                 continue;
             }
             // 1.1 CoverageSummary element
-            Element coverageSummaryElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_SUMMARY), this.getWCSNameSpace(version));
+            Element coverageSummaryElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_COVERAGE_SUMMARY), this.getWCSNameSpace(version));
             contentsElement.appendChild(coverageSummaryElement);
 
             // 1.1.1 Children elements of CoverageSummary element
-            Element coverageIdElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_ID), this.getWCSNameSpace(version));
+            Element coverageIdElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_COVERAGE_ID), this.getWCSNameSpace(version));
             String coverageId = coveragePair.fst.getCoverageId();
             coverageIdElement.appendChild(coverageId);
             coverageSummaryElement.appendChild(coverageIdElement);
 
-            Element coverageSubTypeElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_SUBTYPE), this.getWCSNameSpace(version));
+            Element coverageSubTypeElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_COVERAGE_SUBTYPE), this.getWCSNameSpace(version));
             coverageSubTypeElement.appendChild(coveragePair.fst.getCoverageType());
             coverageSummaryElement.appendChild(coverageSubTypeElement);
             
@@ -777,13 +683,21 @@ public class GMLGetCapabilitiesBuilder {
             }
 
             // 1.1.1.1 Children elements of BoundingBox element
-            Element lowerCornerElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_LOWER_CORNER_ASSOCIATE_ROLE), NAMESPACE_OWS);
-            lowerCornerElement.appendChild(envelopeByAxis.getLowerCornerRepresentation());
-            boundingBox.appendChild(lowerCornerElement);
+            try {
+                Element lowerCornerElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_LOWER_CORNER_ASSOCIATE_ROLE), NAMESPACE_OWS);
+                lowerCornerElement.appendChild(envelopeByAxis.getLowerCornerRepresentation());
+                boundingBox.appendChild(lowerCornerElement);
+            } catch (NullPointerException ex) {
+                log.error("Failed to get lower bounds representation for coverage: " + coverageId + " because of null error.", ex);
+            }
 
-            Element upperCornerElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_UPPER_CORNER_ASSOCIATE_ROLE), NAMESPACE_OWS);
-            upperCornerElement.appendChild(envelopeByAxis.getUpperCornerRepresentation());
-            boundingBox.appendChild(upperCornerElement);
+            try {
+                Element upperCornerElement = new Element(XMLUtil.createXMLLabel(PREFIX_OWS, LABEL_UPPER_CORNER_ASSOCIATE_ROLE), NAMESPACE_OWS);
+                upperCornerElement.appendChild(envelopeByAxis.getUpperCornerRepresentation());
+                boundingBox.appendChild(upperCornerElement);
+            } catch (NullPointerException ex) {
+                log.error("Failed to get upper bounds representation for coverage: " + coverageId + " because of null error.", ex);
+            }
         }
         
         long endTime = System.currentTimeMillis();
@@ -814,6 +728,14 @@ public class GMLGetCapabilitiesBuilder {
            <inspire_common:ResponseLanguage>
              <inspire_common:Language>eng</inspire_common:Language>
            </inspire_common:ResponseLanguage>
+
+
+         <!-- NOTE: this element below always appear to be valid in WCS 2.1.0 GetCapabilities schema -->
+         <inspire_dls:SpatialDataSetIdentifier metadataURL="https://inspire-geoportal.ec.europa.eu/resources/521-540/16.iso19139.xml">
+             <inspire_common:Code>
+                 rasdaman
+             </inspire_common:Code>
+         <inspire_common:Namespace>
 
            <inspire_dls:SpatialDataSetIdentifier metadataURL="https://inspire-geoportal.ec.europa.eu/resources/521-540/16.iso19139.xml">
              <inspire_common:Code>
@@ -871,6 +793,16 @@ public class GMLGetCapabilitiesBuilder {
             responseLanguagesElement.appendChild(languageElement2);
 
             extendedCapabilitiesElement.appendChild(responseLanguagesElement);
+
+
+            Element rootSpatialDatasetIdentifierElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_DLS, LABEL_INSPIRE_SPATIAL_DATASET_IDENTIFIER),
+                                                                NAMESPACE_INSPIRE_DLS);
+            Element rootCodeElement = new Element(XMLUtil.createXMLLabel(PREFIX_INSPIRE_COMMON, LABEL_INSPIRE_CODE),
+                                                            NAMESPACE_INSPIRE_COMMON);
+            rootCodeElement.appendChild(ConfigManager.INSPIRE_SPATIAL_DATASET_IDENTIFIER);
+            rootSpatialDatasetIdentifierElement.appendChild(rootCodeElement);
+            extendedCapabilitiesElement.appendChild(rootSpatialDatasetIdentifierElement);
+
 
             for (Coverage inspireCoverage : inspireCoverages) {
 
@@ -994,7 +926,13 @@ public class GMLGetCapabilitiesBuilder {
      * which can project to EPSG:4326 CRS (Long - Lat order)
      */
     private Element createWGS84BoundingBoxElement(Coverage coverage) throws PetascopeException {
-        Wgs84BoundingBox wgs84BoundingBox = coverage.getEnvelope().getEnvelopeByAxis().getWgs84BBox();
+        Wgs84BoundingBox wgs84BoundingBox = null;
+        try {
+            wgs84BoundingBox = coverage.getEnvelope().getEnvelopeByAxis().getWgs84BBox();
+        } catch (Exception ex) {
+            log.error("Failed to create WGS84 bounding box for coverage '" + coverage.getCoverageId() + "'. Reason: " + ex.getMessage(), ex);
+        }
+
         Element wgs84BoundingBoxElement = null;
         
         if (wgs84BoundingBox != null) {
@@ -1025,6 +963,14 @@ public class GMLGetCapabilitiesBuilder {
             return NAMESPACE_WCS_20; // The WCS 2.1 XSD does not contain capabilities elements, reuse 2.0 version
         }
     }
+
+    private String getWCSPrefix(String version) {
+        if (version.equals(VersionManager.WCS_VERSION_20)) {
+            return PREFIX_WCS;
+        } else {
+            return PREFIX_WCS_20;
+        }
+    }
        
     public Element serializeToXMLElement(String version) throws PetascopeException {
         
@@ -1032,16 +978,23 @@ public class GMLGetCapabilitiesBuilder {
         
         Map<String, String> xmlNameSpacesMap = GMLWCSRequestResultBuilder.getMandatoryXMLNameSpacesMap();
         Set<String> schemaLocations = new LinkedHashSet<>();
-        schemaLocations.add(SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES);
+
+        if (version.equals(VersionManager.WCS_VERSION_20)) {
+            schemaLocations.add(SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES);
+        } else {
+            schemaLocations.add(SCHEMA_LOCATION_WCS_21_GET_CAPABILITIES);
+        }
         schemaLocations.add(SCHEMA_LOCATION_INSPIRE1);
         schemaLocations.add(SCHEMA_LOCATION_INSPIRE2);
+
+        String wcsPrefix = this.getWCSPrefix(version);
         
-        Element capabilitiesElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_CAPABILITIES), this.getWCSNameSpace(version));
+        Element capabilitiesElement = new Element(XMLUtil.createXMLLabel(wcsPrefix, LABEL_CAPABILITIES), this.getWCSNameSpace(version));
         Attribute versionAttribute = new Attribute(LABEL_VERSION, version);
         capabilitiesElement.addAttribute(versionAttribute);
         
         Element serviceIdentificationElement = this.buildServiceIdentification(owsServiceMetadata);
-        Element serviceProviderElement = this.buildServiceProvider(owsServiceMetadata);
+        Element serviceProviderElement = this.buildServiceProvider(owsServiceMetadata, NAMESPACE_OWS);
         Element operationsMetadataElement = this.buildOperationsMetadataElement();
         Element serviceMetadataElement = this.buildServiceMetadataElement(version);
         Element contentsElement = this.buildContentsElement(operationsMetadataElement, version);
@@ -1080,4 +1033,5 @@ public class GMLGetCapabilitiesBuilder {
         
         return capabilitiesElement;
     }
+    
 }

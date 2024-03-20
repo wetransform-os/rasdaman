@@ -1,0 +1,5 @@
+for $clouds in ( test_mr), 
+    $m in ( test_mr) 
+return encode( 
+	((char) $clouds[ i(0) ] * ($m[ i(0) ] = 0))[j(0:1)]
+, "text/csv" )

@@ -22,6 +22,7 @@
 package petascope.controller;
 
 import com.rasdaman.accesscontrol.service.AuthenticationService;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -30,13 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -45,11 +40,16 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.maven.wagon.util.FileUtils;
 import org.rasdaman.config.ConfigManager;
+
+import static com.rasdaman.accesscontrol.service.AuthenticationService.getBasicAuthCredentialsOrRasguest;
+import static com.rasdaman.accesscontrol.service.AuthenticationService.getBasicAuthUsernamePassword;
+import static com.rasdaman.accesscontrol.service.RequestsFilter.UNAUTHENTICATED_ERROR_MESSAGE;
 import static org.rasdaman.config.ConfigManager.UPLOADED_FILE_DIR_TMP;
 import static org.rasdaman.config.ConfigManager.UPLOAD_FILE_PREFIX;
 import org.rasdaman.config.VersionManager;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.util.LinkedCaseInsensitiveMap;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.support.StandardMultipartHttpServletRequest;
@@ -57,8 +57,7 @@ import static petascope.controller.AuthenticationController.READ_WRITE_RIGHTS;
 import petascope.controller.handler.service.AbstractHandler;
 import petascope.controller.handler.service.XMLWCSServiceHandler;
 import petascope.core.KVPSymbols;
-
-
+import static petascope.core.KVPSymbols.KEY_ACCEPTVERSIONS;
 import static petascope.core.KVPSymbols.KEY_REQUEST;
 import static petascope.core.KVPSymbols.VALUE_INSERT_COVERAGE;
 import static petascope.core.KVPSymbols.VALUE_UPDATE_COVERAGE;
@@ -71,6 +70,7 @@ import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.PetascopeRuntimeException;
+import petascope.exceptions.WMTSException;
 import petascope.util.ExceptionUtil;
 import petascope.util.IOUtil;
 import petascope.util.ListUtil;
@@ -333,7 +333,7 @@ public abstract class AbstractController {
                 if (this.getValueByKeyAllowNull(kvpParameters, KVPSymbols.KEY_SERVICE) != null) {
                     kvpParameters.put(KVPSymbols.KEY_SERVICE, new String[] { KVPSymbols.KEY_SOAP });
                     kvpParameters.put(KVPSymbols.KEY_REQUEST_BODY, new String[] { requestBody });
-                    
+
                     return kvpParameters;
                 }
             }
@@ -354,17 +354,31 @@ public abstract class AbstractController {
             kvpParameters.put(KVPSymbols.KEY_REQUEST, new String[] {KVPSymbols.VALUE_PROCESS_COVERAGES});
         }
 
-        // e.g: Rasql servlet does not contains these requirement parameters
-        if (kvpParameters.get(KVPSymbols.KEY_SERVICE) != null) {
-            String service = getValueByKey(kvpParameters, KVPSymbols.KEY_SERVICE);
-            String request = getValueByKey(kvpParameters, KVPSymbols.KEY_REQUEST);
-            String versions[] = getValuesByKeyAllowNull(kvpParameters, KVPSymbols.KEY_VERSION);
+        String service = getValueByKeyAllowNull(kvpParameters, KVPSymbols.KEY_SERVICE);
+        String request = getValueByKeyAllowNull(kvpParameters, KVPSymbols.KEY_REQUEST);
+        String versions[] = getValuesByKeyAllowNull(kvpParameters, KVPSymbols.KEY_VERSION);
+        
+        if (VersionManager.isWMSRequest(versions) && service == null) {
+            kvpParameters.put(KVPSymbols.KEY_SERVICE, new String[] { KVPSymbols.WMS_SERVICE });
+        }        
 
+        // e.g: Rasql servlet does not contains these requirement parameters
+        if (service != null) {
+            
+            if (service != null && request == null) {
+                if (service.equals(KVPSymbols.WMTS_SERVICE)) {
+                    throw new WMTSException(new ExceptionCode(ExceptionCode.MissingParameterValue, KVPSymbols.KEY_REQUEST)); 
+                } else {
+                    throw new PetascopeException(new ExceptionCode(ExceptionCode.MissingParameterValue, KVPSymbols.KEY_REQUEST)); 
+                }
+            }
+            
             // NOTE: WMS allows version is null, so just use the latest WMS version
             if (service.equals(KVPSymbols.WMS_SERVICE) && versions == null) {
                 log.debug("WMS received request without version parameter, use the default version: " + VersionManager.getLatestVersion(WMS_SERVICE));
                 kvpParameters.put(KVPSymbols.KEY_VERSION, new String[] {VersionManager.getLatestVersion(WMS_SERVICE)});
-            } else if (service.equals(KVPSymbols.WCS_SERVICE) && request.equals(KVPSymbols.VALUE_GET_CAPABILITIES)) {
+            } else if (service.equals(KVPSymbols.WCS_SERVICE) 
+                        && request.equals(KVPSymbols.VALUE_GET_CAPABILITIES)) {
                 // It should use AcceptVersions for WCS GetCapabilities
                 if (kvpParameters.get(KVPSymbols.KEY_ACCEPTVERSIONS) != null) {
                     String value = getValuesByKey(kvpParameters, KVPSymbols.KEY_ACCEPTVERSIONS)[0];
@@ -377,27 +391,20 @@ public abstract class AbstractController {
                     versions = new String[] {VersionManager.getLatestVersion(WCS_SERVICE)};
                     kvpParameters.put(KVPSymbols.KEY_VERSION, versions);
                 }
+            } else if (request.equalsIgnoreCase(KVPSymbols.VALUE_GET_CAPABILITIES)) {
+                String[] acceptVersions = getValuesByKeyAllowNull(kvpParameters, KEY_ACCEPTVERSIONS);
+                if (acceptVersions != null) {
+                    kvpParameters.put(KVPSymbols.KEY_VERSION, acceptVersions);
+                }
             }
         }
 
+
+        // NOTE: random=anyValue is used to ignore cache from web browser to clients, so in petascope it has no use
+        kvpParameters.remove(KVPSymbols.KEY_RASDAMAN_RANDOM);
         return kvpParameters;
     }
 
-    /**
-     * Check if petascope can read file's content from uploaded multipart file. If yes, then get file's content.
-     */
-    protected byte[] getUploadedMultipartFileContent(MultipartFile uploadedFile) throws PetascopeException {
-        byte[] bytes = null;            
-            try {
-                bytes = uploadedFile.getBytes();
-            } catch (IOException ex) {
-                throw new PetascopeException(ExceptionCode.IOConnectionError, 
-                        "Cannot get data from uploaded file. Reason: " + ex.getMessage() + ".", ex);
-            }
-            
-        return bytes;
-    }
-    
     /**
      * Write the uploaded file from client and store to a folder in server
      * @return the stored file path in server
@@ -466,6 +473,11 @@ public abstract class AbstractController {
         injectedHttpServletResponse.setStatus(response.getHTTPCode());
         injectedHttpServletResponse.setContentType(response.getMimeType());
         addFileNameToHeader(response);
+
+        if (response.getHTTPCode() == HttpStatus.UNAUTHORIZED.value()) {
+            ExceptionUtil.addWwwAuthenticationHeader(injectedHttpServletRequest, injectedHttpServletResponse);
+        }
+
         OutputStream os = null;
         
         try {
@@ -735,7 +747,7 @@ public abstract class AbstractController {
     public static String[] getValuesByKey(Map<String, String[]> kvpParameters, String key) throws PetascopeException {
         String[] values = kvpParameters.get(key.toLowerCase());
         if (values == null) {
-            throw new PetascopeException(ExceptionCode.InvalidRequest, 
+            throw new PetascopeException(ExceptionCode.BadResponseHandler, 
                     "Cannot find value from KVP parameters map for key '" + key + "'.");
         }
         
@@ -860,8 +872,9 @@ public abstract class AbstractController {
     
     public void logReceivedRequest(Map<String, String[]> kvpParameters) throws PetascopeException {
         String requestTmp = StringUtil.enquoteSingleIfNotEnquotedAlready(this.injectedHttpServletRequest.getRequestURI() + "?" + this.getRequestRepresentation(kvpParameters));
-      
-        log.info("Received request: " + requestTmp);
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        String logMessage = "Received request: " + requestTmp + " with user " + credentialsPair.fst;
+        log.info(logMessage);
     }
     
     public void logHandledRequest(boolean requestSuccess, long start, Map<String, String[]> kvpParameters, Exception ex) throws PetascopeException {
@@ -869,10 +882,11 @@ public abstract class AbstractController {
 
         long end = System.currentTimeMillis();
         long totalTime = end - start;
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
         if (requestSuccess) {
-            log.info("Processed request: " + requestTmp + " in " + String.valueOf(totalTime) + " ms.");
+            log.info("Processed request: " + requestTmp + " with user " + credentialsPair.fst + " in " + String.valueOf(totalTime) + " ms.");
         } else {
-            String errorMessage = "Failed processing request " + requestTmp 
+            String errorMessage = "Failed processing request: " + requestTmp
                                 + ", evaluation time " + String.valueOf(totalTime) + " ms. Reason: " + ex.getMessage();
             log.error(errorMessage);
         }
@@ -891,8 +905,9 @@ public abstract class AbstractController {
         // e.g req-10
         String requestCounter = REQUEST_COUNTER_PREFIX + REQUEST_COUNTER;
         REQUEST_COUNTER++;
-        
-        log.info("Received request " + requestCounter + ": " + requestTmp);
+
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        log.info("Received request: " + requestCounter + ": " + requestTmp + " with user " + credentialsPair.fst);
         
         return new Pair<>(requestCounter, System.currentTimeMillis());
     } 
@@ -905,14 +920,20 @@ public abstract class AbstractController {
             ex = pex.getException();
             version = pex.getVersion();
         }
-        String errorMessage = "Failed processing request " + requestCounter 
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        String errorMessage = "Failed processing request: " + requestCounter + " with user " + credentialsPair.fst
                                 + ", evaluation time " + String.valueOf(System.currentTimeMillis() - startTime) + " ms. Reason: " + ex.getMessage();
+        // log the error reason here as well, even though it's logged also later in
+        // ExceptionUtil: here it's properly identified with the request id,
+        // which helps when there are multiple concurrent requests to know
+        // which one failed by what reason.
         log.error(errorMessage);      
-        ExceptionUtil.handle(version, ex, injectedHttpServletResponse);
+        ExceptionUtil.handle(version, ex, injectedHttpServletRequest, injectedHttpServletResponse);
     }
     
-    private void logSuccess(String requestCounter, long startTime) {
-        log.info("Processed request " + requestCounter + " in " + String.valueOf(System.currentTimeMillis() - startTime) + " ms.");
+    private void logSuccess(String requestCounter, long startTime) throws PetascopeException {
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(this.injectedHttpServletRequest);
+        log.info("Processed request: " + requestCounter + " with user " + credentialsPair.fst + " in " + String.valueOf(System.currentTimeMillis() - startTime) + " ms.");
     }
     
     /**
@@ -948,6 +969,17 @@ public abstract class AbstractController {
             }
         }
     }
+
+    /**
+     * Copy any rasdaman INTERNAL KVPs from source map to target map
+     */
+    public static void copyInternalKeyValueParams(Map<String, String[]> sourceKVPMap, Map<String, String[]> targetKVPMap) {
+        for (Map.Entry<String, String[]> entry : sourceKVPMap.entrySet()) {
+            if (entry.getKey().startsWith(KVPSymbols.KEY_INTERNAL_PREFIX)) {
+                targetKVPMap.put(entry.getKey(), entry.getValue());
+            }
+        }
+    }
     
     
     
@@ -968,6 +1000,55 @@ public abstract class AbstractController {
         return sourceIP;
     }
 
+    
+    /**
+     * Check if user has a specific role to process request
+     */
+    public void validateUserPermission(HttpServletRequest httpServletRequest, String... inputRoleNames) throws PetascopeException {
+        Pair<String, String> credentialsPair = getBasicAuthCredentialsOrRasguest(httpServletRequest);
+        String username = credentialsPair.fst;
+
+        Set<String> userRoles = AuthenticationController.parseRolesFromRascontrol(username);
+
+        for (String roleName : inputRoleNames) {
+            if (!userRoles.contains(roleName)) {
+                String requestRepresentation = this.getRequestPresentationWithEncodedAmpersands(httpServletRequest);
+
+                Pair<String, String> basicAuthCredentialsPair = getBasicAuthUsernamePassword(httpServletRequest);
+
+                ExceptionCode exceptionCode = ExceptionCode.AccessDenied;
+                if (basicAuthCredentialsPair == null) {
+                    // In this case rasguest user is set in petascope.properties, but the user doesn't have the permission to run
+                    exceptionCode = ExceptionCode.Unauthorized;
+
+                    String errorMessage = UNAUTHENTICATED_ERROR_MESSAGE + " from request '" + requestRepresentation + "'";
+
+                    throw new PetascopeException(exceptionCode, errorMessage);
+                } else {
+                    throw new PetascopeException(exceptionCode,
+                            "User '" + username + "' does not have role '" + roleName + "' to process request '" + requestRepresentation + "'.");
+                }
+
+            }
+        }
+    }
+
+    /**
+     * The user write requests (e.g. DeleteCoverage, InsertLayer,...)
+     * must have the role if basic header is enabled, or his IP must be allowed
+     */
+    public void validateWriteRequestByRoleOrAllowedIP(HttpServletRequest httpServletRequest,
+                                                      String roleName) throws PetascopeException {
+
+        if (ConfigManager.enableAuthentication() || getBasicAuthUsernamePassword(httpServletRequest) != null) {
+            // + user must have the specific role, otherwise exception
+            this.validateUserPermission(httpServletRequest, roleName);
+        } else {
+            // + user's IP must be from allowed write request setting, otherwise exception
+            validateWriteRequestFromIP(httpServletRequest);
+        }
+    }
+
     /**
      * If basic authentication header is not enabled, then petascope checks if write request from IP address is valid or not
      * before processing.
@@ -986,7 +1067,7 @@ public abstract class AbstractController {
                 // -- rasdaman community only
                 
                 //  If user's IP is not allowed, check if request contains valid admin credentials in basic header
-                Pair<String, String> resultPair = AuthenticationService.getBasicAuthUsernamePassword(httpServletRequest);
+                Pair<String, String> resultPair = getBasicAuthUsernamePassword(httpServletRequest);
                 if (resultPair != null) {
                     String username = resultPair.fst;
                     String password = resultPair.snd;
@@ -1013,6 +1094,7 @@ public abstract class AbstractController {
                     throw new PetascopeException(ExceptionCode.AccessDenied, 
                                                  "Write request '" + requestRepresentation + "' is not permitted from IP address '" + sourceIP + "'.");
                 }
+                
             }
         }
     }
@@ -1039,5 +1121,6 @@ public abstract class AbstractController {
     public boolean isPostRequest(HttpServletRequest httpServletRequest) {
         return httpServletRequest.getMethod().toLowerCase().equals("post");
     }
+
 }
 

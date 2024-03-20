@@ -1,0 +1,1 @@
+select polygonize(test_rgb2, "text/csv") from test_rgb2

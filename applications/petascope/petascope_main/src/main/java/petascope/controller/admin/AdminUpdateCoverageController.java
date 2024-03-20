@@ -21,7 +21,7 @@
  */
 package petascope.controller.admin;
 
-import com.rasdaman.admin.coverage.service.AdminUpdateCoverageService;
+import com.rasdaman.admin.coverage.service.AdminUpdateCoverageIdAndMetadataService;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,6 +30,9 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import static org.rasdaman.config.ConfigManager.ADMIN;
 import static org.rasdaman.config.ConfigManager.COVERAGE;
+import static petascope.core.KVPSymbols.*;
+
+import com.rasdaman.admin.coverage.service.AdminUpdateCoverageNullValueService;
 import org.rasdaman.config.VersionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,9 +41,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.support.StandardMultipartHttpServletRequest;
 import petascope.controller.AbstractController;
+import petascope.controller.AuthenticationController;
 import petascope.controller.RequestHandlerInterface;
 import petascope.core.KVPSymbols;
-import static petascope.core.KVPSymbols.KEY_METADATA;
+
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.util.ExceptionUtil;
@@ -54,18 +58,21 @@ import petascope.util.ExceptionUtil;
 public class AdminUpdateCoverageController extends AbstractController {
 
     private static final String COVERAGE_UPDATE_PATH = ADMIN + "/" + COVERAGE + "/update";
+    private static final String COVERAGE_NULLVALUES_UPDATE_PATH = ADMIN + "/" + COVERAGE + "/nullvalues/update";
 
     @Autowired
-    private AdminUpdateCoverageService adminUpdateCoverageService;
+    private AdminUpdateCoverageIdAndMetadataService adminUpdateCoverageIdAndMetadataService;
+    @Autowired
+    private AdminUpdateCoverageNullValueService adminUpdateCoverageNullValueService;
 
     @Override
-    @RequestMapping(path = COVERAGE_UPDATE_PATH, method = RequestMethod.GET)
+    @RequestMapping(path = { COVERAGE_UPDATE_PATH, COVERAGE_NULLVALUES_UPDATE_PATH }, method = RequestMethod.GET)
     protected void handleGet(HttpServletRequest httpServletRequest) throws Exception {
         this.handle(httpServletRequest);
     }
 
     @Override
-    @RequestMapping(path = COVERAGE_UPDATE_PATH, method = RequestMethod.POST)
+    @RequestMapping(path = { COVERAGE_UPDATE_PATH, COVERAGE_NULLVALUES_UPDATE_PATH }, method = RequestMethod.POST)
     protected void handlePost(HttpServletRequest httpServletRequest) throws Exception {
         this.handle(httpServletRequest);
     }
@@ -81,11 +88,19 @@ public class AdminUpdateCoverageController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
 
-                this.adminUpdateCoverageService.handle(httpServletRequest, kvpParameters);
+                String newCoverageId = AbstractController.getValueByKeyAllowNull(kvpParameters, KEY_NEW_COVERAGE_ID);
+                String metadata = AbstractController.getValueByKeyAllowNull(kvpParameters, KEY_METADATA);
+                String nullValue = AbstractController.getValueByKeyAllowNull(kvpParameters, KEY_NULL_VALUES);
+
+                if (newCoverageId != null || metadata != null) {
+                    this.adminUpdateCoverageIdAndMetadataService.handle(httpServletRequest, kvpParameters);
+                } else if (nullValue != null) {
+                    this.adminUpdateCoverageNullValueService.handle(httpServletRequest, kvpParameters);
+                }
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WCS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         

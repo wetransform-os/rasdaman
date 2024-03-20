@@ -19,12 +19,11 @@
  * For more information please see <http://www.rasdaman.org>
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
-#include <boost/thread/locks.hpp>
-
-#include <logging.hh>
-
 #include "rasmgrconfig.hh"
 #include "globals.hh"
+#include <logging.hh>
+
+#include <boost/thread/locks.hpp>
 
 namespace rasmgr
 {
@@ -58,14 +57,10 @@ RasMgrConfig::RasMgrConfig()
     this->clientGetServerRetryTimeout = 1000;
 
     //TODO:This must be given as a parameter at runtime
-    this->rasServerExecPath = BINDIR"rasserver";
+    this->rasServerExecPath = BINDIR "rasserver";
 
     this->connectHostName = "localhost";
 }
-
-RasMgrConfig::~RasMgrConfig()
-{}
-
 
 boost::int32_t RasMgrConfig::getRasMgrPort()
 {
@@ -102,4 +97,4 @@ boost::int32_t RasMgrConfig::getClientGetServerRetryTimeout()
     return this->clientGetServerRetryTimeout;
 }
 
-}
+}  // namespace rasmgr

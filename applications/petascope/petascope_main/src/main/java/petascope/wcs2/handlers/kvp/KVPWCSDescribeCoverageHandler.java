@@ -22,6 +22,8 @@
 package petascope.wcs2.handlers.kvp;
 
 import java.util.Arrays;
+
+import petascope.controller.AbstractController;
 import petascope.core.response.Response;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +38,9 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCSException;
 import petascope.core.KVPSymbols;
+
+import static petascope.controller.AbstractController.getValueByKey;
+import static petascope.controller.AbstractController.getValueByKeyAllowNull;
 import static petascope.core.KVPSymbols.KEY_COVERAGEID;
 import static petascope.core.KVPSymbols.VALUE_GENERAL_GRID_COVERAGE;
 import petascope.core.gml.GMLWCSRequestResultBuilder;
@@ -70,7 +75,7 @@ public class KVPWCSDescribeCoverageHandler extends KVPWCSAbstractHandler {
 
     @Override
     public void validate(Map<String, String[]> kvpParameters) throws PetascopeException, SecoreException, WMSException {
-        if (kvpParameters.get(KVPSymbols.KEY_COVERAGEID) == null) {
+        if (AbstractController.getValueByKeyAllowNull(kvpParameters, KVPSymbols.KEY_COVERAGEID) == null) {
             throw new WCSException(ExceptionCode.InvalidRequest, "A DescribeCoverage request must specify at least one " + KVPSymbols.KEY_COVERAGEID + ".");
         }
         
@@ -79,13 +84,13 @@ public class KVPWCSDescribeCoverageHandler extends KVPWCSAbstractHandler {
     }
 
     @Override
-    public Response handle(Map<String, String[]> kvpParameters) throws PetascopeException, SecoreException, WMSException {
+    public Response handle(Map<String, String[]> kvpParameters) throws PetascopeException, SecoreException, WMSException, Exception {
         // Validate before handling the request
         this.validate(kvpParameters);
 
-        // DecribeCoverage can contain multiple coverageIds (e.g: coverageIds=test_mr,test_irr_cube_2)
-        String[] coverageIds = kvpParameters.get(KEY_COVERAGEID)[0].split(",");
-        String outputType = this.getKVPValue(kvpParameters, KEY_OUTPUT_TYPE);
+        // DescribeCoverage can contain multiple coverageIds (e.g: coverageIds=test_mr,test_irr_cube_2)
+        String[] coverageIds = getValueByKey(kvpParameters, KVPSymbols.KEY_COVERAGEID).split(",");
+        String outputType = getValueByKeyAllowNull(kvpParameters, KEY_OUTPUT_TYPE);
         if (outputType != null && !outputType.equalsIgnoreCase(VALUE_GENERAL_GRID_COVERAGE)) {
             throw new PetascopeException(ExceptionCode.InvalidRequest, "GET KVP value for key '" + KEY_OUTPUT_TYPE + "' is not valid. Given: '" + outputType + "'.");
         }

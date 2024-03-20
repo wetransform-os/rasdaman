@@ -32,8 +32,7 @@ endforeach ()
 
 add_library(relstorageif ${COMPILED_SQL_SOURCES}
         dbstoragelayout.hh
-        empty.cc
-        storageid.hh)
+        empty.cc)
 
 target_include_directories(relstorageif PUBLIC ${BASEDB_INCLUDE_DIR})
 target_include_directories(relstorageif PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -48,8 +47,9 @@ target_link_libraries(relstorageif
 #    common_logging
 #    mymalloc_svc
 #    raslib
+    ${FMT_LIBRARY}
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(relstorageif REUSE_FROM common_logging)
 endif()

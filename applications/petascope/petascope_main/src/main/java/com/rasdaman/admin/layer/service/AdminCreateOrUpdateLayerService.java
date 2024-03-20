@@ -77,8 +77,6 @@ public class AdminCreateOrUpdateLayerService {
     private WMSRepostioryService wmsRepostioryService;
     @Autowired
     private WcpsCoverageMetadataTranslator wcpsCoverageMetadataTranslator;
-    @Autowired
-    private WMSGetMapCachingService wmsGetMapCachingService;
 
     /**
      * If a layer name associated with a coverageID doesn't exist, then create a
@@ -93,7 +91,7 @@ public class AdminCreateOrUpdateLayerService {
 
         boolean layerExist = this.wmsRepostioryService.isInLocalCache(layerName);
         Layer layer = null;
-        
+
         if (!layerExist) {
             layer = new Layer();
         } else {
@@ -143,6 +141,9 @@ public class AdminCreateOrUpdateLayerService {
                     dimension.setName(axis.getLabel());
                 }
 
+                String units = Dimension.getUnits(axis.getNativeCrsUri());
+                dimension.setUnits(units);
+
                 String axisExtent;
                 // According to Table C.2, WMS 1.3 document
                 // if axis is regular, the extent will be: minGeoBound/maxGeoBound/resolution_with_axisUom (e.g: "1949-12-31T12:00:00.000Z"/"1950-01-06T12:00:00.000Z"/1d)
@@ -153,9 +154,8 @@ public class AdminCreateOrUpdateLayerService {
                     String axisUoM = axis.getAxisUoM();
                     axisExtent = minGeoBound + VALUE_WMS_DIMENSION_MIN_MAX_SEPARATE_CHARACTER + maxGeoBound + VALUE_WMS_DIMENSION_MIN_MAX_SEPARATE_CHARACTER + resolution + axisUoM;
                 } else {
-                    // if it is irregular, the extent will be the list of seperate values: value1,value2,...valueN
-                    axisExtent = ((IrregularAxis) axis).getRepresentationCoefficients();
-                    axisExtent = axisExtent.replace(" ", ",");
+                    // if it is irregular, the extent will be the list of separated values: value1,value2,...valueN
+                    axisExtent = ((IrregularAxis) axis).getRepresentationCoefficients(",");
                 }
                 dimension.setExtent(axisExtent);
                 dimensions.add(dimension);
@@ -168,11 +168,6 @@ public class AdminCreateOrUpdateLayerService {
         // Persist the layer
         wmsRepostioryService.saveLayer(layer);
         log.info("Layer '" + layerName + "' is persisted to local database.");
-
-        if (layerExist) {
-            // Remove all the cached GetMap response from cache as layer is updated
-            this.wmsGetMapCachingService.removeLayerGetMapInCache(layerName);
-        }
         
         // Mark this local layer is updated for WMTS to recreate new TileMatrixSets for it
         WMTSGetCapabilitiesService.localUpdatedLayerNames.add(layerName);

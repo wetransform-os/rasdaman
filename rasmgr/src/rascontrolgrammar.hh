@@ -29,6 +29,10 @@ rasdaman GmbH.
 namespace rasmgr
 {
 
+/**
+ * Parse a rascontrol command, e.g. `list srv -all`, and process it with a
+ * RasControl instance.
+ */
 class RasControlGrammar
 {
 public:
@@ -105,7 +109,7 @@ private:
     bool isFlag(const std::string &, int pos = -1);
 
     std::string getValueOf(const std::string &,
-                           bool acceptMinus = false); //'-' alone, only void right string
+                           bool acceptMinus = false);  //'-' alone, only void right string
     std::string getValueOptionalFlag(const std::string &,
                                      bool acceptMinus = false);
     std::string getValueMandatoryFlag(const std::string &,
@@ -150,7 +154,6 @@ private:
     DefineOutpeer defOutpeer;
 
 public:
-
     // Define literal strings used by the rules
     static const std::string defineLit;
     static const std::string hostLit;
@@ -213,15 +216,19 @@ class RCError
 {
 public:
     RCError();
-    virtual std::string getString() = 0;
+    explicit RCError(const std::string &what);
+    virtual std::string getString();
 
+private:
+    std::string what;
 };
 
 class RCErrorUnexpToken : public RCError
 {
 public:
-    RCErrorUnexpToken(const std::string &);
+    explicit RCErrorUnexpToken(const std::string &);
     std::string getString() override;
+
 private:
     std::string pcc;
 };
@@ -231,14 +238,16 @@ class RCErrorNoPermission : public RCError
 public:
     RCErrorNoPermission();
     std::string getString() override;
+
 private:
 };
 
 class RCErrorInvalidName : public RCError
 {
 public:
-    RCErrorInvalidName(const std::string &);
+    explicit RCErrorInvalidName(const std::string &);
     std::string getString() override;
+
 private:
     std::string pcc;
 };
@@ -246,8 +255,9 @@ private:
 class RCErrorMissingParam : public RCError
 {
 public:
-    RCErrorMissingParam(const std::string &);
+    explicit RCErrorMissingParam(const std::string &);
     std::string getString() override;
+
 private:
     std::string pcc;
 };
@@ -255,13 +265,13 @@ private:
 class RCErrorIncorNumberValue : public RCError
 {
 public:
-    RCErrorIncorNumberValue(const std::string &);
+    explicit RCErrorIncorNumberValue(const std::string &);
     std::string getString() override;
+
 private:
     std::string pcc;
 };
 
-}
+}  // namespace rasmgr
 
 #endif
-

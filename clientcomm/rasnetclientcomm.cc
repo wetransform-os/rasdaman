@@ -29,28 +29,29 @@ rasdaman GmbH.
 #include "rasodmg/set.hh"
 #include "rasodmg/ref.hh"
 #include "rasodmg/storagelayout.hh"
-#include "rasodmg/tiling.hh"
 #include "rasodmg/gmarray.hh"
 #include "rasodmg/oqlquery.hh"
 #include "rasodmg/genreftype.hh"
 
 #include "raslib/minterval.hh"
-#include "raslib/rminit.hh"
 #include "raslib/primitivetype.hh"
 #include "raslib/complextype.hh"
 #include "raslib/structuretype.hh"
 #include "raslib/primitive.hh"
 #include "raslib/complex.hh"
 #include "raslib/structure.hh"
-#include "raslib/parseparams.hh"
+#include "raslib/stringdata.hh"
 #include "raslib/turboqueryresult.hh"
 #include "raslib/miterd.hh"
+#include "raslib/error.hh"
 #include "mymalloc/mymalloc.h"
 #include "servercomm/rpcif.h"
 
-#include "common/crypto/crypto.hh"
-#include "common/uuid/uuid.hh"
+#include "common/string/stringutil.hh"
 #include "common/grpc/grpcutils.hh"
+#include "common/exceptions/invalidargumentexception.hh"
+#include "common/macros/compilerdefs.hh"
+#include "common/util/scopeguard.hh"
 #include "common/grpc/messages/error.pb.h"
 #include <logging.hh>
 
@@ -60,143 +61,57 @@ rasdaman GmbH.
 #include <grpc++/grpc++.h>
 #include <grpc++/security/credentials.h>
 
-using std::unique_ptr;
-using std::shared_ptr;
-using boost::shared_mutex;
-using boost::unique_lock;
-using boost::thread;
-
-using common::UUID;
+using common::ErrorMessage;
 using common::GrpcUtils;
+using common::StringUtil;
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using std::chrono::system_clock;
-using std::chrono::milliseconds;
+using namespace rasnet::service;
 
-using rasnet::service::OpenServerDatabaseReq;
-using rasnet::service::OpenServerDatabaseRepl;
-using rasnet::service::CloseServerDatabaseReq;
-using rasnet::service::AbortTransactionRepl;
-using rasnet::service::AbortTransactionReq;
-using rasnet::service::BeginTransactionRepl;
-using rasnet::service::BeginTransactionReq;
-using rasnet::service::CloseDbReq;
-using rasnet::service::CloseDbReq;
-using rasnet::service::ConnectReq;
-using rasnet::service::ConnectRepl;
-using rasnet::service::OpenDbReq;
-using rasnet::service::OpenDbRepl;
-using rasnet::service::DisconnectReq;
-using rasnet::service::Void;
-using rasnet::service::CommitTransactionRepl;
-using rasnet::service::CommitTransactionReq;
-using rasnet::service::DeleteCollectionByNameRepl;
-using rasnet::service::DeleteCollectionByNameReq;
-using rasnet::service::DeleteCollectionByOidRepl;
-using rasnet::service::DeleteCollectionByOidReq;
-using rasnet::service::EndInsertMDDRepl;
-using rasnet::service::EndInsertMDDReq;
-using rasnet::service::EndTransferRepl;
-using rasnet::service::EndTransferReq;
-using rasnet::service::ExecuteQueryRepl;
-using rasnet::service::ExecuteQueryReq;
-using rasnet::service::ExecuteUpdateQueryRepl;
-using rasnet::service::ExecuteUpdateQueryReq;
-using rasnet::service::ExecuteInsertQueryReq;
-using rasnet::service::ExecuteInsertQueryRepl;
-using rasnet::service::GetCollOidsByNameOrOidRepl;
-using rasnet::service::GetCollOidsByNameOrOidReq;
-using rasnet::service::GetCollectionByNameOrOidRepl;
-using rasnet::service::GetCollectionByNameOrOidReq;
-using rasnet::service::GetNewOidRepl;
-using rasnet::service::GetNewOidReq;
-using rasnet::service::GetNextElementRepl;
-using rasnet::service::GetNextElementReq;
-using rasnet::service::GetNextMDDRepl;
-using rasnet::service::GetNextMDDReq;
-using rasnet::service::GetNextTileRepl;
-using rasnet::service::GetNextTileReq;
-using rasnet::service::GetObjectTypeRepl;
-using rasnet::service::GetObjectTypeReq;
-using rasnet::service::GetTypeStructureRepl;
-using rasnet::service::GetTypeStructureReq;
-using rasnet::service::InitUpdateRepl;
-using rasnet::service::InitUpdateReq;
-using rasnet::service::InsertCollectionRepl;
-using rasnet::service::InsertCollectionReq;
-using rasnet::service::InsertTileRepl;
-using rasnet::service::InsertTileReq;
-using rasnet::service::RemoveObjectFromCollectionRepl;
-using rasnet::service::RemoveObjectFromCollectionReq;
-using rasnet::service::SetFormatRepl;
-using rasnet::service::SetFormatReq;
-using rasnet::service::StartInsertMDDRepl;
-using rasnet::service::StartInsertMDDReq;
-using rasnet::service::StartInsertTransMDDRepl;
-using rasnet::service::StartInsertTransMDDReq;
-using rasnet::service::KeepAliveReq;
-using rasnet::service::KeepAliveRequest;
-using common::ErrorMessage;
+/// returns an MD5 digest of initial_msg
+std::string md5Digest(const std::uint8_t *initial_msg, size_t initial_len);
 
-using std::string;
-
-RasnetClientComm::RasnetClientComm(string rasmgrHost1, int rasmgrPort1):
-    transferFormatParams(NULL),
-    storageFormatParams(NULL)
+RasnetClientComm::RasnetClientComm(const std::string &rasmgrHost1, int rasmgrPort1)
+    : rasmgrHostname{rasmgrHost1}
 {
-    this->clientId = 0;
-
-    clientParams = new r_Parse_Params();
-
-    this->rasmgrHost = GrpcUtils::constructAddressString(rasmgrHost1, static_cast<boost::uint32_t>(rasmgrPort1));
-
-    this->initializedRasMgrService = false;
-    this->initializedRasServerService = false;
+    this->rasmgrHost = GrpcUtils::constructAddressString(rasmgrHost1, std::uint32_t(rasmgrPort1));
 }
 
 RasnetClientComm::~RasnetClientComm() noexcept
 {
     this->stopRasMgrKeepAlive();
     this->stopRasServerKeepAlive();
-
-    closeRasmgrService();
-    closeRasserverService();
-
-    if (clientParams != NULL)
-    {
-        delete clientParams;
-        clientParams = NULL;
-    }
+    this->closeRasmgrService();
+    this->closeRasserverService();
 }
 
-int RasnetClientComm::connectClient(string userName, string passwordHash)
+int RasnetClientComm::connectClient(const std::string &userName, const std::string &passwordHash)
 {
-    int retval = 0; // ok
-    ConnectReq connectReq;
-    ConnectRepl connectRepl;
+    LDEBUG << "Connecting with rasmgr client with ID: " << clientId << " with rasmgr on " << this->rasmgrHostname;
 
-    connectReq.set_username(userName);
-    connectReq.set_passwordhash(passwordHash);
+    int retval = 0;  // ok
 
-    LDEBUG << "Connecting with rasmgr client with ID: " << clientId << ", UUID: " << clientUUID;
     ClientContext context;
-    grpc::Status status = this->getRasMgrService()->Connect(&context, connectReq, &connectRepl);
-
+    GrpcUtils::setDeadline(context, timeoutMs);
+    ConnectReq req;
+    req.set_username(userName);
+    req.set_passwordhash(passwordHash);
+    req.set_hostname(this->rasmgrHostname);
+    ConnectRepl repl;
+    auto status = this->getRasMgrService()->Connect(&context, req, &repl);
     if (!status.ok())
     {
         handleError(status.error_message());
         retval = 1;
     }
 
-    //Kept for backwards compatibility
-    this->clientId = static_cast<long unsigned int>(common::UUID::generateIntId());
-    this->clientUUID = connectRepl.clientuuid();
+    this->clientId = repl.clientid();
 
     // Send keep alive messages to rasmgr until openDB is called
-    this->keepAliveTimeout = connectRepl.keepalivetimeout();
+    this->keepAliveTimeout = repl.keepalivetimeout();
     this->startRasMgrKeepAlive();
 
     return retval;
@@ -204,126 +119,116 @@ int RasnetClientComm::connectClient(string userName, string passwordHash)
 
 int RasnetClientComm::disconnectClient()
 {
-    int retval = 0; // ok
-    DisconnectReq disconnectReq;
-    Void disconnectRepl;
+    LDEBUG << "Disconnecting from rasmgr client with ID: " << clientId;
 
-    disconnectReq.set_clientuuid(this->clientUUID);
-
-    LDEBUG << "Disconnecting from rasmgr client with ID: " << clientId << ", UUID: " << clientUUID;
+    int retval = 0;  // ok
     ClientContext context;
-    grpc::Status status = this->getRasMgrService()->Disconnect(&context, disconnectReq, &disconnectRepl);
-
+    GrpcUtils::setDeadline(context, timeoutMs);
+    DisconnectReq req;
+    req.set_clientid(this->clientId);
+    Void repl;
+    grpc::Status status = this->getRasMgrService()->Disconnect(&context, req, &repl);
     this->stopRasMgrKeepAlive();
     this->closeRasmgrService();
-
     if (!status.ok())
     {
         handleError(status.error_message());
         retval = 1;
     }
-
     return retval;
 }
 
 int RasnetClientComm::openDB(const char *database1)
 {
-    int retval = 0; // ok
-
-    OpenDbReq openDatabaseReq;
-    OpenDbRepl openDatabaseRepl;
-
-    openDatabaseReq.set_clientid(this->clientId);
-    openDatabaseReq.set_clientuuid(this->clientUUID.c_str());
-    openDatabaseReq.set_databasename(database1);
-
-    LDEBUG << "Opening rasmgr database for client with ID: " << clientId << ", UUID: " << clientUUID;
-    ClientContext openDbContext;
-    grpc::Status openDbStatus = this->getRasMgrService()->OpenDb(&openDbContext, openDatabaseReq, &openDatabaseRepl);
-
-    this->remoteClientUUID = openDatabaseRepl.clientsessionid();
-    // If the allocated server belongs to the current rasmgr,
-    // We can stop sending keep alive messages to the current rasmgr.
-
-    if (this->remoteClientUUID == this->clientUUID)
+    int retval = 0;  // ok
     {
-        LDEBUG << "Stopping rasmgr keep alive.";
-        //stop sending keep alive messages to rasmgr
-        this->stopRasMgrKeepAlive();
+        LDEBUG << "Opening rasmgr database for client with ID: " << clientId;
+        ClientContext context;
+        GrpcUtils::setDeadline(context, timeoutMs);
+        OpenDbReq req;
+        req.set_clientid(this->clientId);
+        req.set_databasename(database1);
+        OpenDbRepl repl;
+        grpc::Status openDbStatus = this->getRasMgrService()->OpenDb(&context, req, &repl);
+        this->remoteClientId = repl.clientsessionid();
+        if (this->remoteClientId == this->clientId)
+        {
+            // The allocated server belongs to the current rasmgr,
+            // we can stop sending keep alive messages to the current rasmgr.
+            LDEBUG << "Stopping rasmgr keep alive.";
+            this->stopRasMgrKeepAlive();
+        }
+        if (!openDbStatus.ok())
+        {
+            handleError(openDbStatus.error_message());
+            retval = 1;
+        }
+        this->rasServerHost = repl.serverhostname();
+        this->rasServerPort = int(repl.port());
+        this->sessionId = repl.dbsessionid();
+        LDEBUG << "OpenDb assigned server: " << rasServerHost << ":" << rasServerPort << ", sessionId: " << sessionId;
     }
-
-    if (!openDbStatus.ok())
     {
-        string errorText = openDbStatus.error_message();
-        handleError(errorText);
-        retval = 1;
+        LDEBUG << "Opening rasserver database for client with ID: " << clientId;
+        grpc::ClientContext context;
+        GrpcUtils::setDeadline(context, timeoutMs);
+        OpenServerDatabaseReq req;
+        req.set_client_id(this->clientId);
+        req.set_database_name(database1);
+        OpenServerDatabaseRepl repl;
+        grpc::Status openServerDbStatus = this->getRasServerService()->OpenServerDatabase(&context, req, &repl);
+        LDEBUG << "Opened rasserver database for client with ID: " << clientId;
+        if (!openServerDbStatus.ok())
+        {
+            handleError(openServerDbStatus.error_message());
+            retval = 1;
+        }
     }
-
-    this->rasServerHost = openDatabaseRepl.serverhostname();
-    this->rasServerPort = static_cast<int>(openDatabaseRepl.port());
-    this->sessionId = openDatabaseRepl.dbsessionid();
-
-    OpenServerDatabaseReq openServerDatabaseReq;
-    OpenServerDatabaseRepl openServerDatabaseRepl;
-
-    openServerDatabaseReq.set_client_id(this->clientId);
-    openServerDatabaseReq.set_database_name(database1);
-
-    LDEBUG << "Opening rasserver database for client with ID: " << clientId << ", UUID: " << clientUUID;
-    grpc::ClientContext openServerDbContext;
-    grpc::Status openServerDbStatus = this->getRasServerService()->OpenServerDatabase(&openServerDbContext, openServerDatabaseReq, &openServerDatabaseRepl);
-
-    if (!openServerDbStatus.ok())
-    {
-        handleError(openServerDbStatus.error_message());
-        retval = 1;
-    }
-
-    // Send keep alive messages to rasserver until openDB is called
+    // Send keep alive messages to rasserver until closeDB is called
     this->startRasServerKeepAlive();
-
     return retval;
 }
 
 int RasnetClientComm::closeDB()
 {
-    int retval = 0; // ok
+    int retval = 0;  // ok
 
     try
     {
-        CloseServerDatabaseReq closeServerDatabaseReq;
-        CloseDbReq closeDbReq;
-        Void closeDatabaseRepl;
-
-        closeServerDatabaseReq.set_client_id(this->clientId);
-        closeDbReq.set_clientid(this->clientId);
-
-        // The remoteClientUUID identifies local and remote sessions
-        closeDbReq.set_clientuuid(this->remoteClientUUID);
-        closeDbReq.set_dbsessionid(this->sessionId);
-
-        LDEBUG << "Closing rasserver database for client with ID: " << clientId << ", UUID: " << clientUUID;
-        grpc::ClientContext closeServerDbContext;
-        grpc::Status closeServerDbStatus = this->getRasServerService()->CloseServerDatabase(&closeServerDbContext, closeServerDatabaseReq, &closeDatabaseRepl);
-        if (!closeServerDbStatus.ok())
         {
-            handleError(closeServerDbStatus.error_message());
-            retval = 1;
+            LDEBUG << "Closing rasserver database for client with ID: " << clientId;
+            grpc::ClientContext context;
+            GrpcUtils::setDeadline(context, timeoutMs);
+            CloseServerDatabaseReq req;
+            req.set_client_id(this->clientId);
+            Void repl;
+            grpc::Status status = this->getRasServerService()->CloseServerDatabase(&context, req, &repl);
+            if (!status.ok())
+            {
+                handleError(status.error_message());
+                retval = 1;
+            }
         }
-
-        LDEBUG << "Closing rasmgr database for client with ID: " << clientId << ", UUID: " << clientUUID;
-        grpc::ClientContext closeDbContext;
-        grpc::Status closeDbStatus = this->getRasMgrService()->CloseDb(&closeDbContext, closeDbReq, &closeDatabaseRepl);
-        if (!closeDbStatus.ok())
         {
-            handleError(closeDbStatus.error_message());
-            retval = 1;
+            LDEBUG << "Closing rasmgr database for client with ID: " << clientId;
+            grpc::ClientContext context;
+            GrpcUtils::setDeadline(context, timeoutMs);
+            CloseDbReq req;
+            req.set_clientid(this->clientId);
+            // The remoteClientId identifies local and remote sessions
+            req.set_clientid(this->remoteClientId);
+            req.set_dbsessionid(this->sessionId);
+            Void repl;
+            grpc::Status status = this->getRasMgrService()->CloseDb(&context, req, &repl);
+            if (!status.ok())
+            {
+                handleError(status.error_message());
+                retval = 1;
+            }
         }
 
         this->stopRasServerKeepAlive();
-
         this->disconnectClient();
-
         this->closeRasserverService();
     }
     catch (...)
@@ -335,33 +240,31 @@ int RasnetClientComm::closeDB()
     return retval;
 }
 
-int RasnetClientComm::createDB(__attribute__((unused)) const char *name)
+int RasnetClientComm::createDB(UNUSED const char *name)
 {
     throw r_Error(r_Error::r_Error_FeatureNotSupported);
 }
 
-int RasnetClientComm::destroyDB(__attribute__((unused)) const char *name)
+int RasnetClientComm::destroyDB(UNUSED const char *name)
 {
     throw r_Error(r_Error::r_Error_FeatureNotSupported);
 }
 
 int RasnetClientComm::openTA(unsigned short readOnly)
 {
-    int retval = 0; // ok
+    int retval = 0;  // ok
 
-    BeginTransactionReq beginTransactionReq;
-    BeginTransactionRepl beginTransactionRepl;
-
-    beginTransactionReq.set_rw(readOnly == 0);
-    beginTransactionReq.set_client_id(this->clientId);
-
-    LDEBUG << "Begin rasserver transaction (ro: " << readOnly << "), client with ID: "
-           << clientId << ", UUID: " << clientUUID;
+    LDEBUG << "Begin rasserver transaction (ro: " << readOnly << "), client with ID: " << clientId;
     grpc::ClientContext context;
-    grpc::Status beginTransationStatus = this->getRasServerService()->BeginTransaction(&context, beginTransactionReq, &beginTransactionRepl);
-    if (!beginTransationStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    BeginTransactionReq req;
+    req.set_rw(readOnly == 0);
+    req.set_client_id(this->clientId);
+    BeginTransactionRepl repl;
+    grpc::Status status = this->getRasServerService()->BeginTransaction(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(beginTransationStatus.error_message());
+        handleError(status.error_message());
     }
 
     return retval;
@@ -369,21 +272,18 @@ int RasnetClientComm::openTA(unsigned short readOnly)
 
 int RasnetClientComm::commitTA()
 {
-    int retval = 0; // ok
+    int retval = 0;  // ok
 
-    CommitTransactionReq commitTransactionReq;
-    CommitTransactionRepl commitTransactionRepl;
-
-    commitTransactionReq.set_client_id(this->clientId);
-
-    LDEBUG << "Commit rasserver transaction, client with ID: "
-           << clientId << ", UUID: " << clientUUID;
+    LDEBUG << "Commit rasserver transaction, client with ID: " << clientId;
     grpc::ClientContext context;
-    grpc::Status commitStatus = this->getRasServerService()->CommitTransaction(&context, commitTransactionReq, &commitTransactionRepl);
-
-    if (!commitStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    CommitTransactionReq req;
+    req.set_client_id(this->clientId);
+    CommitTransactionRepl repl;
+    grpc::Status status = this->getRasServerService()->CommitTransaction(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(commitStatus.error_message());
+        handleError(status.error_message());
         retval = 1;
     }
 
@@ -392,21 +292,19 @@ int RasnetClientComm::commitTA()
 
 int RasnetClientComm::abortTA()
 {
-    int retval = 0; // ok
+    int retval = 0;  // ok
     try
     {
-        AbortTransactionReq abortTransactionReq;
-        AbortTransactionRepl AbortTransactionRepl;
-
-        abortTransactionReq.set_client_id(this->clientId);
-
-        LDEBUG << "Abort rasserver transaction, client with ID: "
-               << clientId << ", UUID: " << clientUUID;
+        LDEBUG << "Abort rasserver transaction, client with ID: " << clientId;
         grpc::ClientContext context;
-        grpc::Status abortTransactionStatus = this->getRasServerService()->AbortTransaction(&context, abortTransactionReq, &AbortTransactionRepl);
-        if (!abortTransactionStatus.ok())
+        GrpcUtils::setDeadline(context, timeoutMs);
+        AbortTransactionReq req;
+        req.set_client_id(this->clientId);
+        AbortTransactionRepl repl;
+        grpc::Status status = this->getRasServerService()->AbortTransaction(&context, req, &repl);
+        if (!status.ok())
         {
-            handleError(abortTransactionStatus.error_message());
+            handleError(status.error_message());
             retval = 1;
         }
     }
@@ -421,94 +319,57 @@ int RasnetClientComm::abortTA()
 
 void RasnetClientComm::insertMDD(const char *collName, r_GMarray *mar)
 {
+    LDEBUG << "insertMDD into collection " << collName << ", client with ID: " << clientId;
+
     checkForRwTransaction();
 
-    r_Minterval     spatdom;
-    r_Bytes         marBytes;
-    RPCMarray      *rpcMarray;
-    r_Bytes         tileSize = 0;
-
-    // get the spatial domain of the r_GMarray
-    spatdom = mar->spatial_domain();
-
-    // determine the amount of data to be transferred
-    marBytes = mar->get_array_size();
-
-    const r_Base_Type *baseType = mar->get_base_type_schema();
-
-    // if the MDD is too large for being transfered as one block, it has to be
-    // divided in tiles
-    const r_Tiling *til = mar->get_storage_layout()->get_tiling();
-    r_Tiling_Scheme scheme = til->get_tiling_scheme();
-    if (scheme == r_NoTiling)
-    {
-        tileSize = RMInit::RMInit::clientTileSize;
-    }
-    else
-        //allowed because the only subclass of tiling without size is no tiling
-    {
-        tileSize = ((const r_Size_Tiling *)til)->get_tile_size();
-    }
-
-
     // initiate composition of MDD at server side
-    int status = executeStartInsertPersMDD(collName, mar);  //rpcStatusPtr = rpcstartinsertpersmdd_1( params, binding_h );
-
+    int status = executeStartInsertPersMDD(collName, mar);
     switch (status)
     {
     case 0:
-        break; // OK
+        break;  // OK
     case 2:
         throw r_Error(r_Error::r_Error_DatabaseClassUndefined);
-        break;
     case 3:
         throw r_Error(r_Error::r_Error_CollectionElementTypeMismatch);
-        break;
     case 4:
         throw r_Error(r_Error::r_Error_TypeInvalid);
-        break;
     default:
         throw r_Error(r_Error::r_Error_TransferFailed);
-        break;
     }
 
     auto bagOfTiles = mar->get_storage_layout()->decomposeMDD(mar);
-
-    LTRACE << "decomposing into " << bagOfTiles.cardinality() << " tiles";
-
-    r_Iterator<r_GMarray *> iter = bagOfTiles.create_iterator();
-    r_GMarray *origTile;
-
+    LDEBUG << "inserting " << bagOfTiles.cardinality() << " tiles";
+    auto iter = bagOfTiles.create_iterator();
     for (iter.reset(); iter.not_done(); iter.advance())
     {
-        origTile = *iter;
+        auto origTile = *iter;
 
-        LTRACE << "inserting Tile with domain " << origTile->spatial_domain()
-               << ", " << origTile->spatial_domain().cell_count() * origTile->get_type_length() << " bytes";
+        LTRACE << "inserting tile with domain " << origTile->spatial_domain()
+               << " (" << (origTile->spatial_domain().cell_count() * origTile->get_type_length()) << " bytes), "
+               << "band linearization: " << int(origTile->get_band_linearization());
 
-        getMarRpcRepresentation(origTile, rpcMarray, mar->get_storage_layout()->get_storage_format(), baseType);
-
+        RPCMarray *rpcMarray{nullptr};
+        getMarRpcRepresentation(origTile, rpcMarray, mar->get_storage_layout()->get_storage_format(), mar->get_base_type_schema());
         status = executeInsertTile(true, rpcMarray);
-
         // free rpcMarray structure (rpcMarray->data.confarray_val is freed somewhere else)
         freeMarRpcRepresentation(origTile, rpcMarray);
-
         // delete current tile (including data block)
         delete origTile;
-
         if (status > 0)
         {
             throw r_Error(r_Error::r_Error_TransferFailed);
         }
     }
 
-    executeEndInsertMDD(true); //rpcendinsertmdd_1( params3, binding_h );
+    executeEndInsertMDD(true);
 
     // delete transient data
     bagOfTiles.remove_all();
 }
 
-r_Ref_Any RasnetClientComm::getMDDByOId(__attribute__((unused)) const r_OId &oid)
+r_Ref_Any RasnetClientComm::getMDDByOId(UNUSED const r_OId &oid)
 {
     LDEBUG << "Internal error: RasnetClientComm::getMDDByOId() not implemented, returning empty r_Ref_Any().";
     return r_Ref_Any();
@@ -516,127 +377,121 @@ r_Ref_Any RasnetClientComm::getMDDByOId(__attribute__((unused)) const r_OId &oid
 
 void RasnetClientComm::insertColl(const char *collName, const char *typeName, const r_OId &oid)
 {
+    LDEBUG << "insertColl " << collName << " " << typeName << ", oid " << oid.get_string_representation();
     checkForRwTransaction();
 
-    InsertCollectionReq insertCollectionReq;
-    InsertCollectionRepl  insertCollectionRepl;
-
-    insertCollectionReq.set_client_id(this->clientId);
-    insertCollectionReq.set_collection_name(collName);
-    insertCollectionReq.set_type_name(typeName);
-    insertCollectionReq.set_oid(oid.get_string_representation());
-
     grpc::ClientContext context;
-    grpc::Status insertStatus = this->getRasServerService()->InsertCollection(&context, insertCollectionReq, &insertCollectionRepl);
-    if (!insertStatus .ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    InsertCollectionReq req;
+    req.set_client_id(this->clientId);
+    req.set_collection_name(collName);
+    req.set_type_name(typeName);
+    req.set_oid(oid.get_string_representation());
+    InsertCollectionRepl repl;
+    grpc::Status status = this->getRasServerService()->InsertCollection(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(insertStatus.error_message());
+        handleError(status.error_message());
     }
-
-    int status = insertCollectionRepl.status();
-
-    handleStatusCode(status, "insertColl");
+    handleStatusCode(repl.status(), "insertColl");
 }
 
 void RasnetClientComm::deleteCollByName(const char *collName)
 {
+    LDEBUG << "deleteCollByName " << collName;
     checkForRwTransaction();
 
-    DeleteCollectionByNameReq deleteCollectionByNameReq;
-    DeleteCollectionByNameRepl deleteCollectionByNameRepl;
-
-    deleteCollectionByNameReq.set_client_id(this->clientId);
-    deleteCollectionByNameReq.set_collection_name(collName);
-
     grpc::ClientContext context;
-    grpc::Status deleteCollectionStatus = this->getRasServerService()->DeleteCollectionByName(&context, deleteCollectionByNameReq, &deleteCollectionByNameRepl);
-    if (!deleteCollectionStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    DeleteCollectionByNameReq req;
+    req.set_client_id(this->clientId);
+    req.set_collection_name(collName);
+    DeleteCollectionByNameRepl repl;
+    grpc::Status status = this->getRasServerService()->DeleteCollectionByName(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(deleteCollectionStatus.error_message());
+        handleError(status.error_message());
     }
-
-    handleStatusCode(deleteCollectionByNameRepl.status(), "deleteCollByName");
+    handleStatusCode(repl.status(), "deleteCollByName");
 }
 
 void RasnetClientComm::deleteObjByOId(const r_OId &oid)
 {
+    LDEBUG << "deleteObjByOId " << oid.get_string_representation();
     checkForRwTransaction();
 
-    DeleteCollectionByOidReq deleteCollectionByOidReq;
-    DeleteCollectionByOidRepl deleteCollectionByOidRepl;
-
-    deleteCollectionByOidReq.set_client_id(this->clientId);
-    deleteCollectionByOidReq.set_oid(oid.get_string_representation());
-
     grpc::ClientContext context;
-    grpc::Status deleteCollectionStatus = this->getRasServerService()->DeleteCollectionByOid(&context, deleteCollectionByOidReq, &deleteCollectionByOidRepl);
-    if (!deleteCollectionStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    DeleteCollectionByOidReq req;
+    req.set_client_id(this->clientId);
+    req.set_oid(oid.get_string_representation());
+    DeleteCollectionByOidRepl repl;
+    grpc::Status status = this->getRasServerService()->DeleteCollectionByOid(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(deleteCollectionStatus.error_message());
+        handleError(status.error_message());
     }
-
-    handleStatusCode(deleteCollectionByOidRepl.status(), "deleteCollByName");
+    handleStatusCode(repl.status(), "deleteCollByName");
 }
 
 void RasnetClientComm::removeObjFromColl(const char *name, const r_OId &oid)
 {
+    LDEBUG << "removeObjFromColl " << name << ", oid " << oid.get_string_representation();
     checkForRwTransaction();
 
-    RemoveObjectFromCollectionReq removeObjectFromCollectionReq;
-    RemoveObjectFromCollectionRepl removeObjectFromCollectionRepl;
-
-    removeObjectFromCollectionReq.set_client_id(this->clientId);
-    removeObjectFromCollectionReq.set_collection_name(name);
-    removeObjectFromCollectionReq.set_oid(oid.get_string_representation());
-
     grpc::ClientContext context;
-    grpc::Status removeObjectStatus = this->getRasServerService()->RemoveObjectFromCollection(&context, removeObjectFromCollectionReq, &removeObjectFromCollectionRepl);
-    if (!removeObjectStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    RemoveObjectFromCollectionReq req;
+    req.set_client_id(this->clientId);
+    req.set_collection_name(name);
+    req.set_oid(oid.get_string_representation());
+    RemoveObjectFromCollectionRepl repl;
+    grpc::Status status = this->getRasServerService()->RemoveObjectFromCollection(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(removeObjectStatus.error_message());
+        handleError(status.error_message());
     }
-
-    int status = removeObjectFromCollectionRepl.status();
-    handleStatusCode(status, "removeObjFromColl");
+    handleStatusCode(repl.status(), "removeObjFromColl");
 }
 
 r_Ref_Any RasnetClientComm::getCollByName(const char *name)
 {
+    LDEBUG << "getCollByName " << name;
     r_Ref_Any result = executeGetCollByNameOrOId(name, r_OId());
     return result;
 }
 
 r_Ref_Any RasnetClientComm::getCollByOId(const r_OId &oid)
 {
+    LDEBUG << "getCollByOId " << oid.get_string_representation();
     r_Ref_Any result = executeGetCollByNameOrOId(NULL, oid);
-
     return result;
 }
 
 r_Ref_Any RasnetClientComm::getCollOIdsByName(const char *name)
 {
+    LDEBUG << "getCollOIdsByName " << name;
     r_Ref_Any result = executeGetCollOIdsByNameOrOId(name, r_OId());
-
     return result;
 }
 
 r_Ref_Any RasnetClientComm::getCollOIdsByOId(const r_OId &oid)
 {
+    LDEBUG << "getCollOIdsByOId " << oid.get_string_representation();
     r_Ref_Any result = executeGetCollOIdsByNameOrOId(NULL, oid);
-
     return result;
 }
 
 void RasnetClientComm::executeQuery(const r_OQL_Query &query, r_Set<r_Ref_Any> &result)
 {
+    LDEBUG << "executeQuery retrieval";
     sendMDDConstants(query);
     int status = executeExecuteQuery(query.get_query(), result);
-
     switch (status)
     {
     case 0:
         getMDDCollection(result, 1);
-        break; // 1== isQuery
+        break;  // 1== isQuery
     case 1:
         getElementCollection(result);
         break;
@@ -644,35 +499,29 @@ void RasnetClientComm::executeQuery(const r_OQL_Query &query, r_Set<r_Ref_Any> &
         // Status 2 - empty result. Should not be treated as default.
         break;
     default:
-        LDEBUG << "Internal error: RasnetClientComm::executeQuery(): illegal status value " << status;
+        LDEBUG << "Illegal status value " << status;
     }
-
 }
 
 void RasnetClientComm::executeQuery(const r_OQL_Query &query)
 {
+    LDEBUG << "executeQuery update";
     checkForRwTransaction();
-
     sendMDDConstants(query);
-
     executeExecuteUpdateQuery(query.get_query());
 }
 
-void RasnetClientComm::executeQuery(const r_OQL_Query &query, r_Set<r_Ref_Any> &result, __attribute__((unused)) int dummy)
+void RasnetClientComm::executeQuery(const r_OQL_Query &query, r_Set<r_Ref_Any> &result, UNUSED int dummy)
 {
+    LDEBUG << "executeQuery insert";
     checkForRwTransaction();
-
     sendMDDConstants(query);
-
     int status = executeExecuteUpdateQuery(query.get_query(), result);
-
-    LDEBUG << "executeUpdateQuery (retrieval) returns " << status;
-
     switch (status)
     {
     case 0:
         getMDDCollection(result, 1);
-        break; // 1== isQuery
+        break;  // 1== isQuery
     case 1:
         getElementCollection(result);
         break;
@@ -680,83 +529,74 @@ void RasnetClientComm::executeQuery(const r_OQL_Query &query, r_Set<r_Ref_Any> &
         // empty result, should not be treated as default case
         break;
     default:
-        LDEBUG << "Internal error: RasnetClientComm::executeQuery(): illegal status value " << status;
+        LDEBUG << "Illegal status value " << status;
     }
-
 }
 
 r_OId RasnetClientComm::getNewOId(unsigned short objType)
 {
-    GetNewOidReq getNewOidReq;
-    GetNewOidRepl getNewOidRepl;
-
-    getNewOidReq.set_client_id(this->clientId);
-    getNewOidReq.set_object_type(objType);
-
+    LDEBUG << "getNewOId objType = " << objType;
     grpc::ClientContext context;
-    grpc::Status getOidStatus = this->getRasServerService()->GetNewOid(&context, getNewOidReq, &getNewOidRepl);
-    if (!getOidStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    GetNewOidReq req;
+    req.set_client_id(this->clientId);
+    req.set_object_type(objType);
+    GetNewOidRepl repl;
+    grpc::Status status = this->getRasServerService()->GetNewOid(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(getOidStatus.error_message());
+        handleError(status.error_message());
     }
-
-    r_OId oid(getNewOidRepl.oid().c_str());
-    return oid;
+    return r_OId(repl.oid().c_str());
 }
 
 unsigned short RasnetClientComm::getObjectType(const r_OId &oid)
 {
-    GetObjectTypeReq getObjectTypeReq;
-    GetObjectTypeRepl getObjectTypeRepl;
-
-    getObjectTypeReq.set_client_id(this->clientId);
-    getObjectTypeReq.set_oid(oid.get_string_representation());
-
+    LDEBUG << "getObjectType oid = " << oid.get_string_representation();
     grpc::ClientContext context;
-    grpc::Status getObjectTypeStatus = this->getRasServerService()->GetObjectType(&context, getObjectTypeReq, &getObjectTypeRepl);
+    GrpcUtils::setDeadline(context, timeoutMs);
+    GetObjectTypeReq req;
+    req.set_client_id(this->clientId);
+    req.set_oid(oid.get_string_representation());
+    GetObjectTypeRepl repl;
+    grpc::Status getObjectTypeStatus = this->getRasServerService()->GetObjectType(&context, req, &repl);
     if (!getObjectTypeStatus.ok())
     {
         handleError(getObjectTypeStatus.error_message());
     }
+    handleStatusCode(repl.status(), "getObjectType");
 
-    int status = getObjectTypeRepl.status();
-    handleStatusCode(status, "getObjectType");
-
-    unsigned short objectType = getObjectTypeRepl.object_type();
+    unsigned short objectType = repl.object_type();
     return objectType;
 }
 
 char *RasnetClientComm::getTypeStructure(const char *typeName, r_Type_Type typeType)
 {
-    GetTypeStructureReq getTypeStructureReq;
-    GetTypeStructureRepl getTypeStructureRepl;
-
-    getTypeStructureReq.set_client_id(this->clientId);
-    getTypeStructureReq.set_type_name(typeName);
-    getTypeStructureReq.set_type_type(typeType);
-
+    LDEBUG << "getTypeStructure typeName = " << typeName << ", type type = " << int(typeType);
     grpc::ClientContext context;
-    grpc::Status getTypesStructuresStatus = this
-                                            ->getRasServerService()
-                                            ->GetTypeStructure(&context, getTypeStructureReq, &getTypeStructureRepl);
+    GrpcUtils::setDeadline(context, timeoutMs);
+    GetTypeStructureReq req;
+    req.set_client_id(this->clientId);
+    req.set_type_name(typeName);
+    req.set_type_type(typeType);
+    GetTypeStructureRepl repl;
+    grpc::Status getTypesStructuresStatus = this->getRasServerService()->GetTypeStructure(&context, req, &repl);
     if (!getTypesStructuresStatus.ok())
     {
         handleError(getTypesStructuresStatus.error_message());
     }
+    handleStatusCode(repl.status(), "getTypeStructure");
 
-    int status = getTypeStructureRepl.status();
-    handleStatusCode(status, "getTypeStructure");
-
-    const auto &src = getTypeStructureRepl.type_structure();
+    const auto &src = repl.type_structure();
     char *typeStructure = new char[src.size() + 1];
     strcpy(typeStructure, src.c_str());
     return typeStructure;
 }
 
-int RasnetClientComm::setTransferFormat(r_Data_Format format, const char *formatParams)
+int RasnetClientComm::setStorageFormat(r_Data_Format format, const char *formatParams)
 {
+    LDEBUG << "setTransferFormat format = " << format;
     storageFormat = format;
-
     if (storageFormatParams != NULL)
     {
         free(storageFormatParams);
@@ -764,21 +604,17 @@ int RasnetClientComm::setTransferFormat(r_Data_Format format, const char *format
     }
     if (formatParams != NULL)
     {
-        storageFormatParams = (char *)mymalloc(strlen(formatParams) + 1);
-        strcpy(storageFormatParams, formatParams);
+        storageFormatParams = strdup(formatParams);
         // extract ``compserver'' if present
-        clientParams->process(storageFormatParams);
+        clientParams.process(storageFormatParams);
     }
-
-    int result = executeSetFormat(false, format, formatParams);
-
-    return result;
+    return executeSetFormat(false, format, formatParams);
 }
 
-int RasnetClientComm::setStorageFormat(r_Data_Format format, const char *formatParams)
+int RasnetClientComm::setTransferFormat(r_Data_Format format, const char *formatParams)
 {
+    LDEBUG << "setStorageFormat format = " << format;
     transferFormat = format;
-
     if (transferFormatParams != NULL)
     {
         free(transferFormatParams);
@@ -786,425 +622,263 @@ int RasnetClientComm::setStorageFormat(r_Data_Format format, const char *formatP
     }
     if (formatParams != NULL)
     {
-        transferFormatParams = (char *)mymalloc(strlen(formatParams) + 1);
-        strcpy(transferFormatParams, formatParams);
+        transferFormatParams = strdup(formatParams);
         // extract ``exactformat'' if present
-        clientParams->process(transferFormatParams);
+        clientParams.process(transferFormatParams);
     }
-
-    int result = executeSetFormat(true, format, formatParams);
-    return result;
+    return executeSetFormat(true, format, formatParams);
 }
-
-
-void RasnetClientComm::initRasserverService()
-{
-    boost::unique_lock<boost::shared_mutex> lock(this->rasServerServiceMtx);
-    if (!this->initializedRasServerService)
-    {
-        try
-        {
-            std::string rasServerAddress = GrpcUtils::constructAddressString(rasServerHost, static_cast<boost::uint32_t>(rasServerPort));
-            std::shared_ptr<grpc::Channel> channel(grpc::CreateCustomChannel(rasServerAddress, grpc::InsecureChannelCredentials(), GrpcUtils::getDefaultChannelArguments()));
-
-            this->rasserverService.reset(new ::rasnet::service::ClientRassrvrService::Stub(channel));
-            this->rasserverHealthService.reset(new common::HealthService::Stub(channel));
-            this->initializedRasServerService = true;
-        }
-        catch (std::exception &ex)
-        {
-            LERROR << ex.what();
-            handleError(ex.what());
-        }
-    }
-}
-
-std::shared_ptr<rasnet::service::ClientRassrvrService::Stub> RasnetClientComm::getRasServerService(bool throwIfConnectionFailed)
-{
-    this->initRasserverService();
-
-    // Check if the rasserver is serving
-    if (!GrpcUtils::isServerAlive(this->rasserverHealthService, SERVICE_CALL_TIMEOUT) && throwIfConnectionFailed)
-    {
-        LDEBUG << "The client failed to connect to rasserver.";
-        throw r_EGeneral("The client failed to connect to rasserver.");
-    }
-
-    return this->rasserverService;
-}
-
-void RasnetClientComm::closeRasserverService()
-{
-    boost::unique_lock<shared_mutex> lock(this->rasServerServiceMtx);
-    if (this->initializedRasServerService)
-    {
-        this->initializedRasServerService = false;
-        this->rasserverService.reset();
-        this->rasserverHealthService.reset();
-    }
-}
-
-std::shared_ptr<rasnet::service::RasmgrClientService::Stub> RasnetClientComm::getRasMgrService(bool throwIfConnectionFailed)
-{
-    this->initRasmgrService();
-
-    // Check if the rasmgr is serving
-    if (!GrpcUtils::isServerAlive(this->rasmgrHealthService, SERVICE_CALL_TIMEOUT) && throwIfConnectionFailed)
-    {
-        LDEBUG << "The client failed to connect to rasmgr.";
-        throw r_EGeneral("The client failed to connect to rasmgr.");
-    }
-
-    return this->rasmgrService;
-}
-
-void RasnetClientComm::initRasmgrService()
-{
-    boost::unique_lock<shared_mutex> lock(this->rasMgrServiceMtx);
-    if (!this->initializedRasMgrService)
-    {
-        try
-        {
-            std::shared_ptr<Channel> channel(grpc::CreateCustomChannel(rasmgrHost, grpc::InsecureChannelCredentials(), GrpcUtils::getDefaultChannelArguments()));
-            this->rasmgrService.reset(new ::rasnet::service::RasmgrClientService::Stub(channel));
-            this->rasmgrHealthService.reset(new common::HealthService::Stub(channel));
-
-            this->initializedRasMgrService = true;
-        }
-        catch (std::exception &ex)
-        {
-            LERROR << ex.what();
-            handleError(ex.what());
-        }
-    }
-}
-
-void RasnetClientComm::closeRasmgrService()
-{
-    boost::unique_lock<boost::shared_mutex> lock(this->rasMgrServiceMtx);
-    if (this->initializedRasMgrService)
-    {
-        this->initializedRasMgrService = false;
-        this->rasmgrService.reset();
-        this->rasmgrHealthService.reset();
-    }
-}
-
 
 int RasnetClientComm::executeStartInsertPersMDD(const char *collName, r_GMarray *mar)
 {
-    StartInsertMDDReq startInsertMDDReq;
-    StartInsertMDDRepl startInsertMDDRepl;
-
-    startInsertMDDReq.set_client_id(this->clientId);
-    startInsertMDDReq.set_collname(collName);
-    startInsertMDDReq.set_domain(mar->spatial_domain().to_string());
-    startInsertMDDReq.set_type_length(static_cast<int32_t>(mar->get_type_length()));
-    startInsertMDDReq.set_type_name(mar->get_type_name());
-    startInsertMDDReq.set_oid(mar->get_oid().get_string_representation());
-
+    LDEBUG << "executeStartInsertPersMDD collName = " << collName;
     grpc::ClientContext context;
-    grpc::Status startInsertStatus = this->getRasServerService()->StartInsertMDD(&context, startInsertMDDReq, &startInsertMDDRepl);
-    if (!startInsertStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    StartInsertMDDReq req;
+    req.set_client_id(this->clientId);
+    req.set_collname(collName);
+    req.set_domain(mar->spatial_domain().to_string());
+    req.set_type_length(static_cast<int32_t>(mar->get_type_length()));
+    req.set_type_name(mar->get_type_name());
+    req.set_oid(mar->get_oid().get_string_representation());
+    StartInsertMDDRepl repl;
+    grpc::Status status = this->getRasServerService()->StartInsertMDD(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(startInsertStatus.error_message());
+        handleError(status.error_message());
     }
-
-    return startInsertMDDRepl.status();
+    return repl.status();
 }
 
 int RasnetClientComm::executeInsertTile(bool persistent, RPCMarray *tile)
 {
-    InsertTileReq insertTileReq;
-    InsertTileRepl insertTileRepl;
-
-    insertTileReq.set_client_id(this->clientId);
-    insertTileReq.set_persistent(persistent);
-    insertTileReq.set_domain(tile->domain);
-    insertTileReq.set_type_length(tile->cellTypeLength);
-    insertTileReq.set_current_format(tile->currentFormat);
-    insertTileReq.set_storage_format(tile->storageFormat);
-    insertTileReq.set_data(tile->data.confarray_val, tile->data.confarray_len);
-    insertTileReq.set_data_length(static_cast<int32_t>(tile->data.confarray_len));
-
+    LDEBUG << "executeInsertTile persistent = " << persistent;
     grpc::ClientContext context;
-    grpc::Status insertTileStatus = this->getRasServerService()->InsertTile(&context, insertTileReq, &insertTileRepl);
-    if (!insertTileStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    InsertTileReq req;
+    req.set_client_id(this->clientId);
+    req.set_persistent(persistent);
+    req.set_domain(tile->domain);
+    req.set_type_length(tile->cellTypeLength);
+    req.set_current_format(tile->currentFormat);
+    req.set_storage_format(tile->storageFormat);
+    req.set_data(tile->data.confarray_val, tile->data.confarray_len);
+    req.set_data_length(static_cast<int32_t>(tile->data.confarray_len));
+    req.set_band_linearization(static_cast<int32_t>(tile->bandLinearization));
+    req.set_cell_linearization(static_cast<int32_t>(tile->cellLinearization));
+    InsertTileRepl repl;
+    grpc::Status status = this->getRasServerService()->InsertTile(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(insertTileStatus.error_message());
+        handleError(status.error_message());
     }
-
-    return insertTileRepl.status();
+    return repl.status();
 }
 
 void RasnetClientComm::executeEndInsertMDD(bool persistent)
 {
-    EndInsertMDDReq endInsertMDDReq;
-    EndInsertMDDRepl endInsertMDDRepl;
-
-    endInsertMDDReq.set_client_id(this->clientId);
-    endInsertMDDReq.set_persistent(persistent);
-
+    LDEBUG << "executeEndInsertMDD persistent = " << persistent;
     grpc::ClientContext context;
-    grpc::Status endInsertMDDStatus = this->getRasServerService()->EndInsertMDD(&context, endInsertMDDReq, &endInsertMDDRepl);
-    if (!endInsertMDDStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    EndInsertMDDReq req;
+    req.set_client_id(this->clientId);
+    req.set_persistent(persistent);
+    EndInsertMDDRepl repl;
+    grpc::Status status = this->getRasServerService()->EndInsertMDD(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(endInsertMDDStatus.error_message());
+        handleError(status.error_message());
     }
-
-    handleStatusCode(endInsertMDDRepl.status(), "executeEndInsertMDD");
+    handleStatusCode(repl.status(), "executeEndInsertMDD");
 }
 
 void RasnetClientComm::getMDDCollection(r_Set<r_Ref_Any> &mddColl, unsigned int isQuery)
 {
-    unsigned short tileStatus = 0;
-    unsigned short mddStatus = 0;
-
-    while (mddStatus == 0)   // repeat until all MDDs are transferred
+    // repeat until all MDDs are transferred
+    unsigned short moreMddToTransfer = 0;
+    while (moreMddToTransfer == 0)
     {
-        r_Ref<r_GMarray> mddResult;
-
-        // Get spatial domain of next MDD
         GetMDDRes *thisResult = executeGetNextMDD();
-
-        mddStatus = thisResult->status;
-
-        if (mddStatus == 2)
+        moreMddToTransfer = thisResult->status;
+        if (moreMddToTransfer == 2)
         {
-            LERROR << "Error: getMDDCollection(...) - no transfer collection or empty transfer collection";
+            LERROR << "no transfer collection or empty transfer collection";
             throw r_Error(r_Error::r_Error_TransferFailed);
         }
 
-        tileStatus = getMDDCore(mddResult, thisResult, isQuery);
+        r_Ref<r_GMarray> mddResult;
+        unsigned short tileStatus = getMDDCore(mddResult, thisResult, isQuery);
 
         // finally, insert the r_Marray into the set
-
         mddColl.insert_element(mddResult, 1);
-
         free(thisResult->domain);
         free(thisResult->typeName);
         free(thisResult->typeStructure);
         free(thisResult->oid);
-        delete   thisResult;
+        delete thisResult;
 
-        if (tileStatus == 0)   // if this is true, we're done with this collection
-        {
-            break;
-        }
-
-    } // end while( mddStatus == 0 )
-
+        if (tileStatus == 0)
+            break;  // no more tiles, done
+    }
     executeEndTransfer();
 }
 
 int RasnetClientComm::executeEndTransfer()
 {
-    EndTransferReq endTransferReq;
-    EndTransferRepl endTransferRepl;
-
-    endTransferReq.set_client_id(this->clientId);
-
+    LDEBUG << "executeEndTransfer";
     grpc::ClientContext context;
-    grpc::Status endTransferStatus = this->getRasServerService()->EndTransfer(&context, endTransferReq, &endTransferRepl);
-    if (!endTransferStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    EndTransferReq req;
+    req.set_client_id(this->clientId);
+    EndTransferRepl repl;
+    grpc::Status status = this->getRasServerService()->EndTransfer(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(endTransferStatus.error_message());
+        handleError(status.error_message());
     }
-
-    return endTransferRepl.status();
+    return repl.status();
 }
 
 GetMDDRes *RasnetClientComm::executeGetNextMDD()
 {
-    GetNextMDDReq getNextMDDReq;
-    GetNextMDDRepl getNextMDDRepl;
-
-    getNextMDDReq.set_client_id(this->clientId);
-
+    LDEBUG << "executeGetNextMDD";
     grpc::ClientContext context;
-    grpc::Status getNextMDD = this->getRasServerService()->GetNextMDD(&context, getNextMDDReq, &getNextMDDRepl);
-    if (!getNextMDD.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    GetNextMDDReq req;
+    req.set_client_id(this->clientId);
+    GetNextMDDRepl repl;
+    grpc::Status status = this->getRasServerService()->GetNextMDD(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(getNextMDD.error_message());
+        handleError(status.error_message());
     }
-
     GetMDDRes *result = new GetMDDRes();
-    result->status = getNextMDDRepl.status();
-    result->domain = strdup(getNextMDDRepl.domain().c_str());
-    result->typeName = strdup(getNextMDDRepl.type_name().c_str());
-    result->typeStructure = strdup(getNextMDDRepl.type_structure().c_str());
-    result->oid = strdup(getNextMDDRepl.oid().c_str());
-    result->currentFormat = getNextMDDRepl.current_format();
-
+    result->status = repl.status();
+    result->domain = strdup(repl.domain().c_str());
+    result->typeName = strdup(repl.type_name().c_str());
+    result->typeStructure = strdup(repl.type_structure().c_str());
+    result->oid = strdup(repl.oid().c_str());
+    result->currentFormat = repl.current_format();
     return result;
 }
 
 unsigned short RasnetClientComm::getMDDCore(r_Ref<r_GMarray> &mdd, GetMDDRes *thisResult, unsigned int isQuery)
 {
+    LDEBUG << "getMDDCore, isQuery = " << isQuery;
     this->updateTransaction();
 
-    //  create r_Minterval and oid
+    r_OId rOId(thisResult->oid);
+    auto objectStatus = isQuery ? r_Object::transient : r_Object::read;
+    auto *marray = new (database, objectStatus, rOId) r_GMarray(transaction);
     r_Minterval mddDomain(thisResult->domain);
-    r_OId       rOId(thisResult->oid);
-    r_GMarray  *marray;
-
-    if (isQuery)
-    {
-        marray = new (database, r_Object::transient, rOId) r_GMarray(transaction);
-    }
-    else
-    {
-        marray = new (database, r_Object::read, rOId) r_GMarray(transaction);
-    }
-
     marray->set_spatial_domain(mddDomain);
     marray->set_type_by_name(thisResult->typeName);
     marray->set_type_structure(thisResult->typeStructure);
-
     r_Data_Format currentFormat = static_cast<r_Data_Format>(thisResult->currentFormat);
-//    currentFormat = r_Array;
     marray->set_current_format(currentFormat);
+    marray->get_base_type_schema();  // just to make sure the type is correct?
 
-    r_Data_Format decompFormat;
-
-    const r_Base_Type *baseType = marray->get_base_type_schema();
-    unsigned long marrayOffset = 0;
-
-    // Variables needed for tile transfer
-    GetTileRes *tileRes = 0;
-    unsigned short  mddDim = mddDomain.dimension();  // we assume that each tile has the same dimensionality as the MDD
-    r_Minterval     tileDomain;
-    r_GMarray      *tile;  // for temporary tile
-    char           *memCopy;
-    unsigned long   memCopyLen;
-    int             tileCntr = 0;
-    unsigned short  tileStatus   = 0;
-
-    tileStatus = 2; // call rpcgetnexttile_1 at least once
-
-    while (tileStatus == 2 || tileStatus == 3)   // while( for all tiles of the current MDD )
+    // get tiles
+    size_t marrayOffset = 0;
+    bool firstTile = true;
+    unsigned short tileStatus = 2;  // 2: has more tiles
+    while (tileStatus == 2 || tileStatus == 3)
     {
-        tileRes = executeGetNextTile();
-
+        GetTileRes *tileRes = executeGetNextTile();
         tileStatus = tileRes->status;
-
         if (tileStatus == 4)
         {
             freeGetTileRes(tileRes);
-            LERROR << "Error: rpcGetNextTile(...) - no tile to transfer or empty transfer collection";
+            LERROR << "no tile to transfer or empty transfer collection";
             throw r_Error(r_Error::r_Error_TransferFailed);
         }
 
-        // take cellTypeLength for current MDD of the first tile
-        if (tileCntr == 0)
+        if (firstTile)
         {
             marray->set_type_length(tileRes->marray->cellTypeLength);
+            marray->set_band_linearization(r_Band_Linearization(tileRes->marray->bandLinearization));
+            marray->set_cell_linearization(r_Cell_Linearization(tileRes->marray->cellLinearization));
         }
-        tileCntr++;
-
-        tileDomain = r_Minterval(tileRes->marray->domain);
 
         if (currentFormat == r_Array)
         {
-            memCopyLen = tileDomain.cell_count() * marray->get_type_length(); // cell type length of the tile must be the same
+            currentFormat = r_Data_Format(tileRes->marray->currentFormat);
+            r_Minterval tileDomain(tileRes->marray->domain);
+            auto memCopyLen = tileDomain.cell_count() * marray->get_type_length();  // cell type length of the tile must be the same
             if (memCopyLen < tileRes->marray->data.confarray_len)
-            {
-                memCopyLen = tileRes->marray->data.confarray_len;    // may happen when compression expands
-            }
-            memCopy    = new char[ memCopyLen ];
+                memCopyLen = tileRes->marray->data.confarray_len;  // may happen when compression expands
+            char *memCopy = new char[memCopyLen];
 
             // create temporary tile
-            tile = new r_GMarray(transaction);
+            std::unique_ptr<r_GMarray> tile(new r_GMarray(transaction));
             tile->set_spatial_domain(tileDomain);
             tile->set_array(memCopy);
             tile->set_array_size(memCopyLen);
             tile->set_type_length(tileRes->marray->cellTypeLength);
 
-            // Variables needed for block transfer of a tile
-            unsigned long  blockOffset = 0;
-            unsigned short subStatus  = 3;
-            currentFormat = static_cast<r_Data_Format>(tileRes->marray->currentFormat);
-
-            switch (tileStatus)
+            unsigned long blockOffset = 0;
+            if (tileStatus == 3)
             {
-            case 3: // at least one block of the tile is left
-
+                // at least one block of the tile is left
                 // Tile arrives in several blocks -> put them together
                 concatArrayData(tileRes->marray->data.confarray_val, tileRes->marray->data.confarray_len, memCopy, memCopyLen, blockOffset);
                 freeGetTileRes(tileRes);
-
-                tileRes = executeGetNextTile();//rpcgetnexttile_1( &clientID, binding_h );
-
-                subStatus = tileRes->status;
-
+                tileRes = executeGetNextTile();
+                auto subStatus = tileRes->status;
                 if (subStatus == 4)
                 {
                     freeGetTileRes(tileRes);
                     throw r_Error(r_Error::r_Error_TransferFailed);
                 }
-
                 concatArrayData(tileRes->marray->data.confarray_val, tileRes->marray->data.confarray_len, memCopy, memCopyLen, blockOffset);
                 freeGetTileRes(tileRes);
-
                 tileStatus = subStatus;
-                break;
-
-            default: // tileStatus = 0,3 last block of the current tile
-
+            }
+            else
+            {
+                // tileStatus = 0,3 last block of the current tile
                 // Tile arrives as one block.
                 concatArrayData(tileRes->marray->data.confarray_val, tileRes->marray->data.confarray_len, memCopy, memCopyLen, blockOffset);
                 freeGetTileRes(tileRes);
-
-                break;
             }
 
-            char *marrayData = NULL;
             // Now the tile is transferred completely, insert it into current MDD
-            if (tileStatus < 2 && tileCntr == 1 && (tile->spatial_domain() == marray->spatial_domain()))
+            if (tileStatus < 2 && firstTile && (tile->spatial_domain() == marray->spatial_domain()))
             {
                 // MDD consists of just one tile that is the same size of the mdd
-
                 // simply take the data memory of the tile
                 marray->set_array(tile->get_array());
                 marray->set_array_size(tile->get_array_size());
-                tile->set_array(0);
+                tile->set_array(nullptr);
             }
             else
             {
                 // MDD consists of more than one tile or the tile does not cover the whole domain
-                const auto tsize = marray->get_type_length();
-                r_Bytes size = mddDomain.cell_count() * tsize;
-
-                if (tileCntr == 1)
+                const auto cellTypeSize = marray->get_type_length();
+                if (firstTile)
                 {
                     // allocate memory for the MDD
-                    marrayData = new char[ size ];
-                    memset(marrayData, 0, size);
-
-                    marray->set_array(marrayData);
+                    r_Bytes size = mddDomain.cell_count() * cellTypeSize;
+                    auto initData = new char[size];
+                    memset(initData, 0, size);
+                    marray->set_array(initData);
+                    marray->set_array_size(size);
                 }
-                else
-                {
-                    marrayData = marray->get_array();
-                }
-
 
                 // copy tile data into MDD data space (optimized, relying on the internal representation of an MDD )
-                char         *tileBlockPtr = tile->get_array();
-                unsigned long blockCells   = static_cast<unsigned long>(
-                                                  tileDomain[tileDomain.dimension() - 1].get_extent());
-                unsigned long blockSize    = blockCells * tsize;
-                
+                char *marrayData = marray->get_array();
+                char *tileData = tile->get_array();
+                auto blockCells = tileDomain[tileDomain.dimension() - 1].get_extent();
+                auto blockSize = blockCells * cellTypeSize;
+
                 // these iterators iterate last dimension first, i.e. minimal step size
                 r_Dimension dimRes = mddDomain.dimension();
                 r_Dimension dimOp = tileDomain.dimension();
                 r_MiterDirect resTileIter(static_cast<void *>(marrayData), mddDomain, tileDomain, marray->get_type_length());
-                r_MiterDirect opTileIter(static_cast<void *>(tileBlockPtr), tileDomain, tileDomain, marray->get_type_length());
-            
-            #ifdef RMANBENCHMARK
+                r_MiterDirect opTileIter(static_cast<void *>(tileData), tileDomain, tileDomain, marray->get_type_length());
+#ifdef RMANBENCHMARK
                 opTimer.resume();
-            #endif
-            
+#endif
                 while (!resTileIter.isDone())
                 {
                     // copy entire line (continuous chunk in last dimension) in one go
@@ -1212,68 +886,55 @@ unsigned short RasnetClientComm::getMDDCore(r_Ref<r_GMarray> &mdd, GetMDDRes *th
                     // force overflow of last dimension
                     resTileIter.id[dimRes - 1].pos += r_Range(blockCells);
                     opTileIter.id[dimOp - 1].pos += r_Range(blockCells);
-            
                     // iterate; the last dimension will always overflow now
                     ++resTileIter;
                     ++opTileIter;
                 }
-
-                marray->set_array_size(size);
             }
-
-            // delete temporary tile
-            delete tile;
         }
         else
         {
-            //
             // handle encoded data
-            //
-            char *marrayData = NULL;
-            if (tileCntr == 1)
+            char *marrayData;
+            if (firstTile)
             {
-                // allocate memory for the MDD
+                // first tile, allocate memory for the MDD
                 r_Bytes size = mddDomain.cell_count() * marray->get_type_length();
-                marrayData = new char[ size ];
+                marrayData = new char[size];
                 memset(marrayData, 0, size);
                 marray->set_array(marrayData);
                 marray->set_array_size(size);
             }
             else
             {
+                // next tiles, the data for the whole marray was already allocated
                 marrayData = marray->get_array();
             }
 
-            unsigned long blockSize = tileRes->marray->data.confarray_len;
+            size_t blockSize = tileRes->marray->data.confarray_len;
             char *mddBlockPtr = marrayData + marrayOffset;
             char *tileBlockPtr = tileRes->marray->data.confarray_val;
             memcpy(mddBlockPtr, tileBlockPtr, blockSize);
             marrayOffset += blockSize;
-
-            free(tileRes->marray->domain);
-            free(tileRes->marray->data.confarray_val);
-            delete tileRes->marray;
-            delete tileRes;
-            tileRes = NULL;
+            freeGetTileRes(tileRes);
         }
 
+        firstTile = false;
     }  // end while( MDD is not transferred completely )
 
-
     mdd = r_Ref<r_GMarray>(marray->get_oid(), marray, transaction);
-
     return tileStatus;
 }
 
 GetTileRes *RasnetClientComm::executeGetNextTile()
 {
-    GetNextTileReq getNextTileReq;
-    GetNextTileRepl getNextTileRepl;
-
-    getNextTileReq.set_client_id(this->clientId);
-
+    LDEBUG << "executeGetNextTile";
     grpc::ClientContext context;
-    grpc::Status getNextTileStatus = this->getRasServerService()->GetNextTile(&context, getNextTileReq, &getNextTileRepl);
+    GrpcUtils::setDeadline(context, timeoutMs);
+    GetNextTileReq req;
+    req.set_client_id(this->clientId);
+    GetNextTileRepl repl;
+    grpc::Status getNextTileStatus = this->getRasServerService()->GetNextTile(&context, req, &repl);
     if (!getNextTileStatus.ok())
     {
         handleError(getNextTileStatus.error_message());
@@ -1281,43 +942,46 @@ GetTileRes *RasnetClientComm::executeGetNextTile()
 
     GetTileRes *result = new GetTileRes();
     result->marray = new RPCMarray();
-
-    result->status = getNextTileRepl.status();
-    result->marray->domain = strdup(getNextTileRepl.domain().c_str());
-    result->marray->cellTypeLength = static_cast<u_long>(getNextTileRepl.cell_type_length());
-    result->marray->currentFormat = getNextTileRepl.current_format();
-    result->marray->storageFormat = getNextTileRepl.storage_format();
-
-    int length = getNextTileRepl.data_length();
-    result->marray->data.confarray_len = static_cast<u_int>(length);
-    result->marray->data.confarray_val = (char *) mymalloc(static_cast<size_t>(length));
-    memcpy(result->marray->data.confarray_val, getNextTileRepl.data().c_str(), static_cast<size_t>(length));
+    result->status = repl.status();
+    result->marray->domain = strdup(repl.domain().c_str());
+    result->marray->cellTypeLength = static_cast<u_long>(repl.cell_type_length());
+    result->marray->currentFormat = repl.current_format();
+    result->marray->storageFormat = repl.storage_format();
+    result->marray->bandLinearization = static_cast<u_short>(repl.band_linearization());
+    result->marray->cellLinearization = static_cast<u_short>(repl.cell_linearization());
+    u_int length = u_int(repl.data_length());
+    result->marray->data.confarray_len = length;
+    result->marray->data.confarray_val = (char *)mymalloc(length);
+    memcpy(result->marray->data.confarray_val, repl.data().c_str(), length);
 
     return result;
 }
 
-void RasnetClientComm::getMarRpcRepresentation(const r_GMarray *mar, RPCMarray *&rpcMarray, r_Data_Format initStorageFormat, __attribute__((unused)) const r_Base_Type *baseType)
+void RasnetClientComm::getMarRpcRepresentation(
+    const r_GMarray *mar, RPCMarray *&rpcMarray, r_Data_Format initStorageFormat, UNUSED const r_Base_Type *baseType)
 {
     // allocate memory for the RPCMarray data structure and assign its fields
-    rpcMarray                 = (RPCMarray *)mymalloc(sizeof(RPCMarray));
-    rpcMarray->domain         = mar->spatial_domain().get_string_representation();
+    rpcMarray = new RPCMarray;
+    rpcMarray->domain = mar->spatial_domain().get_string_representation();
     rpcMarray->cellTypeLength = mar->get_type_length();
     rpcMarray->currentFormat = initStorageFormat;
     rpcMarray->data.confarray_len = mar->get_array_size();
     rpcMarray->data.confarray_val = const_cast<char *>(mar->get_array());
     rpcMarray->storageFormat = initStorageFormat;
+    rpcMarray->bandLinearization = static_cast<u_short>(mar->get_band_linearization());
+    rpcMarray->cellLinearization = static_cast<u_short>(mar->get_cell_linearization());
 }
-
 
 void RasnetClientComm::freeMarRpcRepresentation(const r_GMarray *mar, RPCMarray *rpcMarray)
 {
     if (rpcMarray->data.confarray_val != mar->get_array())
     {
         delete[] rpcMarray->data.confarray_val;
+        rpcMarray->data.confarray_val = nullptr;
     }
-
     free(rpcMarray->domain);
-    free(rpcMarray);
+    rpcMarray->domain = nullptr;
+    delete rpcMarray;
 }
 
 int RasnetClientComm::concatArrayData(const char *source, unsigned long srcSize, char *&dest, unsigned long &destSize, unsigned long &blockOffset)
@@ -1326,27 +990,16 @@ int RasnetClientComm::concatArrayData(const char *source, unsigned long srcSize,
     {
         // need to extend dest
         unsigned long newSize = blockOffset + srcSize;
-        char *newArray;
-
         // allocate a little extra if we have to extend
         newSize = newSize + newSize / 16;
-
-        //    LTRACE << need to extend from " << destSize << " to " << newSize;
-
-        if ((newArray = new char[newSize]) == NULL)
-        {
-            return -1;
-        }
-
+        char *newArray = new char[newSize];
         memcpy(newArray, dest, blockOffset);
-        delete [] dest;
+        delete[] dest;
         dest = newArray;
         destSize = newSize;
     }
-
     memcpy(dest + blockOffset, source, srcSize);
     blockOffset += srcSize;
-
     return 0;
 }
 
@@ -1355,10 +1008,12 @@ void RasnetClientComm::freeGetTileRes(GetTileRes *ptr)
     if (ptr->marray->domain)
     {
         free(ptr->marray->domain);
+        ptr->marray->domain = nullptr;
     }
     if (ptr->marray->data.confarray_val)
     {
         free(ptr->marray->data.confarray_val);
+        ptr->marray->data.confarray_val = nullptr;
     }
     delete ptr->marray;
     delete ptr;
@@ -1366,46 +1021,41 @@ void RasnetClientComm::freeGetTileRes(GetTileRes *ptr)
 
 r_Ref_Any RasnetClientComm::executeGetCollByNameOrOId(const char *collName, const r_OId &oid)
 {
-    GetCollectionByNameOrOidReq getCollectionByNameOrOidReq;
-    GetCollectionByNameOrOidRepl getCollectionByNameOrOidRepl;
-
-
-    getCollectionByNameOrOidReq.set_client_id(this->clientId);
-
+    grpc::ClientContext context;
+    GrpcUtils::setDeadline(context, timeoutMs);
+    GetCollectionByNameOrOidReq req;
+    req.set_client_id(this->clientId);
     if (collName != NULL)
     {
-        getCollectionByNameOrOidReq.set_collection_identifier(collName);
-        getCollectionByNameOrOidReq.set_is_name(true);
+        LDEBUG << "executeGetCollByNameOrOId " << collName;
+        req.set_collection_identifier(collName);
+        req.set_is_name(true);
     }
     else
     {
-        getCollectionByNameOrOidReq.set_collection_identifier(oid.get_string_representation());
-        getCollectionByNameOrOidReq.set_is_name(false);
+        LDEBUG << "executeGetCollByNameOrOId " << oid.get_string_representation();
+        req.set_collection_identifier(oid.get_string_representation());
+        req.set_is_name(false);
     }
-
-    grpc::ClientContext context;
-    grpc::Status rasServerStatus = this->getRasServerService()->GetCollectionByNameOrOid(&context, getCollectionByNameOrOidReq, &getCollectionByNameOrOidRepl);
-    if (!rasServerStatus.ok())
+    GetCollectionByNameOrOidRepl repl;
+    grpc::Status st = this->getRasServerService()->GetCollectionByNameOrOid(&context, req, &repl);
+    if (!st.ok())
     {
-        handleError(rasServerStatus.error_message());
+        handleError(st.error_message());
     }
 
-    int status = getCollectionByNameOrOidRepl.status();
+    int status = repl.status();
     handleStatusCode(status, "getCollByName");
 
     this->updateTransaction();
 
-    r_OId rOId(getCollectionByNameOrOidRepl.oid().c_str());
-    r_Set<r_Ref_Any> *set  = new (database, r_Object::read, rOId)  r_Set<r_Ref_Any>;
-
-    set->set_type_by_name(getCollectionByNameOrOidRepl.type_name().c_str());
-    set->set_type_structure(getCollectionByNameOrOidRepl.type_structure().c_str());
-    set->set_object_name(getCollectionByNameOrOidRepl.collection_name().c_str());
-
+    r_OId rOId(repl.oid().c_str());
+    r_Set<r_Ref_Any> *set = new (database, r_Object::read, rOId) r_Set<r_Ref_Any>;
+    set->set_type_by_name(repl.type_name().c_str());
+    set->set_type_structure(repl.type_structure().c_str());
+    set->set_object_name(repl.collection_name().c_str());
     if (status == 0)
-    {
         getMDDCollection(*set, 0);
-    }
     //  else rpcStatus == 1 -> Result collection is empty and nothing has to be got.
 
     r_Ref_Any result = r_Ref_Any(set->get_oid(), set, transaction);
@@ -1414,98 +1064,76 @@ r_Ref_Any RasnetClientComm::executeGetCollByNameOrOId(const char *collName, cons
 
 r_Ref_Any RasnetClientComm::executeGetCollOIdsByNameOrOId(const char *collName, const r_OId &oid)
 {
-    GetCollOidsByNameOrOidReq getCollOidsByNameOrOidReq;
-    GetCollOidsByNameOrOidRepl getCollOidsByNameOrOidRepl;
-
-    getCollOidsByNameOrOidReq.set_client_id(this->clientId);
-
+    grpc::ClientContext context;
+    GrpcUtils::setDeadline(context, timeoutMs);
+    GetCollOidsByNameOrOidReq req;
+    req.set_client_id(this->clientId);
     if (collName != NULL)
     {
-        getCollOidsByNameOrOidReq.set_collection_identifier(collName);
-        getCollOidsByNameOrOidReq.set_is_name(true);
+        LDEBUG << "executeGetCollOIdsByNameOrOId " << collName;
+        req.set_collection_identifier(collName);
+        req.set_is_name(true);
     }
     else
     {
-        getCollOidsByNameOrOidReq.set_collection_identifier(oid.get_string_representation());
-        getCollOidsByNameOrOidReq.set_is_name(false);
+        LDEBUG << "executeGetCollOIdsByNameOrOId " << oid.get_string_representation();
+        req.set_collection_identifier(oid.get_string_representation());
+        req.set_is_name(false);
     }
-
-    grpc::ClientContext context;
-    grpc::Status getCollOidsStatus = this->getRasServerService()->GetCollOidsByNameOrOid(&context, getCollOidsByNameOrOidReq, &getCollOidsByNameOrOidRepl);
-    if (!getCollOidsStatus.ok())
+    GetCollOidsByNameOrOidRepl repl;
+    grpc::Status st = this->getRasServerService()->GetCollOidsByNameOrOid(&context, req, &repl);
+    if (!st.ok())
     {
-        handleError(getCollOidsStatus.error_message());
+        handleError(st.error_message());
     }
 
-    int status = getCollOidsByNameOrOidRepl.status();
-
+    int status = repl.status();
     if (status != 0 && status != 1)
     {
         handleStatusCode(status, "executeGetCollOIdsByNameOrOId");
     }
 
-    const char *typeName = getCollOidsByNameOrOidRepl.type_name().c_str();
-    const char *typeStructure = getCollOidsByNameOrOidRepl.type_structure().c_str();
-    const char *oidString = getCollOidsByNameOrOidRepl.oids_string().c_str();
-    const char *collectionName = getCollOidsByNameOrOidRepl.collection_name().c_str();
-
     this->updateTransaction();
 
-    r_OId rOId(oidString);
-    r_Set<r_Ref<r_GMarray>> *set = new (database, r_Object::read, rOId)  r_Set<r_Ref<r_GMarray>>;
-
-    set->set_type_by_name(typeName);
-    set->set_type_structure(typeStructure);
-    set->set_object_name(collName);
-
-    for (int i = 0; i < getCollOidsByNameOrOidRepl.oid_set_size(); ++i)
+    r_OId rOId(repl.oids_string().c_str());
+    r_Set<r_Ref<r_GMarray>> *set = new (database, r_Object::read, rOId) r_Set<r_Ref<r_GMarray>>;
+    set->set_type_by_name(repl.type_name().c_str());
+    set->set_type_structure(repl.type_structure().c_str());
+    set->set_object_name(repl.collection_name().c_str());
+    for (int i = 0; i < repl.oid_set_size(); ++i)
     {
-        r_OId roid(getCollOidsByNameOrOidRepl.oid_set(i).c_str());
+        r_OId roid(repl.oid_set(i).c_str());
         set->insert_element(r_Ref<r_GMarray>(roid, transaction), 1);
     }
-
     r_Ref_Any result = r_Ref_Any(set->get_oid(), set, transaction);
     return result;
 }
 
 void RasnetClientComm::sendMDDConstants(const r_OQL_Query &query)
 {
-    unsigned short status;
-
+    LDEBUG << "sendMDDConstants";
     if (query.get_constants())
     {
-        r_Set<r_GMarray *> *mddConstants = const_cast<r_Set<r_GMarray *>*>(query.get_constants());
-
-        // in fact executeInitUpdate prepares server structures for MDD transfer
+        // executeInitUpdate prepares server structures for MDD transfer
         if (executeInitUpdate() != 0)
         {
             throw r_Error(r_Error::r_Error_TransferFailed);
         }
 
+        r_Set<r_GMarray *> *mddConstants = const_cast<r_Set<r_GMarray *> *>(query.get_constants());
         r_Iterator<r_GMarray *> iter = mddConstants->create_iterator();
-
         for (iter.reset(); iter.not_done(); iter++)
         {
             r_GMarray *mdd = *iter;
-
-            const r_Base_Type *baseType = mdd->get_base_type_schema();
-
             if (mdd)
             {
-                status = executeStartInsertTransMDD(mdd);
+                auto status = executeStartInsertTransMDD(mdd);
                 switch (status)
                 {
-                case 0:
-                    break; // OK
-                case 2:
-                    throw r_Error(r_Error::r_Error_DatabaseClassUndefined);
-                    break;
-                case 3:
-                    throw r_Error(r_Error::r_Error_TypeInvalid);
-                    break;
-                default:
-                    throw r_Error(r_Error::r_Error_TransferFailed);
-                    break;
+                case 0: break;  // OK
+                case 2: throw r_Error(r_Error::r_Error_DatabaseClassUndefined); break;
+                case 3: throw r_Error(r_Error::r_Error_TypeInvalid); break;
+                default: throw r_Error(r_Error::r_Error_TransferFailed); break;
                 }
 
                 r_Set<r_GMarray *> *bagOfTiles = NULL;
@@ -1519,36 +1147,28 @@ void RasnetClientComm::sendMDDConstants(const r_OQL_Query &query)
                 {
                     bagOfTiles = mdd->get_tiled_array();
                 }
-                
-                r_Iterator<r_GMarray *> iter2 = bagOfTiles->create_iterator();
 
-                for (iter2.reset(); iter2.not_done(); iter2.advance())
+                const r_Base_Type *baseType = mdd->get_base_type_schema();
+                r_Iterator<r_GMarray *> tileIter = bagOfTiles->create_iterator();
+                for (tileIter.reset(); tileIter.not_done(); tileIter.advance())
                 {
                     RPCMarray *rpcMarray;
-
-                    r_GMarray *origTile = *iter2;
-
+                    r_GMarray *origTile = *tileIter;
                     getMarRpcRepresentation(origTile, rpcMarray, mdd->get_storage_layout()->get_storage_format(), baseType);
-
                     status = executeInsertTile(false, rpcMarray);
-
                     // free rpcMarray structure (rpcMarray->data.confarray_val is freed somewhere else)
                     freeMarRpcRepresentation(origTile, rpcMarray);
-
                     // delete current tile (including data block)
                     delete origTile;
                     origTile = NULL;
-
                     if (status > 0)
                     {
                         throw r_Error(r_Error::r_Error_TransferFailed);
                     }
                 }
 
-                
                 bagOfTiles->remove_all();
                 bagOfTiles = NULL;
-
                 executeEndInsertMDD(false);
             }
         }
@@ -1557,125 +1177,115 @@ void RasnetClientComm::sendMDDConstants(const r_OQL_Query &query)
 
 int RasnetClientComm::executeStartInsertTransMDD(r_GMarray *mdd)
 {
-    StartInsertTransMDDReq startInsertTransMDDReq;
-    StartInsertTransMDDRepl startInsertTransMDDRepl;
-
-    startInsertTransMDDReq.set_client_id(this->clientId);
-    startInsertTransMDDReq.set_domain(mdd->spatial_domain().to_string());
-    startInsertTransMDDReq.set_type_length(static_cast<int32_t>(mdd->get_type_length()));
-    startInsertTransMDDReq.set_type_name(mdd->get_type_name());
-
+    LDEBUG << "executeStartInsertTransMDD";
     grpc::ClientContext context;
-    grpc::Status startInsertTransMDDStatus = this->getRasServerService()->StartInsertTransMDD(&context, startInsertTransMDDReq, &startInsertTransMDDRepl);
-    if (!startInsertTransMDDStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    StartInsertTransMDDReq req;
+    StartInsertTransMDDRepl repl;
+    req.set_client_id(this->clientId);
+    req.set_domain(mdd->spatial_domain().to_string());
+    req.set_type_length(static_cast<int32_t>(mdd->get_type_length()));
+    req.set_type_name(mdd->get_type_name());
+    grpc::Status status = this->getRasServerService()->StartInsertTransMDD(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(startInsertTransMDDStatus.error_message());
+        handleError(status.error_message());
     }
-
-    return startInsertTransMDDRepl.status();
+    return repl.status();
 }
 
 int RasnetClientComm::executeInitUpdate()
 {
-    InitUpdateReq initUpdateReq;
-    InitUpdateRepl initUpdateRepl;
-
-    initUpdateReq.set_client_id(this->clientId);
-
+    LDEBUG << "executeInitUpdate";
     grpc::ClientContext context;
-    grpc::Status initUpdataStatus = this->getRasServerService()->InitUpdate(&context, initUpdateReq, &initUpdateRepl);
-    if (!initUpdataStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    InitUpdateReq req;
+    req.set_client_id(this->clientId);
+    InitUpdateRepl repl;
+    grpc::Status status = this->getRasServerService()->InitUpdate(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(initUpdataStatus.error_message());
+        handleError(status.error_message());
     }
-
-    return initUpdateRepl.status();
+    return repl.status();
 }
-
 
 int RasnetClientComm::executeExecuteQuery(const char *query, r_Set<r_Ref_Any> &result)
 {
-    ExecuteQueryReq executeQueryReq;
-    ExecuteQueryRepl executeQueryRepl;
-
-    executeQueryReq.set_client_id(this->clientId);
-    executeQueryReq.set_query(query);
-
+    LDEBUG << "executeExecuteQuery";
     grpc::ClientContext context;
-    grpc::Status executeQueryStatus = this->getRasServerService()->ExecuteQuery(&context, executeQueryReq, &executeQueryRepl);
-    if (!executeQueryStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    ExecuteQueryReq req;
+    ExecuteQueryRepl repl;
+    req.set_client_id(this->clientId);
+    req.set_query(query);
+    grpc::Status st = this->getRasServerService()->ExecuteQuery(&context, req, &repl);
+    if (!st.ok())
     {
-        handleError(executeQueryStatus.error_message());
+        handleError(st.error_message());
     }
 
-    int status = executeQueryRepl.status();
-    unsigned int errNo = static_cast<unsigned int>(executeQueryRepl.err_no());
-    unsigned int lineNo = static_cast<unsigned int>(executeQueryRepl.line_no());
-    unsigned int colNo = static_cast<unsigned int>(executeQueryRepl.col_no());
-    const char *token = executeQueryRepl.token().c_str();
-    const char *typeName = executeQueryRepl.type_name().c_str();
-    const char *typeStructure = executeQueryRepl.type_structure().c_str();
-
-    if (status == 0 || status == 1)
+    int status = repl.status();
+    switch (status)
     {
-        result.set_type_by_name(typeName);
-        result.set_type_structure(typeStructure);
+    case 4:
+    case 5:
+        throw r_Equery_execution_failed(unsigned(repl.err_no()), unsigned(repl.line_no()),
+                                        unsigned(repl.col_no()), repl.token().c_str());
+    case 0:
+    case 1:
+        result.set_type_by_name(repl.type_name().c_str());
+        result.set_type_structure(repl.type_structure().c_str());
+    default: break;
     }
-
-    if (status == 4 || status == 5)
-    {
-        r_Equery_execution_failed err(errNo, lineNo, colNo, token);
-        throw err;
-    }
-
     return status;
 }
 
 GetElementRes *RasnetClientComm::executeGetNextElement()
 {
-    GetNextElementReq getNextElementReq;
-    GetNextElementRepl getNextElementRepl;
-
-    getNextElementReq.set_client_id(this->clientId);
-
+    LDEBUG << "executeGetNextElement";
     grpc::ClientContext context;
-    grpc::Status getNextElementStatus = this->getRasServerService()->GetNextElement(&context, getNextElementReq, &getNextElementRepl);
-    if (!getNextElementStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    GetNextElementReq req;
+    req.set_client_id(this->clientId);
+    GetNextElementRepl repl;
+    grpc::Status status = this->getRasServerService()->GetNextElement(&context, req, &repl);
+    LDEBUG << "getting next element from server: got response from server";
+    if (!status.ok())
     {
-        handleError(getNextElementStatus.error_message());
+        handleError(status.error_message());
     }
 
     GetElementRes *result = new GetElementRes();
-
-    result->data.confarray_len = static_cast<u_int>(getNextElementRepl.data_length());
-    result->data.confarray_val = new char[getNextElementRepl.data_length()];
-    memcpy(result->data.confarray_val, getNextElementRepl.data().c_str(), static_cast<size_t>(getNextElementRepl.data_length()));
-    result->status = getNextElementRepl.status();
-
+    result->data.confarray_len = u_int(repl.data_length());
+    result->data.confarray_val = new char[repl.data_length()];
+    memcpy(result->data.confarray_val, repl.data().c_str(), size_t(repl.data_length()));
+    LDEBUG << "got " << *reinterpret_cast<double *>(result->data.confarray_val) << " of size " << repl.data_length();
+    result->status = repl.status();
     return result;
 }
 
 void RasnetClientComm::getElementCollection(r_Set<r_Ref_Any> &resultColl)
 {
-    unsigned short rpcStatus = 0;
+    LDEBUG << "getElementCollection of type " << resultColl.get_type_structure();
+
     this->updateTransaction();
 
-    LDEBUG << "got set of type " << resultColl.get_type_structure();
-
-    while (rpcStatus == 0)   // repeat until all elements are transferred
+    unsigned short status = 0;
+    while (status == 0)  // repeat until all elements are transferred
     {
         GetElementRes *thisResult = executeGetNextElement();
-
-        rpcStatus = thisResult->status;
-
-        if (rpcStatus == 2)
+        status = thisResult->status;
+        if (status == 2)
         {
             throw r_Error(r_Error::r_Error_TransferFailed);
         }
-        // create new collection element, use type of collection resultColl
-        r_Ref_Any     element;
-        const r_Type *elementType = resultColl.get_element_type_schema();
 
+        // create new collection element, use type of collection resultColl
+        r_Ref_Any element;
+        const r_Type *elementType = resultColl.get_element_type_schema();
+        auto dataLen = thisResult->data.confarray_len;
+        auto *data = thisResult->data.confarray_val;
         switch (elementType->type_id())
         {
         case r_Type::BOOL:
@@ -1687,85 +1297,84 @@ void RasnetClientComm::getElementCollection(r_Set<r_Ref_Any> &resultColl)
         case r_Type::ULONG:
         case r_Type::FLOAT:
         case r_Type::DOUBLE:
-            element = new r_Primitive(thisResult->data.confarray_val, static_cast<r_Primitive_Type *>(const_cast<r_Type *>(elementType)));
-            transaction->add_object_list(GenRefType::SCALAR, (void *) element);
+        {
+            element = new r_Primitive(data, static_cast<const r_Primitive_Type *>(elementType));
+            transaction->add_object_list(GenRefType::SCALAR, (void *)element);
             break;
-
+        }
         case r_Type::COMPLEXTYPE1:
         case r_Type::COMPLEXTYPE2:
         case r_Type::CINT16:
         case r_Type::CINT32:
-            element = new r_Complex(thisResult->data.confarray_val, static_cast<r_Complex_Type *>(const_cast<r_Type *>(elementType)));
+        {
+            element = new r_Complex(data, static_cast<const r_Complex_Type *>(elementType));
             transaction->add_object_list(GenRefType::SCALAR, (void *)element);
             break;
-
+        }
         case r_Type::STRUCTURETYPE:
-            element = new r_Structure(thisResult->data.confarray_val, static_cast<r_Structure_Type *>(const_cast<r_Type *>(elementType)));
-            transaction->add_object_list(GenRefType::SCALAR, (void *) element);
+        {
+            element = new r_Structure(data, static_cast<const r_Structure_Type *>(elementType));
+            transaction->add_object_list(GenRefType::SCALAR, (void *)element);
             break;
-
+        }
         case r_Type::POINTTYPE:
         {
-            char *stringRep = new char[thisResult->data.confarray_len + 1];
-            strncpy(stringRep, thisResult->data.confarray_val, thisResult->data.confarray_len);
-            stringRep[thisResult->data.confarray_len] = '\0';
-
-            r_Point *typedElement = new r_Point(stringRep);
-            element               = typedElement;
-            transaction->add_object_list(GenRefType::POINT, (void *) typedElement);
-            delete [] stringRep;
-        }
-        break;
-
-        case r_Type::SINTERVALTYPE:
-        {
-            char *stringRep = new char[thisResult->data.confarray_len + 1];
-            strncpy(stringRep, thisResult->data.confarray_val, thisResult->data.confarray_len);
-            stringRep[thisResult->data.confarray_len] = '\0';
-
-            r_Sinterval *typedElement = new r_Sinterval(stringRep);
-            element                   = typedElement;
-            transaction->add_object_list(GenRefType::SINTERVAL, (void *) typedElement);
-            delete [] stringRep;
-        }
-        break;
-
-        case r_Type::MINTERVALTYPE:
-        {
-            char *stringRep = new char[thisResult->data.confarray_len + 1];
-            strncpy(stringRep, thisResult->data.confarray_val, thisResult->data.confarray_len);
-            stringRep[thisResult->data.confarray_len] = '\0';
-
-            r_Minterval *typedElement = new r_Minterval(stringRep);
-            element                   = typedElement;
-            transaction->add_object_list(GenRefType::MINTERVAL, (void *) typedElement);
-            delete [] stringRep;
-        }
-        break;
-
-        case r_Type::OIDTYPE:
-        {
-            char *stringRep = new char[thisResult->data.confarray_len + 1];
-            strncpy(stringRep, thisResult->data.confarray_val, thisResult->data.confarray_len);
-            stringRep[thisResult->data.confarray_len] = '\0';
-
-            r_OId *typedElement = new r_OId(stringRep);
-            element             = typedElement;
-            transaction->add_object_list(GenRefType::OID, (void *) typedElement);
-            delete [] stringRep;
-        }
-        break;
-        default:
+            char *stringRep = new char[dataLen + 1];
+            strncpy(stringRep, data, dataLen);
+            stringRep[dataLen] = '\0';
+            element = new r_Point(stringRep);
+            transaction->add_object_list(GenRefType::POINT, (void *)element);
+            delete[] stringRep;
             break;
         }
-
-        LDEBUG << "got an element";
+        case r_Type::SINTERVALTYPE:
+        {
+            char *stringRep = new char[dataLen + 1];
+            strncpy(stringRep, data, dataLen);
+            stringRep[dataLen] = '\0';
+            element = new r_Sinterval(stringRep);
+            transaction->add_object_list(GenRefType::SINTERVAL, (void *)element);
+            delete[] stringRep;
+            break;
+        }
+        case r_Type::MINTERVALTYPE:
+        {
+            char *stringRep = new char[dataLen + 1];
+            strncpy(stringRep, data, dataLen);
+            stringRep[dataLen] = '\0';
+            element = new r_Minterval(stringRep);
+            transaction->add_object_list(GenRefType::MINTERVAL, (void *)element);
+            delete[] stringRep;
+            break;
+        }
+        case r_Type::OIDTYPE:
+        {
+            char *stringRep = new char[dataLen + 1];
+            strncpy(stringRep, data, dataLen);
+            stringRep[dataLen] = '\0';
+            element = new r_OId(stringRep);
+            transaction->add_object_list(GenRefType::OID, (void *)element);
+            delete[] stringRep;
+            break;
+        }
+        case r_Type::STRINGTYPE:
+        {
+            char *stringRep = new char[dataLen + 1];
+            strncpy(stringRep, data, dataLen);
+            stringRep[dataLen] = '\0';
+            element = new r_String(stringRep);
+            transaction->add_object_list(GenRefType::STRING, (void *)element);
+            delete[] stringRep;
+            break;
+        }
+        default: break;
+        }
 
         // insert element into result set
         resultColl.insert_element(element, 1);
-
         delete[] thisResult->data.confarray_val;
-        delete   thisResult;
+        thisResult->data.confarray_val = nullptr;
+        delete thisResult;
     }
 
     executeEndTransfer();
@@ -1773,101 +1382,84 @@ void RasnetClientComm::getElementCollection(r_Set<r_Ref_Any> &resultColl)
 
 int RasnetClientComm::executeExecuteUpdateQuery(const char *query)
 {
-    ExecuteUpdateQueryReq executeUpdateQueryReq;
-    ExecuteUpdateQueryRepl executeUpdateQueryRepl;
-
-    executeUpdateQueryReq.set_client_id(this->clientId);
-    executeUpdateQueryReq.set_query(query);
-
+    LDEBUG << "executeExecuteUpdateQuery";
     grpc::ClientContext context;
-    grpc::Status executeUpdateQueryStatus = this->getRasServerService()->ExecuteUpdateQuery(&context, executeUpdateQueryReq, &executeUpdateQueryRepl);
-    if (!executeUpdateQueryStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    ExecuteUpdateQueryReq req;
+    req.set_client_id(this->clientId);
+    req.set_query(query);
+    ExecuteUpdateQueryRepl repl;
+    grpc::Status st = this->getRasServerService()->ExecuteUpdateQuery(&context, req, &repl);
+    if (!st.ok())
     {
-        handleError(executeUpdateQueryStatus.error_message());
+        handleError(st.error_message());
     }
 
-    int status = executeUpdateQueryRepl.status();
-    unsigned int errNo = static_cast<unsigned int>(executeUpdateQueryRepl.errono());
-    unsigned int lineNo = static_cast<unsigned int>(executeUpdateQueryRepl.lineno());
-    unsigned int colNo = static_cast<unsigned int>(executeUpdateQueryRepl.colno());
-
-    string token = executeUpdateQueryRepl.token();
-
-    if (status == 2 || status == 3)
+    int status = repl.status();
+    switch (status)
     {
-        throw r_Equery_execution_failed(errNo, lineNo, colNo, token.c_str());
-    }
-
-    if (status == 1)
-    {
+    case 0:
+        return status;
+    case 1:
         throw r_Error(r_Error::r_Error_ClientUnknown);
-    }
-
-    if (status > 3)
-    {
+    case 2:
+    case 3:
+        throw r_Equery_execution_failed(unsigned(repl.errono()), unsigned(repl.lineno()),
+                                        unsigned(repl.colno()), repl.token().c_str());
+    default:
         throw r_Error(r_Error::r_Error_TransferFailed);
     }
-
-    return status;
 }
 
-int  RasnetClientComm::executeExecuteUpdateQuery(const char *query, r_Set<r_Ref_Any> &result)
+int RasnetClientComm::executeExecuteUpdateQuery(const char *query, r_Set<r_Ref_Any> &result)
 {
-    ExecuteInsertQueryReq executeInsertQueryReq;
-    ExecuteInsertQueryRepl executeInsertQueryRepl;
-
-    executeInsertQueryReq.set_client_id(this->clientId);
-    executeInsertQueryReq.set_query(query);
-
+    LDEBUG << "executeExecuteUpdateQuery";
     grpc::ClientContext context;
-    grpc::Status executeInsertStatus = this->getRasServerService()->ExecuteInsertQuery(&context, executeInsertQueryReq, &executeInsertQueryRepl);
-    if (!executeInsertStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    ExecuteInsertQueryReq req;
+    req.set_client_id(this->clientId);
+    req.set_query(query);
+    ExecuteInsertQueryRepl repl;
+    grpc::Status st = this->getRasServerService()->ExecuteInsertQuery(&context, req, &repl);
+    if (!st.ok())
     {
-        handleError(executeInsertStatus.error_message());
+        handleError(st.error_message());
     }
 
-    int status = executeInsertQueryRepl.status();
-    unsigned int errNo = static_cast<unsigned int>(executeInsertQueryRepl.errono());
-    unsigned int lineNo = static_cast<unsigned int>(executeInsertQueryRepl.lineno());
-    unsigned int colNo = static_cast<unsigned int>(executeInsertQueryRepl.colno());
-    string token = executeInsertQueryRepl.token();
-    const char *typeName = executeInsertQueryRepl.type_name().c_str();
-    const char *typeStructure = executeInsertQueryRepl.type_structure().c_str();
-
-    if (status == 0 || status == 1 || status == 2)
+    int status = repl.status();
+    switch (status)
     {
-        result.set_type_by_name(typeName);
-        result.set_type_structure(typeStructure);
+    case 4:
+    case 5:
+        throw r_Equery_execution_failed(unsigned(repl.errono()), unsigned(repl.lineno()),
+                                        unsigned(repl.colno()), repl.token().c_str());
+    case 0:
+    case 1:
+    case 2:
+        result.set_type_by_name(repl.type_name().c_str());
+        result.set_type_structure(repl.type_structure().c_str());
+    default: break;
     }
-
-    // status == 2 - empty result
-
-    if (status == 4 || status == 5)
-    {
-        throw r_Equery_execution_failed(errNo, lineNo, colNo, token.c_str());
-    }
-
     return status;
 }
 
 int RasnetClientComm::executeSetFormat(bool lTransferFormat, r_Data_Format format, const char *formatParams)
 {
-    SetFormatReq setFormatReq;
-    SetFormatRepl setFormatRepl;
-
-    setFormatReq.set_client_id(this->clientId);
-    setFormatReq.set_transfer_format((lTransferFormat ? 1 : 0));
-    setFormatReq.set_format(format);
-    setFormatReq.set_format_params(formatParams);
-
+    LDEBUG << "executeSetFormat";
     grpc::ClientContext context;
-    grpc::Status setFormatStatus = this->getRasServerService()->SetFormat(&context, setFormatReq, &setFormatRepl);
-    if (!setFormatStatus.ok())
+    GrpcUtils::setDeadline(context, timeoutMs);
+    SetFormatReq req;
+    req.set_client_id(this->clientId);
+    req.set_transfer_format((lTransferFormat ? 1 : 0));
+    req.set_format(format);
+    req.set_format_params(formatParams);
+    SetFormatRepl repl;
+    grpc::Status status = this->getRasServerService()->SetFormat(&context, req, &repl);
+    if (!status.ok())
     {
-        handleError(setFormatStatus.error_message());
+        handleError(status.error_message());
     }
-
-    return setFormatRepl.status();
+    return repl.status();
 }
 
 void RasnetClientComm::checkForRwTransaction()
@@ -1876,15 +1468,14 @@ void RasnetClientComm::checkForRwTransaction()
     r_Transaction *trans = transaction;
     if (trans == 0 || trans->get_mode() == r_Transaction::read_only)
     {
-        LDEBUG << "RasnetClientComm::checkForRwTransaction(): throwing exception from failed TA rw check.";
+        LDEBUG << "failed TA read-write check: transaction is not set or is read-only";
         throw r_Error(r_Error::r_Error_TransactionReadOnly);
     }
 }
 
-void RasnetClientComm::handleError(const string &error)
+void RasnetClientComm::handleError(const std::string &error)
 {
     ErrorMessage message;
-
     if (error.empty())
     {
         LDEBUG << "Internal server error.";
@@ -1905,8 +1496,10 @@ void RasnetClientComm::handleError(const string &error)
             else
             {
                 r_Error err(static_cast<r_Error::kind>(message.kind()), message.error_no());
-                if (!what.empty() && what != err.what() && message.error_no() == 0)
+                if (!what.empty() && what != err.what())
+                {
                     err.set_what(what.c_str());
+                }
                 throw err;
             }
         }
@@ -1934,12 +1527,7 @@ void RasnetClientComm::handleError(const string &error)
     }
 }
 
-void RasnetClientComm::handleConnectionFailure()
-{
-    throw r_EGeneral("The client failed to contact the server.");
-}
-
-void RasnetClientComm::handleStatusCode(int status, const string &method)
+void RasnetClientComm::handleStatusCode(int status, const std::string &method)
 {
     switch (status)
     {
@@ -1964,33 +1552,150 @@ void RasnetClientComm::handleStatusCode(int status, const string &method)
     }
 }
 
-bool RasnetClientComm::effectivTypeIsRNP()
+std::string md5Digest(const std::uint8_t *initial_msg, size_t initial_len)
 {
-    throw r_Error(r_Error::r_Error_FeatureNotSupported);
-}
+    // Constants are the integer part of the sines of integers (in radians) * 2^32.
+    static const uint32_t k[64] = {
+        0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
+        0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
+        0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be,
+        0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
+        0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa,
+        0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
+        0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed,
+        0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a,
+        0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c,
+        0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70,
+        0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05,
+        0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
+        0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039,
+        0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
+        0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1,
+        0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391};
 
-long unsigned int RasnetClientComm::getClientID() const
-{
-    return this->clientId;
-}
+// leftrotate function definition
+#define LEFTROTATE(x, c) (((x) << (c)) | ((x) >> (32 - (c))))
 
-void RasnetClientComm::triggerAliveSignal()
-{
-    throw r_Error(r_Error::r_Error_FeatureNotSupported);
-}
+    // These vars will contain the hash
+    uint32_t h0, h1, h2, h3;
 
-void RasnetClientComm::sendAliveSignal()
-{
-    throw r_Error(r_Error::r_Error_FeatureNotSupported);
+    // Message (to prepare)
+    uint8_t *msg = NULL;
+    int new_len;
+    uint32_t bits_len;
+    int offset;
+    uint32_t i, f, g, temp;
+
+    // Note: All variables are unsigned 32 bit and wrap modulo 2^32 when calculating
+
+    // r specifies the per-round shift amounts
+    static const uint32_t r[] = {7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+                                 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+                                 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+                                 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21};
+
+    // Initialize variables - simple count in nibbles:
+    h0 = 0x67452301;
+    h1 = 0xefcdab89;
+    h2 = 0x98badcfe;
+    h3 = 0x10325476;
+
+    // Pre-processing: adding a single 1 bit
+    //append "1" bit to message
+    /* Notice: the input bytes are considered as bits strings,
+       where the first bit is the most significant bit of the byte.[37] */
+
+    // Pre-processing: padding with zeros
+    //append "0" bit until message length in bit ≡ 448 (mod 512)
+    //append length mod (2 pow 64) to message
+
+    for (new_len = initial_len * 8 + 1; new_len % 512 != 448; new_len++)
+        ;
+    new_len /= 8;
+
+    msg = (uint8_t *)calloc(size_t(new_len) + 64, 1);  // also appends "0" bits
+                                                       // (we alloc also 64 extra bytes...)
+    memcpy(msg, initial_msg, initial_len);
+    msg[initial_len] = 128;  // write the "1" bit
+
+    bits_len = 8 * initial_len;           // note, we append the len
+    memcpy(msg + new_len, &bits_len, 4);  // in bits at the end of the buffer
+
+    // Process the message in successive 512-bit chunks:
+    //for each 512-bit chunk of message:
+    for (offset = 0; offset < new_len; offset += (512 / 8))
+    {
+        // break chunk into sixteen 32-bit words w[j], 0 ≤ j ≤ 15
+        auto *w = (uint32_t *)(msg + offset);
+
+        // Initialize hash value for this chunk:
+        auto a = h0;
+        auto b = h1;
+        auto c = h2;
+        auto d = h3;
+
+        // Main loop:
+        for (i = 0; i < 64; i++)
+        {
+            if (i < 16)
+            {
+                f = (b & c) | ((~b) & d);
+                g = i;
+            }
+            else if (i < 32)
+            {
+                f = (d & b) | ((~d) & c);
+                g = (5 * i + 1) % 16;
+            }
+            else if (i < 48)
+            {
+                f = b ^ c ^ d;
+                g = (3 * i + 5) % 16;
+            }
+            else
+            {
+                f = c ^ (b | (~d));
+                g = (7 * i) % 16;
+            }
+
+            temp = d;
+            d = c;
+            c = b;
+            b = b + LEFTROTATE((a + f + k[i] + w[g]), r[i]);
+            a = temp;
+        }
+
+        // Add this chunk's hash to result so far:
+        h0 += a;
+        h1 += b;
+        h2 += c;
+        h3 += d;
+    }
+
+    // cleanup
+    free(msg);
+
+    auto *p0 = reinterpret_cast<std::uint8_t *>(&h0);
+    auto *p1 = reinterpret_cast<std::uint8_t *>(&h1);
+    auto *p2 = reinterpret_cast<std::uint8_t *>(&h2);
+    auto *p3 = reinterpret_cast<std::uint8_t *>(&h3);
+    char ret[33];
+    sprintf(ret, "%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x",
+            p0[0], p0[1], p0[2], p0[3],
+            p1[0], p1[1], p1[2], p1[3],
+            p2[0], p2[1], p2[2], p2[3],
+            p3[0], p3[1], p3[2], p3[3]);
+    return ret;
 }
 
 void RasnetClientComm::setUserIdentification(const char *userName, const char *plainTextPassword)
 {
-
-    connectClient(string(userName), common::Crypto::messageDigest(string(plainTextPassword), DEFAULT_DIGEST));
+    auto pwHash = md5Digest(reinterpret_cast<const std::uint8_t *>(plainTextPassword),
+                            strlen(plainTextPassword));
+    connectClient(userName, pwHash);
 }
 
-void RasnetClientComm::setMaxRetry(__attribute__((unused)) unsigned int newMaxRetry)
+void RasnetClientComm::setMaxRetry(UNUSED unsigned int newMaxRetry)
 {
     throw r_Error(r_Error::r_Error_FeatureNotSupported);
 }
@@ -2000,14 +1705,110 @@ unsigned int RasnetClientComm::getMaxRetry()
     throw r_Error(r_Error::r_Error_FeatureNotSupported);
 }
 
-void RasnetClientComm::setTimeoutInterval(__attribute__((unused)) int seconds)
+void RasnetClientComm::setTimeoutInterval(int seconds)
 {
-    throw r_Error(r_Error::r_Error_FeatureNotSupported);
+    if (seconds < 0)
+    {
+        throw common::InvalidArgumentException{"The client connection timeout must be a value >= 0."};
+    }
+    timeoutMs = size_t(seconds) * 1000;
 }
 
 int RasnetClientComm::getTimeoutInterval()
 {
-    throw r_Error(r_Error::r_Error_FeatureNotSupported);
+    return int(timeoutMs / 1000);
+}
+
+std::shared_ptr<ClientRassrvrService::Stub> RasnetClientComm::getRasServerService(bool throwIfConnectionFailed)
+{
+    this->initRasserverService();
+    // Check if the rasserver is serving
+    if (!GrpcUtils::isServerAlive(this->rasserverHealthService, SERVICE_CALL_TIMEOUT) && throwIfConnectionFailed)
+    {
+        LDEBUG << "The client failed to connect to rasserver at " << rasServerHost << ":" << rasServerPort;
+        throw r_EGeneral("The client failed to connect to rasserver at " + rasServerHost + ":" + std::to_string(rasServerPort));
+    }
+    return this->rasserverService;
+}
+
+void RasnetClientComm::initRasserverService()
+{
+    std::unique_lock<std::mutex> lock(this->rasServerServiceMtx);
+    if (!this->initializedRasServerService)
+    {
+        LDEBUG << "initializing rasserver service to " << rasServerHost << ":" << rasServerPort;
+        try
+        {
+            auto address = GrpcUtils::constructAddressString(rasServerHost, std::uint32_t(rasServerPort));
+            auto channel = grpc::CreateCustomChannel(address, grpc::InsecureChannelCredentials(),
+                                                     GrpcUtils::getDefaultChannelArguments());
+
+            this->rasserverService.reset(new ClientRassrvrService::Stub(channel));
+            this->rasserverHealthService.reset(new common::HealthService::Stub(channel));
+            this->initializedRasServerService = true;
+        }
+        catch (std::exception &ex)
+        {
+            LERROR << "Failed initializing rasserver service to host "
+                   << rasServerHost << ":" << rasServerPort << ": " << ex.what();
+            handleError(ex.what());
+        }
+    }
+}
+
+void RasnetClientComm::closeRasserverService()
+{
+    std::lock_guard<std::mutex> lock(this->rasServerServiceMtx);
+    if (this->initializedRasServerService)
+    {
+        this->initializedRasServerService = false;
+        this->rasserverService.reset();
+        this->rasserverHealthService.reset();
+    }
+}
+
+std::shared_ptr<rasnet::service::RasmgrClientService::Stub> RasnetClientComm::getRasMgrService(bool throwIfConnectionFailed)
+{
+    this->initRasmgrService();
+    // Check if the rasmgr is serving
+    if (!GrpcUtils::isServerAlive(this->rasmgrHealthService, SERVICE_CALL_TIMEOUT) && throwIfConnectionFailed)
+    {
+        LDEBUG << "The client failed to connect to rasmgr at " << rasmgrHost;
+        throw r_EGeneral("The client failed to connect to rasmgr at " + rasmgrHost);
+    }
+    return this->rasmgrService;
+}
+
+void RasnetClientComm::initRasmgrService()
+{
+    std::unique_lock<std::mutex> lock(this->rasMgrServiceMtx);
+    if (!this->initializedRasMgrService)
+    {
+        try
+        {
+            auto channel = grpc::CreateCustomChannel(rasmgrHost, grpc::InsecureChannelCredentials(),
+                                                     GrpcUtils::getDefaultChannelArguments());
+            this->rasmgrService.reset(new RasmgrClientService::Stub(channel));
+            this->rasmgrHealthService.reset(new common::HealthService::Stub(channel));
+            this->initializedRasMgrService = true;
+        }
+        catch (std::exception &ex)
+        {
+            LERROR << "Failed initializing rasmgr service to host " << rasmgrHost << ": " << ex.what();
+            handleError(ex.what());
+        }
+    }
+}
+
+void RasnetClientComm::closeRasmgrService()
+{
+    std::lock_guard<std::mutex> lock(this->rasMgrServiceMtx);
+    if (this->initializedRasMgrService)
+    {
+        this->initializedRasMgrService = false;
+        this->rasmgrService.reset();
+        this->rasmgrHealthService.reset();
+    }
 }
 
 /* START: KEEP ALIVE */
@@ -2015,12 +1816,11 @@ int RasnetClientComm::getTimeoutInterval()
 /* RASMGR */
 void RasnetClientComm::startRasMgrKeepAlive()
 {
-    boost::lock_guard<boost::mutex> lock(this->rasmgrKeepAliveMutex);
+    std::lock_guard<std::mutex> lock(this->rasmgrKeepAliveMutex);
 
     //TODO-GM
     this->isRasmgrKeepAliveRunning = true;
-    this->rasMgrKeepAliveManagementThread.reset(new boost::thread(&RasnetClientComm::clientRasMgrKeepAliveRunner, this));
-
+    this->rasMgrKeepAliveManagementThread.reset(new std::thread(&RasnetClientComm::clientRasMgrKeepAliveRunner, this));
 }
 
 void RasnetClientComm::stopRasMgrKeepAlive()
@@ -2028,7 +1828,7 @@ void RasnetClientComm::stopRasMgrKeepAlive()
     try
     {
         {
-            boost::unique_lock<boost::mutex> lock(this->rasmgrKeepAliveMutex);
+            std::unique_lock<std::mutex> lock(this->rasmgrKeepAliveMutex);
             this->isRasmgrKeepAliveRunning = false;
         }
 
@@ -2038,7 +1838,6 @@ void RasnetClientComm::stopRasMgrKeepAlive()
         }
         else
         {
-
             this->isRasmgrKeepAliveRunningCondition.notify_one();
 
             if (this->rasMgrKeepAliveManagementThread->joinable())
@@ -2047,13 +1846,6 @@ void RasnetClientComm::stopRasMgrKeepAlive()
                 this->rasMgrKeepAliveManagementThread->join();
                 LDEBUG << "Joined rasmgr keep alive management thread.";
             }
-            else
-            {
-                LDEBUG << "Interrupting rasmgr keep alive management thread.";
-                this->rasMgrKeepAliveManagementThread->interrupt();
-                LDEBUG << "Interrupted rasmgr keep alive management thread.";
-            }
-
         }
     }
     catch (std::exception &ex)
@@ -2068,33 +1860,28 @@ void RasnetClientComm::stopRasMgrKeepAlive()
 
 void RasnetClientComm::clientRasMgrKeepAliveRunner()
 {
-    boost::posix_time::time_duration timeToSleepFor = boost::posix_time::milliseconds(this->keepAliveTimeout);
+    std::chrono::milliseconds timeToSleepFor(this->keepAliveTimeout);
 
-    boost::unique_lock<boost::mutex> threadLock(this->rasmgrKeepAliveMutex);
+    std::unique_lock<std::mutex> threadLock(this->rasmgrKeepAliveMutex);
     while (this->isRasmgrKeepAliveRunning)
     {
         try
         {
             // Wait on the condition variable to be notified from the
             // destructor when it is time to stop the worker thread
-            if (!this->isRasmgrKeepAliveRunningCondition.timed_wait(threadLock, timeToSleepFor))
+            if (this->isRasmgrKeepAliveRunningCondition.wait_for(threadLock, timeToSleepFor) == std::cv_status::timeout)
             {
-                KeepAliveReq keepAliveReq;
-                Void keepAliveRepl;
-
-                keepAliveReq.set_clientuuid(this->clientUUID);
-
+                LDEBUG << "clientRasMgrKeepAliveRunner - sending KeepAlive request to rasmgr";
                 grpc::ClientContext context;
-
-                // We do not want this thread to block forever
-                system_clock::time_point deadline = system_clock::now() + milliseconds(SERVICE_CALL_TIMEOUT);
-                context.set_deadline(deadline);
-
-                grpc::Status keepAliveStatus = this->getRasMgrService(false)->KeepAlive(&context, keepAliveReq, &keepAliveRepl);
-
-                if (!keepAliveStatus.ok())
+                GrpcUtils::setDeadline(context, SERVICE_CALL_TIMEOUT);
+                KeepAliveReq req;
+                req.set_clientid(this->clientId);
+                Void repl;
+                grpc::Status status = this->getRasMgrService(false)->KeepAlive(&context, req, &repl);
+                if (!status.ok())
                 {
-                    LERROR << "Failed to send keep alive message to rasmgr: " << keepAliveStatus.error_message();
+                    LERROR << "Client " << this->clientId << " failed to send keep alive message to rasmgr: "
+                           << status.error_message();
                     LDEBUG << "Stopping client-rasmgr keep alive thread.";
                     this->isRasmgrKeepAliveRunning = false;
                 }
@@ -2103,15 +1890,12 @@ void RasnetClientComm::clientRasMgrKeepAliveRunner()
         catch (std::exception &ex)
         {
             this->isRasmgrKeepAliveRunning = false;
-
-            LERROR << "Rasmgr Keep Alive thread has failed";
-            LERROR << ex.what();
+            LERROR << "rasmgr keep alive thread failed: " << ex.what();
         }
         catch (...)
         {
             this->isRasmgrKeepAliveRunning = false;
-
-            LERROR << "Rasmgr Keep Alive thread failed for unknown reason.";
+            LERROR << "rasmgr keep alive thread failed.";
         }
     }
 }
@@ -2119,11 +1903,11 @@ void RasnetClientComm::clientRasMgrKeepAliveRunner()
 /* RASSERVER */
 void RasnetClientComm::startRasServerKeepAlive()
 {
-    boost::lock_guard<boost::mutex> lock(this->rasserverKeepAliveMutex);
+    std::lock_guard<std::mutex> lock(this->rasserverKeepAliveMutex);
 
     this->isRasserverKeepAliveRunning = true;
     this->rasServerKeepAliveManagementThread.reset(
-        new boost::thread(&RasnetClientComm::clientRasServerKeepAliveRunner, this));
+        new std::thread(&RasnetClientComm::clientRasServerKeepAliveRunner, this));
 }
 
 void RasnetClientComm::stopRasServerKeepAlive()
@@ -2131,7 +1915,7 @@ void RasnetClientComm::stopRasServerKeepAlive()
     try
     {
         {
-            boost::unique_lock<boost::mutex> lock(this->rasserverKeepAliveMutex);
+            std::unique_lock<std::mutex> lock(this->rasserverKeepAliveMutex);
             // Change the condition and notify the variable
             this->isRasserverKeepAliveRunning = false;
         }
@@ -2150,55 +1934,41 @@ void RasnetClientComm::stopRasServerKeepAlive()
                 this->rasServerKeepAliveManagementThread->join();
                 LDEBUG << "Joined rasserver keep alive management thread.";
             }
-            else
-            {
-                LDEBUG << "Interrupting rasserver keep alive management thread.";
-                this->rasServerKeepAliveManagementThread->interrupt();
-                LDEBUG << "Interrupted rasserver keep alive management thread.";
-            }
-
         }
     }
     catch (std::exception &ex)
     {
-        LERROR << ex.what();
+        LERROR << "Stoping rasmgr keep alive failed: " << ex.what();
     }
     catch (...)
     {
-        LERROR << "Stoping rasmgr keep alive has failed";
+        LERROR << "Stoping rasmgr keep alive failed.";
     }
 }
 
 void RasnetClientComm::clientRasServerKeepAliveRunner()
 {
-    boost::posix_time::time_duration timeToSleepFor = boost::posix_time::milliseconds(this->keepAliveTimeout);
+    std::chrono::milliseconds timeToSleepFor(this->keepAliveTimeout);
 
-    boost::unique_lock<boost::mutex> threadLock(this->rasserverKeepAliveMutex);
+    std::unique_lock<std::mutex> threadLock(this->rasserverKeepAliveMutex);
     while (this->isRasserverKeepAliveRunning)
     {
         try
         {
             // Wait on the condition variable to be notified from the
             // destructor when it is time to stop the worker thread
-            if (!this->isRasserverKeepAliveRunningCondition.timed_wait(threadLock, timeToSleepFor))
+            if (this->isRasserverKeepAliveRunningCondition.wait_for(threadLock, timeToSleepFor) == std::cv_status::timeout)
             {
-                ::rasnet::service::KeepAliveRequest keepAliveReq;
-                Void keepAliveRepl;
-
-                keepAliveReq.set_client_uuid(this->remoteClientUUID);
-                keepAliveReq.set_session_id(this->sessionId);
-
                 grpc::ClientContext context;
-
-                // We do not want this thread to block forever
-                system_clock::time_point deadline = system_clock::now() + milliseconds(SERVICE_CALL_TIMEOUT);
-                context.set_deadline(deadline);
-
-                grpc::Status keepAliveStatus = this->getRasServerService(false)->KeepAlive(&context, keepAliveReq, &keepAliveRepl);
-
-                if (!keepAliveStatus.ok())
+                GrpcUtils::setDeadline(context, SERVICE_CALL_TIMEOUT);
+                KeepAliveRequest req;
+                req.set_client_uuid(this->remoteClientId);
+                req.set_session_id(this->sessionId);
+                Void repl;
+                grpc::Status status = this->getRasServerService(false)->KeepAlive(&context, req, &repl);
+                if (!status.ok())
                 {
-                    LERROR << "Failed to send keep alive message to rasserver: " << keepAliveStatus.error_message();
+                    LERROR << "Failed to send keep alive message to rasserver: " << status.error_message();
                     LDEBUG << "Stopping client-rasserver keep alive thread.";
                     this->isRasserverKeepAliveRunning = false;
                 }
@@ -2207,16 +1977,13 @@ void RasnetClientComm::clientRasServerKeepAliveRunner()
         catch (std::exception &ex)
         {
             this->isRasserverKeepAliveRunning = false;
-
-            LERROR << "RasServer Keep Alive thread has failed";
-            LERROR << ex.what();
+            LERROR << "rasserver keep alive thread failed: " << ex.what();
         }
         catch (...)
         {
             this->isRasserverKeepAliveRunning = false;
-            LERROR << "RasServer Keep Alive thread failed for unknown reason.";
+            LERROR << "rasserver keep alive thread failed.";
         }
     }
-
 }
 /* END: KEEP ALIVE */

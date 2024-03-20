@@ -24,8 +24,11 @@ package petascope.util;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +56,8 @@ public class BigDecimalUtil {
     public static final int MIN_SCALE_TO_CHECK_EPSILON = 10;
     
     private static final Logger log = LoggerFactory.getLogger(BigDecimalUtil.class);
+
+    private static final Pattern decimalPattern = Pattern.compile("-?\\d+(\\.\\d+)?");
     
     /**
      * Scale of a quotient between two BigDecimals.
@@ -136,20 +141,42 @@ public class BigDecimalUtil {
      * @param value
      * @return 
      */
-    public static int listContainsCoefficient(List<BigDecimal> list, BigDecimal value) {
-        int counter = 0;
+    public static Long getApproximateCoefficientIndex(List<BigDecimal> list, BigDecimal value) {
+        // In case the coefficient value can be searched quickly
+        Long index = getExactCoefficientIndex(list, value);
+        if (index == null) {
+            index = 0L;
+        } else {
+            return index;
+        }
+
         for (BigDecimal coeff : list) {
             // if value is within [coefficient - epsilon, coefficient + epsilon], then value is considered the coefficient
             // e.g: 
             if ((coeff.subtract(COEFFICIENT_DECIMAL_EPSILON).compareTo(value) <= 0)
                 &&(coeff.add(COEFFICIENT_DECIMAL_EPSILON).compareTo(value) >= 0)) {
-                return counter;
+                return index;
             }            
-            counter++;
+            index++;
         }
-        return -1;
+        
+        return null;
     }
-
+    
+    
+    /**
+     * e.g. search 3.222223444567 from the list of coefficients: [0, 1.333, 3.22222344456788888]
+     * the result is -1, because 3.222223444567 does not exist here.
+     */
+    public static Long getExactCoefficientIndex(List<BigDecimal> list, BigDecimal value) {
+        Long index = Long.valueOf(Collections.binarySearch(list, value));
+        if (index < 0) {
+            index = null;
+        }
+        
+        return index;
+    }
+    
     /**
      * Convert list of String to list of BigDecimal values
      * @param values
@@ -330,6 +357,25 @@ public class BigDecimalUtil {
     }
     
     /**
+     * Given a big decimal -> shift it to the rounded integer number
+     * It works like in R trunc(float number)
+     */
+    public static long shiftToInteger(BigDecimal input) {
+        BigDecimal roundedNumber = input.setScale(0, RoundingMode.CEILING);
+        if (input.compareTo(BigDecimal.ZERO) < 0) {
+            roundedNumber = input.setScale(0, RoundingMode.FLOOR);
+        }
+        
+        BigDecimal tmp = input.abs().add(new BigDecimal("0.000000000000000222"));
+        
+        if (tmp.compareTo(roundedNumber.abs()) >= 0) {
+            return roundedNumber.longValue();
+        }
+        
+        return input.longValue();
+    }
+    
+    /**
      * The input bound must be in the inveral [lowerBound:upperBound]
      */
     public static BigDecimal getValidValue(BigDecimal minLowerBound, BigDecimal maxLowerBound, BigDecimal bound) {
@@ -350,6 +396,18 @@ public class BigDecimalUtil {
      */
     public static boolean isValidValue(BigDecimal minLowerBound, BigDecimal maxLowerBound, BigDecimal bound) {
         return bound.compareTo(minLowerBound) >=0 && bound.compareTo(maxLowerBound) <= 0;
+    }
+
+    /**
+     * e.g. parse 1.3222 from 1.3222s
+     */
+    public static BigDecimal parseDecimalFromString(String str) {
+        Matcher matcher = decimalPattern.matcher(str);
+        while (matcher.find()) {
+            return new BigDecimal(matcher.group(0));
+        }
+
+        return null;
     }
 
 }

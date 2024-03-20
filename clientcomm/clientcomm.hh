@@ -31,51 +31,46 @@ class r_Transaction;
 class r_OId;
 class r_OQL_Query;
 class r_GMarray;
-template <class T> class r_Set;
+template <class T>
+class r_Set;
 class r_Ref_Any;
 class r_Base_Type;
 class r_Parse_Params;
 
-/**
+/** 
 *   @defgroup ClientComm ClientComm
-*
-*   @file clientcomm.hh
-*
-*   @ingroup ClientComm
+*   @{
 */
-//  @Doc
-
-/*  The class ClientComm represents {\bf one} connection between
-    {\bf one} client entity (e.g. an object of class \Ref{r_Database}) and
-    the server. Therefore, the host name has to be provided at
-    the constructor.
-*/
+/**
+ *   
+ * The class ClientComm represents one connection between
+   one client entity (for example an object of class r_Database) and
+   the server.
+ */
 class ClientComm
 {
 public:
-
     /// destructor (closes the connection and releases resources)
     virtual ~ClientComm() = default;
 
-    //@Man: Database methods
-    //@{
+    /// Database methods
+    ///@{
     ///
-    //RNP: all made pure
 
     /// open database
-    virtual int openDB(const char* database) = 0;
+    virtual int openDB(const char *database) = 0;
     /// close current database
     virtual int closeDB() = 0;
     /// create a database
-    virtual int createDB(const char* name) = 0;
+    virtual int createDB(const char *name) = 0;
     /// destroy a database
-    virtual int destroyDB(const char* name) = 0;
+    virtual int destroyDB(const char *name) = 0;
 
     ///
-    //@}
+    ///@}
 
-    //@Man: Transaction methods
-    //@{
+    /// Transaction methods
+    ///@{
     ///
 
     /// begin transaction
@@ -86,81 +81,73 @@ public:
     virtual int abortTA() = 0;
 
     ///
-    //@}
+    ///@}
 
-    //@Man: MDD methods
-    //@{
+    /// MDD methods
+    ///@{
     ///
 
     /// inserts a MDD object in an existing MDD collection on the server
-    virtual void insertMDD(const char* collName, r_GMarray* mar) = 0;
+    virtual void insertMDD(const char *collName, r_GMarray *mar) = 0;
     /// gets MDD object by oid
-    virtual r_Ref_Any getMDDByOId(const r_OId& oid) = 0;
+    virtual r_Ref_Any getMDDByOId(const r_OId &oid) = 0;
 
     ///
-    //@}
+    ///@}
 
-    //@Man: Collection methods
-    //@{
+    /// Collection methods
+    ///@{
     ///
 
     /// creates an empty MDD collection on the server
-    virtual void insertColl(const char* collName, const char* typeName, const r_OId& oid) = 0;
+    virtual void insertColl(const char *collName, const char *typeName, const r_OId &oid) = 0;
     /// deletes an MDD collection by name
-    virtual void deleteCollByName(const char* collName) = 0;
+    virtual void deleteCollByName(const char *collName) = 0;
     /// deletes an object by oid (right now, objects are collection only)
-    virtual void deleteObjByOId(const r_OId& oid) = 0;
+    virtual void deleteObjByOId(const r_OId &oid) = 0;
     /// removes an object from a collection
-    virtual void removeObjFromColl(const char* name, const r_OId& oid) = 0;
+    virtual void removeObjFromColl(const char *name, const r_OId &oid) = 0;
     /// gets collection by name
-    virtual r_Ref_Any getCollByName(const char* name) = 0;
+    virtual r_Ref_Any getCollByName(const char *name) = 0;
     /// gets collection by oid
-    virtual r_Ref_Any getCollByOId(const r_OId& oid) = 0;
+    virtual r_Ref_Any getCollByOId(const r_OId &oid) = 0;
     /// gets collection references by name
-    virtual r_Ref_Any getCollOIdsByName(const char* name) = 0;
+    virtual r_Ref_Any getCollOIdsByName(const char *name) = 0;
     /// gets collection references by oid
-    virtual r_Ref_Any getCollOIdsByOId(const r_OId& oid) = 0;
+    virtual r_Ref_Any getCollOIdsByOId(const r_OId &oid) = 0;
 
     ///
-    //@}
+    ///@}
 
-    //@Man: Query methods
-    //@{
+    /// Query methods
+    ///@{
     ///
 
-    /// query execution
-    virtual void executeQuery(const r_OQL_Query& query, r_Set<r_Ref_Any>& result) = 0;
-    /*@Doc:
-      Executes a retrieval query of type \Ref{r_OQL_Query} and returns the result. Every
-      MDD object of the MDD collection is fetched from the server and inserted
-      in the resulting \Ref{r_Set}.
-    */
+    /// Executes a retrieval query of type r_OQL_Query and returns the result. Every
+    /// MDD object of the MDD collection is fetched from the server and inserted
+    /// in the result r_Set.
+    virtual void executeQuery(const r_OQL_Query &query, r_Set<r_Ref_Any> &result) = 0;
 
-    /// update execution
-    virtual void executeQuery(const r_OQL_Query& query) = 0;
-    /*@Doc:
-      Executes an update query of type \Ref{r_OQL_Query}.
-    */
+    /// Executes an update query of type r_OQL_Query.
+    virtual void executeQuery(const r_OQL_Query &query) = 0;
 
-    /// insert returning oid, third parameter is dummy parameter
-    virtual void executeQuery(const r_OQL_Query& query, r_Set<r_Ref_Any>& result, int dummy) = 0;
-    /*@Doc:
-      Executes an insert query of type \Ref{r_OQL_Query}.
-    */
+    /// Executes an insert query of type r_OQL_Query, returning the OId of the
+    /// inserted array. The third parameter is only used to distinguish the
+    /// method signature from the retrieval query one.
+    virtual void executeQuery(const r_OQL_Query &query, r_Set<r_Ref_Any> &result, int dummy) = 0;
 
     ///
-    //@}
+    ///@}
 
-
-    //@Man: System methods
-    //@{
+    /// System methods
+    ///@{
     ///
 
     /// get new oid
     virtual r_OId getNewOId(unsigned short objType) = 0;
 
     /// get oid type
-    virtual unsigned short getObjectType(const r_OId& oid) = 0;
+    virtual unsigned short getObjectType(const r_OId &oid) = 0;
 
     enum r_Type_Type
     {
@@ -170,77 +157,54 @@ public:
 
     /// get type structure
     /// deallocate using delete []
-    virtual char* getTypeStructure(const char* typeName, r_Type_Type typeType) = 0;
+    virtual char *getTypeStructure(const char *typeName, r_Type_Type typeType) = 0;
 
     ///
-    //@}
+    ///@}
 
-
-    //@Man: Methods for asynchronious alive signal concept
-    //@{
-
-    /// triggers an alive signal
-    virtual void triggerAliveSignal() = 0;
-    /**
-      First, it sets the switch <tt>aliveSignalRemaining</tt> saying that an alive signal
-      should be send to the server. Then it calls <tt>sendAliveSignal()</tt> to send it
-      immediately if possible.
-    */
-
-    /// send an alive signal if necessary and possible
-    virtual void sendAliveSignal() = 0;
-    /**
-      Sends an alive signal to the server if the switch <tt>aliveSignalRemaining</tt> is
-      set and no other RPC is active. If a signal can be sent, <tt>aliveSignalRemaining</tt>
-      is set to 0 again.
-    */
+    /// Configuration methods
+    ///@{
 
     /// set the preferred transfer format
-    virtual int setTransferFormat(r_Data_Format format, const char* formatParams = NULL) = 0;
+    virtual int setTransferFormat(r_Data_Format format, const char *formatParams = NULL) = 0;
 
     /// set the preferred storage format
-    virtual int setStorageFormat(r_Data_Format format, const char* formatParams = NULL) = 0;
-
-    /// get extended error information
-    const char* getServerName();
+    virtual int setStorageFormat(r_Data_Format format, const char *formatParams = NULL) = 0;
 
     /// user identification for RasMGR
-    virtual void setUserIdentification(const char* userName, const char* plainTextPassword) = 0;
+    virtual void setUserIdentification(const char *userName, const char *plainTextPassword) = 0;
 
     /// set maximum retry to get a server
     virtual void setMaxRetry(unsigned int newMaxRetry) = 0;
-
     /// get maximum retry to get a server
-    virtual unsigned int  getMaxRetry() = 0;
+    virtual unsigned int getMaxRetry() = 0;
 
-    /// set and get communication timeout interval. Only RNP really uses it
+    /// set communication timeout interval in seconds.
     virtual void setTimeoutInterval(int seconds) = 0;
-    virtual int  getTimeoutInterval() = 0;
+    /// get communication timeout interval in seconds.
+    virtual int getTimeoutInterval() = 0;
 
     /// sets the database that is using this client communicator
-    void setDatabase(r_Database* database);
-
+    void setDatabase(r_Database *database);
     /// sets the transaction that is using this client communicator
-    void setTransaction(r_Transaction* transaction);
-
+    void setTransaction(r_Transaction *transaction);
     /// resets to the global r_Transaction::actual_transaction if necessary
     virtual void updateTransaction();
 
     ///
-    //@}
-    
-    /// provides read access to my clientID
-    virtual unsigned long getClientID() const  = 0;
+    ///@}
 
 protected:
     /// constructor getting nothing
     ClientComm() = default;
 
     /// reference to the database that created this client communicator
-    r_Database* database;
+    r_Database *database;
 
     /// reference to the transaction being used by this client communicator
-    r_Transaction* transaction;
+    r_Transaction *transaction;
 };
+
+/// @}
 
 #endif

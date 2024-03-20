@@ -38,6 +38,7 @@ module rasdaman {
             "$rootScope",
             "$log",
             "rasdaman.WCSService",
+            "rasdaman.WCSSettingsService",
             "Notification",
             "rasdaman.WebWorldWindService"
         ];
@@ -47,12 +48,22 @@ module rasdaman {
                            $rootScope:angular.IRootScopeService,
                            $log:angular.ILogService,
                            wcsService:rasdaman.WCSService,
+                           settings:rasdaman.WCSSettingsService,                           
                            alertService:any,
                            webWorldWindService:rasdaman.WebWorldWindService) {
+
+            let canvasId = "wcsCanvasGetCoverage";
             $scope.selectedCoverageId = null;
 
-            $scope.isGlobeOpen = false;
-            $scope.isGetCoverageHideGlobe = true;
+
+            $scope.avaiableCisTypes = [
+                { "value": "CIS1.1", "text": "CIS 1.1 GeneralGridCoverage" },
+                { "value": "CIS1.0", "text": "CIS 1.0 GridCoverage / RectifiedGridCoverage / RectifiedGridCoverage (legacy)" }
+            ];
+
+            $scope.hideWebWorldWindGlobe = false;
+            // default hide the div containing the Globe
+            $scope.hideWebWorldWindGlobe = true;
 
             $scope.isCoverageIdValid = function():boolean {
                 if ($scope.wcsStateInformation.serverCapabilities) {
@@ -67,18 +78,41 @@ module rasdaman {
                 return false;
             };
 
-            /*
-            $rootScope.$on("SelectedCoverageId", (event:angular.IAngularEvent, coverageId:string)=> {
-                $scope.SelectedCoverageId = coverageId;
-                $scope.describeCoverage();
-            }); */
+            // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
+                if (coverageIdToDelete != null) {
+                    for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                        if ($scope.availableCoverageIds[i] == coverageIdToDelete) {
+                            $scope.availableCoverageIds.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });            
+
+            // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
+            $rootScope.$on("renamedCoverageId", (event, tupleObj:any) => {
+                if (tupleObj != null) {
+                    let oldCoverageId:string = tupleObj.oldCoverageId;
+                    let newCoverageId:string = tupleObj.newCoverageId;
+
+                    for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                        if ($scope.availableCoverageIds[i] == tupleObj.oldCoverageId) {
+                            $scope.availableCoverageIds[i] = tupleObj.newCoverageId;
+                            break;
+                        }
+                    }
+                }
+            });            
 
             $scope.$watch("wcsStateInformation.serverCapabilities", (capabilities:wcs.Capabilities)=> {
                 if (capabilities) {
+                    $scope.wcsStateInformation.serverCapabilities = capabilities;
+
                     // Supported HTTP request type for GetCoverage KVP request
                     $scope.avaiableHTTPRequests = ["GET", "POST"];
                     $scope.selectedHTTPRequest = $scope.avaiableHTTPRequests[0];
-                    
+                   
                     $scope.availableCoverageIds = [];
                     $scope.coverageCustomizedMetadatasDict = {};
                     
@@ -94,20 +128,16 @@ module rasdaman {
                 }
             });
 
-            $scope.loadCoverageExtentOnGlobe = function () {
-                // Fetch the coverageExtent by coverageId to display on globe if possible
-                var coverageExtentArray = webWorldWindService.getCoveragesExtentsByCoverageId($scope.selectedCoverageId);                            
-                if (coverageExtentArray == null) {
-                    $scope.isGetCoverageHideGlobe = true;
+            $scope.loadCoverageExtentOnGlobe = function () {                
+                let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents, $scope.selectedCoverageId);
+                if (coverageExtent == null) {
+                    // coverage is not geo-referenced
+                    $scope.hideWebWorldWindGlobe = true;
                 } else {
-                    // Show covearge's extent on the globe
-                    var canvasId = "wcsCanvasGetCoverage";
-                    $scope.isGetCoverageHideGlobe = false;
-                    // Also prepare for GetCoverage's globe with only 1 coverageExtent                    
-                    webWorldWindService.prepareCoveragesExtentsForGlobe(canvasId, coverageExtentArray);
-                    // Then, load the footprint of this coverage on the globe
-                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId);
-                }                                
+                    // coverage is referenced -> draw on globe
+                    $scope.hideWebWorldWindGlobe = false;
+                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent, true);
+                }                            
             }
 
             // Select a coverage to show WCS core and extensions form
@@ -128,7 +158,6 @@ module rasdaman {
             // Send a GetCoverage request to get result
             $scope.getCoverageClickEvent = function () {
 
-                
                 var numberOfAxis = $scope.coverageDescription.boundedBy.envelope.lowerCorner.values.length;
                 var dimensionSubset:wcs.DimensionSubset[] = [];
                 for (var i = 0; i < numberOfAxis; ++i) {
@@ -145,19 +174,27 @@ module rasdaman {
                     }
                 }
 
-                var getCoverageRequest = new wcs.GetCoverage($scope.coverageDescription.coverageId, dimensionSubset, $scope.core.selectedCoverageFormat, $scope.core.isMultiPartFormat);
+                let getCoverageRequest = new wcs.GetCoverage($scope.coverageDescription.coverageId, dimensionSubset, $scope.core.selectedCoverageFormat, $scope.core.isMultiPartFormat);
                 getCoverageRequest.rangeSubset = $scope.rangeSubsettingExtension.rangeSubset;
                 getCoverageRequest.scaling = $scope.scalingExtension.getScaling();
                 getCoverageRequest.interpolation = $scope.interpolationExtension.getInterpolation();
                 getCoverageRequest.crs = $scope.crsExtension.getCRS();
                 getCoverageRequest.clipping = $scope.clippingExtension.getClipping();
 
+                if ($scope.getCoverageTabStates.selectedCisTypeObj.value == "CIS1.1") {
+                    getCoverageRequest.isGeneralGridCoverage = true;
+                } else {
+                    getCoverageRequest.isGeneralGridCoverage = false;
+                }
+
+                $scope.generatedGETURL = settings.wcsEndpoint + "?" + getCoverageRequest.toKVP();
+
                 if ($scope.selectedHTTPRequest == "GET") {
                     // GET KVP request which open a new Window to show the result
                     wcsService.getCoverageHTTPGET(getCoverageRequest)
                     .then(
                         (requestUrl:string)=> {                                        
-                            $scope.core.requestUrl = requestUrl;                                        
+                            $scope.core.requestUrl = requestUrl;
                         },
                         (...args:any[])=> {
                             $scope.core.requestUrl = null;
@@ -186,8 +223,11 @@ module rasdaman {
                 return result;
             }
 
-            $scope.$watch("wcsStateInformation.selectedCoverageDescription",
-                (coverageDescription:wcs.CoverageDescription)=> {
+            $scope.setGeneratedGETURL = (numberOfDimensions:number) => {
+                $scope.generatedGETURL = settings.wcsFullEndpoint + "&REQUEST=GetCoverage&COVERAGEID=" + $scope.selectedCoverageId + "&FORMAT=" + $scope.setOutputFormat(numberOfDimensions);
+            };
+
+            $scope.$watch("wcsStateInformation.selectedCoverageDescription", (coverageDescription:wcs.CoverageDescription) => {
                     if (coverageDescription) {
                         $scope.coverageDescription = $scope.wcsStateInformation.selectedCoverageDescription;
                         $scope.selectedCoverageId = $scope.coverageDescription.coverageId;
@@ -220,6 +260,8 @@ module rasdaman {
                                     $scope.isTemporalAxis[i] = false;
                                 }
                         }
+
+                        $scope.setGeneratedGETURL(numberOfAxis);
                         
                         wcsService.getCoverageDescription(describeCoverageRequest)
                         .then(
@@ -331,7 +373,8 @@ module rasdaman {
                             isCRSSupported: WCSGetCoverageController.isCRSSupported($scope.wcsStateInformation.serverCapabilities),
                             isClippingOpen: false,
                             // TODO: when clipping is accepted from OGC, get an URI to schema from WCS GetCapabilities.
-                            isClippingSupported: true
+                            isClippingSupported: true,
+                            selectedCisTypeObj: $scope.avaiableCisTypes[0]
                         };
 
                         $scope.core = {
@@ -625,10 +668,8 @@ module rasdaman {
 
 
     interface WCSGetCoverageControllerScope extends WCSMainControllerScope {
-        // Is the dropdown for Globe open
-        isGlobeOpen:boolean;
         // Is the div containing Globe show/hide
-        isGetCoverageHideGlobe:boolean;
+        hideWebWorldWindGlobe:boolean;
 
         inputValidator(i:number):void;
         trimValidator(i:number, min:any, max:any):void;
@@ -653,6 +694,9 @@ module rasdaman {
         avaiableHTTPRequests:string[];
         selectedHTTPRequest:string;
 
+        // CIS 1.1, CIS1.0
+        avaiableCisTypes:any[];
+
         core:GetCoverageCoreModel;
         rangeSubsettingExtension:RangeSubsettingModel;
         scalingExtension:WCSScalingExtensionModel;
@@ -661,6 +705,8 @@ module rasdaman {
         interpolationExtension:WCSInterpolationExtensionModel;
 
         getCoverageTabStates:GetCoverageTabStates;
+
+        generatedGETURL:string;
 
         // Based on the number of dimensions to set the output format accordingly
         setOutputFormat(numberOfDimensions:number):string;
@@ -673,6 +719,8 @@ module rasdaman {
         getCoverage():void;
 
 	    loadCoverageExtentOnGlobe():void;
+
+        setGeneratedGETURL(numberOfDimensions:number):void;
     }
 
     interface GetCoverageCoreModel {
@@ -708,5 +756,8 @@ module rasdaman {
         //Is the Clipping tab open
         isClippingOpen:boolean;
         isClippingSupported:boolean;
+
+        selectedCisTypeObj:any;
+
     }
 }

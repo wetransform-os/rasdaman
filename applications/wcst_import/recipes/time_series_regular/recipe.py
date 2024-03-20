@@ -56,6 +56,9 @@ from recipes.general_coverage.recipe import Recipe as GeneralRecipe
 
 
 class Recipe(BaseRecipe):
+
+    analyzed_files_count = 0
+
     def __init__(self, session):
         """
         The recipe class for regular timeseries. To get an overview of the ingredients needed for this
@@ -70,6 +73,8 @@ class Recipe(BaseRecipe):
         if "coverage" in self.options:
             self.options['coverage']['slicer'] = {}
             self.options['coverage']['slicer']['type'] = GdalToCoverageConverter.RECIPE_TYPE
+
+        self.time_crs = None
 
 
     def validate(self):
@@ -129,6 +134,9 @@ class Recipe(BaseRecipe):
         time_offset = 0
         time_format = self.options['time_format'] if self.options['time_format'] != "auto" else None
         time_start = DateTimeUtil(self.options['time_start'], time_format, self.options['time_crs'])
+
+        self.time_crs = CRSUtil(self.options['time_crs'])
+
         for tfile in self.session.get_files():
             if len(ret) == limit:
                 break
@@ -136,11 +144,14 @@ class Recipe(BaseRecipe):
             ret.append(time_tuple)
             time_offset += 1
 
-        # Currently, only sort by datetime to import coverage slices (default is ascending), option: to sort descending
-        if self.options["import_order"] == AbstractToCoverageConverter.IMPORT_ORDER_DESCENDING:
-            return sorted(ret, reverse=True)
+        if self.options["import_order"] != AbstractToCoverageConverter.IMPORT_ORDER_NONE:
+            # Currently, only sort by datetime to import coverage slices (default is ascending), option: to sort descending
+            if self.options["import_order"] == AbstractToCoverageConverter.IMPORT_ORDER_DESCENDING:
+                return sorted(ret, reverse=True)
 
-        return sorted(ret)
+            return sorted(ret)
+
+        return ret
 
     def _get_datetime_with_step(self, current, offset):
         """
@@ -192,19 +203,23 @@ class Recipe(BaseRecipe):
             timer = Timer()
 
             # print which file is analyzing
-            FileUtil.print_feedback(count, len(timeseries), file_path)
+            if self.session.blocking is True:
+                FileUtil.print_feedback(count, len(timeseries), file.filepath)
+            else:
+                self.analyzed_files_count += 1
+                FileUtil.print_feedback(self.analyzed_files_count, self.session.total_files_to_import, file.filepath)
+
             if not FileUtil.validate_file_path(file_path):
                 continue
 
             valid_coverage_slice = True
 
             try:
-                gdal_file = GDALGmlUtil(file.get_filepath())
-
+                gdal_file = GDALGmlUtil.init(file.get_filepath())
                 geo_axis_crs = gdal_file.get_crs()
                 CRSUtil.validate_crs(crs, geo_axis_crs)
             except Exception as ex:
-                FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex)
+                FileUtil.ignore_coverage_slice_from_file_if_possible(file.get_filepath(), ex, self.session)
                 valid_coverage_slice = False
 
             if valid_coverage_slice:
@@ -213,7 +228,7 @@ class Recipe(BaseRecipe):
                     subsets = self._fill_time_axis(tpair, subsets)
                 except Exception as ex:
                     # If skip: true then just ignore this file from importing, else raise exception
-                    FileUtil.ignore_coverage_slice_from_file_if_possible(file_path, ex)
+                    FileUtil.ignore_coverage_slice_from_file_if_possible(file_path, ex, self.session)
                     valid_coverage_slice = False
 
             if valid_coverage_slice:
@@ -243,6 +258,10 @@ class Recipe(BaseRecipe):
         """
         days, hours, minutes, seconds = self._get_real_step()
         number_of_days = days + hours / float(24) + minutes / float(60 * 24) + seconds / float(60 * 60 * 24)
+
+        # e.g. AnsiDate: d, UnixTime: s
+        time_crs_uom = self.time_crs.axes[0].uom
+
         for i in range(0, len(subsets)):
             if subsets[i].coverage_axis.axis.crs_axis is not None and subsets[i].coverage_axis.axis.crs_axis.is_time_axis():
                 subsets[i].coverage_axis.axis = RegularAxis(subsets[i].coverage_axis.axis.label,
@@ -250,7 +269,8 @@ class Recipe(BaseRecipe):
                                                             tpair.time.to_string(),
                                                             tpair.time.to_string(), tpair.time.to_string(),
                                                             subsets[i].coverage_axis.axis.crs_axis)
-                subsets[i].coverage_axis.grid_axis.resolution = number_of_days
+                # NOTE: time resolution must be based on UoM in CRS definition
+                subsets[i].coverage_axis.grid_axis.resolution = DateTimeUtil.get_time_delta_in_target_uom(number_of_days, time_crs_uom)
                 subsets[i].interval.low = tpair.time.to_string()
         return subsets
 
@@ -258,7 +278,10 @@ class Recipe(BaseRecipe):
         """
         Returns the list of coverages to be used for the importer
         """
-        gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.session.get_files())
+        gdal_dataset = FileUtil.open_dataset_from_any_file(GdalToCoverageConverter.RECIPE_TYPE, self.session.get_files(), self.session)
+        if gdal_dataset is None:
+            return []
+
         crs = CRSUtil.get_compound_crs([self.options['time_crs'], gdal_dataset.get_crs()])
 
         general_recipe = GeneralRecipe(self.session)

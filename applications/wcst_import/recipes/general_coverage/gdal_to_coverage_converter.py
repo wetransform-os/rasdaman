@@ -39,10 +39,12 @@ from master.provider.metadata.irregular_axis import IrregularAxis
 from master.provider.metadata.regular_axis import RegularAxis
 from recipes.general_coverage.abstract_to_coverage_converter import AbstractToCoverageConverter
 from util.crs_util import CRSAxis
-from util.file_util import File
+from util.file_util import File, FileUtil
 from master.helper.high_pixel_adjuster import HighPixelAjuster
 from master.helper.point_pixel_adjuster import PointPixelAdjuster
 from util.gdal_util import GDALGmlUtil
+from util.s2metadata_util import S2MetadataUtil
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 class GdalToCoverageConverter(AbstractToCoverageConverter):
@@ -90,20 +92,20 @@ class GdalToCoverageConverter(AbstractToCoverageConverter):
         self.grid_coverage = grid_coverage
         self.data_type = None
         self.session = session
-
+        self.mtd_file = None
+        if S2MetadataUtil.enabled_in_ingredients(self.session.recipe) and len(self.files) > 0:
+            self.mtd_file = S2MetadataUtil.get(self.files[0].get_filepath())
 
     @staticmethod
-    def parse_gdal_global_metadata(file_path):
+    def parse_gdal_global_metadata(file_path, recipe):
         """
         Parse the first file of importing gdal files to extract the global metadata for the coverage
         str file_path: path to first gdal input file
         :return: dict: global_metadata
         """
         # NOTE: all files should have same global metadata for each file
-        gdal_dataset = GDALGmlUtil(file_path)
-        global_metadata = gdal_dataset.get_metadata()
-
-        return global_metadata
+        dataset = GDALGmlUtil.get(file_path, recipe)
+        return dataset.get_metadata()
 
     def _file_band_nil_values(self, index):
         """
@@ -112,22 +114,33 @@ class GdalToCoverageConverter(AbstractToCoverageConverter):
         :param integer index: the current band index to get the nilValues
         :rtype: List[RangeTypeNilValue] with only 1 element
         """
-        if len(self.files) < 1:
-            raise RuntimeException("No gdal files given for import!")
+        if self.mtd_file is None:
+            if len(self.files) < 1:
+                raise RuntimeException("No gdal files given for import!")
 
-        if self.default_null_values is not None:
-            return self.default_null_values
+            if self.default_null_values is not None:
+                return self.default_null_values
 
-        # NOTE: all files should have same bands's metadata, so 1 file is ok
-        gdal_dataset = GDALGmlUtil.open_gdal_dataset_from_any_file(self.files)
-        # band in gdal starts with 1
-        gdal_band = gdal_dataset.get_raster_band(index + 1)
-        nil_value = gdal_band.GetNoDataValue()
+            # NOTE: all files should have same bands's metadata, so 1 file is ok
+            gdal_dataset = FileUtil.open_dataset_from_any_file(GdalToCoverageConverter.RECIPE_TYPE, self.files, self.session)
+            if gdal_dataset is None:
+                return None
+            # band in gdal starts with 1
+            gdal_band = gdal_dataset.get_raster_band(index + 1)
+            nil_value = gdal_band.GetNoDataValue()
 
-        if nil_value is None:
-            return None
+            if nil_value is None:
+                return None
+            else:
+                return [RangeTypeNilValue("", nil_value)]
         else:
-            return [nil_value]
+            return [RangeTypeNilValue("", 0)]
+
+    def _get_file_band_data_type_and_chunk_sizes_from_file(self, band_id):
+        gdal_dataset = FileUtil.open_dataset_from_any_file(GdalToCoverageConverter.RECIPE_TYPE, self.files, self.session)
+        data_type = gdal_dataset.get_band_gdal_type()
+        chunk = gdal_dataset.get_raster_band(1).GetBlockSize()
+        return data_type, chunk
 
     def _axis_subset(self, crs_axis, evaluator_slice, resolution=None):
         """
@@ -158,13 +171,16 @@ class GdalToCoverageConverter(AbstractToCoverageConverter):
             if user_axis.type == UserAxisType.DATE:
                 if crs_axis.is_time_day_axis():
                     coefficients = self._translate_day_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                            user_axis.directPositions)
+                                                                                            user_axis.directPositions,
+                                                                                            user_axis.areas_of_validity)
                 else:
                     coefficients = self._translate_seconds_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                                user_axis.directPositions)
+                                                                                                user_axis.directPositions,
+                                                                                                user_axis.areas_of_validity)
             else:
                 coefficients = self._translate_number_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                      user_axis.directPositions)
+                                                                                      user_axis.directPositions,
+                                                                                      user_axis.areas_of_validity)
 
             self._update_for_slice_group_size(self.coverage_id, user_axis, crs_axis, coefficients)
 

@@ -1,0 +1,71 @@
+{
+  "config": {
+    "service_url": "PETASCOPE_URL",
+    "tmp_directory": "/tmp/",
+    "mock": false,
+    "automated": true,
+    "track_files": false,
+    "subset_correction": false,
+    "skip": true,
+    "blocking": false    
+  },
+  "input": {
+    "coverage_id": "test_after_hook_execute_if_general_recipe_grib",
+    "paths": [
+      "*.grib2"
+    ]
+  },
+  "recipe": {
+    "name": "general_coverage",
+    "options": {
+      "coverage": {
+        "crs": "OGC/0/Index1D?axis-label=\"isobaric\"@OGC/0/AnsiDate@EPSG/0/4326",
+        "metadata": {
+          "type": "xml",
+          "global": {
+            "description": "'This is a test coverage'"
+          }
+        },
+        "slicer": {
+          "type": "grib",
+          "bands": [
+            {
+              "name": "band_1",
+              "description": "v-component of wind",
+              "identifier": "v-component_of_wind_isobaric"
+            }
+          ],
+          "axes": {           
+            "Lat": {
+              "min": "${grib:latitudeOfLastGridPointInDegrees} - 0.25",
+              "max": "${grib:latitudeOfFirstGridPointInDegrees} + 0.25",
+              "resolution": "-0.5"
+            },
+            "Long": {
+              "min": "${grib:longitudeOfFirstGridPointInDegrees} - 0.25",
+              "max": "${grib:longitudeOfLastGridPointInDegrees} + 0.25",
+              "resolution": "0.5"
+            }, "ansi": {
+	      "min": "grib_datetime(${grib:dataDate}, ${grib:dataTime})",
+              "resolution": 1,
+              "irregular": false
+            }, "isobaric": {
+              "min": "${grib:level} - 12.5",
+              "max": "${grib:level} + 12.5",
+              "resolution": "25"
+            }
+          }
+        }
+      },
+      "tiling": "ALIGNED [0:0,0:0,0:719,0:360] TILE SIZE 2079360"
+    }
+  }, 
+  "hooks": [
+      {
+        "description": "if import failed, print content of the input file",
+        "when": "after_ingestion",
+        "execute_if": "import_failed",
+        "cmd": "cat ${file:path}"
+      }
+  ]
+}

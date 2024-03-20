@@ -2,9 +2,9 @@
     <div class="col-sm-11 col-centered" style="background-color: white;">        
         <div class="row row-centered">
             <div class="col-sm-12 input-group input-group-lg">
-                            <span class="input-group-addon">
-                                <span class="glyphicon glyphicon-globe"></span>
-                            </span>
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-globe"></span>
+                    </span>
                 <input type="text"
                        autocomplete
                        ng-model="selectedLayerName"
@@ -21,6 +21,12 @@
             </span>
             </div>
         </div>
+
+        <div class="col-sm-12 input-group input-group-lg" style="margin-top: 20px;" ng-show="getMapRequestURL != null">
+            <div style="float:left">
+                <span>Generated GET URL: </span> <a href="{{getMapRequestURL}}" target="_blank" id="getMapRequestURL" class="long-link-wrap-text"></a>
+            </div>
+        </div>                
 
         <div class="row top15" ng-model="layer" ng-hide="!isLayerDocumentOpen">
             <div class="col-sm-12">
@@ -74,8 +80,7 @@
                     
                     <div>
                         <div>
-                            Default GetMap request of this layer: <br/>
-                            <a href="{{getMapRequestURL}}" target="_blank" id="getMapRequestURL"></a> <br/><br/>
+                             <br/><br/>
 
                             <div ng-show="display3DLayerNotification">
                                 <b>NOTE:</b> When a non-spatial axis for a 3D+ coverage is omitted from the WMS GetMap request, 
@@ -119,6 +124,11 @@
                                 ng-model="selectedStyleName" ng-click="hideWMSLayerOnGlobe()" value="hide layer" ng-show="displayWMSLayer"/>
                         </div>
                         <br/>
+
+                        <div>Layer's bounding box in EPSG:4326 CRS is: <b>{{coverageBBox}}</b></div>
+                        <br/> <br/>
+
+
                         <!-- Create a canvas for Web WorldWind. -->
                         <canvas id="wmsCanvasDescribeLayer" style="width:100%;height:500px;">
                             Your browser does not support HTML5 Canvas.
@@ -145,7 +155,7 @@
                             <tr>
                                 <th colspan=15%>Style Name</th>
                                 <th colspan=40% style="width: 40%;">Abstract</th>
-                                <th colspan=45% style="width: 45%;" ng-show="adminStateInformation.loggedIn">Operations</th>
+                                <th colspan=45% style="width: 45%;" ng-show="hasDeleteStyleRole">Operations</th>
                             </tr>
                             <tr>
                                 <td colspan=100%><input st-search="name" class="form-control"
@@ -159,31 +169,33 @@
                                 <td colspan=15%>Raw data</td>
                                 <td colspan=45%></td>                                
                                 <td colspan=20%>
-                                    <input type="radio" ng-model="selectedStyleName" ng-click='showWMSLayerOnGlobe("")' name="styles" title="Display the layer with selected style on WebWorldWind globe as WMS layer." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left"> &nbsp; View style on globe
+                                    <input type="radio" ng-model="selectedStyleName" ng-click='showWMSLayerOnGlobe("")' 
+                                        name="styles" title="Display the layer with selected style on WebWorldWind globe as WMS layer."> &nbsp; View style on globe
                                 </td>
                                 <td colspan=10%><a href="{{getMapRequestURL}}" id="secGetMap" target="_blank" title="Open a new tab in web browser to show the GetMap request result." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left">GetMap request</a></td>
+                                    >GetMap request</a></td>
                                 <td colspan=10%></td>
                             </tr>
                             <tr ng-repeat="style in styles">                                
                                 <td colspan=15%><a ng-click='describeStyleToUpdate(style.name);'>{{style.name}}</a></td>                                
                                 <td colspan=25%>{{style.abstract | limitTo:50}}</td>
                                 <td colspan=20%>                                    
-                                    <!-- note: to be able to make radio button checked, it needs to use ng-checked-->
-                                    <input type="radio" ng-model="style.defaultStyle" ng-checked="{{style.defaultStyle}}" ng-click="setDefaultStyle(style.name)" name="default" title="Set this style as the default style of the selected layer." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left"> &nbsp; Set as default
+                                    <!-- NOTE: to be able to make radio button checked, it needs to use ng-checked-->
+                                    <input type="radio" ng-checked="{{style.defaultStyle}}" 
+                                        id="defaultStyleRadioButton_{{style.name}}" 
+                                        name="defaultStyleRadioButtonGroup"
+                                        ng-click="setDefaultStyle(style.name)" title="Set this style as the default style of the selected layer."> &nbsp; Set as default
                                 </td>
                                 <td colspan=20%>
-                                    <input type="radio" ng-model="selectedStyleName" value="{{style.name}}" ng-click="showWMSLayerOnGlobe(style.name)" name="styles" title="Display the layer with selected style on WebWorldWind globe as WMS layer." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left"> &nbsp; View on globe
+                                    <input type="radio" ng-model="selectedStyleName" value="{{style.name}}" 
+                                        ng-click="showWMSLayerOnGlobe(style.name)" name="viewLayerOnWebWorldWind" title="Display the layer with selected style on WebWorldWind globe as WMS layer."> &nbsp; View on globe
                                 </td>
-                                <td colspan=10%><a href='{{getMapRequestURL}}{{style.name}}' target="_blank" title="Open a new tab in web browser to show the GetMap request result." 
-                                    onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" data-placement="left">GetMap request</a></td>
+                                <td colspan=10%><a href='{{getMapRequestURL}}{{style.name}}' target="_blank"
+                                     title="Open a new tab in web browser to show the GetMap request result.">GetMap request</a></td>
                                 </td>
-                                <td colspan=10% ng-show="adminStateInformation.loggedIn">                                    
-                                     <button ng-show="adminStateInformation.loggedIn && hasDeleteStyleRole" class="btn btn-danger" ng-click="deleteStyle(style.name)">Delete</button>
-                                </td>                           
+                                <td colspan=10% ng-show="hasDeleteStyleRole">                                    
+                                    <button class="btn btn-danger" ng-click="deleteStyle(style.name)">Delete</button>
+                                </td>
                             </tr>
                         </tbody>
                         <tfoot>
@@ -261,7 +273,7 @@
                             </div>
 
                             <!-- Legend image for style -->
-                            <div class="form-group" >
+                            <div class="form-group" ng-show="hasInsertStyleRole" >
                                 <label class="control-label col-sm-2">Style legend graphic:</label>                                
                                 <div class="col-sm-4">
                                     <label class="btn btn-success">
@@ -280,12 +292,12 @@
 
                             <br/>
 
-                            <div class="form-group" ng-show="adminStateInformation.loggedIn">        
+                            <div class="form-group" ng-show="hasInsertStyleRole || hasUpdateStyleRole">        
                                 <div class="col-sm-offset-2 col-sm-1">
-                                    <button ng-show="adminStateInformation.loggedIn && hasInsertStyleRole" class="btn btn-primary" type="button" ng-click="insertStyle()">Insert Style</button>
+                                    <button ng-show="hasInsertStyleRole" class="btn btn-primary" type="button" ng-click="insertStyle()">Insert Style</button>
                                 </div>
                                 <div class="col-sm-offset-4">
-                                    <button ng-show="adminStateInformation.loggedIn && hasUpdateStyleRole" class="btn btn-warning" type="button" ng-click="updateStyle()">Update Style</button>
+                                    <button ng-show="hasUpdateStyleRole" class="btn btn-warning" type="button" ng-click="updateStyle()">Update Style</button>
                                 </div>
                             </div>
                         </form>
@@ -312,7 +324,7 @@
                             <tr>
                                 <th colspan=40% style="width: 40%;">Pyramid member</th>
                                 <th colspan=40% style="width: 35%;">Scale factors</th>
-                                <th colspan=20% style="width: 25%;">Operations</th>
+                                <th colspan=20% style="width: 25%;" ng-show="hasDeleteCoverageRole">Operations</th>
                             </tr>                            
 
                         </thead>
@@ -321,7 +333,9 @@
                                 <td colspan=40%>{{member.coverageId}}</td>
                                 <td colspan=40%>{{member.scaleFactors}}</td>
                                 <td colspan=20%>                                    
-                                     <button ng-show="adminStateInformation.loggedIn && hasDeleteCoverageRole" class="btn btn-danger" ng-click="removePyramidMember(member.coverageId)">Delete</button>
+                                     <button ng-show="hasDeleteCoverageRole" class="btn btn-danger" 
+                                            ng-click="removePyramidMember(member.coverageId)" 
+                                            title="Remove pyramid member: {{member.coverageId}} from the pyramid of the layer: {{layer.name}}.&#010;Coverage: {{member.coverageId}} still exists afterwards.">Remove</button>
                                 </td>                           
                             </tr>
                         </tbody>
@@ -334,30 +348,69 @@
                         </tfoot>
                     </table>
 
-                   <!-- coverage pyramids members to create -->
-                   <div class="container" ng-show="adminStateInformation.loggedIn && hasInsertCoverageRole">
-                        <form class="form-horizontal" action="">
-                            <div class="form-group">
-                                <label class="control-label col-sm-2">Scale factors:</label>
-                                <div class="col-sm-8">
-                                    <input type="text" class="form-control" placeholder="comma-separated list of positive float values for the selected coverage's axes (irregular axis = 1, regular axis > 1)" id="scaleFactorsValue">
-                                </div>
+                    <uib-tabset ng-show="hasInsertCoverageRole">
+
+                        <!--  coverage pyramid create existing member to layer's pyramid -->
+                        <uib-tab heading="Create pyramid member" active="active" >
+                            
+                            <div class="container" style="margin-top:25px;">
+                                <form class="form-horizontal" action="">
+                                    <div class="form-group">
+                                        <label class="control-label col-sm-2">Member:</label>
+                                        <div class="col-sm-8">
+                                            <input type="text" class="form-control" placeholder="a non-existing coverage name to be created as a pyramid member coverage" id="pyramidMemberCoverageIdValueToCreate">
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="control-label col-sm-2">Scale factors:</label>
+                                        <div class="col-sm-8">
+                                            <input type="text" class="form-control" placeholder="comma-separated list of positive float values for the selected coverage's axes (irregular axis = 1, regular axis > 1)" id="scaleFactorsValue">
+                                        </div>
+                                    </div>
+
+
+                                    <div class="form-group">        
+                                        <div class="col-sm-offset-2 col-sm-1">
+                                            <button class="btn btn-primary" type="button" ng-click="createPyramidMember()">Create Pyramid Member</button>
+                                        </div>                                
+                                    </div>
+                                </form>
                             </div>
 
-                            <div class="form-group">
-                                <label class="control-label col-sm-2">Member:</label>
-                                <div class="col-sm-8">
-                                    <input type="text" class="form-control" placeholder="a non-existing coverage name to be created as a pyramid member coverage" id="pyramidMemberCoverageIdValue">
-                                </div>
+                        </uib-tab>
+
+                        <!-- coverage pyramid add existing member to layer's pyramid -->
+                        <uib-tab heading="Add pyramid member">
+
+                            <div class="container" style="margin-top:25px;">
+                                <form class="form-horizontal" action="">
+
+                                    <div class="form-group">
+                                        <label class="control-label col-sm-2">Member:</label>
+                                        <div class="col-sm-8">
+                                            <input type="text"
+                                                autocomplete
+                                                class="form-control"
+                                                source="availableGeoReferencedCoverageIds"
+                                                placeholder="Input geo-referenced coverage id or part of it"
+                                                id="pyramidMemberCoverageIdValueToAdd" title="Select a geo-referenced coverage to add as a pyramid member of layer: {{selectedLayerName}}"/>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">        
+                                        <div class="col-sm-offset-2 col-sm-1">
+                                            <button class="btn btn-success" type="button" ng-click="addPyramidMember()">Add Pyramid Member</button>
+                                        </div>                                
+                                    </div>
+                                </form>
                             </div>
 
-                            <div class="form-group">        
-                                <div class="col-sm-offset-2 col-sm-1">
-                                    <button class="btn btn-primary" type="button" ng-click="createPyramidMember()">Create Pyramid Member</button>
-                                </div>                                
-                            </div>
-                        </form>
-                    </div>
+
+                        </uib-tab>
+                    </uib-tabset>
+
+                   
 
                 </uib-accordion-group>
             </uib-accordion>

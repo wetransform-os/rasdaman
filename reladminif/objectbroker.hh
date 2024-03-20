@@ -154,7 +154,6 @@ public:
     */
 
 protected:
-
     static DBObject *loadObjectByOId(const OId &id);
     /*@Doc:
     load a dbobject from db.  passes (r_Error)s from DBObject up.
@@ -521,4 +520,3 @@ private:
      */
     static OId::OIdType clearingObjectsOfType;
 };
-

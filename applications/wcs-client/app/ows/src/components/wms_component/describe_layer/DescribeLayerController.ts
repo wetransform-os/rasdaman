@@ -61,29 +61,33 @@ module rasdaman {
             $scope.getMapRequestURL = null;                            
                                
             $scope.layerNames = [];
+            $scope.layer = null;
             $scope.layers = [];   
+            $scope.coverageBBox = "";
             
             $scope.displayWMSLayer = false;
 
             $scope.timeString = null;
             $scope.coverageDescription = null;
 
-            var canvasId = "wmsCanvasDescribeLayer";
+            let canvasId = "wmsCanvasDescribeLayer";
 
-            var WCPS_QUERY_FRAGMENT = 0;
-            var RASQL_QUERY_FRAGMENT = 1;            
+            let WCPS_QUERY_FRAGMENT = 0;
+            let RASQL_QUERY_FRAGMENT = 1;     
+            
+            // --------------------------- Event listeners from $broadcast from top controllers ---------------------------
           
-            // When clicking on the layername from the table of GetCapabilities tab, it will change to DescribeLayer tab and load metadata for this selected layer.
-            $rootScope.$watch("wmsSelectedLayerName", (layerName:string)=> {
-                if (layerName != null) {
-                    $scope.selectedLayerName = layerName;                
+            // When clicking on the layername from the table of GetCapabilities tab, it will change to DescribeLayer tab and load metadata for this selected layer.            
+            $rootScope.$watch("wmsSelectedLayerName", (newValue:string, oldValue:string) => {
+                if (newValue != null) {
+                    $scope.selectedLayerName = newValue;
                     $scope.describeLayer();
                 }
             });
 
             // Only allow to click on DescribeCoverage when layer name exists in the available list.
             $scope.isLayerNameValid = ():boolean => {                
-                for (var i = 0; i < $scope.layers.length; i++) {
+                for (let i = 0; i < $scope.layers.length; i++) {
                     if ($scope.layers[i].name == $scope.selectedLayerName) {
                         return true;
                     }
@@ -91,9 +95,51 @@ module rasdaman {
 
                 return false;
             };
+
+            // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
+                if (coverageIdToDelete != null) {
+                    for (let i = 0; i < $scope.layerNames.length; i++) {
+                        if ($scope.layerNames[i] == coverageIdToDelete) {
+                            $scope.layerNames.splice(i, 1);
+                            $scope.layers.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });
+
+            // NOTE: When DeleteLayerController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedWMSLayerName", (event, layerNameToDelete:string) => {
+                if (layerNameToDelete != null) {
+                    for (let i = 0; i < $scope.layerNames.length; i++) {
+                        if ($scope.layerNames[i] == layerNameToDelete) {
+                            $scope.layerNames.splice(i, 1);
+                            $scope.layers.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });             
+
+
+            // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
+            $rootScope.$on("renamedCoverageId", (event, tupleObj:any) => {
+                if (tupleObj != null) {
+                    let oldCoverageId:string = tupleObj.oldCoverageId;
+                    let newCoverageId:string = tupleObj.newCoverageId;
+
+                    for (let i = 0; i < $scope.layerNames.length; i++) {
+                        if ($scope.layerNames[i] == tupleObj.oldCoverageId) {
+                            $scope.layerNames[i] = tupleObj.newCoverageId;
+                            break;
+                        }
+                    }
+                }
+            }); 
             
             // When GetCapabilities is requested, also update the available layers to be used in DescribeLayer controller.
-            $scope.$watch("wmsStateInformation.serverCapabilities", (capabilities:wms.Capabilities)=> {                
+            $scope.$watch("wmsStateInformation.serverCapabilities", (capabilities:wms.Capabilities) => {                
                 if (capabilities) {                                  
                     // NOTE: Clear the layers array first to get new valus from GetCapabilities
                     $scope.layers = [];  
@@ -101,7 +147,7 @@ module rasdaman {
                     $scope.display3DLayerNotification = false;
                     $scope.display4BandsExclamationMark = false;
 
-                    capabilities.layers.forEach((layer:wms.Layer)=> {                        
+                    capabilities.layers.forEach((layer:wms.Layer) => {                        
                         $scope.layerNames.push(layer.name);
                         $scope.layers.push(layer);                                                
                     });
@@ -111,23 +157,14 @@ module rasdaman {
                 }
             });
 
-            // When petascope admin user logged in, show insert/update/delete styles and insert/delete pyramid members features
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
-                if (newValue) {
-                    // Admin logged in
-                    $scope.adminUserLoggedIn = true;
+            $scope.hasInsertStyleRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_INSERT_STYLE);
+            $scope.hasUpdateStyleRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_UPDATE_STYLE);
+            $scope.hasDeleteStyleRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_DELETE_STYLE);
 
-                    $scope.hasInsertStyleRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WMS_INSERT_STYLE);
-                    $scope.hasUpdateStyleRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WMS_UPDATE_STYLE);
-                    $scope.hasDeleteStyleRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WMS_DELETE_STYLE);
+            $scope.hasInsertCoverageRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_INSERT_COV);
+            $scope.hasDeleteCoverageRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_DELETE_COV);            
 
-                    $scope.hasInsertCoverageRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WCS_INSERT_COV);
-                    $scope.hasDeleteCoverageRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WCS_DELETE_COV);
-                } else {
-                    // Admin logged out
-                    $scope.adminUserLoggedIn = false;
-                }
-            });
+            // --------------------------- Local events handler ---------------------------
            
             // Describe the content (children elements of this selected layer) of a selected WMS layer
             $scope.describeLayer = function() {
@@ -139,7 +176,7 @@ module rasdaman {
 
                 $("#overviewLegendImage").attr("src", "");
 
-                for (var i = 0; i < $scope.layers.length; i++) {
+                for (let i = 0; i < $scope.layers.length; i++) {
                     if ($scope.layers[i].name == $scope.selectedLayerName) {                        
 
                         // Fetch the layer's metadata from the available layers
@@ -150,7 +187,7 @@ module rasdaman {
                         
                         // Fetch the coverageExtent by layerName to display on globe if possible
                         // as WMS layer name is as same as WCS coverageId
-                        var coveragesExtents = [{"bbox": {"xmin": $scope.layer.coverageExtent.bbox.xmin,
+                        let coveragesExtents = [{"bbox": {"xmin": $scope.layer.coverageExtent.bbox.xmin,
                                                           "ymin": $scope.layer.coverageExtent.bbox.ymin,
                                                           "xmax": $scope.layer.coverageExtent.bbox.xmax,
                                                           "ymax": $scope.layer.coverageExtent.bbox.ymax}
@@ -162,55 +199,36 @@ module rasdaman {
                                                 
                         // Check if coverage is 2D and has <= 4 bands then send a GetMap request to petascope and display result on globe
                         // Create describe coverage request
-                        var coverageIds:string[] = [];
+                        let coverageIds:string[] = [];
                         coverageIds.push($scope.layer.name);
-                        var describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
-                        // Also prepare for DescribeLayer's globe with only 1 coverageExtent
-                        var coverageExtentArray = [];
+                        let describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
 
-                        coverageExtentArray.push($scope.layer.coverageExtent);
+                        let coverageExtent = $scope.layer.coverageExtent;
+                        let bbox = "minLon=" + coverageExtent.bbox.xmin.toFixed(2) + ", minLat=" + coverageExtent.bbox.ymin.toFixed(2)
+                                 +  ", maxLon=" + coverageExtent.bbox.xmax.toFixed(2) + ", maxLat=" + coverageExtent.bbox.ymax.toFixed(2);
+                        $scope.coverageBBox = bbox;
                         
                         wcsService.getCoverageDescription(describeCoverageRequest)
                             .then(
                                 (response:rasdaman.common.Response<wcs.CoverageDescription>)=> {
                                     //Success handler                                    
                                     $scope.coverageDescription = response.value;
-                                    var dimensions = $scope.coverageDescription.boundedBy.envelope.srsDimension;
+                                    let dimensions = $scope.coverageDescription.boundedBy.envelope.srsDimension;
 
                                     addSliders(dimensions, coveragesExtents);                
                                     
                                     selectOptionsChange();
                                    
-                                    // Also prepare for GetCoverage's globe with only 1 coverageExtent                    
-                                    webWorldWindService.prepareCoveragesExtentsForGlobe(canvasId, coverageExtentArray);
                                     // Then, load the footprint of layer on the globe
-                                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.layer.name);
+                                    webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.layer.name, $scope.layer.coverageExtent, true);
                                 },
                                 (...args:any[])=> {                                    
                                     errorHandlingService.handleError(args);
                                     $log.error(args);
                                 })
 
-                        var listPyramidMembersRequest = new wms.ListPyramidMembers($scope.selectedLayerName);
-                        
-                        // get the pyramid members of this selected layer
-                        wmsService.listPyramidMembersRequest(listPyramidMembersRequest).then(                            
-                            (arrayData:[])=> {
-                                var pyramidCoverageMembers = [];
-                                arrayData.forEach((element:any) => {
-                                    var coverageName = element["coverage"];
-                                    var scaleFactors = element["scale"].join(",");
-                                    var pyramidCoverageMember = new wms.PyramidCoverageMember(coverageName, scaleFactors);
-                                    
-                                    pyramidCoverageMembers.push(pyramidCoverageMember);
-                                });
-
-                                $scope.layers[i].pyramidCoverageMembers = pyramidCoverageMembers;
-                            }, (...args:any[])=> {                                    
-                                errorHandlingService.handleError(args);
-                                $log.error(args);
-                            });
-                        
+                        // fetch coverage pyramid members list of the selected layer
+                        $scope.getPyramidMembers($scope.selectedLayerName);                       
 
                         return;
                     }
@@ -218,11 +236,58 @@ module rasdaman {
                 
             };
 
+            // Fetch the pyramid members list of a selected layer
+            $scope.getPyramidMembers = (layerName:string) => {                
+                let listPyramidMembersRequest:any = new wms.ListPyramidMembers(layerName);
+                        
+                // get the pyramid members of this selected layer
+                wmsService.listPyramidMembersRequest(listPyramidMembersRequest).then(                            
+                    (arrayData:[]) => {
+                        let pyramidCoverageMembers:wms.PyramidCoverageMember[] = [];
+                        arrayData.forEach((element:any) => {
+                            let coverageId = element["coverage"];
+                            let scaleFactors = element["scale"].join(",");
+                            let pyramidCoverageMember = new wms.PyramidCoverageMember(coverageId, scaleFactors);
+                            
+                            pyramidCoverageMembers.push(pyramidCoverageMember);
+                        });
+
+                        $scope.layer.pyramidCoverageMembers = pyramidCoverageMembers;
+
+
+                        // List the available geo-ferenced coverages which can be added as pyramid member of the current selected layer
+                        $scope.availableGeoReferencedCoverageIds = []
+                        let coverageExtents:wms.CoverageExtent[] = webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents;
+                        for (let i = 0; i < coverageExtents.length; i++) {
+                            let exists:boolean = false;
+                            let coverageId = coverageExtents[i].coverageId;
+                            if (coverageId != $scope.selectedLayerName) {
+
+                                // If a geo-referenced coverage already is a pyramid member then it should not show here
+                                for (let j = 0; j < pyramidCoverageMembers.length; j++) {
+                                    if (pyramidCoverageMembers[j].coverageId == coverageId) {
+                                        exists = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!exists) {
+                                    $scope.availableGeoReferencedCoverageIds.push(coverageId);
+                                }
+                            }
+                        }
+
+                    }, (...args:any[]) => {                                    
+                        errorHandlingService.handleError(args);
+                        $log.error(args);
+                    });
+            }
+
             /**
              * When sliders change, renew values to be displayed for WMS GetMap URL
              */
             function renewDisplayedWMSGetMapURL(url) {                
-                var tmpURL = url + $scope.selectedStyleName;
+                let tmpURL = url + $scope.selectedStyleName;
                 // Push the url to the view
                 $( '#getMapRequestURL' ).text(tmpURL);
                 $( '#getMapRequestURL' ).attr('href', tmpURL);
@@ -234,7 +299,7 @@ module rasdaman {
              */
             function addSliders(dimensions, coveragesExtents) {
 
-                for(var j = 0; j < dimensions; ++j) {
+                for(let j = 0; j < dimensions; ++j) {
                     $scope.firstChangedSlider.push(false);
                 }
 
@@ -245,9 +310,9 @@ module rasdaman {
                 $scope.display3DLayerNotification = dimensions > 2 ? true : false;
                 $scope.display4BandsExclamationMark = false;
 
-                var showGetMapURL = false;
-                var bands = $scope.coverageDescription.rangeType.dataRecord.fields.length;
-                var bbox = coveragesExtents[0].bbox; 
+                let showGetMapURL = false;
+                let bands = $scope.coverageDescription.rangeType.dataRecord.fields.length;
+                let bbox = coveragesExtents[0].bbox; 
                 $scope.bboxLayer = bbox;  
                 
                 if (bands == 2 || bands > 4) {
@@ -257,25 +322,25 @@ module rasdaman {
                 // As PNG can only support maximum 4 bands
                 showGetMapURL = true;
                 // send a getmap request in EPSG:4326 to server                                         
-                var minLat = bbox.ymin;
-                var minLong = bbox.xmin;
-                var maxLat = bbox.ymax;
-                var maxLong = bbox.xmax;
+                let minLat = bbox.ymin;
+                let minLong = bbox.xmin;
+                let maxLat = bbox.ymax;
+                let maxLong = bbox.xmax;
                 
                 $scope.timeString = null;
 
                 // WMS 1.3 requires axes order by CRS (EPSG:4326 is lat, long order)
-                var bboxStr = minLat + "," + minLong + "," + maxLat + "," + maxLong;   
-                var urlDimensions = bboxStr;
+                let bboxStr = minLat + "," + minLong + "," + maxLat + "," + maxLong;   
+                let urlDimensions = bboxStr;
                 
                 // Prepare the array to store the information for the 3D+ dimensions
                 $scope.dimStr = [];
-                for(var j = 0; j < 2; ++j){
+                for(let j = 0; j < 2; ++j){
                     $scope.dimStr.push('');
                 }
 
                 // Create the string used for the GetMap request in the 3D+ case
-                for(var j = 2; j < dimensions; j++) {
+                for(let j = 2; j < dimensions; j++) {
                     if($scope.layer.layerDimensions[j].isTemporal == true) {
                         $scope.dimStr.push('&' + $scope.layer.layerDimensions[j].name + '="' + $scope.layer.layerDimensions[j].array[0] + '"');
                         $scope.timeString = $scope.layer.layerDimensions[j].array[0];
@@ -284,12 +349,12 @@ module rasdaman {
                         $scope.dimStr.push('&' + $scope.layer.layerDimensions[j].name + '=' + $scope.layer.layerDimensions[j].array[0]);
                     }
                 }
-                for(var j = 2; j < dimensions; j++) {
+                for(let j = 2; j < dimensions; j++) {
                     urlDimensions += $scope.dimStr[j];
                 }
 
-                var getMapRequest = new wms.GetMap($scope.layer.name, urlDimensions, 800, 600, $scope.selectedStyleName);
-                var url = settings.wmsFullEndpoint + "&" + getMapRequest.toKVP();
+                let getMapRequest = new wms.GetMap($scope.layer.name, urlDimensions, 800, 600, $scope.selectedStyleName);
+                let url = settings.wmsFullEndpoint + "&" + getMapRequest.toKVP();
                 $scope.getMapRequestURL = url;
 
                 $( '#getMapRequestURL' ).text($scope.getMapRequestURL);
@@ -306,7 +371,7 @@ module rasdaman {
 
 
                 // Initialise auxbBox that can be modified in WebWorldWindService and dosen't change the initial values of the bbox
-                var auxbBox = {
+                let auxbBox = {
                     xmin:Number,
                     xmax:Number,
                     ymin:Number,
@@ -317,12 +382,12 @@ module rasdaman {
                 auxbBox.ymax = $scope.bboxLayer.ymax;
                 auxbBox.ymin = $scope.bboxLayer.ymin;
 
-                var stepSize = 0.01;
-                var numberStepsLat = ($scope.bboxLayer.ymax - $scope.bboxLayer.ymin) / stepSize;
-                var numberStepsLong = ($scope.bboxLayer.xmax - $scope.bboxLayer.xmin) / stepSize;
+                let stepSize = 0.01;
+                let numberStepsLat = ($scope.bboxLayer.ymax - $scope.bboxLayer.ymin) / stepSize;
+                let numberStepsLong = ($scope.bboxLayer.xmax - $scope.bboxLayer.xmin) / stepSize;
 
-                var stepLat = ($scope.bboxLayer.ymax - $scope.bboxLayer.ymin) / numberStepsLat;
-                var stepLong = ($scope.bboxLayer.xmax - $scope.bboxLayer.xmin) / numberStepsLong;
+                let stepLat = ($scope.bboxLayer.ymax - $scope.bboxLayer.ymin) / numberStepsLat;
+                let stepLong = ($scope.bboxLayer.xmax - $scope.bboxLayer.xmin) / numberStepsLong;
 
                 // Latitude slider
                 $("#latSlider").slider({
@@ -331,8 +396,8 @@ module rasdaman {
                     values: [0, numberStepsLat],
                     slide: function(event, slider) {
                         // Get max/min values of the lat bbox
-                        var sliderMin = slider.values[0];
-                        var sliderMax = slider.values[1];
+                        let sliderMin = slider.values[0];
+                        let sliderMax = slider.values[1];
 
                         // Set the slider as changed, compute what means one step on the slider
                         $scope.firstChangedSlider[1] = true;
@@ -349,14 +414,14 @@ module rasdaman {
                         $scope.bboxLayer = auxbBox;
 
                         // Update the lat info tooltip of the sliders
-                        var tooltip = minLat + ':' + maxLat;                        
+                        let tooltip = minLat + ':' + maxLat;                        
                         $("#latSlider").attr('data-original-title', tooltip);
                         $("#latSlider").tooltip('show');
                     
                         // Update the GetMap url
-                        var bboxStr = 'bbox=' + minLat + "," + minLong + "," + maxLat + "," + maxLong;
-                        var pos1 = url.indexOf('&bbox=');
-                        var pos2 = url.indexOf('&', pos1 + 1);
+                        let bboxStr = 'bbox=' + minLat + "," + minLong + "," + maxLat + "," + maxLong;
+                        let pos1 = url.indexOf('&bbox=');
+                        let pos2 = url.indexOf('&', pos1 + 1);
                         url = url.substr(0, pos1 + 1) + bboxStr + url.substr(pos2, url.length - pos2);
                         $scope.getMapRequestURL = url;
                         
@@ -382,8 +447,8 @@ module rasdaman {
                     values: [0, numberStepsLong],
                     slide: function(event, slider) {
                         // Get max/min values of the long bbox
-                        var sliderMin = slider.values[0];
-                        var sliderMax = slider.values[1];
+                        let sliderMin = slider.values[0];
+                        let sliderMax = slider.values[1];
 
                         // Set the slider as changed, compute what means one step on the slider
                         $scope.firstChangedSlider[2] = true;
@@ -400,14 +465,14 @@ module rasdaman {
                         $scope.bboxLayer = auxbBox;
 
                         // Update the long info tooltip of the sliders
-                        var tooltip = minLong + ':' + maxLong;                        
+                        let tooltip = minLong + ':' + maxLong;                        
                         $("#longSlider").attr('data-original-title', tooltip);
                         $("#longSlider").tooltip('show');
 
                         // Update the GetMap url
-                        var bboxStr = 'bbox=' + minLat + "," + minLong + "," + maxLat + "," + maxLong;
-                        var pos1 = url.indexOf('&bbox=');
-                        var pos2 = url.indexOf('&', pos1 + 1);
+                        let bboxStr = 'bbox=' + minLat + "," + minLong + "," + maxLat + "," + maxLong;
+                        let pos1 = url.indexOf('&bbox=');
+                        let pos2 = url.indexOf('&', pos1 + 1);
                         url = url.substr(0, pos1 + 1) + bboxStr + url.substr(pos2, url.length - pos2);
                         $scope.getMapRequestURL = url;
 
@@ -427,9 +492,9 @@ module rasdaman {
                     $("#longSlider").slider('values', [0, numberStepsLong]);
                 }
 
-                var sufixSlider = "d";
+                let sufixSlider = "d";
 
-                for (var j = 2; j < dimensions; j++) {
+                for (let j = 2; j < dimensions; j++) {
                     // Create for each dimension the view components for its corresponding slider 
                     $("<div />", { class:"containerSliders", id:"containerSlider"+j+sufixSlider})
                         .appendTo( $("#sliders"));
@@ -454,10 +519,10 @@ module rasdaman {
                                 this.sliderObj = $scope.layer.layerDimensions[j];          
                                 this.sliderObj.index = j;
 
-                                var sizeSlider = $scope.layer.layerDimensions[j].array.length - 1;
+                                let sizeSlider = $scope.layer.layerDimensions[j].array.length - 1;
                                 
                                 // Add the index lines below the slider
-                                for (var it = 1; it < sizeSlider; ++it) {
+                                for (let it = 1; it < sizeSlider; ++it) {
                                     $("<label>|</label>").css('left', (it/sizeSlider*100)+'%')
                                         .appendTo($(sliderId));
                                 }
@@ -476,13 +541,13 @@ module rasdaman {
                                     $scope.dimStr[this.sliderObj.index] = this.sliderObj.name + '=' + this.sliderObj.array[slider.value];
                                 }
 
-                                var pos1 = url.indexOf('&' + this.sliderObj.name + '=');
-                                var pos2 = url.indexOf('&', pos1 + 1);
+                                let pos1 = url.indexOf('&' + this.sliderObj.name + '=');
+                                let pos2 = url.indexOf('&', pos1 + 1);
                                 url = url.substr(0, pos1 + 1) + $scope.dimStr[this.sliderObj.index] + url.substr(pos2, url.length - pos2);
                                 $scope.getMapRequestURL = url;
                                 
                                 // Update the dimenitional info tooltip of the slider
-                                var tooltip = this.sliderObj.array[slider.value];                                
+                                let tooltip = this.sliderObj.array[slider.value];                                
                                 $(sliderId).attr('data-original-title', tooltip);
                                 $(sliderId).tooltip('show');
 
@@ -528,36 +593,90 @@ module rasdaman {
 
             // Create a pyramid member coverage as downscaled level coverage of this selected layer
             $scope.createPyramidMember = () => {                
-                let scaleFactors = $("#scaleFactorsValue").val();
-                let pyramidMemberCoverageId = $("#pyramidMemberCoverageIdValue").val();
+                let pyramidMemberCoverageId = $("#pyramidMemberCoverageIdValueToCreate").val().trim();
+                let scaleFactors = $("#scaleFactorsValue").val().trim();                
 
-                var createPyramidMember = new wms.CreatePyramidMember($scope.layer.name, scaleFactors, pyramidMemberCoverageId);
+                // validation first
+                for (let i = 0; i < $scope.layer.pyramidCoverageMembers.length; i++) {
+                    let pyramidMemberCoverage = $scope.layer.pyramidCoverageMembers[i];
+                    if (pyramidMemberCoverage.coverageId == pyramidMemberCoverageId) {
+                        alertService.error("Coverage pyramid member: <b>" + pyramidMemberCoverageId + "</b> already exists in the pyramid of layer: <b>" + $scope.selectedLayerName + "</b>");
+                        return;
+                    } else if (pyramidMemberCoverage.scaleFactors == scaleFactors) {
+                        alertService.error("Scale factors: <b>" + scaleFactors + "</b> already exists in coverage pyramid member: <b>" + pyramidMemberCoverage.coverageId + "</b> of layer: <b>" + $scope.selectedLayerName + "</b>");
+                        return;
+                    }
+                }
+
+                let createPyramidMember = new wms.CreatePyramidMember($scope.layer.name, scaleFactors, pyramidMemberCoverageId);
                 wmsService.createPyramidMemberRequest(createPyramidMember).then(
                     (...args:any[])=> {
-                        alertService.success("Successfully created pyramid member coverage <b>" + pyramidMemberCoverageId 
-                                           + "</b> with scalefactors <b>" + scaleFactors + "</b> of layer  <b>" + $scope.layer.name + "</b>.");
-                        // reload WMS GetCapabilities 
-                        $scope.wmsStateInformation.reloadServerCapabilities = true;
-
-                        $("#scaleFactorsValue").val("");
-                        $("#pyramidMemberCoverageIdValue").val("");
-                    }, (...args:any[])=> {
+                        alertService.success("Successfully created pyramid member coverage: <b>" + pyramidMemberCoverageId 
+                                           + "</b> with scalefactors: <b>" + scaleFactors + "</b> of layer:  <b>" + $scope.layer.name + "</b>.");
+                        // NOTE: This is required, because WCS GetCapabilties Controller needs to get the WGS84 BBox and the coverageSizeInBytes of the newly created pyramid member coverage
+                        // but it doesn't have these information here here, so it needs to do full request WCS GetCapabilities (!)
+                        $rootScope.wcsReloadServerCapabilities = true;
+                        
+                        // Refetch the order of pyramid members of selected layer from server
+                        $scope.getPyramidMembers($scope.layer.name);
+                    }, (...args:any[]) => {
                         errorHandlingService.handleError(args);                            
                     }).finally(function () {                        
                 });
 
             }
 
+
+            // Add a pyramid member coverage as downscaled level coverage of this selected layer
+            $scope.addPyramidMember = () => {                
+                let pyramidMemberCoverageId = $("#pyramidMemberCoverageIdValueToAdd").val().trim();   
+
+                // validation first
+                for (let i = 0; i < $scope.layer.pyramidCoverageMembers.length; i++) {
+                    let pyramidMemberCoverage = $scope.layer.pyramidCoverageMembers[i];
+                    if (pyramidMemberCoverage.coverageId == pyramidMemberCoverageId) {
+                        alertService.error("Coverage pyramid member: <b>" + pyramidMemberCoverageId + "</b> already exists in the pyramid of layer: <b>" + $scope.selectedLayerName + "</b>");
+                        return;
+                    }
+                }
+
+                let addPyramidMember = new wms.AddPyramidMember($scope.layer.name, pyramidMemberCoverageId);
+                wmsService.addPyramidMemberRequest(addPyramidMember).then(
+                    (...args:any[])=> {
+                        alertService.success("Successfully added pyramid member coverage: <b>" + pyramidMemberCoverageId 
+                                           + "</b> of layer:  <b>" + $scope.layer.name + "</b>.");                       
+                        // Refetch the order of pyramid members of selected layer from server
+                        $scope.getPyramidMembers($scope.layer.name);
+                    }, (...args:any[]) => {
+                        errorHandlingService.handleError(args);                            
+                    }).finally(function () {                        
+                });
+
+            }            
+
             // Remove a pyramid member coverage from the base coverage (selected layer)
             $scope.removePyramidMember = (pyramidMemberCoverageId:string) => {
                 // Then, send the delete layer's downscaled collection level request to server
-                var removePyramidMemberRequest = new wms.RemovePyramidMember($scope.layer.name, pyramidMemberCoverageId);
+                let removePyramidMemberRequest = new wms.RemovePyramidMember($scope.layer.name, pyramidMemberCoverageId);
                 wmsService.removePyramidMemberRequest(removePyramidMemberRequest).then(
                     (...args:any[])=> {
-                        alertService.success("Successfully remove pyramid member <b>" + pyramidMemberCoverageId + "</b> from layer <b>" + $scope.layer.name + "</b>");
-                        // reload WMS GetCapabilities 
-                        $scope.wmsStateInformation.reloadServerCapabilities = true;                    
-                    }, (...args:any[])=> {
+                        alertService.success("Successfully removed pyramid member: <b>" + pyramidMemberCoverageId 
+                                + "</b> from layer: <b>" + $scope.layer.name + "</b>");
+
+
+                        for (let i = 0; i < $scope.layer.pyramidCoverageMembers.length; i++) {
+                            let pyramidMemberCoverage = $scope.layer.pyramidCoverageMembers[i];
+                            if (pyramidMemberCoverage.coverageId == pyramidMemberCoverageId) {
+                                // remove the pyramid member coverage in the pyramid list of the selected layer
+                                $scope.layer.pyramidCoverageMembers.splice(i, 1);
+                                break;
+                            }
+                        }
+
+                        // Add this coverage as available of geo-ferenced coverage pyramid member of the selected layer
+                        $scope.availableGeoReferencedCoverageIds.push(pyramidMemberCoverageId);
+
+                    }, (...args:any[]) => {
                         errorHandlingService.handleError(args);                            
                     }).finally(function () {                        
                 });                                
@@ -601,25 +720,26 @@ module rasdaman {
                  * Select a legend image from a local file
                  */
                 $("#legendImageFileInput").change(function() {                    
-                    var selectedfile = this.files;
+                    let selectedfile = this.files;
                     if (selectedfile.length > 0) {
-                        var imageFile = selectedfile[0];
-                        var fileReader = new FileReader();
+                        let imageFile = selectedfile[0];
+                        let fileReader = new FileReader();
                         fileReader.onload = function(fileLoadedEvent) {
-                            var srcData:any = fileLoadedEvent.target.result;
+                            let srcData:any = fileLoadedEvent.target.result;
                             // put the base64 to textarea for submit
                             $("#hiddenLegendBase64Textarea").val(srcData);
 
                             $("#overviewLegendImage").attr("src", srcData);
+
                         }
-                    fileReader.readAsDataURL(imageFile);
+                        fileReader.readAsDataURL(imageFile);
                     }
                 });
 
             }
             
             $scope.isStyleNameValid = (styleName:string)=> {                
-                for (var i = 0; i < $scope.layer.styles.length; ++i) {
+                for (let i = 0; i < $scope.layer.styles.length; ++i) {
                     if ($scope.layer.styles[i].name == styleName) {
                         return true;
                     }
@@ -638,19 +758,20 @@ module rasdaman {
                     // Send request to petascope to set this style as the default of layer
                     $scope.defaultStyleName = styleName;
 
-                    // If admin doesn't set defaultStyle via checkbox, but via the radio button in the table of styles, then this style is set to default
+                    // If admin doesn't set defaultStyle via checkbox, but via the radio button in the table of styles, 
+                    // then this style is set to default and the checkbox defaultStyle button is checked
                     if ($scope.defaultStyleName === styleName) {
                         $("#defaultStyle").prop("checked", true);
                     }
 
-                    $scope.updateStyle();    
+                    $scope.updateStyle();
                 }
             }
 
             // Display the selected style's metadata to the form for updating
-            $scope.describeStyleToUpdate = (styleName:string)=> {
-                for (var i = 0; i < $scope.layer.styles.length; i++) {
-                    var styleObj = $scope.layer.styles[i];
+            $scope.describeStyleToUpdate = (styleName:string) => {
+                for (let i = 0; i < $scope.layer.styles.length; i++) {
+                    let styleObj = $scope.layer.styles[i];
                     if (styleObj.name == styleName) {
                         $("#styleName").val(styleObj.name);                        
                         $("#styleAbstract").val(styleObj.abstract);
@@ -661,14 +782,14 @@ module rasdaman {
                             $("#defaultStyle").prop("checked", false);
                         }
 
-                        var styleQueryType = styleObj.queryType;
+                        let styleQueryType = styleObj.queryType;
                         if (styleQueryType === "") {
                             styleQueryType = "none";
                         }
                         $("#styleQueryType").val(styleQueryType);
                         $("#styleQuery").val(styleObj.query);
                         
-                        var colorTableType = styleObj.colorTableType;
+                        let colorTableType = styleObj.colorTableType;
                         if (colorTableType === "") {
                             colorTableType = "none";
                         }
@@ -683,6 +804,12 @@ module rasdaman {
                         if (styleObj.legendGraphicURL != null) {
                             // suffix date to avoid cache image in web browser
                             $("#overviewLegendImage").attr("src", styleObj.legendGraphicURL + "&" + new Date().getTime());
+                        } else {
+                            if (styleObj.legendGraphicBase64String == null) {
+                                $("#overviewLegendImage").attr("src", "");
+                            } else {
+                                $("#overviewLegendImage").attr("src", styleObj.legendGraphicBase64String);
+                            }
                         }                        
 
                         break;
@@ -692,12 +819,12 @@ module rasdaman {
 
             // validate the style's data before insert/update to database
             $scope.validateStyle = ()=> {
-                var styleName = $("#styleName").val();
-                var styleAbstract = $("#styleAbstract").val();
-                var styleQueryType = $("#styleQueryType").val();
-                var styleQuery = $("#styleQuery").val();
-                var styleColorTableType = $("#styleColorTableType").val();
-                var styleColorTableDefintion = $("#styleColorTableDefinition").val();
+                let styleName = $("#styleName").val();
+                let styleAbstract = $("#styleAbstract").val();
+                let styleQueryType = $("#styleQueryType").val();
+                let styleQuery = $("#styleQuery").val();
+                let styleColorTableType = $("#styleColorTableType").val();
+                let styleColorTableDefintion = $("#styleColorTableDefinition").val();
                 
 
                 if (styleName.trim() === "") {
@@ -721,42 +848,81 @@ module rasdaman {
                 return true;
             }
 
+            /**
+             * Make a radio button on smart table to set a style as default checked
+             * @param radioButtonId 
+             */
+            $scope.checkDefaultStyleCheckBox = (radioButtonId:string) => {
+                // NOTE: it is not possible to update the radio button in the smart table via ng-model
+                // so use jquery instead
+                $('input:radio[name="defaultStyleRadioButtonGroup"]').prop('checked', false);
+                $("#defaultStyleRadioButton_" + radioButtonId).prop("checked", true);
+            }
+
             // update WMS style to database
-            $scope.updateStyle = ()=> {
+            $scope.updateStyle = () => {
                 // first validate the style's data
                 if ($scope.validateStyle()) {
-                    var styleName = $("#styleName").val();
-                    var styleAbstract = $("#styleAbstract").val();
-                    var styleQueryType = $("#styleQueryType").val();
-                    var styleQuery = $("#styleQuery").val();
-                    var styleColorTableType = $("#styleColorTableType").val();
-                    var styleColorTableDefintion = $("#styleColorTableDefinition").val();
+                    let styleName = $("#styleName").val();
+                    let styleAbstract = $("#styleAbstract").val();
+                    let styleQueryType = $("#styleQueryType").val();
+                    let styleQuery = $("#styleQuery").val();
+                    let styleColorTableType = $("#styleColorTableType").val();
+                    let styleColorTableDefintion = $("#styleColorTableDefinition").val();
 
                     // If admin changes in defaultStyle checkbox to true, then this style is set to default
-                    var defaultStyle = $("#defaultStyle").prop("checked");                    
+                    let defaultStyle = $("#defaultStyle").prop("checked");                    
 
                     // Check if style of current layer exists
                     if (!$scope.isStyleNameValid(styleName)) {
-                        alertService.error("Style name '" + styleName + "' does not exist to update.");
+                        alertService.error("Style name: <b>" + styleName + "</b> does not exist to update.");
                         return;
                     }
 
-                    var legendGraphicBase64 = null;
-                    var base64String = $("#hiddenLegendBase64Textarea").val();
+                    let legendGraphicBase64 = null;
+                    let base64String = $("#hiddenLegendBase64Textarea").val();
                     if (base64String !== "") {
                         legendGraphicBase64 = base64String;
                     }
 
                     // Then, send the update layer's style request to server
-                    var updateLayerStyle = new wms.UpdateLayerStyle($scope.layer.name, styleName, styleAbstract, styleQueryType, 
+                    let updateLayerStyle = new wms.UpdateLayerStyle($scope.layer.name, styleName, styleAbstract, styleQueryType, 
                                                                     styleQuery, styleColorTableType, styleColorTableDefintion, defaultStyle, legendGraphicBase64);
                     wmsService.updateLayerStyleRequest(updateLayerStyle).then(
                         (...args:any[])=> {
-                            alertService.success("Successfully update style with name <b>" + styleName + "</b> of layer with name <b>" + $scope.layer.name + "</b>");                            
-                            // reload WMS GetCapabilities 
-                            $scope.wmsStateInformation.reloadServerCapabilities = true;
+                            alertService.success("Successfully updated style with name: <b>" + styleName + "</b> of layer: <b>" + $scope.layer.name + "</b>");                          
+                            
+                            // reload WMS GetCapabilites (not needed)
+                            // $scope.wmsStateInformation.reloadServerCapabilities = true;
+                            // $scope.describeStyleToUpdate(styleName);
+                            
+                            // update locally in the client
 
-                            $scope.describeStyleToUpdate(styleName);
+                            if (defaultStyle == true) {
+                                // unmark all previous styles 
+                                for (let i = 0; i < $scope.layer.styles.length; i++) {
+                                    $scope.layer.styles[i].defaultStyle = false;
+                                }
+                            }
+
+                            for (let i = 0; i < $scope.layer.styles.length; i++) {
+                                let style:wms.Style = $scope.layer.styles[i];
+                                if (style.name == styleName) {
+                                    style.abstract = styleAbstract;
+                                    style.queryType = styleQueryType;
+                                    style.query = styleQuery;
+                                    style.colorTableType = styleColorTableType;
+                                    style.colorTableDefinition = styleColorTableDefintion;
+                                    style.defaultStyle = defaultStyle;
+                                    if (legendGraphicBase64 != "") {
+                                        style.legendGraphicBase64String = legendGraphicBase64;
+                                    }
+                                    break;
+                                }
+                            }
+
+                            $scope.checkDefaultStyleCheckBox(styleName);
+
                         }, (...args:any[])=> {
                             errorHandlingService.handleError(args);                            
                         }).finally(function () {                        
@@ -765,37 +931,53 @@ module rasdaman {
             }
 
             // insert WMS style to database
-            $scope.insertStyle = ()=> {
+            $scope.insertStyle = () => {
                 // first validate the style's data
                 if ($scope.validateStyle()) {
-                    var styleName = $("#styleName").val();
-                    var styleAbstract = $("#styleAbstract").val();
-                    var styleQueryType = $("#styleQueryType").val();
-                    var styleQuery = $("#styleQuery").val();
-                    var styleColorTableType = $("#styleColorTableType").val();
-                    var styleColorTableDefintion = $("#styleColorTableDefinition").val();
-                    var defaultStyle = $("#defaultStyle").prop("checked");
+                    let styleName = $("#styleName").val();
+                    let styleAbstract = $("#styleAbstract").val();
+                    let styleQueryType = $("#styleQueryType").val();
+                    let styleQuery = $("#styleQuery").val();
+                    let styleColorTableType = $("#styleColorTableType").val();
+                    let styleColorTableDefintion = $("#styleColorTableDefinition").val();
+                    let defaultStyle = $("#defaultStyle").prop("checked");
 
                     // Check if style of current layer exists
                     if ($scope.isStyleNameValid(styleName)) {
-                        alertService.error("Style name '" + styleName + "' already exists, cannot insert same name.");
+                        alertService.error("Style name: <b>" + styleName + "</b> already exists, cannot insert the same name.");
                         return;
                     }
 
-                    var legendGraphicBase64 = null;
-                    var base64String = $("#hiddenLegendBase64Textarea").val();
+                    let legendGraphicBase64 = null;
+                    let base64String = $("#hiddenLegendBase64Textarea").val();
                     if (base64String !== "") {
                         legendGraphicBase64 = base64String;
                     }
 
                     // Then, send the insert layer's style request to server
-                    var insertLayerStyle = new wms.InsertLayerStyle($scope.layer.name, styleName, styleAbstract, styleQueryType, styleQuery, styleColorTableType, styleColorTableDefintion, defaultStyle, legendGraphicBase64);
+                    let insertLayerStyle = new wms.InsertLayerStyle($scope.layer.name, styleName, styleAbstract, styleQueryType, styleQuery, styleColorTableType, styleColorTableDefintion, defaultStyle, legendGraphicBase64);
                     wmsService.insertLayerStyleRequest(insertLayerStyle).then(
                         (...args:any[])=> {
-                            alertService.success("Successfully insert style with name <b>" + styleName + "</b> of layer with name <b>" + $scope.layer.name + "</b>");
-                            // reload WMS GetCapabilities 
-                            $scope.wmsStateInformation.reloadServerCapabilities = true;
-                            $scope.describeStyleToUpdate(styleName);
+                            alertService.success("Successfully insert style with name: <b>" + styleName + "</b> of layer: <b>" + $scope.layer.name + "</b>");
+
+                            // reload WMS GetCapabilites (not needed)
+                            // $scope.wmsStateInformation.reloadServerCapabilities = true;
+                            // $scope.describeStyleToUpdate(styleName);
+
+
+                            // Update locally in the client
+
+                            let newStyle:wms.Style = new wms.Style(styleName, styleAbstract, styleQueryType, styleQuery, styleColorTableType, styleColorTableDefintion, defaultStyle, null, legendGraphicBase64);
+                            if (defaultStyle == true) {
+                                // unmark all previous styles 
+                                for (let i = 0; i < $scope.layer.styles.length; i++) {
+                                    $scope.layer.styles[i].defaultStyle = false;
+                                }
+                            }
+                            $scope.layer.styles.push(newStyle);
+
+                            $scope.checkDefaultStyleCheckBox(styleName);                            
+                            
                         }, (...args:any[])=> {
                             errorHandlingService.handleError(args);
                         }).finally(function () {                        
@@ -806,23 +988,40 @@ module rasdaman {
             // delete WMS style from database
             $scope.deleteStyle = (styleName:string)=> {                
                 // Then, send the delete layer's style request to server
-                var deleteLayerStyle = new wms.DeleteLayerStyle($scope.layer.name, styleName);                    
+                let deleteLayerStyle = new wms.DeleteLayerStyle($scope.layer.name, styleName);                    
                 wmsService.deleteLayerStyleRequest(deleteLayerStyle).then(
                     (...args:any[])=> {
                         alertService.success("Successfully delete style with name <b>" + styleName + "</b> of layer with name <b>" + $scope.layer.name + "</b>");
-                        // reload WMS GetCapabilities 
-                        $scope.wmsStateInformation.reloadServerCapabilities = true;
+                        // reload WMS GetCapabilities (not needed)
+                        // $scope.wmsStateInformation.reloadServerCapabilities = true;
+
+                        for (let i = 0; i < $scope.layer.styles.length; i++) {
+                            let style:wms.Style = $scope.layer.styles[i];
+                            if (style.name == styleName) {                                
+                                if (style.defaultStyle == true) {
+                                    // this deleted style is default -> set it to the first style
+                                    $scope.layer.styles[0].defaultStyle = true;
+                                }
+
+                                $scope.layer.styles.splice(i, 1);
+                                break;
+                            }
+                        }
                     }, (...args:any[])=> {
                         errorHandlingService.handleError(args);                            
                     }).finally(function () {                        
                 });                                
             }
+
         }
+        
     }
+
+
 
     interface WMSDescribeLayerControllerScope extends WMSMainControllerScope {           
         isLayerDocumentOpen:boolean;
-        // Only with 2D coverage (bands <=4) can show GetMap
+        // Only with 2D coverage (bands <= 4) can show GetMap
         getMapRequestURL:string;        
         bboxLayer:any;
         displayWMSLayer:boolean;
@@ -846,9 +1045,15 @@ module rasdaman {
         layers:wms.Layer[];        
         // Selected layer to describe
         layer:wms.Layer;
+        coverageBBox:string;
         selectedLayerName:string;       
         selectedStyleName:string; 
+
+        // contains the list of available geo-referenced coverage ids which can be the pyramid member of the selected coverage
+        availableGeoReferencedCoverageIds:string[];
+
         describeLayer():void;
+        getPyramidMembers(layerName:string):void;
 	    deleteStyle(styleName:string):void;
 	    isStyleNameValid(styleName:string):boolean;
 	    isCoverageDescriptionsHideGlobe:boolean;

@@ -1,0 +1,1 @@
+service=WCS&version=2.1.0&request=GetCoverage&coverageId=test_rgb_categorial_bands_nil_values&subset=i(0,0)&subset=j(5,6)&outputType=GeneralGridCoverage&format=json

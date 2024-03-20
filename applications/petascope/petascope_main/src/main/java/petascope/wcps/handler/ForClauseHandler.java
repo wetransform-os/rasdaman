@@ -35,6 +35,9 @@ import petascope.exceptions.PetascopeException;
 import petascope.wcps.metadata.service.CoverageAliasRegistry;
 import petascope.wcps.result.WcpsResult;
 
+import petascope.util.StringUtil;
+import petascope.wcps.metadata.service.CollectionAliasRegistry;
+
 /**
  * Translation node from wcps to rasql for the for clause. Example:  <code>
  * for $c1 in COL1
@@ -52,6 +55,8 @@ public class ForClauseHandler extends Handler {
 
     @Autowired
     private CoverageAliasRegistry coverageAliasRegistry;
+    @Autowired
+    private CollectionAliasRegistry collectionAliasRegistry;
     @Autowired
     private CoverageRepositoryService coverageRepostioryService;
     
@@ -71,28 +76,29 @@ public class ForClauseHandler extends Handler {
         result.setChildren(childHandlers);
         
         result.coverageAliasRegistry = this.coverageAliasRegistry;
+        result.collectionAliasRegistry = this.collectionAliasRegistry;
         result.coverageRepostioryService = this.coverageRepostioryService;
         
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
         Handler coverageIteratorHandler = this.getFirstChild();
-        String coverageIterator = ((WcpsResult)coverageIteratorHandler.handle()).getRasql();
+        String coverageIterator = ((WcpsResult)coverageIteratorHandler.handle(serviceRegistries)).getRasql();
         
         List<String> coverageIds = new ArrayList<>();
         
         Handler decodeCoverageHandler = this.getSecondChild();
         String coverageIdFromDecodeExpression = null;
         if (decodeCoverageHandler != null) {
-            coverageIdFromDecodeExpression = ((WcpsResult)decodeCoverageHandler.handle()).getRasql();
+            coverageIdFromDecodeExpression = ((WcpsResult)decodeCoverageHandler.handle(serviceRegistries)).getRasql();
             coverageIds.add(coverageIdFromDecodeExpression);
         }
         
         List<Handler> coverageIdHandlers = this.getChildren().subList(2, this.getChildren().size());
         
         for (Handler coverageIdHandler : coverageIdHandlers) {
-            String coverageId = ((WcpsResult)coverageIdHandler.handle()).getRasql();
+            String coverageId = ((WcpsResult)coverageIdHandler.handle(serviceRegistries)).getRasql();
             coverageIds.add(coverageId);
         }
         
@@ -113,7 +119,7 @@ public class ForClauseHandler extends Handler {
             if (rasdamanCollectionName != null) {
                 rasdamanCollectionNames.add(rasdamanCollectionName);
             }
-            coverageAliasRegistry.addCoverageMapping(coverageIterator, coverageId, rasdamanCollectionName);
+            coverageAliasRegistry.addCoverageToForClauseListMapping(coverageIterator, coverageId, rasdamanCollectionName);
         }
         
         String translatedCoverageIterator = coverageIterator;

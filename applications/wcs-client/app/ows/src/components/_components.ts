@@ -59,13 +59,15 @@
 
 /// <reference path="login_component/LoginController.ts"/>
 /// <reference path="login_component/CredentialService.ts"/>
+/// NOTE: Any service must be listed here, otherwise it has this error, e.g. Class 'LoginService' used before its declaration.
+/// <reference path="login_component/LoginService.ts"/>
 
 //// WMS
 /// <reference path="wms_component/settings/SettingsService.ts"/>
 /// <reference path="wms_component/get_capabilities/GetCapabilitiesController.ts"/>
 /// <reference path="wms_component/describe_layer/DescribeLayerController.ts"/>
+/// <reference path="wms_component/delete_layer/DeleteLayerController.ts"/>
 
 //// Admin
 /// <reference path="../components/admin_component/AdminService.ts"/>
-/// <reference path="admin_component/login/AdminLoginController.ts"/>
 /// <reference path="admin_component/ows_metadata_management/AdminOWSMetadataManagementController.ts"/>

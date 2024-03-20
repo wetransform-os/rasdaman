@@ -33,10 +33,10 @@ public class NetCDFExtraParams {
     private List<String> dimensions;
     //@JsonSerialize(using = VariablesJsonSerializer.class)
     // NOTE: Using custom JSON serializer as we want a list of objects in JSON not an array of objects in JSON
-    private Map<String, Variable> variables;    
+    List<Variable> variables;    
 
 
-    public NetCDFExtraParams(List<String> dimensions, Map<String, Variable> variables) {
+    public NetCDFExtraParams(List<String> dimensions, List<Variable> variables) {
         this.dimensions = dimensions;
         this.variables = variables;
     }
@@ -45,7 +45,7 @@ public class NetCDFExtraParams {
         return dimensions;
     }
 
-    public Map<String, Variable> getVariables() {
+    public List<Variable>  getVariables() {
         return variables;
     }
     
@@ -53,7 +53,7 @@ public class NetCDFExtraParams {
         this.dimensions = dimensions;
     }
 
-    public void setVariables(Map<String, Variable> variables) {
+    public void setVariables(List<Variable> variables) {
         this.variables = variables;
     }
 }

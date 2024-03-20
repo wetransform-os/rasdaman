@@ -29,6 +29,8 @@ import org.springframework.stereotype.Service;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.WCPSException;
 import petascope.util.JSONUtil;
+import petascope.wcps.result.ParameterResult;
+import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsResult;
 
 /**
@@ -46,7 +48,7 @@ import petascope.wcps.result.WcpsResult;
 public class LetClauseAliasRegistry {
 
     // NOTE: a coverage variable can be alias for multiple coverage names
-    private Map<String, WcpsResult> variablesMap = new LinkedHashMap<>();
+    private Map<String, VisitorResult> variablesMap = new LinkedHashMap<>();
 
     public LetClauseAliasRegistry() {
         
@@ -56,33 +58,38 @@ public class LetClauseAliasRegistry {
      * Add a new variable and its processed coverage expression
      * e.g: $a -> output of Subsetting handler for ($c[Lat(20:30), Long(40:60)])
      */
-    public void add(String variableName, WcpsResult wcpsResult) {
+    public void add(String variableName, VisitorResult wcpsResult) {
         this.variablesMap.put(variableName, wcpsResult);
     }
-    
-    /**
-     * Check if map of variables already contains a variable name
-     */
-    public boolean exist(String variableName, WcpsResult wcpsResult) {
-        return this.variablesMap.containsKey(variableName);
+
+    public void remove(String variableName) {
+        this.variablesMap.remove(variableName);
     }
-    
+
     /**
      * Get the processed coverage expression by variable name
      */
-    public WcpsResult get(String variableName) {
-        WcpsResult tmp = this.variablesMap.get(variableName);
+    public VisitorResult get(String variableName) {
+        VisitorResult tmp = this.variablesMap.get(variableName);
         if (tmp == null) {
             return null;
         }
         
-        WcpsResult result = tmp;
+        VisitorResult result = tmp;
         try {
-            result = (WcpsResult) JSONUtil.clone(tmp);
+            if (tmp instanceof WcpsResult) {
+                result = (WcpsResult) JSONUtil.clone(tmp);
+            } else {
+                return tmp;
+            }
         } catch (Exception ex) {
             throw new WCPSException(ExceptionCode.InternalComponentError, "Cannot clone WCPS metadata object to another object. Reason: " + ex.getMessage(), ex);
         }            
         
         return result;
+    }
+
+    public Map<String, VisitorResult> getMap() {
+        return this.variablesMap;
     }
 }

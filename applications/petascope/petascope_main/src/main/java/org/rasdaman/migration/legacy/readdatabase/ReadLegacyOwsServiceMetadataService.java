@@ -34,7 +34,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class ReadLegacyOwsServiceMetadataService {
 
-    @Autowired
     private LegacyDbMetadataSource meta;
 
     /**

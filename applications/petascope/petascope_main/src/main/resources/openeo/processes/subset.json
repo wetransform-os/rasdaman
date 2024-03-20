@@ -1,0 +1,131 @@
+{
+    "id": "subset",
+    "summary": "Select a datacube subset",
+    "description": "Select a subset of the datacube `x` by restricting some (or all) dimensions of `x`\n(*`x[dim1(lower:upper), dim2(slice), dim3:\"non-native-crs\"(...)]`*).\n\n\nThe result is a datacube in which the sliced dimensions are removed from `x`, while the trimmed dimensions are reduced to the new\nlower/upper bounds (lower <= upper). If all dimensions are sliced then the result is a datacube of dimension 0, i.e. a scalar value.\nDimensions which are not specified in the subset_list are not changed in the result.",
+    "parameters": [
+        {
+            "name": "data",
+            "description": "A datacube.",
+            "schema": {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        },
+        {
+            "name": "subset",
+            "description": "A list of dimension subsets (trims or slices).",
+            "schema": {
+                "type": "array",
+                "subtype": "subset-list",
+                "title": "One or more dimension trims or slices.",
+                "description": "Dimension trims or slices, with coordinates optionally specified in a CRS different from the native CRS of `x`",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                    "type": "object",
+                    "subtype": "subset-spec",
+                    "title": "A slice or trim specification",
+                    "description": "A subset specification with required fields `dimension` and `lower`, and optionally `upper`, and `crs`. If `upper` is not specified then the subset is a *slice* operation, otherwise it's a *trim*. If the `crs` is not specified, then the `lower` and `upper` coordinates must be specified in the native CRS of `x`, otherwise in the specified `crs`.",
+                    "required": [
+                        "dimension",
+                        "lower"
+                    ],
+                    "properties": {
+                        "dimension": {
+                            "type": "string",
+                            "description": "The name of the dimension to be subsetted."
+                        },
+                        "lower": {
+                            "type": [
+                                "number",
+                                "string"
+                            ],
+                            "description": "The slice or lower trim coordinate."
+                        },
+                        "upper": {
+                            "type": [
+                                "number",
+                                "string",
+                                "null"
+                            ],
+                            "description": "The upper trim coordinate.",
+                            "default": null,
+                            "optional": true
+                        },
+                        "crs": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "description": "A specific CRS for the `lower`/`upper coordinates.",
+                            "default": null,
+                            "optional": true
+                        }
+                    },
+                    "examples": [
+                        {
+                            "dimension": "Lat",
+                            "lower": 12.5,
+                            "upper": 59
+                        },
+                        {
+                            "dimension": "Lat",
+                            "lower": 12.5,
+                            "crs": "EPSG:4326"
+                        },
+                        {
+                            "dimension": "ansi",
+                            "lower": "2023-08-01"
+                        }
+                    ]
+                },
+                "examples": [
+                    [
+                        {
+                            "dimension": "Lat",
+                            "lower": 12.5,
+                            "upper": 59
+                        },
+                        {
+                            "dimension": "Lon",
+                            "lower": 48,
+                            "crs": "EPSG:4326"
+                        },
+                        {
+                            "dimension": "ansi",
+                            "lower": "2023-08-01"
+                        }
+                    ]
+                ]
+            }
+        }
+    ],
+    "returns": {
+        "description": "The elements of `x` which are within the specified subset.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/11_cheatsheets.html#coverage-operations",
+            "title": "Subsetting as a coverage operation in rasdaman"
+        }
+    ],
+    "wcps": "f(data,subset) ::= <%(<data>)[<subset:sub(); separator=\",\">]%>\nsub(s) ::= <%<s.dimension><if(s.crs)>:\"<s.crs>\"<endif>(<s.lower><if(s.upper)>:<s.upper><endif>)%>",
+    "categories": [
+        "Subsetting"
+    ]
+}

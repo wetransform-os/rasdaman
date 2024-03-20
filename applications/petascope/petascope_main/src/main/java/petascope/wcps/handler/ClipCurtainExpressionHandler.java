@@ -98,15 +98,15 @@ public class ClipCurtainExpressionHandler extends AbstractClipExpressionHandler 
     }
     
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        WcpsResult coverageExpressionResult = (WcpsResult)this.getFirstChild().handle();
-        String curtainProjectionAxisLabel1 = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        String curtainProjectionAxisLabel2 = ((WcpsResult)this.getThirdChild().handle()).getRasql();
-        AbstractWKTShape wktShape = (AbstractWKTShape)this.getFourthChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpressionResult = (WcpsResult)this.getFirstChild().handle(serviceRegistries);
+        String curtainProjectionAxisLabel1 = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String curtainProjectionAxisLabel2 = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
+        AbstractWKTShape wktShape = (AbstractWKTShape)this.getFourthChild().handle(serviceRegistries);
         
         String crs = null;
         if (this.getFifthChild() != null) {
-            crs = ((WcpsResult)this.getFifthChild().handle()).getRasql();
+            crs = ((WcpsResult)this.getFifthChild().handle(serviceRegistries)).getRasql();
         }
         
         WcpsResult result = this.handle(coverageExpressionResult, curtainProjectionAxisLabel1, curtainProjectionAxisLabel2, wktShape, crs);

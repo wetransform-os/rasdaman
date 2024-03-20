@@ -24,19 +24,18 @@
 # must be defined first for precompiled headers to work
 add_subdirectory(logging)
 
+add_subdirectory(tree)
 add_subdirectory(crypto)
+add_subdirectory(commline)
 add_subdirectory(uuid)
 add_subdirectory(exceptions)
 add_subdirectory(network)
 add_subdirectory(time)
-add_subdirectory(pragmas)
+add_subdirectory(macros)
 add_subdirectory(stl)
 add_subdirectory(geo)
 add_subdirectory(string)
+add_subdirectory(thread)
 add_subdirectory(util)
 add_subdirectory(grpc)
 add_subdirectory(test)
-
-install(DIRECTORY ./ DESTINATION "${INCLUDE_DIR}/common"
-        FILES_MATCHING
-        PATTERN "*.hh")

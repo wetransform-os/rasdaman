@@ -27,18 +27,45 @@
 
 bool common::SystemUtil::isProcessAlive(pid_t processId)
 {
-  // If processId died, its pid will be returned by waitpid(), otherwise the 
-  // returned pid is 0; WNOHANG prevents the call from blocking.
-  int status;
-  auto pid = waitpid(processId, &status, WNOHANG);
-  if (pid == 0)
-  {
-    // double check if processId exists; return value 0 means yes
-    return kill(processId, 0) == 0;
-  }
-  else
-  {
-    // the process has died
-    return false;
-  }
+    // If processId died, its pid will be returned by waitpid(), otherwise the
+    // returned pid is 0; WNOHANG prevents the call from blocking.
+    int status;
+    auto pid = waitpid(processId, &status, WNOHANG);
+    if (pid == 0)
+    {
+        // double check if processId exists; return value 0 means yes
+        return kill(processId, 0) == 0;
+    }
+    else
+    {
+        // the process has died
+        return false;
+    }
+}
+
+std::string common::SystemUtil::executeSystemCommand(const char *cmd)
+{
+    std::string ret;
+    std::string popenCmd = cmd;
+    popenCmd += " 2>&1";
+    FILE *fp = popen(popenCmd.c_str(), "r");
+    if (!fp)
+    {
+        ret = "Failed to execute command: " + popenCmd;
+    }
+    else
+    {
+        auto res = common::FileUtils::readFile(fp);
+        int rc = pclose(fp);
+        if (rc != 0)
+        {
+            ret = "Failed to execute command: " + popenCmd;
+            if (!res.empty())
+            {
+                ret += "; reason: ";
+                ret += res;
+            }
+        }
+    }
+    return ret;
 }

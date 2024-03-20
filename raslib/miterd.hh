@@ -20,13 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: miterd.hh
- *
- * MODULE:  raslib
- * CLASS:   r_MiterDirect
- *
-*/
 
 #ifndef R_MITERD_HH
 #define R_MITERD_HH
@@ -40,8 +33,11 @@ class r_Minterval;
 class r_miter_direct_data;
 
 //@ManMemo: Module {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
   r_MiterDirect is similar to r_Miter, but allows stepping by more
   than one cell in each direction, arbitrary order of dimensions in
   the iteration and has a lot of its internal state variables as public
@@ -60,7 +56,7 @@ public:
        domain, the base type length and the number of steps per
        iteration.
     */
-    r_MiterDirect(void *data, const r_Minterval &total, const r_Minterval &iter,
+    r_MiterDirect(const void *data, const r_Minterval &total, const r_Minterval &iter,
                   r_Bytes tlen, unsigned int step = 1);
     ~r_MiterDirect(void);
 
@@ -102,18 +98,16 @@ public:
     void print_pos(std::ostream &str) const;
 
     r_miter_direct_data *id{NULL};
-    void *baseAddress{NULL};
+    const void *baseAddress{NULL};
 
 private:
     /// if this data should change you must construct a new iterator, therefore no public access.
     r_ULong length{};
     r_Dimension dim{};
-    
+
 public:
     bool done{false};
 };
-
-
 
 /*@Doc:
   r_miter_direct_data encapsulates data for each dimension.
@@ -126,19 +120,17 @@ class r_miter_direct_data
     friend class r_MiterDirect;
 
 public:
-
     r_miter_direct_data() = default;
     ~r_miter_direct_data() = default;
 
     /// Data concerning the iteration position and domain. May
     /// be changed by the user.
-    void *data{NULL};
+    const void *data{NULL};
     r_Range pos{};
     r_Range low{};
     r_Range high{};
 
 private:
-
     /// Data concerning the domain of the source object. Is fixed
     /// in the constructor.
     r_Range step{};

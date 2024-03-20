@@ -33,9 +33,9 @@ rasdaman GmbH.
 
 #include "mddobj.hh"
 
-#include "indexmgr/mddobjix.hh"         // for MDDObjIx
-#include "tilemgr/tile.hh"              // for Tile
-#include "reladminif/eoid.hh"           // for EOId
+#include "indexmgr/mddobjix.hh"  // for MDDObjIx
+#include "tilemgr/tile.hh"       // for Tile
+#include "reladminif/eoid.hh"    // for EOId
 #include "mymalloc/mymalloc.h"
 #include "relcatalogif/mdddomaintype.hh"
 #include "relcatalogif/structtype.hh"
@@ -43,25 +43,27 @@ rasdaman GmbH.
 #include "relblobif/tileid.hh"          // for DBTileId
 #include "relcatalogif/basetype.hh"     // for BaseType
 #include "relcatalogif/mddbasetype.hh"  // for MDDBaseType
+#include "reladminif/dbref.hh"
+#include "relstorageif/dbstoragelayout.hh" // for DBStorageLayoutId
 #include "relmddif/dbmddobj.hh"         // for DBMDDObj
-#include "relstorageif/storageid.hh"    // for DBStorageLayoutId
 #include "raslib/error.hh"              // for r_Error, MDDTYPE_NULL, LAYOUTALGO...
 #include "raslib/mddtypes.hh"           // for r_Ptr, r_Dimension, r_Directory_I...
 #include "raslib/sinterval.hh"          // for r_Sinterval
 #include "raslib/point.hh"
-#include "storagemgr/sstoragelayout.hh"     // for StorageLayout
+#include "storagemgr/sstoragelayout.hh"  // for StorageLayout
 #include "relcatalogif/collectiontype.hh"
 #include <logging.hh>
 
-#include <iostream>                     // for ostream
+#include <iostream>  // for ostream
 #include <stdlib.h>
 #include <cstring>
 #include <memory>
 #include <cassert>
 
+#define COLOR_PALET_SIZE 15
 
-using std::shared_ptr;
 using std::make_shared;
+using std::shared_ptr;
 
 const r_Minterval &MDDObj::checkStorage(const r_Minterval &domain2)
 {
@@ -83,10 +85,11 @@ const r_Minterval &MDDObj::checkStorage(const r_Minterval &domain2)
         for (r_Dimension i = 0; i < dim; i++)
         {
             if (!domain2[i].is_high_fixed() || !domain2[i].is_low_fixed() ||
-                    !tileConfig[i].is_high_fixed() || !tileConfig[i].is_low_fixed())
+                !tileConfig[i].is_high_fixed() || !tileConfig[i].is_low_fixed())
             {
                 LERROR << "MDDObj::checkStorage(" << domain2 << ") the rc index needs a domain and tile configuration with "
-                       "fixed domains in all dimensions.  Dimension " << i << " seems not to be fixed.";
+                                                                "fixed domains in all dimensions.  Dimension "
+                       << i << " seems not to be fixed.";
                 throw r_Error(RCINDEXWITHINCOMPATIBLEMARRAYTYPE);
             }
             if (mddDomainExtent[i] % tileConfigExtent[i] != 0)
@@ -101,7 +104,7 @@ const r_Minterval &MDDObj::checkStorage(const r_Minterval &domain2)
 }
 
 MDDObj::MDDObj(const MDDBaseType *mddType, const r_Minterval &domain)
-    :   NullValuesHandler(), myDBMDDObj(), myMDDIndex(nullptr), myStorageLayout(nullptr)
+    : NullValuesHandler(), myDBMDDObj(), myMDDIndex(nullptr), myStorageLayout(nullptr)
 {
     if (!mddType)
     {
@@ -117,7 +120,7 @@ MDDObj::MDDObj(const MDDBaseType *mddType, const r_Minterval &domain)
 }
 
 MDDObj::MDDObj(const MDDBaseType *mddType, const r_Minterval &domain, r_Nullvalues *newNullValues)
-    :   NullValuesHandler(), myDBMDDObj(), myMDDIndex(nullptr), myStorageLayout(nullptr)
+    : NullValuesHandler(), myDBMDDObj(), myMDDIndex(nullptr), myStorageLayout(nullptr)
 {
     if (!mddType)
     {
@@ -135,7 +138,7 @@ MDDObj::MDDObj(const MDDBaseType *mddType, const r_Minterval &domain, r_Nullvalu
 
 MDDObj::MDDObj(const MDDBaseType *mddType, const r_Minterval &domain,
                const OId &newOId, const StorageLayout &ms)
-    :   NullValuesHandler(), myDBMDDObj(), myMDDIndex(nullptr), myStorageLayout(nullptr)
+    : NullValuesHandler(), myDBMDDObj(), myMDDIndex(nullptr), myStorageLayout(nullptr)
 {
     if (!mddType)
     {
@@ -165,7 +168,7 @@ MDDObj::MDDObj(const MDDBaseType *mddType, const r_Minterval &domain, const OId 
 }
 
 MDDObj::MDDObj(const DBMDDObjId &dbmddobj)
-    :   NullValuesHandler(), myDBMDDObj(dbmddobj), myMDDIndex(nullptr), myStorageLayout(nullptr)
+    : NullValuesHandler(), myDBMDDObj(dbmddobj), myMDDIndex(nullptr), myStorageLayout(nullptr)
 {
     LTRACE << "MDDObj(DBRef " << dbmddobj.getOId() << ") " << (r_Ptr)this;
     myStorageLayout = new StorageLayout(myDBMDDObj->getDBStorageLayout());
@@ -174,9 +177,9 @@ MDDObj::MDDObj(const DBMDDObjId &dbmddobj)
 }
 
 MDDObj::MDDObj(const OId &givenOId)
-    :   NullValuesHandler(), myDBMDDObj(OId()), myMDDIndex(nullptr), myStorageLayout(nullptr)
+    : NullValuesHandler(), myDBMDDObj(OId()), myMDDIndex(nullptr), myStorageLayout(nullptr)
 {
-    LTRACE << "MDDObj(" << givenOId << ") " << (r_Ptr) this;
+    LTRACE << "MDDObj(" << givenOId << ") " << (r_Ptr)this;
     myDBMDDObj = DBMDDObjId(givenOId);
     myStorageLayout = new StorageLayout(myDBMDDObj->getDBStorageLayout());
     myStorageLayout->setCellSize(static_cast<int>(myDBMDDObj->getCellType()->getSize()));
@@ -184,10 +187,10 @@ MDDObj::MDDObj(const OId &givenOId)
 }
 
 MDDObj::MDDObj(const MDDBaseType *mddType, const r_Minterval &domain, const StorageLayout &ms)
-    :   NullValuesHandler(), myDBMDDObj(OId()), myMDDIndex(nullptr), myStorageLayout(nullptr)
+    : NullValuesHandler(), myDBMDDObj(OId()), myMDDIndex(nullptr), myStorageLayout(nullptr)
 {
     LTRACE << "MDDObj(" << mddType->getName() << ", " << domain << ", "
-           << ms.getDBStorageLayout().getOId() << ") " << (r_Ptr) this;
+           << ms.getDBStorageLayout().getOId() << ") " << (r_Ptr)this;
     if (!mddType)
     {
         LERROR << "MDD type is NULL.";
@@ -248,7 +251,7 @@ void MDDObj::insertTile(shared_ptr<Tile> newTile)
                 throw r_Error(LAYOUTALGORITHMPROBLEM);
             }
         }
-        else     // we need to check if there is already a tile defined here
+        else  // we need to check if there is already a tile defined here
         {
             // this could have been created in a previous loop run
             // we are using retiling here.  *it is therefore an indivisible layout domain.
@@ -270,7 +273,7 @@ void MDDObj::insertTile(shared_ptr<Tile> newTile)
                 //LDEBUG << "updated tile to";
                 // (*(indexTiles->begin()))->printStatus(99,RMInit::dbgOut);
             }
-            else     // there was no tile overlapping the current layout domain yet
+            else  // there was no tile overlapping the current layout domain yet
             {
                 // create a new tile covering the whole layout domain
                 // must be computed everytime because layoutDoms may change in size
@@ -431,6 +434,21 @@ StorageLayout *MDDObj::getStorageLayout() const
     return myStorageLayout;
 }
 
+void MDDObj::setStorageLayout(const StorageLayout &newStorageLayout)
+{
+    myStorageLayout = new StorageLayout(newStorageLayout);
+    myStorageLayout->getDBStorageLayout().ptr()->setPersistent(true);
+    const MDDBaseType *mddType = myDBMDDObj->getMDDBaseType();
+    const r_Minterval &domain = myDBMDDObj->getDefinitionDomain();
+
+    myMDDIndex = new MDDObjIx(*myStorageLayout, checkStorage(domain), mddType->getBaseType());
+    myMDDIndex->getDBMDDObjIxId().ptr()->setPersistent(true);
+    DBMDDObj* DBMDDObjToChange = myDBMDDObj.ptr();
+    DBMDDObjToChange->setDBStorageLayout(newStorageLayout.getDBStorageLayout());
+    DBMDDObjToChange->setIx(myMDDIndex->getDBMDDObjIxId());
+    DBMDDObjToChange->commitUpdate();
+}
+
 void MDDObj::setUpdateNullValues(r_Nullvalues *newNullValues)
 {
     nullValues = newNullValues;
@@ -440,31 +458,43 @@ void MDDObj::setUpdateNullValues(r_Nullvalues *newNullValues)
     }
 }
 
-std::string MDDObj::getArrayInfo(bool printTiles) const
+std::string MDDObj::getArrayInfo(common::PrintTiles printTiles) const
+{
+    switch (printTiles)
+    {
+    case common::PrintTiles::EMBEDDED:
+    case common::PrintTiles::NONE:
+        return getEmbeddedArrayInfo(printTiles);
+    case common::PrintTiles::JSON:
+        return getJsonArrayInfo();
+    case common::PrintTiles::SVG:
+        return getSvgArrayInfo();
+    default:
+        LERROR << "Unsupported printtiles argument.";
+        throw r_Error(379);
+    }
+}
+
+std::string MDDObj::getEmbeddedArrayInfo(common::PrintTiles printTiles) const
 {
     std::ostringstream info;
     auto oid = static_cast<double>(myDBMDDObj->getOId());
     info << "{\n \"oid\": \"" << oid;
 
-    char *baseType = this->getMDDBaseType()->getTypeStructure();
+    auto baseType = this->getMDDBaseType()->getTypeStructure();
     info << "\",\n \"baseType\": \"" << baseType;
-    free(baseType);
-    
+
     if (collType)
-    {
         info << "\",\n \"setTypeName\": \"" << collType->getName();
-    }
     info << "\",\n \"mddTypeName\": \"" << myDBMDDObj->getMDDBaseType()->getTypeName();
 
-    std::unique_ptr<std::vector<shared_ptr<Tile>>> tiles{};
+    std::unique_ptr<std::vector<std::shared_ptr<Tile>>> tiles{};
     tiles.reset(this->getTiles());
     info << "\",\n \"tileNo\": \"" << tiles->size();
 
     size_t totalSize = 0;
-    for (const auto &tile : *tiles)
-    {
+    for (const auto &tile: *tiles)
         totalSize += tile->getSize();
-    }
     info << "\",\n \"totalSize\": \"" << totalSize;
 
     const auto *sl = this->getStorageLayout();
@@ -474,92 +504,109 @@ std::string MDDObj::getArrayInfo(bool printTiles) const
         info << "\t\"tilingScheme\": \"";
         switch (sl->getTilingScheme())
         {
-        case r_NoTiling:
-            info << "no_tiling";
-            break;
-        case r_RegularTiling:
-            info << "regular";
-            break;
-        case r_StatisticalTiling:
-            info << "statistic";
-            break;
-        case r_InterestTiling:
-            info << "interest";
-            break;
-        case r_AlignedTiling:
-            info << "aligned";
-            break;
-        case r_DirectionalTiling:
-            info << "directional";
-            break;
-        case r_SizeTiling:
-            info << "size";
-            break;
-        default:
-            info << "unknown";
-            break;
+        case r_NoTiling: info << "no_tiling"; break;
+        case r_RegularTiling: info << "regular"; break;
+        case r_StatisticalTiling: info << "statistic"; break;
+        case r_InterestTiling: info << "interest"; break;
+        case r_AlignedTiling: info << "aligned"; break;
+        case r_DirectionalTiling: info << "directional"; break;
+        case r_SizeTiling: info << "size"; break;
+        default: info << "unknown"; break;
         }
         info << "\",\n\t\"tileSize\": \"" << sl->getTileSize();
-        info << "\",\n\t\"tileConfiguration\": \"" << sl->getTileConfiguration() << "\"";
-
-        if (printTiles)
+        auto tileConf = sl->getTileConfiguration();
+        if (tileConf.has_axis_names())
         {
-            info << ",\n\t\"tileDomains\":\n\t[";
-            bool first = true;
-            for (const auto &tile : *tiles)
-            {
-                info << "\n\t\t\"" << tile->getDomain() << "\"";
-                if (!first)
-                {
-                    info << ",";
-                }
-                else
-                {
-                    first = false;
-                }
-            }
-            info << "\n\t]";
+            std::vector<std::string> emptyAxisNames(tileConf.dimension());
+            tileConf.set_axis_names(emptyAxisNames);
+        }
+        info << "\",\n\t\"tileConfiguration\": \"" << tileConf << "\"";
+
+        if (printTiles == common::PrintTiles::EMBEDDED)
+        {
+            info << ",\n\t\"tileDomains\":\n\t";
+            printArrayTiles(tiles, info);
         }
 
         info << "\n },\n \"index\": {\n\t\"type\": \"";
         switch (sl->getIndexType())
         {
-        case r_Invalid_Index:
-            info << "invalid";
-            break;
-        case r_Auto_Index:
-            info << "a_index";
-            break;
-        case r_Directory_Index:
-            info << "d_index";
-            break;
-        case r_Reg_Directory_Index:
-            info << "rd_index";
-            break;
-        case r_RPlus_Tree_Index:
-            info << "rpt_index";
-            break;
-        case r_Reg_RPlus_Tree_Index:
-            info << "rrpt_index";
-            break;
-        case r_Reg_Computed_Index:
-            info << "rc_index";
-            break;
-        case r_Index_Type_NUMBER:
-            info << "it_index";
-            break;
-        case r_Tile_Container_Index:
-            info << "tc_index";
-            break;
-        default:
-            info << "unknown";
-            break;
+        case r_Invalid_Index: info << "invalid"; break;
+        case r_Auto_Index: info << "a_index"; break;
+        case r_Directory_Index: info << "d_index"; break;
+        case r_Reg_Directory_Index: info << "rd_index"; break;
+        case r_RPlus_Tree_Index: info << "rpt_index"; break;
+        case r_Reg_RPlus_Tree_Index: info << "rrpt_index"; break;
+        case r_Reg_Computed_Index: info << "rc_index"; break;
+        case r_Index_Type_NUMBER: info << "it_index"; break;
+        case r_Tile_Container_Index: info << "tc_index"; break;
+        default: info << "unknown"; break;
         }
         info << "\",\n\t\"PCTmax\": \"" << sl->getDBStorageLayout()->getPCTMax();
         info << "\",\n\t\"PCTmin\": \"" << sl->getDBStorageLayout()->getPCTMin();
         info << "\"\n }";
     }
     info << "\n}";
+    return info.str();
+}
+
+std::string MDDObj::getJsonArrayInfo() const
+{
+    std::ostringstream info;
+    std::unique_ptr<std::vector<std::shared_ptr<Tile>>> tiles{};
+    tiles.reset(this->getTiles());
+    printArrayTiles(tiles, info);
+    return info.str();
+}
+
+void MDDObj::printArrayTiles(const std::unique_ptr<std::vector<std::shared_ptr<Tile>>> &tiles,
+                             std::ostream &info) const
+{
+    info << "[";
+    bool first = true;
+    for (const auto &tile: *tiles)
+    {
+        info << "\n\t\t\"" << tile->getDomain() << "\"";
+        if (!first)
+            info << ",";
+        else
+            first = false;
+    }
+    info << "\n\t]";
+}
+
+std::string MDDObj::getSvgArrayInfo() const
+{
+    std::ostringstream info;
+    auto domain = this->getCurrentDomain();
+    if (domain.dimension() != 2)
+    {
+        LERROR << "Cannot export tile info to svg format for non-2D collection.";
+        throw r_Error(449);
+    }
+    std::string colors[COLOR_PALET_SIZE] = {"blue", "red", "brown", "grey", "black", "yellow", "purple", "pink", "olive", "gold", "aqua",
+                                            "darkorange", "indigo", "khaki", "seashell"};
+    r_Point origin = domain.get_origin();
+    r_Point high = domain.get_high();
+    info << "<svg width=\"" << high[0] - origin[0] << "\" height=\"" << high[1] - origin[1] << "\">";
+
+    std::unique_ptr<std::vector<std::shared_ptr<Tile>>> tiles{};
+    tiles.reset(this->getTiles());
+    for (unsigned int i = 0; i < tiles->size(); i++)
+    {
+        auto tileDomain = tiles->at(i)->getDomain();
+        r_Point originTile = tileDomain.get_origin();
+        r_Point highTile = tileDomain.get_high();
+        int x = originTile[0];
+        int y = originTile[1];
+        int width = highTile[0] - x;
+        int height = highTile[1] - y;
+        int id = (tiles->at(i).get())->getDBTile()->getOId().getCounter();
+        info << "\n\t <rect x=\"" << x << "\" y=\"" << y << "\" width=\"" << width
+             << "\" height=\"" << height << "\" id=\"" << id
+             << "\" style=\"fill:" << colors[i % COLOR_PALET_SIZE] << ";\" stroke=\"black\"></rect>";
+    }
+    info << "\n</svg>\n";
     return info.str();
 }
 
@@ -570,8 +617,7 @@ void fillTile(T fillValArg, size_t cellCount, char *startPointArg)
     std::fill(startPoint, startPoint + cellCount, fillValArg);
 }
 
-void
-MDDObj::fillTileWithNullvalues(char *resDataPtr, size_t cellCount) const
+void MDDObj::fillTileWithNullvalues(char *resDataPtr, size_t cellCount) const
 {
     if (this->getNullValues())
     {
@@ -592,6 +638,7 @@ const CollectionType *MDDObj::getCollType() const
     return collType;
 }
 
-void MDDObj::setDbDomain(const r_Minterval &domain) {
-  myDBMDDObj->setDbDomain(domain);
+void MDDObj::setDbDomain(const r_Minterval &domain)
+{
+    myDBMDDObj->setDbDomain(domain);
 }

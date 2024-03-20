@@ -1,0 +1,113 @@
+{
+  "type" : "CoverageByDomainAndRangeType",
+  "id" : "test_eobstest",
+  "envelope" : {
+    "type" : "EnvelopeByAxisType",
+    "srsName" : "http://localhost:8080/def/crs/EPSG/0/3857",
+    "axisLabels" : [ "X", "Y" ],
+    "axis" : [ {
+      "type" : "AxisExtentType",
+      "axisLabel" : "X",
+      "lowerBound" : 4452779.631730943,
+      "upperBound" : 4512986.34924894174,
+      "uomLabel" : "metre"
+    }, {
+      "type" : "AxisExtentType",
+      "axisLabel" : "Y",
+      "lowerBound" : 3507776.73841782266,
+      "upperBound" : 3567983.4559358214,
+      "uomLabel" : "metre"
+    } ]
+  },
+  "domainSet" : {
+    "type" : "DomainSetType",
+    "generalGrid" : {
+      "type" : "GeneralGridCoverageType",
+      "srsName" : "http://localhost:8080/def/crs/EPSG/0/3857",
+      "axisLabels" : [ "X", "Y" ],
+      "axis" : [ {
+        "type" : "RegularAxisType",
+        "axisLabel" : "X",
+        "lowerBound" : 4452779.631730943,
+        "upperBound" : 4512986.34924894174,
+        "uomLabel" : "metre",
+        "resolution" : 60206.71751799874
+      }, {
+        "type" : "RegularAxisType",
+        "axisLabel" : "Y",
+        "lowerBound" : 3507776.73841782266,
+        "upperBound" : 3567983.4559358214,
+        "uomLabel" : "metre",
+        "resolution" : -60206.71751799874
+      } ],
+      "gridLimits" : {
+        "type" : "GridLimitsType",
+        "srsName" : "http://www.opengis.net/def/crs/OGC/0/Index2D",
+        "axisLabels" : [ "i", "j" ],
+        "axis" : [ {
+          "type" : "IndexAxisType",
+          "axisLabel" : "i",
+          "lowerBound" : 0,
+          "upperBound" : 0
+        }, {
+          "type" : "IndexAxisType",
+          "axisLabel" : "j",
+          "lowerBound" : 19,
+          "upperBound" : 19
+        } ]
+      }
+    }
+  },
+  "rangeType" : {
+    "type" : "DataRecordType",
+    "field" : [ {
+      "type" : "QuantityType",
+      "name" : "tg",
+      "description" : "Count of the number of observations from the MERIS sensor contributing to this bin cell",
+      "definition" : "ogcType:signedShort",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "-9999"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      }
+    } ]
+  },
+  "metadata" : {
+    "bands" : {
+      "tg" : {
+        "long_name" : "mean temperature",
+        "units" : "Celsius",
+        "standard_name" : "air_temperature",
+        "_FillValue" : "-9999",
+        "scale_factor" : "0.01"
+      }
+    },
+    "axes" : {
+      "Lat" : {
+        "long_name" : "Latitude values",
+        "units" : "degrees_N",
+        "standard_name" : "latitude"
+      },
+      "Long" : {
+        "long_name" : "Longitude values",
+        "units" : "degrees_E",
+        "standard_name" : "longitude"
+      }
+    },
+    "Title" : "This is a test file",
+    "Project" : "This is another test file",
+    "Creator" : "This is a test creator file"
+  },
+  "rangeSet" : {
+    "type" : "RangeSetType",
+    "dataBlock" : {
+      "type" : "VDataBlockType",
+      "values" : [ -9999 ]
+    }
+  }
+}

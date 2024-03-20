@@ -23,6 +23,7 @@ package org.rasdaman.domain.cis;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.Serializable;
+import java.util.Objects;
 import javax.persistence.*;
 import nu.xom.Attribute;
 import nu.xom.Element;
@@ -64,7 +65,7 @@ public class NilValue implements Serializable {
     @Column(name = COLUMN_ID)
     private long id;
 
-    @Column(name = "value")
+    @Column(name = "null_value")
     private String value;
 
     @Column(name = "reason")
@@ -74,6 +75,10 @@ public class NilValue implements Serializable {
 
     public NilValue() {
 
+    }
+
+    public NilValue(String value) {
+        this(value, null);
     }
 
     public NilValue(String value, String reason) {
@@ -105,6 +110,19 @@ public class NilValue implements Serializable {
 
         return nilValue;
     }
+
+    /**
+     *
+     * If null value has an interval returns the lower bound
+     * If null value has a single value then returns this value
+     */
+    @JsonIgnore
+    public String getNullValueBound() {
+        if (this.value != null) {
+            return this.value.split(":")[0];
+        }
+        return null;
+    }
     
     @Override
     public boolean equals(Object obj) {
@@ -124,5 +142,10 @@ public class NilValue implements Serializable {
         NilValue other = (NilValue) obj;
         
         return this.value.equals(other.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
     }
 }

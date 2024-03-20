@@ -1,0 +1,6 @@
+STYLEID=test&
+COVERAGEID=test_alaska_epsg_3338&
+abstract=Rasdaman Color Map style&
+wcpsQueryFragment=$c&
+ColorTableType=ColorMap&
+ColorTableDefinition={"type": "values", "colorTable": { "0": [0, 0, 0, 0], "0": [0, 0, 0, 0], "1": [0, 128, 0, 255], "2": [247, 189, 0, 255], "3": [121, 92, 52, 55] } }

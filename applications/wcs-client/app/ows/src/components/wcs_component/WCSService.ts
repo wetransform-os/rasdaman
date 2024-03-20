@@ -30,33 +30,27 @@ module rasdaman {
         public static $inject = ["$http", "$q", "rasdaman.WCSSettingsService", 
                                  "rasdaman.common.SerializedObjectFactory", "$window",
                                  "rasdaman.CredentialService", "$state",
-                                 "rasdaman.AdminService"];
+                                 "rasdaman.AdminService",
+                                 "rasdaman.LoginService"];
 
         public constructor(private $http:angular.IHttpService,
                            private $q:angular.IQService,
-                           private settings:rasdaman.WCSSettingsService,
+                           private wcsSettingsService:rasdaman.WCSSettingsService,
                            private serializedObjectFactory:rasdaman.common.SerializedObjectFactory,
                            private $window:angular.IWindowService,
                            private credentialService:rasdaman.CredentialService,
                            private $state:any,
-                           private adminService:rasdaman.AdminService) {
+                           private adminService:rasdaman.AdminService,
+                           private loginService:rasdaman.LoginService) {
         }
-
 
         public getServerCapabilities(request:wcs.GetCapabilities):angular.IPromise<any> {
             var result = this.$q.defer();
             var self = this;
 
-            var requestHeaders = {};
-            var credentials:login.Credential = this.adminService.getPersistedAdminUserCredentials();
-            if (credentials != null) {
-                // If petascope admin user logged in, then use its credentials for GetCapabilities intead to view blacklisted coverages
-                requestHeaders = this.adminService.getAuthenticationHeaders();
-            } else {
-                requestHeaders = this.credentialService.createRequestHeader(this.settings.wcsEndpoint, {});
-            }
+            let requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
 
-            var requestUrl = this.settings.wcsEndpoint + "?" + request.toKVP();
+            var requestUrl = this.wcsSettingsService.wcsEndpoint + "?" + request.toKVP();
             this.$http.get(requestUrl, {
                     headers: requestHeaders
                 }).then(function (data:any) {
@@ -80,11 +74,11 @@ module rasdaman {
             var result = this.$q.defer();
             var self = this;
 
-            var currentHeaders = {};
+            let requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
 
-            var requestUrl = this.settings.wcsEndpoint + "?" + request.toKVP();
+            var requestUrl = this.wcsSettingsService.wcsEndpoint + "?" + request.toKVP();
             this.$http.get(requestUrl, {
-                headers: this.credentialService.createRequestHeader(this.settings.wcsEndpoint, currentHeaders)
+                headers: requestHeaders
                 }).then(function (data:any) {
                     try {
                         var doc = new rasdaman.common.ResponseDocument(data.data, rasdaman.common.ResponseDocumentType.XML);
@@ -93,6 +87,27 @@ module rasdaman {
                         var response = new rasdaman.common.Response<wcs.CoverageDescription>(doc, description);
 
                         result.resolve(response);
+                    } catch (err) {
+                        result.reject(err);
+                    }
+                }, function (error) {
+                    result.reject(error);
+                });
+
+            return result.promise;
+        }
+
+        public getCoverageDescriptionCis11(requestUrl:string):angular.IPromise<any> {
+            var result = this.$q.defer();
+            var self = this;
+
+            let requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
+
+            this.$http.get(requestUrl, {
+                headers: requestHeaders
+                }).then(function (data:any) {
+                    try {                       
+                        result.resolve(data.data);
                     } catch (err) {
                         result.reject(err);
                     }
@@ -121,10 +136,13 @@ module rasdaman {
         public getCoverageHTTPGET(request:wcs.GetCoverage):angular.IPromise<any> {
             var result = this.$q.defer();
             // Build the request URL
-            var requestUrl = this.settings.wcsEndpoint + "?" + request.toKVP();
-            var url = this.settings.defaultContextPath + "/ows/result.html";
+            var requestUrl = this.wcsSettingsService.wcsEndpoint + "?" + request.toKVP();
+
+            var url = this.wcsSettingsService.defaultContextPath + "/ows/result.html";
+            // TESTING !!! (NOTE: rarely needed to enable to test, ONLY when testing with WCS GetCoverage tab (!))
+            // var url = "http://localhost:8000/ows/result.html";
                         
-            this.storeKVPParametersToLocalStorage(this.settings.wcsEndpoint, request.toKVP());            
+            this.storeKVPParametersToLocalStorage(this.wcsSettingsService.wcsEndpoint, request.toKVP());            
             window.open(url, '_blank');            
 
             // Return the URL as the result
@@ -145,11 +163,11 @@ module rasdaman {
                 result.reject("You must specify at least one coverage ID.");
             }
             
-            var currentHeaders = {};
-            var requestUrl = this.settings.wcsEndpoint + "?" + this.settings.wcsServiceNameVersion + "&REQUEST=DeleteCoverage&COVERAGEID=" + coverageId;
+            let requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
+            var requestUrl = this.wcsSettingsService.wcsEndpoint + "?" + this.wcsSettingsService.wcsServiceNameVersion + "&REQUEST=DeleteCoverage&COVERAGEID=" + coverageId;
 
             this.$http.get(requestUrl, {
-                    headers: this.credentialService.createRequestHeader(this.settings.wcsEndpoint, currentHeaders)
+                    headers: requestHeaders
                 }).then(function (data:any) {
                     result.resolve(data);
                 }, function (error) {
@@ -166,14 +184,14 @@ module rasdaman {
                 result.reject("You must indicate a coverage source.");
             }
 
-            var currentHeaders = {};
-            var requestUrl = this.settings.wcsEndpoint + "?" + this.settings.wcsServiceNameVersion + "&REQUEST=InsertCoverage&coverageRef=" + encodeURI(coverageUrl);
+            let requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
+            var requestUrl = this.wcsSettingsService.wcsEndpoint + "?" + this.wcsSettingsService.wcsServiceNameVersion + "&REQUEST=InsertCoverage&coverageRef=" + encodeURI(coverageUrl);
             if (useGeneratedId) {
                 requestUrl += "&useId=new";
             }
 
             this.$http.get(requestUrl, {
-                    headers: this.credentialService.createRequestHeader(this.settings.wcsEndpoint, currentHeaders)
+                    headers: requestHeaders
                 }).then(function (data:any) {
                     result.resolve(data);
                 }, function (error) {
@@ -193,23 +211,21 @@ module rasdaman {
             // Use POST request to POST long WCPS query to server as form-data (as same as Web page /ows/wcps)
             var queryStr = 'query=' + query;
                         
-            var requestUrl = this.settings.wcsEndpoint;
-            var currentHeaders = {"Content-Type": "application/x-www-form-urlencoded"};
+            var requestUrl = this.wcsSettingsService.wcsEndpoint;           
+
+            let requestHeader = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
+            requestHeader["Content-Type"] = "application/x-www-form-urlencoded";
 
             var request:angular.IRequestConfig = {
                 method: 'POST',
                 url: requestUrl,
-                headers: this.credentialService.createRequestHeader(this.settings.wcsEndpoint, currentHeaders),
+                headers: requestHeader,
                 //Removed the transformResponse to prevent angular from parsing non-JSON objects.
                 transformResponse: null,                
                 data: queryStr
             };
 
-            // TODO: if have new supported binary encodings, add them here.
-            if (queryStr.indexOf("png") >= 0 || queryStr.indexOf("jpeg") >= 0 || queryStr.indexOf("jpeg2000") >= 0 || queryStr.indexOf("tiff") >= 0 || queryStr.indexOf("netcdf") >= 0)  {            
-                // This is needed to save binary file correctly
-                request.responseType = "arraybuffer"; 
-            }
+            request.responseType = "arraybuffer"; 
 
             // send request to Petascope and get response (headers and contents)
             this.$http(request).then(function (data:any) {
@@ -225,9 +241,9 @@ module rasdaman {
         // Update coverage's metadata from a text file (formData is FormData object containing the file to be uploaded)
         public updateCoverageMetadata(formData):angular.IPromise<any> {
             var result = this.$q.defer();                                               
-            var requestUrl = this.settings.adminEndpoint + "/coverage/update"; 
+            var requestUrl = this.wcsSettingsService.adminEndpoint + "/coverage/update"; 
             
-            var requestHeaders = this.adminService.getAuthenticationHeaders();
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
             requestHeaders["Content-Type"] = undefined;
 
             var request:angular.IRequestConfig = {
@@ -252,9 +268,9 @@ module rasdaman {
         // rename coverage'is and the associated layer name (if exists)
         public renameCoverageId(formData):angular.IPromise<any> {
             var result = this.$q.defer();                                               
-            var requestUrl = this.settings.adminEndpoint + "/coverage/update"; 
+            var requestUrl = this.wcsSettingsService.adminEndpoint + "/coverage/update"; 
             
-            var requestHeaders = this.adminService.getAuthenticationHeaders();
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
             requestHeaders["Content-Type"] = undefined;
 
             var request:angular.IRequestConfig = {
@@ -280,11 +296,11 @@ module rasdaman {
         // --------------- black list
 
         // Set a coverage id to the blacklist
-        public blackListOneCoverage(coverageId:string[]):angular.IPromise<any> {
+        public blackListOneCoverage(coverageId:string):angular.IPromise<any> {
             var result = this.$q.defer();
             
-            var requestUrl = this.settings.adminEndpoint + "/wcs/blacklist?COVERAGELIST=" + coverageId;
-            var requestHeaders = this.adminService.getAuthenticationHeaders();
+            var requestUrl = this.wcsSettingsService.adminEndpoint + "/wcs/blacklist?COVERAGELIST=" + coverageId;
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders
@@ -301,8 +317,8 @@ module rasdaman {
         public blackListAllCoverages():angular.IPromise<any> {
             var result = this.$q.defer();
             
-            var requestUrl = this.settings.adminEndpoint + "/wcs/blacklistall";
-            var requestHeaders = this.adminService.getAuthenticationHeaders();
+            var requestUrl = this.wcsSettingsService.adminEndpoint + "/wcs/blacklistall";
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders
@@ -321,8 +337,8 @@ module rasdaman {
         public whiteListOneCoverage(coverageId:string):angular.IPromise<any> {
             var result = this.$q.defer();
           
-            var requestUrl = this.settings.adminEndpoint + "/wcs/whitelist?COVERAGELIST=" + coverageId;
-            var requestHeaders = this.adminService.getAuthenticationHeaders();
+            var requestUrl = this.wcsSettingsService.adminEndpoint + "/wcs/whitelist?COVERAGELIST=" + coverageId;
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders
@@ -339,8 +355,8 @@ module rasdaman {
         public whiteListAllCoverages():angular.IPromise<any> {
             var result = this.$q.defer();
             
-            var requestUrl = this.settings.adminEndpoint + "/wcs/whitelistall";
-            var requestHeaders = this.adminService.getAuthenticationHeaders();
+            var requestUrl = this.wcsSettingsService.adminEndpoint + "/wcs/whitelistall";
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.wcsSettingsService.wcsEndpoint);
 
             this.$http.get(requestUrl, {
                     headers: requestHeaders

@@ -20,13 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: mitera.hh
- *
- * MODULE:  raslib
- * CLASS:   r_MiterArea
- *
-*/
 
 #ifndef D_MITERA_HH
 #define D_MITERA_HH
@@ -34,8 +27,11 @@ rasdaman GmbH.
 #include "raslib/minterval.hh"
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
   r_MiterArea is used for iterating r_Mintervals through larger
   r_Mintervals. It is given the domain to be iterated through and
   an Minterval specifying the shape of area to be iterated with.
@@ -65,13 +61,14 @@ public:
     r_Minterval nextArea();
     /// returns TRUE if iteration is finished.
     bool isDone();
+
 protected:
     // structure storing information on iteration for each dimension
     // (perhaps add dimension for reordering later)
     struct incArrElem
     {
-        int repeat; // total number of repeats
-        int curr;   // current repeat
+        int repeat;  // total number of repeats
+        int curr;    // current repeat
     };
     /// This is used for the return value in nextArea()
     r_Minterval retVal;

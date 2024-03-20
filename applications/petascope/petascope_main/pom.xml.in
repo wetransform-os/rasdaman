@@ -22,38 +22,43 @@
    <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>1.5.2.RELEASE</version>
+        <version>2.7.10</version>
     </parent>
 
     <dependencies>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>42.2.24</version>
-        </dependency>
+    
         <dependency>
             <groupId>org.rasdaman</groupId>
             <artifactId>petascope-core</artifactId>
             <version>${version}</version>
         </dependency>
+        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional>
+        </dependency> 
+        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>       
+
+
+
         <!--A jar web application should not need to include this dependency-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-tomcat</artifactId>
-            <version>1.5.2.RELEASE</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <version>1.5.2.RELEASE</version>
-            <optional>true</optional>
-        </dependency> 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-            <version>1.5.2.RELEASE</version>
-        </dependency>
+
 
         <!-- For loading JSP files with embedded Tomcat -->
         <dependency>
@@ -61,23 +66,20 @@
             <artifactId>tomcat-embed-jasper</artifactId>
             <scope>provided</scope>
         </dependency>
+       
+        <!--https://dev.maxmind.com/geoip/geoip2/geolite2/ -->
+        <dependency>
+            <groupId>com.maxmind.geoip2</groupId>
+            <artifactId>geoip2</artifactId>
+            <version>2.12.0</version>
+        </dependency>
+
     </dependencies>
     <build>
         <finalName>rasdaman</finalName>
         <!-- The built package should be in build directory, not in source directory -->
         <directory>${buildDir}/target/</directory>
 
-        <resources>
-            <!-- first copy wcs-client to target directory -->
-            <resource>
-                <directory>${sourceDir}/../../wcs-client/app/ows</directory>
-                <targetPath>${buildDir}/target/classes/public/ows</targetPath>
-            </resource>
-            <resource>
-                <!-- then copy all the other resources to build directory -->
-                <directory>${project.basedir}/src/main/resources/</directory>
-            </resource>
-        </resources>
 
         <plugins>
             <!-- Database schema versions migration -->
@@ -86,7 +88,8 @@
                 <artifactId>liquibase-maven-plugin</artifactId>
                 <version>3.5.3</version>
                 <configuration>                  
-                    <propertyFile>${sourceDir}/src/main/resources/liquibase.properties</propertyFile>
+                   <!-- used for: mvn liquibase:diff -->
+                   <propertyFile>src/main/resources/liquibase.properties</propertyFile>      
                 </configuration>                
             </plugin>
             
@@ -107,18 +110,37 @@
             <plugin>
 	            <artifactId>maven-antrun-plugin</artifactId>
 	            <executions>
-		            <execution>
-			            <phase>test</phase>
-			            <goals>
-				            <goal>run</goal>
-			            </goals>
-			            <configuration>
-				            <tasks>
-					            <copy file="${gdalJavaJarPath}"
-                                 todir="${buildDir}/target/rasdaman/WEB-INF/lib"/>
-				            </tasks>
-			            </configuration>
-		            </execution>
+	            
+                    <!-- copy gdal.jar to rasdaman.war -->
+                    <execution>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <copy file="${gdalJavaJarPath}"
+                                                          todir="${buildDir}/target/rasdaman/WEB-INF/lib"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                    
+                    <!-- copy wsclient to rasdaman.war -->
+                    <execution>
+                        <id>test</id>
+                        <phase>test</phase>
+                        <configuration>
+                            <target>
+                                <copy todir="${buildDir}/target/classes/public/ows">
+                                    <fileset dir="${sourceDir}/../../wcs-client/app/ows" includes="**/*" />
+                                </copy>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                    
 	            </executions>
             </plugin>
 
@@ -140,6 +162,17 @@
                     </execution>
                 </executions>
             </plugin>
+            
+            
+            <!-- for JDK 17 -->        
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.3.2</version>
+                <configuration>
+                    <useCache>false</useCache>
+                </configuration>
+            </plugin>            
 
         </plugins>
     </build>

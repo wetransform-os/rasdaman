@@ -1,0 +1,59 @@
+{
+  "config": {
+    "service_url": "PETASCOPE_URL",
+    "tmp_directory": "/tmp/",
+    "track_files": false,
+    "mock": false,
+    "automated": true,
+    "default_null_values": [0]
+  },
+  "input": {
+    "coverage_id": "test_netcdf_grid_transpose_Lat_Lon",
+    "paths": [
+      "*.nc"
+    ]
+  },
+  "recipe": {
+    "name": "general_coverage",
+    "options": {
+      "tiling": "ALIGNED [0:*, 0:*] tile size 4194304",
+      "coverage": {
+        "crs": "EPSG/0/4326",
+        "metadata": {
+          "type": "xml",
+          "global": {
+            "photounit": "Taiwan Agricultural Research Institute",
+            "crs": "WGS84",
+            "groundresolutionunit": "cm"
+          }
+        },
+        "slicer": {
+          "type": "netcdf",
+	  "pixelIsPoint": true,
+          "bands": [
+            {
+              "name": "Gray",
+              "variable": "Gray",
+              "description": "NETCDF_VARNAME=depth_below_surface_simulated",
+              "nilReason": "The nil value represents nil.",
+              "identifier": "Gray"
+            }
+          ],
+          "axes": {
+            "Lat": {
+              "min": "${netcdf:variable:Lat:min}",
+              "max": "${netcdf:variable:Lat:max}",
+              "resolution": "${netcdf:variable:Lat:resolution}"
+            },
+            "Lon": {
+              "min": "${netcdf:variable:Lon:min}",
+              "max": "${netcdf:variable:Lon:max}",
+              "resolution": "${netcdf:variable:Lon:resolution}"
+            }
+          }
+        }
+      },
+      "wms_import": true
+    }
+  }
+}

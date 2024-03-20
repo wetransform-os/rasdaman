@@ -23,6 +23,7 @@ package petascope.wcps.subset_axis.model;
 
 import petascope.wcps.result.ParameterResult;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -53,12 +54,20 @@ public class DimensionIntervalList extends ParameterResult {
         this.intervals = intervals;
     }
 
+    public void setIntervals(List<WcpsSubsetDimension> intervals) {
+        this.intervals = intervals;
+    }
+
     /**
      * Returns a mutable list of the trim intervals
      *
      * @return the trim intervals
      */
     public List<WcpsSubsetDimension> getIntervals() {
+        if (intervals == null) {
+            intervals = new ArrayList<>();
+        }
+
         return intervals;
     }
 

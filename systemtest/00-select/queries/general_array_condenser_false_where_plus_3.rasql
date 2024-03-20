@@ -1,0 +1,2 @@
+-- test_grey[100:101,100:101] == [[163,164],[177,175]]
+select (condense + over i in [100:101,100:101] where a[i] > 170 using a[i]) from test_grey as a

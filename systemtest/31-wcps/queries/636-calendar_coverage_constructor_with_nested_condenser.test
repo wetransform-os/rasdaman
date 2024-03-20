@@ -1,0 +1,8 @@
+for c in (test_eobstest)
+return encode(
+coverage stacked
+over $t t("1950-01-01":"1950-01-05" . "P1D":"P3D")
+values
+  condense +
+  over $t2 t($t : $t )
+  using c[t($t2:$t2 . "P1D"), Lat(25:25), Long(40:40)], "csv")

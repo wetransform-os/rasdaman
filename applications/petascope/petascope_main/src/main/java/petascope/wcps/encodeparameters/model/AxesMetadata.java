@@ -23,6 +23,7 @@ package petascope.wcps.encodeparameters.model;
 
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -34,24 +35,23 @@ public class AxesMetadata {
     
     public static final String AXES_METADATA_ROOT_TAG = "axes";
     
-    private Map<String, Map<String, String>> axesAttributesMap;
-    
+    private Map<String, AxisMetadata> axesAttributesMap;
+
     public AxesMetadata() {
         this.axesAttributesMap = new LinkedHashMap<>();
     }
 
     @JsonAnyGetter
     // Unwrap this map
-    public Map<String, Map<String, String>> getAxesAttributesMap() {
+    public Map<String, AxisMetadata> getAxesAttributesMap() {
         return axesAttributesMap;
     }
 
-    public void setAxesAttributesMap(Map<String, Map<String, String>> axesAttributesMap) {
-        this.axesAttributesMap = axesAttributesMap;
-    }
-    
     @JsonAnySetter
-    public void addKeyValue(String key, Map<String, String> values) {
-        this.axesAttributesMap.put(key, values);
+    public void addKeyValue(String key, AxisMetadata values) {
+        if (!values.isEmptyObject()) {
+            this.axesAttributesMap.put(key, values);
+        }
     }
+
 }

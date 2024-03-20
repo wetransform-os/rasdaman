@@ -26,7 +26,7 @@ rasdaman GmbH.
 #ifndef _ULONGTYPE_HH_
 #define _ULONGTYPE_HH_
 
-#include <iosfwd>               // for ostream
+#include <iosfwd>  // for ostream
 
 #include "uintegraltype.hh"     // for UIntegralType
 #include "reladminif/oidif.hh"  // for OId
@@ -45,7 +45,7 @@ values. The value of a ULong is stored in four chars.
 class ULongType : public UIntegralType
 {
 public:
-    ULongType(const OId &id);
+    explicit ULongType(const OId &id);
 
     ULongType();
 
@@ -64,7 +64,6 @@ public:
     char *makeFromCLong(char *cell, const r_Long *value) const override;
 
     static const char *Name;
-
 };
 
 #endif

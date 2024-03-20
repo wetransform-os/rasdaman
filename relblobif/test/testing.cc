@@ -21,19 +21,20 @@ rasdaman GmbH.
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
+#include "testing.h"
+#include "logging.hh"
+
 #include <sys/time.h>
 #include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
-#include "testing.h"
 
 bool Test::test_result_ = 0;
 int Test::tests_run_ = 0;
 int Test::tests_passed_ = 0;
 int Test::timer_sec_ = 0;
 int Test::timer_usec_ = 0;
-ostream& Test::log_ = cout;
 
 void Test::startTimer()
 {
@@ -50,19 +51,20 @@ double Test::stopTimer()
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (tv.tv_sec - Test::timer_sec_) * 1.0 + (tv.tv_usec -
-            Test::timer_usec_) * static_cast<double>(0.0000001);
+                                                   Test::timer_usec_) *
+                                                      static_cast<double>(0.0000001);
 }
 
 int Test::getResult()
 {
-    LOG << endl;
-    LOG << tests_passed_ << "/" << tests_run_ << " tests passed!" << endl;
+    LINFO << endl;
+    LINFO << tests_passed_ << "/" << tests_run_ << " tests passed!" << endl;
     return (tests_passed_ != tests_run_);
 }
 
-string Test::charPtrToString(char* ptr, unsigned int size)
+string Test::charPtrToString(char *ptr, unsigned int size)
 {
-    char* res = (char*) malloc(size + 1);
+    char *res = (char *)malloc(size + 1);
     memcpy(res, ptr, size);
     res[size + 1] = '\0';
     string ret(res);

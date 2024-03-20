@@ -31,29 +31,30 @@ namespace rasmgr
 {
 
 RasControlGrammar::RasControlGrammar(
-    std::shared_ptr<RasControl> rascontrolArg) :
-    rascontrol{rascontrolArg}
-{}
+    std::shared_ptr<RasControl> rascontrolArg)
+    : rascontrol{rascontrolArg}
+{
+}
 
 void RasControlGrammar::parse(const std::string &reqMessage)
 {
-    LDEBUG << "Parsing command '" << reqMessage << "'...";
+    NNLDEBUG << "Parsing command '" << reqMessage << "'... ";
     this->tokens.clear();
-    char *token = strdup(reqMessage.c_str());
-    token = strtok(token, " \r\n\t\0");
+    char *msg = strdup(reqMessage.c_str());
+    char *token = strtok(msg, " \r\n\t\0");
     while (token)
     {
         // If we are evaluating the first token of the reqMessage and the first character is
         // '#' then we will stop reading reqMessage because it is a comment.
         if (token[0] == '#' && this->tokens.empty())
         {
-            break;    // done, disregard comment til end of line
+            break;  // done, disregard comment til end of line
         }
         this->tokens.emplace_back(token);
         token = strtok(NULL, " \r\n\t\0");
     }
-    LDEBUG << "Done, " << tokens.size() << " tokens parsed.";
-    free(token);
+    BLDEBUG << "done, " << tokens.size() << " tokens parsed.\n";
+    free(msg);
 }
 
 std::string RasControlGrammar::processRequest()
@@ -61,6 +62,11 @@ std::string RasControlGrammar::processRequest()
     auto command = tokens.size() ? tokens[0] : commentPrefix;
     try
     {
+        if (isCommand(commentPrefix))
+        {
+            return empty;
+        }
+
         LDEBUG << "Processing rascontrol command: '" << command << "'...";
 
         if (isCommand(helloLit))
@@ -106,10 +112,6 @@ std::string RasControlGrammar::processRequest()
         else if (isCommand(exitLit))
         {
             return exitCommand();
-        }
-        else if (isCommand(commentPrefix))
-        {
-            return empty;
         }
         else
         {
@@ -250,7 +252,6 @@ std::string RasControlGrammar::listOutPeers()
 //list <<host>>
 std::string RasControlGrammar::listRasHosts()
 {
-
     return rascontrol->deprecatedCommand();
 }
 
@@ -420,7 +421,7 @@ std::string RasControlGrammar::defineUsers()
     return rascontrol->defineUser(defUser);
 }
 
-//define << dbh h -connect c [-user u -passwd p] >>
+//define << dbh h -connect c >>
 std::string RasControlGrammar::defineDBHosts()
 {
     defDbHost.Clear();
@@ -429,17 +430,6 @@ std::string RasControlGrammar::defineDBHosts()
     defDbHost.set_host_name(dbhName);
     const auto &connStr = getValueMandatoryFlag(_connectLit, true);
     defDbHost.set_connect(connStr);
-
-    const auto &userStr = getValueOf(_userLit, true);
-    if (!userStr.empty())
-    {
-        defDbHost.set_user(userStr);
-    }
-    const auto &passwdStr = getValueOf(_passwdLit, true);
-    if (!passwdStr.empty())
-    {
-        defDbHost.set_passwd(passwdStr);
-    }
 
     return rascontrol->defineDbHost(defDbHost);
 }
@@ -460,9 +450,9 @@ std::string RasControlGrammar::defineDatabases()
 //define <<host h -net n [-port p]>>
 std::string RasControlGrammar::defineRasHosts()
 {
-//    const auto &hostName = getValueMandatoryFlag(hostLit);
-//    const auto &netName = getValueMandatoryFlag("-net");
-//    const auto &portStr = getValueOptionalFlag(_portLit);
+    //    const auto &hostName = getValueMandatoryFlag(hostLit);
+    //    const auto &netName = getValueMandatoryFlag("-net");
+    //    const auto &portStr = getValueOptionalFlag(_portLit);
 
     return rascontrol->deprecatedCommand();
 }
@@ -484,7 +474,6 @@ std::string RasControlGrammar::defineRasServers()
     const auto &dbhName = getValueMandatoryFlag(_dbhLit);
     defServerGroup.set_db_host(dbhName);
 
-    // TODO: port parsing needs to be more sophisticated
     const auto &portStr = getValueMandatoryFlag(_portLit);
     auto listenPort = convertToULong(portStr, "port");
     defServerGroup.add_ports(listenPort);
@@ -506,7 +495,7 @@ std::string RasControlGrammar::defineRasServers()
     }
     else
     {
-        changeServerGroup.set_n_autorestart(true); // default
+        changeServerGroup.set_n_autorestart(true);  // default
     }
 
     const auto &count = getValueOptionalFlag(_countdownLit);
@@ -718,17 +707,6 @@ std::string RasControlGrammar::changeDBHost()
     if (!connString.empty())
     {
         changeDbHost.set_n_name(connString);
-    }
-
-    const auto &userString = getValueOptionalFlag(_userLit);
-    if (!userString.empty())
-    {
-        changeDbHost.set_n_user(userString);
-    }
-    const auto &passwdString = getValueOptionalFlag(_passwdLit);
-    if (!passwdString.empty())
-    {
-        changeDbHost.set_n_passwd(passwdString);
     }
 
     return rascontrol->changeDbHost(changeDbHost);
@@ -978,7 +956,6 @@ std::string RasControlGrammar::downRasServers()
 {
     downSrv.Clear();
 
-
     const auto &srvName = getValueOf(srvLit);
     if (!srvName.empty())
     {
@@ -1134,25 +1111,24 @@ std::string RasControlGrammar::defineHelp()
            "define host H -net ADDR [-port PORT]\r\n"
            "       - define server host with symbolic name H, located at address 'ADDR:PORT'\r\n"
            "         (PORT defaults to " STRINGIFY(DEFAULT_PORT) ")\r\n"
-           "define srv S -host H -dbh DBH -type STYPE -port PORT \r\n"
-           "                     [-autorestart on|off] [-countdown COUNT] [-xp OPTS]\r\n"
-           "       - define server with symbolic name S on server host H connected to database host DBH\r\n"
-           "         -type is ignored (historically, STYPE could be 'r' = RPC or 'h' = HTTP or 'n' = RNP)\r\n"
-           "         -port specifies the PORT number on which the server listens\r\n"
-           "         -autorestart (default: on): the server will autorestart after an unexpected termination\r\n"
-           "         -countdown COUNT (default: 10000): the server will be restarted after COUNT transactions\r\n"
-           "         -xp OPTS: extra parameter string OPTS that will be passed to the rasserver at startup\r\n"
-           "          (see rasserver documentation for valid options)\r\n"
-           "          this option has to be the last, because anything after it and until end of line is considered to be 'options'\r\n"
-           "define user USERNAME [-passwd PASSWORD] [-rights RIGHTS]\r\n"
-           "       - define user account with symbolic name USERNAME\r\n"
-           "         PASSWORD defaults to USERNAME if not specified\r\n"
-           "         RIGHTS specifies the rights granted to the user (default: none; see documentation for valid rights)\r\n"
-           "define inpeer H\r\n"
-           "       - define inpeer with the host name H\r\n"
-           "define outpeer H [-port PORT]\r\n"
-           "       - define outpeer with the host name H\r\n"
-           "         (PORT defaults to  " STRINGIFY(DEFAULT_PORT) ")\r\n";
+                                                                 "define srv S -host H -dbh DBH -port PORT \r\n"
+                                                                 "                     [-autorestart on|off] [-countdown COUNT] [-xp OPTS]\r\n"
+                                                                 "       - define server with symbolic name S on server host H connected to database host DBH\r\n"
+                                                                 "         -port specifies the PORT number on which the server listens\r\n"
+                                                                 "         -autorestart (default: on): the server will autorestart after an unexpected termination\r\n"
+                                                                 "         -countdown COUNT (default: 10000): the server will be restarted after COUNT transactions\r\n"
+                                                                 "         -xp OPTS: extra parameter string OPTS that will be passed to the rasserver at startup\r\n"
+                                                                 "          (see rasserver documentation for valid options)\r\n"
+                                                                 "          this option has to be the last, because anything after it and until end of line is considered to be 'options'\r\n"
+                                                                 "define user USERNAME [-passwd PASSWORD] [-rights RIGHTS]\r\n"
+                                                                 "       - define user account with symbolic name USERNAME\r\n"
+                                                                 "         PASSWORD defaults to USERNAME if not specified\r\n"
+                                                                 "         RIGHTS specifies the rights granted to the user (default: none; see documentation for valid rights)\r\n"
+                                                                 "define inpeer H\r\n"
+                                                                 "       - define inpeer with the host name H\r\n"
+                                                                 "define outpeer H [-port PORT]\r\n"
+                                                                 "       - define outpeer with the host name H\r\n"
+                                                                 "         (PORT defaults to  " STRINGIFY(DEFAULT_PORT) ")\r\n";
 }
 
 std::string RasControlGrammar::removeHelp()
@@ -1232,9 +1208,9 @@ std::string RasControlGrammar::error(const std::string &errText)
 
 bool RasControlGrammar::isFlag(const std::string &flag, int pos)
 {
-    if (pos < 0) // doesn't matter
+    if (pos < 0)  // doesn't matter
     {
-        for (size_t i = 1; i < tokens.size(); ++i) // flags are from 1->, 0 is the command itself
+        for (size_t i = 1; i < tokens.size(); ++i)  // flags are from 1->, 0 is the command itself
             if (strieq(flag, tokens[i]))
             {
                 return true;
@@ -1257,17 +1233,31 @@ std::string RasControlGrammar::getValueOf(const std::string &flag, bool acceptMi
         if (strieq(flag, tokens[i]))
         {
             auto value = tokens[i + 1];
-            if (acceptMinus)
-            {
-                if (value[0] == '-' && value.size() > 1)
-                {
-                    return empty;
-                }
-            }
-            else if (value[0] == '-')
+            if (value[0] == '-' && (!acceptMinus || value.size() > 1))
             {
                 return empty;
             }
+            if (value[0] == '"')
+            {
+                // append tokens until one with a final " is found
+                size_t j = i + 2;
+                while (j < tokens.size() && value.back() != '"')
+                {
+                    value += " ";
+                    value += tokens[j];
+                    ++j;
+                }
+                // check that there is a closing double quote
+                if (value.back() != '"')
+                {
+                    throw RCError("Value of option " + flag +
+                                  " is missing a closing double quote: " + value);
+                }
+                // remove the double quotes: "str" -> str
+                value = value.substr(1, value.size() - 2);
+                LDEBUG << "removed double quotes, value is: " << value;
+            }
+
             return value;
         }
     }
@@ -1275,7 +1265,7 @@ std::string RasControlGrammar::getValueOf(const std::string &flag, bool acceptMi
 }
 
 std::string RasControlGrammar::getValueOptionalFlag(const std::string &flag,
-        bool acceptMinus)
+                                                    bool acceptMinus)
 {
     if (!isFlag(flag))
     {
@@ -1290,7 +1280,7 @@ std::string RasControlGrammar::getValueOptionalFlag(const std::string &flag,
 }
 
 std::string RasControlGrammar::getValueMandatoryFlag(const std::string &flag,
-        bool acceptMinus)
+                                                     bool acceptMinus)
 {
     auto ret = getValueOptionalFlag(flag, acceptMinus);
     if (ret == empty)
@@ -1301,7 +1291,7 @@ std::string RasControlGrammar::getValueMandatoryFlag(const std::string &flag,
 }
 
 unsigned long RasControlGrammar::convertToULong(const std::string &stringValue,
-        const std::string &errMsg)
+                                                const std::string &errMsg)
 {
     char *end;
     unsigned long ret = strtoul(stringValue.c_str(), &end, 0);
@@ -1395,6 +1385,16 @@ RCError::RCError()
 {
 }
 
+RCError::RCError(const std::string &arg)
+    : what(arg)
+{
+}
+
+string RCError::getString()
+{
+    return what;
+}
+
 RCErrorUnexpToken::RCErrorUnexpToken(const std::string &token)
     : pcc(token)
 {
@@ -1444,4 +1444,4 @@ std::string RCErrorIncorNumberValue::getString()
     return "Incorrect number value for parameter '" + pcc + "'.";
 }
 
-}
+}  // namespace rasmgr

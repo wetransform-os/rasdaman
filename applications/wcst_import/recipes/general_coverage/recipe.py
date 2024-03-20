@@ -43,17 +43,22 @@ from util.crs_util import CRSUtil
 from util.gdal_validator import GDALValidator
 from util.import_util import import_netcdf4
 from util.log import log
+from util.netcdf4_util import netcdf4_open
+from util.s2metadata_util import S2MetadataUtil
 from util.string_util import escape_metadata_dict, is_band_name_valid, BAND_NAME_PATTERN
 from util.string_util import escape_metadata_nested_dicts
 from util.file_util import FileUtil
-from util.gdal_util import GDALGmlUtil
+from util.gdal_util import GDALGmlUtil, MAX_RETRIES_TO_OPEN_FILE
 from master.importer.resumer import Resumer
+from util.time_util import execute_with_retry_on_timeout
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
+from master.helper.user_band import OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_CATEGORIAL, VALID_OBSERVATION_TYPES
 
 
 class Recipe(BaseRecipe):
 
-
     RECIPE_TYPE = "general_coverage"
+    AREAS_OF_VALIDITY = "areasOfValidity"
 
     def __init__(self, session):
         """
@@ -109,6 +114,8 @@ class Recipe(BaseRecipe):
                 # so the irregular axis must be fetched from file name and considered as slice with coefficient is [0]
                 # However, [0] could be miscalculated with arrow so set it to [None] and return [0] later
                 axis["directPositions"] = AbstractToCoverageConverter.DIRECT_POSITIONS_SLICING
+            if "irregular" not in axis and "resolution" not in axis:
+                raise RecipeValidationException("Regular axis '" + name + "' must specify \"resolution\" setting value.")
 
         if "metadata" in self.options['coverage'] and "type" not in self.options['coverage']['metadata']:
             raise RecipeValidationException("No type given for the metadata parameter.")
@@ -229,15 +236,38 @@ class Recipe(BaseRecipe):
                     if grib_messages_filter_by_setting in band:
                         grib_messages_filter_by_dict = band[grib_messages_filter_by_setting]
 
+                band_observation_type = OBSERVATION_TYPE_NUMERIC
+                if "observationType" in band:
+                    band_observation_type = band["observationType"]
+
+                    if band_observation_type not in VALID_OBSERVATION_TYPES:
+                        raise RecipeValidationException("Value for setting: observationType is not valid. Given: {}.".format(band_observation_type))
+
+                uom_code = self._read_or_empty_string(band, "uomCode")
+                code_space = self._read_or_empty_string(band, "codeSpace")
+
+                if band_observation_type == OBSERVATION_TYPE_NUMERIC and code_space != "":
+                    raise RecipeValidationException("Band: {} - codeSpace can be specified only when observationType"
+                                                    " is set to {}.".format(band_name, OBSERVATION_TYPE_CATEGORIAL))
+                if band_observation_type == OBSERVATION_TYPE_CATEGORIAL:
+                    if uom_code != "":
+                        raise RecipeValidationException("Band: {} - uomCode can be specified only when observationType"
+                                                        " is set to {}.".format(band_name, OBSERVATION_TYPE_NUMERIC))
+                    if code_space == "":
+                        raise RecipeValidationException("Band: {} - codeSpace must be specified to be a valid URL"
+                                                        " when observationType is set to {}.".format(band_name,
+                                                        OBSERVATION_TYPE_CATEGORIAL))
+
                 ret_bands.append(UserBand(
                     identifier,
                     self._read_or_empty_string(band, "name"),
                     self._read_or_empty_string(band, "description"),
                     self._read_or_empty_string(band, "definition"),
-                    self._read_or_empty_string(band, "nilReason"),
-                    self._read_or_empty_string(band, "nilValue").split(","),
-                    self._read_or_empty_string(band, "uomCode"),
-                    grib_messages_filter_by_dict
+                    self.__parse_specified_nil_values_by_band(band),
+                    uom_code,
+                    grib_messages_filter_by_dict,
+                    band_observation_type,
+                    code_space
                 ))
 
                 i += 1
@@ -248,7 +278,7 @@ class Recipe(BaseRecipe):
                 # If gdal does not specify bands in ingredient file, just fetch all bands from first file
                 for file in self.session.get_files():
                     try:
-                        gdal_util = GDALGmlUtil(file)
+                        gdal_util = GDALGmlUtil.get(file, self.session.recipe)
                         gdal_fields = gdal_util.get_fields_range_type()
 
                         ret_bands = []
@@ -258,12 +288,11 @@ class Recipe(BaseRecipe):
                                 field.field_name,
                                 None,
                                 None,
-                                None,
                                 field.nill_values
                             ))
                         break
                     except Exception as e:
-                        if ConfigManager.skip == True:
+                        if self.session.skip_file_that_fail_to_open():
                             pass
                         else:
                             raise e
@@ -271,6 +300,38 @@ class Recipe(BaseRecipe):
                 return ret_bands
             else:
                 raise RuntimeError("'bands' must be specified in ingredient file for netCDF/GRIB recipes.")
+
+    def __parse_specified_nil_values_by_band(self, band):
+        """
+        Parse nil values specified in the ingredients file
+        :return: list[RangeTypeNilValue] objects
+        """
+        results = []
+        if "nilValue" in band and "nilValues" in band:
+            raise RecipeValidationException("nilValue and nilValues settings are exclusive; use one type of setting only for band: {}.".format(band["name"]))
+
+        if "nilValue" in band:
+            # Band has only 1 null value or exceptional case with multiple null values shorthand, e.g. [25, 35] or "35, 45"
+            nil_value = str(band["nilValue"]).replace("[", "").replace("]", "")
+            nil_reason = ""
+            if "nilReason" in band:
+                nil_reason = band["nilReason"]
+
+            tmps = nil_value.split(",")
+            for tmp in tmps:
+                results.append(RangeTypeNilValue(nil_reason, tmp))
+
+        elif "nilValues" in band:
+            # Band has multiple null values
+            for obj in band["nilValues"]:
+                nil_value = obj["value"]
+                nil_reason = ""
+                if "reason" in obj:
+                    nil_reason = obj["reason"]
+
+                results.append(RangeTypeNilValue(nil_reason, nil_value))
+
+        return results
 
     def _update_crs_axes_grid_orders(self, crs_axes):
         """
@@ -327,6 +388,7 @@ class Recipe(BaseRecipe):
                     "Could not find a definition for axis '" + crs_axis.label + "' in the axes parameter.")
             axis = axes_configurations[crs_axis.label]
             max = axis["max"] if "max" in axis else None
+
             if "type" in axis:
                 type = axis["type"]
             elif crs_axis.is_date_axis():
@@ -384,9 +446,16 @@ class Recipe(BaseRecipe):
                     raise RuntimeException("Cannot set 'resolution' value for irregular axis '{}' in ingredient file."
                                            " Given '{}'.".format(crs_axis.label, resolution))
 
+                areas_of_validity = []
+                if Recipe.AREAS_OF_VALIDITY in axis:
+                    areas_of_validity = axis[Recipe.AREAS_OF_VALIDITY]
+
+                    number_of_input_files = len(self.session.files)
+                    number_of_areas_of_validity = len(areas_of_validity)
+
                 user_axes.append(
                     IrregularUserAxis(crs_axis.label, resolution, order, axis["min"], axis["directPositions"], max,
-                                      type, dataBound, statements, slice_group_size))
+                                      type, dataBound, statements, slice_group_size, areas_of_validity))
 
         number_of_specified_axes = len(axes_configurations.items())
         number_of_crs_axes = len(crs_axes)
@@ -414,7 +483,7 @@ class Recipe(BaseRecipe):
                                                         " in general recipe with slicer's type: gdal.")
                     elif value == "auto":
                         # Get colorPaletteTable automatically from first file
-                        gdal_dataset = GDALGmlUtil(file_path)
+                        gdal_dataset = GDALGmlUtil.init(file_path)
                         color_palette_table = gdal_dataset.get_color_table()
                     else:
                         # file_path can be relative path or full path
@@ -430,8 +499,9 @@ class Recipe(BaseRecipe):
                                 color_palette_table = file_reader.read()
             elif supported_recipe:
                 # If colorPaletteTable is not mentioned in the ingredient, automatically fetch it
-                gdal_dataset = GDALGmlUtil(file_path)
-                color_palette_table = gdal_dataset.get_color_table()
+                if not S2MetadataUtil.enabled_in_ingredients(self.session.recipe):
+                    gdal_dataset = GDALGmlUtil.init(file_path)
+                    color_palette_table = gdal_dataset.get_color_table()
 
             if color_palette_table is not None:
                 metadata_dict["colorPaletteTable"] = color_palette_table
@@ -459,13 +529,13 @@ class Recipe(BaseRecipe):
                             else:
                                 # global metadata is defined with auto, then parse the metadata from the first file to a dict
                                 if self.options['coverage']['slicer']['type'] == "gdal":
-                                    metadata_dict = GdalToCoverageConverter.parse_gdal_global_metadata(file_path)
+                                    metadata_dict = GdalToCoverageConverter.parse_gdal_global_metadata(file_path, self.session.recipe)
                                 elif self.options['coverage']['slicer']['type'] == "netcdf":
                                     metadata_dict = NetcdfToCoverageConverter.parse_netcdf_global_metadata(file_path)
                     else:
                         # global is not specified in ingredient file, it is considered as "global": "auto"
                         if self.options['coverage']['slicer']['type'] == "gdal":
-                            metadata_dict = GdalToCoverageConverter.parse_gdal_global_metadata(file_path)
+                            metadata_dict = GdalToCoverageConverter.parse_gdal_global_metadata(file_path, self.session.recipe)
                         elif self.options['coverage']['slicer']['type'] == "netcdf":
                             metadata_dict = NetcdfToCoverageConverter.parse_netcdf_global_metadata(file_path)
 
@@ -480,7 +550,7 @@ class Recipe(BaseRecipe):
                     result = escape_metadata_nested_dicts(metadata_dict)
                     return result
                 except Exception as e:
-                    if ConfigManager.skip == True:
+                    if self.session.skip_file_that_fail_to_open():
                         # Error with opening the first file, then try with another file as skip is true
                         pass
                     else:
@@ -584,18 +654,19 @@ class Recipe(BaseRecipe):
 
                     return escape_metadata_nested_dicts(bands_metadata)
                 except Exception as e:
-                    if ConfigManager.skip == True:
+                    if self.session.skip_file_that_fail_to_open():
                         pass
                     else:
                         raise e
 
         return {}
 
-    def _axes_metadata_fields(self):
+    def _axes_metadata_fields(self, user_axes):
         """
         Returns the axes metadata fields which are used to add to dimensions (axes) of output file which supports this option (e.g: netCDF)
         :rtype: dict
         """
+        axes_metadata = {}
         if "metadata" in self.options['coverage']:
             if "axes" in self.options['coverage']['metadata']:
                 # a list of user defined axes
@@ -615,9 +686,8 @@ class Recipe(BaseRecipe):
                         raise RuntimeException(
                             "Metadata of axis with name '" + axis + "' does not exist in user defined axes.")
 
-                # it is a valid definition
-                return axes_metadata
-        return {}
+        axes_metadata = escape_metadata_nested_dicts(axes_metadata)
+        return axes_metadata
 
     def _netcdf_axes_metadata_fields(self):
         """
@@ -679,7 +749,7 @@ class Recipe(BaseRecipe):
 
                     return escape_metadata_nested_dicts(axes_metadata)
             except Exception as e:
-                if ConfigManager.skip == True:
+                if self.session.skip_file_that_fail_to_open():
                     pass
                 else:
                     raise e
@@ -703,10 +773,18 @@ class Recipe(BaseRecipe):
         """
         crs_resolver = self.session.get_crs_resolver() + "crs/"
         if not crs.startswith("http"):
-            crs_parts = crs.split("@")
+            if "+" in crs:
+                crs_parts = crs.split("+")
+            else:
+                crs_parts = crs.split("@")
+
             for i in range(0, len(crs_parts)):
-                if not crs_parts[i].startswith("http"):
-                    crs_parts[i] = crs_resolver + crs_parts[i]
+                part = crs_parts[i]
+                if not part.startswith("http"):
+                    if ":" in part:
+                        crs_parts[i] = CRSUtil.convert_shorthand_crs_to_full_url(crs_parts[i])
+                    else:
+                        crs_parts[i] = crs_resolver + part
             crs = CRSUtil.get_compound_crs(crs_parts)
 
         return crs
@@ -750,7 +828,7 @@ class Recipe(BaseRecipe):
                                            self.options['tiling'], self._global_metadata_fields(),
                                            self._local_metadata_fields(),
                                            self._bands_metadata_fields(),
-                                           self._axes_metadata_fields(),
+                                           self._axes_metadata_fields(user_axes),
                                            self._metadata_type(),
                                            self.options['coverage']['grid_coverage'],
                                            self.options['import_order'],
@@ -763,6 +841,7 @@ class Recipe(BaseRecipe):
         :param: string recipe_type the type of netcdf
         :rtype: master.importer.coverage.Coverage
         """
+
         ConfigManager.default_crs = self._resolve_crs(self.options["coverage"]["crs"])
         crs = self._resolve_crs(self.options["coverage"]["crs"])
         sentence_evaluator = SentenceEvaluator(ExpressionEvaluatorFactory())
@@ -777,22 +856,29 @@ class Recipe(BaseRecipe):
         first_band = bands[0]
         first_band_variable_identifier = first_band.identifier
 
-        netCDF4 = import_netcdf4()
         number_of_dimensions = None
 
         # Get the number of dimensions of band variable to validate with number of axes specified in the ingredients file
         for input_file in input_files:
             try:
-                number_of_dimensions = len(netCDF4.Dataset(input_file, 'r').variables[first_band_variable_identifier].dimensions)
+                netcdf_dataset = netcdf4_open(input_file)
+                if first_band_variable_identifier not in netcdf_dataset.variables:
+                    raise RecipeValidationException("Band identifier: " + first_band_variable_identifier
+                                                    + " does not exist in the input netCDF file '{}'.".format(input_file))
+
+                number_of_dimensions = len(netcdf_dataset.variables[first_band_variable_identifier].dimensions)
                 self.__validate_data_bound_axes(user_axes, number_of_dimensions)
                 break
             except Exception as e:
-                if ConfigManager.skip is True:
+                error_message = "Failed to open netCDF4 data set from input file '{}'. Reason: {}".format(input_file, e)
+
+                if self.session.skip_file_that_fail_to_open():
                     continue
                 else:
+                    log.error(error_message)
                     raise e
 
-        if number_of_dimensions is None:
+        if number_of_dimensions is None and ConfigManager.blocking is True:
             raise RuntimeException("Cannot get the number of dimensions from one of input netCDF files. "
                                    "Hint: make sure at least one file is readable.")
 
@@ -823,6 +909,8 @@ class Recipe(BaseRecipe):
         if 'pixelIsPoint' in self.options['coverage']['slicer'] and self.options['coverage']['slicer']['pixelIsPoint']:
             pixel_is_point = True
 
+        user_axes = self._read_axes(crs)
+
         coverage = GRIBToCoverageConverter(self.resumer, self.session.default_null_values,
                                            recipe_type,
                                            sentence_evaluator, self.session.get_coverage_id(),
@@ -831,7 +919,7 @@ class Recipe(BaseRecipe):
                                            self.options['tiling'], self._global_metadata_fields(),
                                            self._local_metadata_fields(),
                                            self._bands_metadata_fields(),
-                                           self._axes_metadata_fields(),
+                                           self._axes_metadata_fields(user_axes),
                                            self._metadata_type(),
                                            self.options['coverage']['grid_coverage'], pixel_is_point,
                                            self.options['import_order'],

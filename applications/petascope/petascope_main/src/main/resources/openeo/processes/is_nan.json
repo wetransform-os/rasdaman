@@ -1,0 +1,79 @@
+{
+    "id": "is_nan",
+    "summary": "Value is not a number",
+    "description": "Checks which elements of `x` are nan (*`x = nan`*).\n\nThe operand can be a scalar number or a datacube.\n\n\nThe result is a scalar number if the operand is scalar, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type   | result type   |\n|----------------|---------------|\n| X              | bool          |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "Null where `x` is null, true where `x` is nan, false otherwise.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": "NaN"
+            },
+            "returns": true
+        },
+        {
+            "arguments": {
+                "x": 1.0
+            },
+            "returns": false
+        },
+        {
+            "arguments": {
+                "x": [
+                    1.0,
+                    "NaN",
+                    2.0
+                ]
+            },
+            "returns": [
+                false,
+                true,
+                false
+            ]
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        }
+    ],
+    "wcps": "<x> = nan",
+    "categories": [
+        "Logical"
+    ]
+}

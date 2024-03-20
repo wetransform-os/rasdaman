@@ -1,0 +1,2 @@
+for c in (test_eobstest)
+return days(domain(c, t))

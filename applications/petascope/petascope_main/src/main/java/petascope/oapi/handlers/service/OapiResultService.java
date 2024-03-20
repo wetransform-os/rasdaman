@@ -31,9 +31,12 @@ import org.springframework.stereotype.Service;
 import petascope.core.response.Response;
 import petascope.exceptions.PetascopeException;
 import petascope.oapi.handlers.model.HttpErrorResponse;
+import petascope.rasdaman.exceptions.RasdamanException;
+import petascope.util.ExceptionUtil;
 import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
 import static petascope.util.MIMEUtil.MIME_JSON;
+import static petascope.util.MIMEUtil.MIME_TEXT;
 
 /**
  * Class to return the response entity for OAPI requests
@@ -53,6 +56,13 @@ public class OapiResultService {
         String objectRepresentation = JSONUtil.serializeObjectToJSONString(object);
         return new Response(Arrays.asList(objectRepresentation.getBytes()), MIME_JSON);
     }
+
+    /**
+     * The input is already a JSON string, it just adds the header to return as json
+     */
+    public Response getJsonResponseFromString(String json) {
+        return new Response(Arrays.asList(json.getBytes()), MIME_JSON);
+    }
     
     /**
      * Return the error result in JSON format
@@ -61,6 +71,26 @@ public class OapiResultService {
         HttpErrorResponse httpErrorResponse = new HttpErrorResponse(httpStatus, errorMessage);
         String objectRepresentation = JSONUtil.serializeObjectToJSONString(httpErrorResponse);
         return new Response(Arrays.asList(objectRepresentation.getBytes()), MIME_JSON, HttpStatus.OK.value());
+    }
+
+    public Response getErrorResponse(Exception ex, String errorMessage) throws PetascopeException {
+        int httpErrorCode = HttpStatus.INTERNAL_SERVER_ERROR.value();
+        String exceptionText = "";
+        if (ex instanceof PetascopeException) {
+            httpErrorCode = ((PetascopeException)ex).getExceptionCode().getHttpErrorCode();
+            exceptionText = ((PetascopeException)ex).getExceptionText();
+        } else if (ex instanceof RasdamanException) {
+            httpErrorCode = ((RasdamanException)ex).getExceptionCode().getHttpErrorCode();
+            exceptionText = ((RasdamanException)ex).getExceptionText();
+        }
+
+        if (!exceptionText.isEmpty()) {
+            errorMessage += " with detailed reason: " + exceptionText;
+        }
+
+        log.error(errorMessage, ex);
+        Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_TEXT, httpErrorCode);
+        return response;
     }
     
 }

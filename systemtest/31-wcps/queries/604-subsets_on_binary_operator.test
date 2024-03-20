@@ -1,0 +1,7 @@
+for $c0 in (test_wcps_irregular_time_germany_4),
+    $c1 in (test_wcps_irregular_time_germany_repeat_4)
+
+return encode(
+        ($c0[ansi:"CRS:1"(0:0)] + ($c1[ansi:"CRS:1"(0:0)] * 0.3) )[ansi:"CRS:1"(0)],   
+       "png"
+)

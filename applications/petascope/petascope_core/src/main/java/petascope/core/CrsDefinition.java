@@ -198,6 +198,9 @@ public class CrsDefinition {
         private String uom;
         private String type;
         private CrsDefinition crsDefinition;
+
+        // Y axis
+        public static final String NORTH_ORIENTATION_DIRECTION = "north";
         
         public Axis() {
             

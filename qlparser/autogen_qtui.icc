@@ -36,10 +36,6 @@ inline QtNode::QtNodeType QtSqrt::getNodeType() const
 {
     return nodeType;
 }
-inline QtNode::QtNodeType QtPow::getNodeType() const
-{
-    return nodeType;
-}
 inline QtNode::QtNodeType QtExp::getNodeType() const
 {
     return nodeType;
@@ -87,4 +83,16 @@ inline QtNode::QtNodeType QtArccos::getNodeType() const
 inline QtNode::QtNodeType QtArctan::getNodeType() const
 {
     return nodeType;
+}
+inline QtNode::QtNodeType QtCeil::getNodeType() const
+{
+return nodeType;
+}
+inline QtNode::QtNodeType QtFloor::getNodeType() const
+{
+return nodeType;
+}
+inline QtNode::QtNodeType QtRound::getNodeType() const
+{
+return nodeType;
 }

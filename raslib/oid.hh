@@ -20,16 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: oid.hh
- *
- * MODULE:  raslib
- * CLASS:   r_OId
- *
- * COMMENTS:
- *      The class represents an object identifier (OId).
- *
-*/
 
 #ifndef D_OID_HH
 #define D_OID_HH
@@ -38,8 +28,11 @@ rasdaman GmbH.
 #include <string>
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc: 
+/**
  * Class r_OId represents an object identifier.
  */
 class r_OId
@@ -48,13 +41,13 @@ public:
     /// default constructor
     r_OId() = default;
     /// constructs an OId from the string representation
-    r_OId(const char *);
+    explicit r_OId(const char *);
     /// constructor getting oid parts
     r_OId(const char *initSystemName, const char *initBaseName, long long initLocalOId);
     r_OId(const r_OId &) = default;
     r_OId &operator=(const r_OId &o);
-    
-    virtual ~r_OId() = default;
+
+    ~r_OId() = default;
 
     /// debug output
     void print_status(std::ostream &s) const;
@@ -66,9 +59,9 @@ public:
     /// operator for not equal
     bool operator!=(const r_OId &) const;
     /// operator for greater than
-    bool operator> (const r_OId &) const;
+    bool operator>(const r_OId &) const;
     /// operator for less than
-    bool operator< (const r_OId &) const;
+    bool operator<(const r_OId &) const;
     /// operator for greater or equal than
     bool operator>=(const r_OId &) const;
     /// operator for less than or equal

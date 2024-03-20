@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: collection.hh
- *
- * MODULE:  rasodmg
- * CLASS:   r_Collection
- *
- * COMMENTS:
- *      None
-*/
 
 #ifndef _D_COLLECTION_
 #define _D_COLLECTION_
@@ -39,19 +30,15 @@ template <class T>
 class r_Iterator;
 
 //@ManMemo: Module: {\bf rasodmg}
-
-/*@Doc:
-
- Basic class of a collection. Possible subclasses are \Ref{r_Set},
- \Ref{r_Bag} and \Ref{r_List}. The protected members isOrdered and
- allowsDuplicates are not initialized here, they have to be initialized
- in the respective subclasses.
-
-*/
-
 /**
   * \ingroup Rasodmgs
   */
+
+/**
+ Basic class of a collection. Possible subclasses are r_Set. The protected
+ members isOrdered and allowsDuplicates are not initialized here, they have to
+ be initialized in the respective subclasses.
+*/
 template <class T>
 class r_Collection : public r_Object
 {
@@ -72,14 +59,14 @@ public:
     unsigned long cardinality() const;
 
     /// tells if the collection is empty or not
-    bool           is_empty() const;
+    bool is_empty() const;
     /// tells if the collection is ordered or not
-    bool           is_ordered() const;
+    bool is_ordered() const;
     /// tells if the collections allowes duplicates or not
-    bool           allows_duplicates() const;
+    bool allows_duplicates() const;
 
     /// asks about the containment of a specific element
-    bool  contains_element(const T &element) const;
+    bool contains_element(const T &element) const;
     /// inserts an alement at the beginning
     virtual void insert_element(const T &element, int no_modification = 0);
     /**
@@ -201,11 +188,12 @@ protected:
 };
 
 class r_GMarray;
-extern template class r_Collection<r_GMarray*>;
+extern template class r_Collection<r_GMarray *>;
 class r_Ref_Any;
 extern template class r_Collection<r_Ref_Any>;
 
-template <typename T> class r_Ref;
+template <typename T>
+class r_Ref;
 class r_Object;
 extern template class r_Collection<r_Ref<r_Object>>;
 extern template class r_Collection<r_Ref<r_GMarray>>;

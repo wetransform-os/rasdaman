@@ -1,0 +1,1 @@
+select encode(clip(c, multipolygon( ((5 30 40, 5 0 80, 5 60 150, 5 120 80, 5 70 60)), ((5 0 0, 5 30 0, 5 30 30)) ) ), "json") from test_grey3d_empty_in_middle as c

@@ -30,7 +30,7 @@ class IrregularUserAxis(UserAxis):
     DEFAULT_RESOLUTION = 1
 
     def __init__(self, name, resolution, order, min, directPositions, max=None, type=UserAxisType.NUMBER,
-                 dataBound=True, statements=[], slice_group_size=None):
+                 dataBound=True, statements=[], slice_group_size=None, areas_of_validity=None):
         """
         An IrregularUserAxis is a UserAxis with direct positions and assumed resolution of 1.
         :param str name: The name of the axis
@@ -44,7 +44,10 @@ class IrregularUserAxis(UserAxis):
         :param str directPositions: the list of direct positions of the slices on this axis
         :param array statements: an array of statements to be executed before evaluation, e.g. import
         :param int slice_group_size: group irregular axes' coefficients by this interval
+        :param areas_of_validity: list of object with properties: start and end, each object represents the footprint
+               of a coefficient (e.g. "2015-01-01":"2015-03-07") - optional setting
         """
         UserAxis.__init__(self, name, resolution, order, min, max, type, dataBound, statements)
         self.directPositions = directPositions
         self.slice_group_size = slice_group_size
+        self.areas_of_validity = areas_of_validity

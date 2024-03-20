@@ -20,15 +20,11 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-#include <set>
-#include <sstream>
-
-#include <cstdint>
-#include <boost/format.hpp>
-
-#include "common/crypto/crypto.hh"
-#include <logging.hh>
+#include "rascontrol.hh"
+#include "version.h"
 #include "include/globals.hh"
+#include "common/crypto/crypto.hh"
+#include "common/exceptions/runtimeexception.hh"
 
 #include "databasehostmanager.hh"
 #include "databasemanager.hh"
@@ -38,31 +34,33 @@
 #include "usermanager.hh"
 #include "user.hh"
 
-#include "rascontrol.hh"
-#include "version.h"
+#include <logging.hh>
 
+#include <set>
+#include <sstream>
+
+#include <cstdint>
+#include <boost/format.hpp>
 
 namespace rasmgr
 {
-using common::Crypto;
 
 using boost::format;
-
-using std::list;
 
 RasControl::RasControl(std::shared_ptr<UserManager> userManager,
                        std::shared_ptr<DatabaseHostManager> dbHostManager,
                        std::shared_ptr<DatabaseManager> dbManager,
                        std::shared_ptr<ServerManager> serverManager,
                        std::shared_ptr<PeerManager> peerManager,
-                       RasManager *rasmanager):
-    userManager_ {userManager},
-    dbHostManager_ {dbHostManager},
-    dbManager_ {dbManager},
-    serverManager_ {serverManager},
-    peerManager_ {peerManager},
-    rasmanager_ {rasmanager}
-{}
+                       RasManager *rasmanager)
+    : userManager_{userManager},
+      dbHostManager_{dbHostManager},
+      dbManager_{dbManager},
+      serverManager_{serverManager},
+      peerManager_{peerManager},
+      rasmanager_{rasmanager}
+{
+}
 
 std::string RasControl::deprecatedCommand()
 {
@@ -85,16 +83,6 @@ std::string RasControl::defineDbHost(const DefineDbHost &dbHostData)
         if (dbHostData.has_connect())
         {
             dbhProp.set_connect_string(dbHostData.connect());
-        }
-
-        if (dbHostData.has_user())
-        {
-            dbhProp.set_user_name(dbHostData.user());
-        }
-
-        if (dbHostData.has_passwd())
-        {
-            dbhProp.set_password(dbHostData.passwd());
         }
 
         this->dbHostManager_->defineDatabaseHost(dbhProp);
@@ -128,16 +116,6 @@ std::string RasControl::changeDbHost(const ChangeDbHost &dbHostData)
             dbhProto.set_connect_string(dbHostData.n_connect());
         }
 
-        if (dbHostData.has_n_user())
-        {
-            dbhProto.set_user_name(dbHostData.n_user());
-        }
-
-        if (dbHostData.has_n_passwd())
-        {
-            dbhProto.set_password(dbHostData.n_passwd());
-        }
-
         if (dbHostData.has_n_name())
         {
             dbhProto.set_host_name(dbHostData.n_name());
@@ -157,7 +135,6 @@ std::string RasControl::changeDbHost(const ChangeDbHost &dbHostData)
     }
 
     return message;
-
 }
 
 std::string RasControl::removeDbHost(const RemoveDbHost &dbHostData)
@@ -304,7 +281,7 @@ std::string RasControl::listDb(const ListDb &listDbData)
             {
                 DatabaseProto dbProto = dbMgrData.databases(i).database();
 
-                ss << (format("\r\n%2d. %-20s  %d") % 1 %  dbProto.name() % dbProto.sessions_size());
+                ss << (format("\r\n%2d. %-20s  %d") % 1 % dbProto.name() % dbProto.sessions_size());
             }
         }
     }
@@ -342,7 +319,7 @@ std::string RasControl::listDb(const ListDb &listDbData)
         {
             ss << this->formatErrorMessage("Invalid database host name.");
         }
-    }//assume -all was passed in
+    }  //assume -all was passed in
     else
     {
         DatabaseMgrProto dbMgrData = this->dbManager_->serializeToProto();
@@ -354,7 +331,7 @@ std::string RasControl::listDb(const ListDb &listDbData)
         {
             DatabaseProto dbProto = dbMgrData.databases(i).database();
 
-            ss << (format("\r\n%2d. %-20s  %d") % (i + 1) %  dbProto.name() % dbProto.sessions_size());
+            ss << (format("\r\n%2d. %-20s  %d") % (i + 1) % dbProto.name() % dbProto.sessions_size());
         }
     }
 
@@ -411,7 +388,6 @@ std::string RasControl::defineUser(const DefineUser &userData)
     if (userData.has_passwd())
     {
         password = userData.passwd();
-
     }
     else
     {
@@ -419,9 +395,9 @@ std::string RasControl::defineUser(const DefineUser &userData)
     }
 
     //If there is no password passed in, set the user name as the password
-    if (Crypto::isMessageDigestAvailable(DEFAULT_DIGEST))
+    if (common::Crypto::isMessageDigestAvailable(DEFAULT_DIGEST))
     {
-        userProp.set_password(Crypto::messageDigest(password, DEFAULT_DIGEST));
+        userProp.set_password(common::Crypto::messageDigest(password, DEFAULT_DIGEST));
     }
     else
     {
@@ -477,7 +453,7 @@ std::string RasControl::changeUser(const ChangeUser &userData)
     UserAdminRightsProto *adminRights = new UserAdminRightsProto();
     bool hasAdminRights = false;
     UserDatabaseRightsProto *dbRights = new UserDatabaseRightsProto();
-    bool hasDbRights =  false;
+    bool hasDbRights = false;
     UserProto userProp;
 
     std::string message = "";
@@ -491,9 +467,9 @@ std::string RasControl::changeUser(const ChangeUser &userData)
 
         if (userData.has_n_passwd())
         {
-            if (Crypto::isMessageDigestAvailable(DEFAULT_DIGEST))
+            if (common::Crypto::isMessageDigestAvailable(DEFAULT_DIGEST))
             {
-                userProp.set_password(Crypto::messageDigest(userData.n_passwd(), DEFAULT_DIGEST));
+                userProp.set_password(common::Crypto::messageDigest(userData.n_passwd(), DEFAULT_DIGEST));
             }
             else
             {
@@ -575,7 +551,8 @@ std::string RasControl::listUser(const ListUser &userData)
     ss << "List of defined users:";
     for (int i = 0; i < userMgrData.users_size(); ++i)
     {
-        ss << "\r\n" << std::setw(2) << counter << ". " << userMgrData.users(i).name();
+        ss << "\r\n"
+           << std::setw(2) << counter << ". " << userMgrData.users(i).name();
         if (displayRights)
         {
             ss << " [" << this->convertAdminRights(userMgrData.users(i).admin_rights()) << "]";
@@ -645,7 +622,8 @@ std::string RasControl::listInpeer()
     ss << "List of inpeers:\r\n";
     for (int i = 0; i < peerMgrData.inpeers_size(); ++i)
     {
-        ss << "\r\n" << std::setw(2) << (i + 1) << ". " << peerMgrData.inpeers(i).host_name();
+        ss << "\r\n"
+           << std::setw(2) << (i + 1) << ". " << peerMgrData.inpeers(i).host_name();
     }
 
     return ss.str();
@@ -711,7 +689,8 @@ std::string RasControl::listOutpeer()
     ss << "List of outpeers:\r\n";
     for (int i = 0; i < peerMgrData.outpeers_size(); ++i)
     {
-        ss << "\r\n" << std::setw(2) << (i + 1) << ". " << peerMgrData.outpeers(i).host_name() << " " << peerMgrData.outpeers(i).port();
+        ss << "\r\n"
+           << std::setw(2) << (i + 1) << ". " << peerMgrData.outpeers(i).host_name() << " " << peerMgrData.outpeers(i).port();
     }
 
     return ss.str();
@@ -932,7 +911,6 @@ std::string RasControl::listServerGroup(const ListServerGroup &listData)
 
     ss << "\r\n";
 
-
     //List information about a particular group
     if (listData.has_group_name())
     {
@@ -940,7 +918,7 @@ std::string RasControl::listServerGroup(const ListServerGroup &listData)
         {
             if (serverMgrData.server_groups(i).name() == listData.group_name())
             {
-                ServerGroupProto groupData =  serverMgrData.server_groups(i);
+                ServerGroupProto groupData = serverMgrData.server_groups(i);
                 std::string isRunning = groupData.running() ? "UP" : "DOWN";
                 std::string isAvailable = groupData.available() ? "YES" : "NO";
 
@@ -956,21 +934,21 @@ std::string RasControl::listServerGroup(const ListServerGroup &listData)
                 }
                 else
                 {
-                    ss << (format("%2d. %-20s %-8s    %-20s   %-20s  %-4s   %-3s\r\n") % 1 % groupData.name() % "(RASNET)" % groupData.host() % groupData.db_host() %  isRunning % isAvailable);
+                    ss << (format("%2d. %-20s %-8s    %-20s   %-20s  %-4s   %-3s\r\n") % 1 % groupData.name() % "(RASNET)" % groupData.host() % groupData.db_host() % isRunning % isAvailable);
                 }
 
                 break;
             }
         }
     }
-    else if (listData.has_host()) //list information about servers running on a host
+    else if (listData.has_host())  //list information about servers running on a host
     {
         int counter = 1;
         for (int i = 0; i < serverMgrData.server_groups_size(); ++i)
         {
             if (serverMgrData.server_groups(i).name() == listData.host())
             {
-                ServerGroupProto groupData =  serverMgrData.server_groups(i);
+                ServerGroupProto groupData = serverMgrData.server_groups(i);
                 std::string isRunning = groupData.running() ? "UP" : "DOWN";
                 std::string isAvailable = groupData.available() ? "YES" : "NO";
 
@@ -986,19 +964,19 @@ std::string RasControl::listServerGroup(const ListServerGroup &listData)
                 }
                 else
                 {
-                    ss << (format("%2d. %-20s %-8s    %-20s   %-20s  %-4s   %-3s\r\n") % counter % groupData.name() % "(RASNET)" % groupData.host() % groupData.db_host() %  isRunning % isAvailable);
+                    ss << (format("%2d. %-20s %-8s    %-20s   %-20s  %-4s   %-3s\r\n") % counter % groupData.name() % "(RASNET)" % groupData.host() % groupData.db_host() % isRunning % isAvailable);
                 }
 
                 counter++;
             }
         }
     }
-    else   //list information about all the servers
+    else  //list information about all the servers
     {
         int counter = 1;
         for (int i = 0; i < serverMgrData.server_groups_size(); ++i)
         {
-            ServerGroupProto groupData =  serverMgrData.server_groups(i);
+            ServerGroupProto groupData = serverMgrData.server_groups(i);
             std::string isRunning = groupData.running() ? "UP" : "DOWN";
             std::string isAvailable = groupData.available() ? "YES" : "NO";
 
@@ -1014,7 +992,7 @@ std::string RasControl::listServerGroup(const ListServerGroup &listData)
             }
             else
             {
-                ss << (format("%2d. %-20s %-8s    %-20s   %-20s  %-4s   %-3s\r\n") % counter % groupData.name() % "(RASNET)" % groupData.host() % groupData.db_host() %  isRunning % isAvailable);
+                ss << (format("%2d. %-20s %-8s    %-20s   %-20s  %-4s   %-3s\r\n") % counter % groupData.name() % "(RASNET)" % groupData.host() % groupData.db_host() % isRunning % isAvailable);
             }
 
             counter++;
@@ -1098,7 +1076,7 @@ std::string RasControl::stopRasMgr()
     }
     catch (...)
     {
-        message = "Stoping servers failed for unknown reason.";
+        message = "Stopping servers failed for unknown reason.";
     }
 
     return message;
@@ -1180,7 +1158,6 @@ std::string RasControl::convertAdminRights(const UserAdminRightsProto &adminRigh
     }
 
     return ss.str();
-
 }
 std::string RasControl::convertDbRights(const UserDatabaseRightsProto &dbRights)
 {
@@ -1255,7 +1232,7 @@ void RasControl::stopRasmgrAsync()
 bool RasControl::hasInfoRights(const std::string &userName, const std::string &password)
 {
     std::shared_ptr<User> user;
-    
+
     if ((user = authenticateUser(userName, password)) != nullptr)
     {
         return user->getAdminRights().hasInfoRights();
@@ -1269,7 +1246,7 @@ bool RasControl::hasInfoRights(const std::string &userName, const std::string &p
 bool RasControl::hasConfigRights(const std::string &userName, const std::string &password)
 {
     std::shared_ptr<User> user;
-    
+
     if ((user = authenticateUser(userName, password)) != nullptr)
     {
         return user->getAdminRights().hasSystemConfigRights();
@@ -1283,7 +1260,7 @@ bool RasControl::hasConfigRights(const std::string &userName, const std::string 
 bool RasControl::hasUserAdminRights(const std::string &userName, const std::string &password)
 {
     std::shared_ptr<User> user;
-    
+
     if ((user = authenticateUser(userName, password)) != nullptr)
     {
         return user->getAdminRights().hasAccessControlRights();
@@ -1328,5 +1305,4 @@ std::shared_ptr<User> RasControl::authenticateUser(const std::string &userName, 
     }
 }
 
-
-}
+}  // namespace rasmgr

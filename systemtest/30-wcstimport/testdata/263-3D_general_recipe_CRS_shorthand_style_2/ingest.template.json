@@ -1,0 +1,66 @@
+{
+  "config": {
+    "service_url": "   PETASCOPE_URL",
+    "tmp_directory": "/tmp/",
+    "automated": true,
+    "track_files": false,
+    "subset_correction": false,
+    "blocking": false,
+    "insitu" : false,
+    "mock": false
+  },
+  "input": {
+    "coverage_id": "test_3D_general_recipe_CRS_shorthand_style_2",
+    "paths": [
+      "*.nc"
+    ]
+  },
+  "recipe": {
+    "name": "general_coverage",
+    "options": {
+     "tiling": "ALIGNED [0:*, 0:*, 0:*] tile size 4194304",    
+      "coverage": {
+        "crs": "EPSG/0/4326+OGC/0/AnsiDate?axis-label=\"date\"",
+        "metadata": {
+          "type": "xml",
+          "global": {
+            "Title": "'This is a test coverage'"
+          }
+        },
+        "slicer": {
+          "type": "netcdf",
+	  "pixelIsPoint": true,
+          "bands": [
+            {
+              "name": "LAI",
+              "variable": "LAI",
+              "description": "Leaf Area Index",
+              "nilReason": "The nil value represents an error in the sensor.",
+	      "nilValue": "-9999",
+              "identifier": "LAI",
+              "uomCode": "${netcdf:variable:LAI:units}"
+            }
+          ],
+          "axes": {
+            "date": {
+              "min": "datetime(regex_extract('${file:name}', '(.+?)(Z.+)', 1), 'YYYY-MM-DDTHH:mm:ss.SSS')",
+              "type": "ansidate",
+              "irregular": true,
+	      "dataBound": false
+            },
+          "Long": {
+              "min": "${netcdf:variable:lon:min}",
+              "max": "${netcdf:variable:lon:max}",
+              "resolution": "0.0027777771603223114"
+            },
+            "Lat": {
+              "min": "${netcdf:variable:lat:min}",
+              "max": "${netcdf:variable:lat:max}",
+              "resolution": "-0.0027777771603223114"
+            }
+          }
+        }
+      }
+     }
+    }
+}

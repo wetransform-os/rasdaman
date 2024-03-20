@@ -21,8 +21,14 @@
  */
 package petascope.util;
 
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
+import petascope.core.Pair;
 import petascope.core.XMLSymbols;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -52,6 +58,10 @@ import static org.rasdaman.config.ConfigManager.OWS;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
+
 /**
  * String utilities.
  *
@@ -78,11 +88,25 @@ public class StringUtil {
     public static final String POST_XML_SOAP_CONTENT_TYPE = "application/soap+xml";
   
     public static final Pattern squareBracketsPattern = Pattern.compile("\\[(.*?)\\]");
-    
+    public static final Pattern parenthesesPattern = Pattern.compile("\\((.*?)\\)");
+
+    public static final String HEX_COLOR_PREFIX = "0x";
+    public static final String JAVA_HEX_COLOR_PREFIX = "#";
+    public static final String HEX_RGB_COLOR_FORMAT = "0xRRGGBB";
+
+
+    // e.g. "2015-02-03":"2015-06-06"
+    public static final String START_AND_END_TEMPORAL_DELIMITER = "\":\"";
+    public static final String START_AND_END_NON_TEMPORAL_DELIMITER = ":";
+
     /**
      * For coverages created temporarily, used for WCPS decode() from uploaded files
      */
     public static final String TEMP_COVERAGE_PREFIX = "WCPS_TEMP_COV";
+
+    private static final ScriptEngineManager manager = new ScriptEngineManager();
+    private static final ScriptEngine engine = manager.getEngineByName("JavaScript");
+
 
 
     private static String COMMA = ",";
@@ -142,6 +166,13 @@ public class StringUtil {
         return s;
     }
 
+    public static String quoteIfNotAlready(String s) {
+        if (s.startsWith("\"")) {
+            return s;
+        }
+
+        return quote(s);
+    }
     public static String quote(String s) {
         return "\"" + s + "\"";
     }
@@ -155,6 +186,10 @@ public class StringUtil {
             return s.substring(1, s.length() - 1);
         }
         return s;
+    }
+
+    public static boolean isQuoted(String s) {
+        return s.startsWith("\"") && s.endsWith("\"");
     }
 
     public static String combine(String sep, String... s) {
@@ -514,12 +549,25 @@ public class StringUtil {
         String output = input.replace("\"", "");
         return output;
     }
+
+    public static String addQuotesIfNotExists(String input) {
+        if (input.startsWith("\"")) {
+            return input;
+        }
+
+        return "\"" + input + "\"";
+    }
     
     /**
      * Strip any , in aa string
      */
     public static String stripCommas(String input) {
         String output = input.replace(",", "");
+        return output;
+    }
+
+    public static String stripSquareBrackets(String input) {
+        String output = input.replace("[", "").replace("]", "");
         return output;
     }
 
@@ -718,6 +766,39 @@ public class StringUtil {
     }
     
     /**
+     * Extract substring inside square brackets, e.g. "(3:5),(4:6)"
+     * returns a list of "3:5", "4:6"
+     */    
+    public static List<String> extractStringsBetweenParentheses(String str) {
+        List<String> results = new ArrayList<>();
+        // extract values inside ( )       
+        Matcher m = parenthesesPattern.matcher(str);
+
+        while (m.find()) {
+            String v = m.group(1);
+            results.add(v);
+        }
+        
+        return results;
+    }
+
+    /**
+     * Get all the texts between XML tags
+     * e.g. str is <a>xx</a><a>yy</a>
+     * return ["xx", "yy"] for tagName is a
+     */
+    public static List<String> extractTextsBetweenTags(String str, String tagName) {
+        Pattern TAG_REGEX = Pattern.compile("<" + tagName + ">(.+?)</" + tagName + ">", Pattern.DOTALL);
+        final List<String> tagValues = new ArrayList<>();
+        final Matcher matcher = TAG_REGEX.matcher(str);
+        while (matcher.find()) {
+            tagValues.add(matcher.group(1));
+        }
+
+        return tagValues;
+    }
+
+    /**
      * e.g. 123.567000000000000000000 -> 123.567
      *      123.000 -> 123
      */
@@ -740,6 +821,180 @@ public class StringUtil {
         } else {
             return Boolean.valueOf(value);
         }
+    }
+    
+    
+    /**
+     * NOTE: all keys of KVP Map should be lower case
+     */
+    public static void putKeyToKVPMaps(Map<String, String[]> kvpMap, String key, String value) {
+        String[] array = new String[] { value };
+        kvpMap.put(key.toLowerCase(), array);
+    }
+    
+    /**
+     * Check if input string is valid printable ASCII ttps://en.wikipedia.org/wiki/ASCII#Printable_characters
+     * and it doesn't contain `\` character
+     */
+    public static boolean isValidPasswordCharacter(String str) {
+        for (int i = 0; i < str.length(); i++) {
+            int c = str.charAt(i);
+            if (! (c >= 33 && c <= 126) || c == '\\' ) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Given a string, find the start index of a pattern in the string
+     */
+    public static int getIndexOfPattern(Pattern pattern, String str) {
+        Matcher matcher = pattern.matcher(str);
+        if (matcher.find()) {
+            return matcher.start();
+        }
+
+        return -1;
+    }
+
+    public static String stripOpenAndCloseParentheses(String str) {
+        String result = StringUtils.replaceOnce(str, "(", "");
+        result = StringUtils.replaceOnce(result, ")", "");
+
+        return result;
+    }
+
+    /**
+     * Replace "from" to "to" in a given string
+     *
+     */
+    public static String replaceLast(String string, String from, String to) {
+        int lastIndex = string.lastIndexOf(from);
+        if (lastIndex < 0) {
+            return string;
+        }
+
+        String tail = string.substring(lastIndex).replaceFirst(from, to);
+        return string.substring(0, lastIndex) + tail;
+    }
+
+    /**
+     * Given a value of a KVP parameter, check if it is a >= 0 number to return
+     */
+    public static Integer getNonNegativeInteger(String prameterName, String input, Integer defaultValue, boolean isNullable) throws PetascopeException {
+        int result = 0;
+        PetascopeException exception = new PetascopeException(ExceptionCode.InvalidRequest, 
+                                            "Value of parameter: " + prameterName + " must be interger and >= 0. Given: " + input);
+        if (input != null) {
+            try {
+                result = Integer.parseInt(input);
+            } catch (NumberFormatException ex) {
+                throw exception;
+            }
+            
+            if (result < 0) {
+                throw exception;
+            } else {
+                return result;
+            }
+        } else if (defaultValue != null) {
+            return defaultValue;
+        }
+        
+        if (!isNullable) {
+            throw exception;
+        }
+        
+        return null;
+    }
+
+
+    /**
+     * e.g. backgroundColor is 0xFFFFFF (0xRRGGBB format)
+     *
+     */
+    public static Triple<Integer, Integer, Integer> parseHexRGBColor(String colorStr) throws PetascopeException {
+        PetascopeException exception = new PetascopeException(ExceptionCode.InvalidRequest, "Given color '" + colorStr + "' is not hexadecimal red-green-blue value.");
+        if (!colorStr.startsWith(HEX_COLOR_PREFIX)) {
+            throw exception;
+        }
+
+        colorStr = colorStr.replace(HEX_COLOR_PREFIX, JAVA_HEX_COLOR_PREFIX);
+        Color color = null;
+
+        try {
+            color = Color.decode(colorStr);
+        } catch (Exception ex) {
+            throw exception;
+        }
+
+        Triple<Integer, Integer, Integer> result = new ImmutableTriple<>(color.getRed(), color.getGreen(), color.getBlue());
+        return result;
+    }
+
+    /**
+     * Evaluate some simple mathematical expressions in a string to a value in a string.
+     * e.g. str = "3 + 5" -> return output = "8"
+     *
+     */
+    public static String eval(String str) throws PetascopeException {
+        if (str.contains("[")) {
+            // e.g. date[0] from axisIterator in OVER clause
+            return str;
+        }
+        String result = null;
+        try {
+            result = String.valueOf(engine.eval(str));
+        } catch (ScriptException ex) {
+            throw new PetascopeException(ExceptionCode.InternalComponentError, "String: " + str + " is not valid to evaluate. Reason: " + ex.getMessage());
+        }
+        return result;
+    }
+
+
+    /**
+     * e.g. "2015-03-05":"2015-06-07" -> Pair("2015-03-05", "2015-06-07")
+     */
+    public static Pair<String, String> parseLowerAndUpperBoundsPair(String pairStr) {
+        Pair<String, String> result;
+        String delimiter = START_AND_END_NON_TEMPORAL_DELIMITER;
+        boolean isTemporalAxis = pairStr.startsWith("\"");
+
+        if (isTemporalAxis) {
+            delimiter = START_AND_END_TEMPORAL_DELIMITER;
+        }
+
+        String[] tmps = pairStr.split(delimiter);
+        String startValue = tmps[0];
+        String endValue = null;
+
+        if (tmps.length > 1) {
+            endValue = tmps[1];
+        }
+
+        if (isTemporalAxis) {
+            startValue = startValue + "\"";
+            if (endValue != null) {
+                endValue = "\"" + endValue;
+            }
+        }
+
+        result = new Pair<>(startValue, endValue);
+        return result;
+    }
+
+    public static boolean isAsterisk(String str) {
+        return str.trim().equals("*");
+    }
+
+    public static boolean startsWithQuote(String str) {
+        return str.startsWith("\"");
+    }
+
+    public static String removeWhiteSpaces(String str) {
+        return str.replaceAll("\\s","");
     }
     
 }

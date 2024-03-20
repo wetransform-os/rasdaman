@@ -50,7 +50,7 @@ ERRTXTS_FILE="$SCRIPT_DIR/../bin/errtxts"
 ERRTXTS_FILE_RETRY="$SCRIPT_DIR/../../bin/errtxts"
 
 # Output template file (e.g: rasj: RasErrorTexts.java.in file)
-TEMPLATE_FILE="$1"
+TEMPLATE_FILE="$1"  
 
 # Template variable which is replaced by real content from errtxts in OUTPUT file
 TEMPLATE_VARIABLE="\$ARRAY_OF_ERROR_MESSAGES_FROM_ERRTXTS_FILE"

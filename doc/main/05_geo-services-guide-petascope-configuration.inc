@@ -40,7 +40,7 @@ Database
 -   ``spring.datasource.jdbc_jar_path`` absolute path to the JDBC jar file for
     connecting to the database configured in setting ``spring.datasource.url``.
     If left empty, the default PostgreSQL JDBC driver will be used. 
-    To use a different DBMS (e.g. H2), please download the corresponding JDBC
+    To use a different DBMS (e.g. H2) download the corresponding JDBC
     driver, and set the path to it.
 
     - Default: empty
@@ -99,7 +99,7 @@ Database
 -   ``metadata_jdbc_jar_path`` absolute path to the JDBC jar file for
     connecting to the database configured in setting ``metadata_url``.
     If left empty, the default PostgreSQL JDBC driver will be used. 
-    To use a different DBMS (e.g. H2), please download the corresponding JDBC
+    To use a different DBMS (e.g. H2) download the corresponding JDBC
     driver, and set the path to it.
 
     - Default: empty
@@ -163,7 +163,7 @@ General
 
     - Default: empty
 
-    - Need to change: **YES** when rasdaman-geo runs behind a proxy
+    - Need to change: **YES** when rasdaman-geo runs behind a proxy.
 
 
 -   ``max_wms_cache_size`` set the maximum amount of memory (in bytes) to use
@@ -276,12 +276,25 @@ Rasdaman
     - Need to change: NO, unless changed in rasdaman (not recommended)
 
 
--   ``rasdaman_user`` set the user for **unauthenticated** read-only access to
-    rasdaman. Any request which does not provide credentials for a rasdaman user in
-    basic authentication format in the HTTP Authorization header, will entail
-    executing read-only operations with this user in rasdaman.
-    It is best to limit this user to read-only access in rasdaman by granting
-    the ``R`` permission to it.
+-   ``rasdaman_user`` set the user for **unauthenticated** access to rasdaman.
+
+    When authentication is disabled by setting ``authentication_type=`` in
+    petascope.properties, this user is used to run ``SELECT`` rasql queries,
+    so it is best to limit it to read-only access in rasdaman (e.g. by granting
+    the ``R`` role to it).
+
+    When authentication is enabled by setting ``authentication_type=basic_header``,
+    then this setting allows to control whether any unauthenticated access is
+    enabled.
+
+    If it is not set to anything with ``rasdaman_user=``, then unauthenticated
+    access is disabled and any request without credentials will be immediately 
+    denied.
+
+    If it is set to some valid rasdaman user (e.g. ``rasdaman_user=rasguest``),
+    then unauthenticated requests which do not specify any credentials will
+    be executed with this user and its corresponding password set with
+    ``rasdaman_pass``.
 
     - Default: ``rasguest``
 
@@ -297,14 +310,15 @@ Rasdaman
     - Need to change: **YES** when changed in rasdaman    
 
 
--   ``rasdaman_admin_user`` this user is used to map updating OGC requests 
-    (e.g. during data import, or deleting coverages) to updating rasql queries, for
-    any request which does not provide credentials for a rasdaman user in
-    basic authentication format in the HTTP Authorization header.
-    Additionally, these credentials are used internally for various tasks which require
-    admin access rights in rasdaman.
+-   ``rasdaman_admin_user`` when authentication is disabled with
+    ``authentication_type=``, this user will be used for executing update
+    queries in rasdaman, if they come from an allowed IP address as configured
+    in :ref:`allow_write_requests_from <conf-allow-write-requests-from>`. When
+    authentication is enabled, these credentials are not used for executing
+    user requests. However, in both cases they are also needed internally for
+    various tasks.
 
-    Generally, this user should be granted full admin permissions.
+    Generally, this user should be granted the ``RW`` rasdaman role.
 
     - Default: ``rasadmin``
 
@@ -348,6 +362,23 @@ Rasdaman
 
 Security
 ^^^^^^^^
+
+-   ``authentication_type`` specifies how to authenticate requests.
+    Valid values are:
+
+    - ``basic_header`` requires requests to attach ``username:password`` encoded
+      as a Base64 string to the HTTP header. If the ``rasdaman_user`` setting is
+      not empty, however, requests without credentials will be automatically
+      mapped to the user and password configured in ``rasdaman_user`` and
+      ``rasdaman_pass``; thereby unauthenticated access can be allowed, but
+      limited to some restricted rasdaman user.
+
+    - An empty string, i.e. ``authentication_type=``, disables authentication.
+      All requests will be forwarded to rasdaman with the credentials configured
+      with ``rasdaman_user`` / ``rasdaman_pass`` for read queries, and 
+      ``rasdaman_admin_user`` / ``rasdaman_admin_pass`` for update queries.
+      
+    - Default if the setting does not exist, it is set to ``basic_header``.
 
 
 .. _conf-allow-write-requests-from:
@@ -432,7 +463,15 @@ See the `log4j 1.2 document for more details
         #log4j.appender.rollingFile=org.apache.log4j.RollingFileAppender
 
         # 2. Rolling files by time interval (e.g. once a day, or once a month)
-        log4j.appender.rollingFile.rollingPolicy.ActiveFileName=@LOG_DIR@/petascope.log  
+        log4j.appender.rollingFile.rollingPolicy.ActiveFileName=@LOG_DIR@/petascope.log
         log4j.appender.rollingFile.rollingPolicy.FileNamePattern=@LOG_DIR@/petascope.%d{yyyyMMdd}.log.gz
         log4j.appender.rollingFile=org.apache.log4j.rolling.RollingFileAppender  
         log4j.appender.rollingFile.rollingPolicy=org.apache.log4j.rolling.TimeBasedRollingPolicy
+
+.. _conf-rasj-logging-level:
+
+Logging level for rasj is configured via the optional setting ``rasj_logging_level``.
+The valid values for logging are ``ERROR``, ``WARN``, ``DEBUG``, and ``TRACE``.
+By default the logging level is ``WARN`` if this setting is not set in the configuration
+file.
+

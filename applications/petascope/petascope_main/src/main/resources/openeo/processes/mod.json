@@ -1,0 +1,108 @@
+{
+    "id": "mod",
+    "summary": "Modulo",
+    "description": "Remainder after division of `x` by `y` (*`mod(x, y)`*) for both integer and floating-point numbers.\n\nEach operand can be a scalar number, or a datacube. If both operands are datacubes, they must have matching domain sets.\n\n\nThe result is a scalar number if both operands are scalars, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element types of the operands:\n\n```\n| first operand type   | second operand type   | result type            |\n|----------------------|-----------------------|------------------------|\n| X                    | double                | double                 |\n| [unsigned] int       | float                 | double                 |\n| X                    | float                 | float                  |\n| unsigned X           | unsigned <y>          | unsigned max(X, Y) + 1 |\n| X                    | Y                     | signed(max(X, Y) + 1)  |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The dividend.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "y",
+            "description": "The divisor.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "The computed remainder after division.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": 5,
+                "y": 2.5
+            },
+            "returns": 0.0
+        },
+        {
+            "arguments": {
+                "x": 5,
+                "y": "DatacubeA"
+            },
+            "returns": "DatacubeB"
+        },
+        {
+            "arguments": {
+                "x": "DatacubeA",
+                "y": "DatacubeB"
+            },
+            "returns": "DatacubeC"
+        },
+        {
+            "arguments": {
+                "x": 5,
+                "y": null
+            },
+            "returns": null
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "https://en.wikipedia.org/wiki/Modulo_operation",
+            "title": "Modulo explained by Wikipedia"
+        }
+    ],
+    "exceptions": {
+        "DivisionByZero": {
+            "message": "Division by zero"
+        }
+    },
+    "wcps": "mod(<x>, <y>)",
+    "categories": [
+        "Arithmetic"
+    ]
+}

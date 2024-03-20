@@ -21,6 +21,15 @@
  */
 package petascope.wcps.subset_axis.model;
 
+import petascope.util.StringUtil;
+import petascope.wcps.metadata.model.Axis;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static petascope.util.ras.RasConstants.RASQL_CLOSE_SUBSETS;
+import static petascope.util.ras.RasConstants.RASQL_OPEN_SUBSETS;
+
 /**
  * Translation node from wcps axis iterator to rasql
  * Example:
@@ -36,29 +45,27 @@ package petascope.wcps.subset_axis.model;
  * @author <a href="mailto:vlad@flanche.net">Vlad Merticariu</a>
  */
 public class AxisIterator extends AxisSpec {
-    /**
-     * Constructor for the class
-     *
-     * @param variableName the name of the variable used to iterate
-     * @param subsetDimension      the interval on which to iterate
-     */
-    public AxisIterator(String variableName, WcpsSubsetDimension subsetDimension) {
-        super(subsetDimension);
-        this.aliasName = variableName;
-    }
 
     /**
      * Constructor for the class
-     * @param variableName the name of the variable used to iterate
-     * @param subsetDimension the interval on which to iterate
-     * @param axisIteratorOrder the order of the axis iterator in the coverage
-     * @param rasqlAliasName the rasql alias name of multiple axis iterators
+     *
+     * @param axisIteratorName the name of the variable used to iterate
+     * @param subsetDimension      the interval on which to iterate
      */
-    public AxisIterator(String variableName, WcpsSubsetDimension subsetDimension, int axisIteratorOrder, String rasqlAliasName) {
+    public AxisIterator(String axisIteratorName, String axisName, WcpsSubsetDimension subsetDimension, Axis axis) {
         super(subsetDimension);
-        this.aliasName = variableName;
-        this.axisIteratorOrder = axisIteratorOrder;
-        this.rasqlAliasName = rasqlAliasName;
+        this.aliasName = axisIteratorName;
+        this.axisName = axisName;
+        this.axis = axis;
+    }
+
+    public AxisIterator(String axisIteratorName, String axisName, WcpsSubsetDimension subsetDimension, Axis axis,
+                        List<WcpsSliceTemporalSubsetDimension> temporalSlicingCoefficientSubsets) {
+        super(subsetDimension);
+        this.aliasName = axisIteratorName;
+        this.axisName = axisName;
+        this.axis = axis;
+        this.temporalSlicingCoefficientSubsets = temporalSlicingCoefficientSubsets;
     }
 
     /**
@@ -90,17 +97,50 @@ public class AxisIterator extends AxisSpec {
         this.axisIteratorOrder = axisIteratorOrder;
     }
     
+    public String getAxisName() {
+        return this.axisName;
+    }
+
+    public boolean isTemporal() {
+        return this.temporalSlicingCoefficientSubsets != null;
+    }
+
     
     /**
-     * Current only support Axis Iterator on 1D interval which already translated to grid interval.
+     * In case axisIterator from $px Y(domain(c, Lat)), then this.axis returns Lat axis
      */
-    public static final String AXIS_NAME_DEAULT = "x";
-    public static final String CRS_DEFAULT = "Index1D";
+    public Axis getAxis() {
+        return this.axis;
+    }
 
     /**
-     * This is the alias name of the axis iterator (e.g: $px x(0:20))
+     *
+     * if axis iterator iterates over the list of coefficients, for now it is list of datetimes
+     */
+    public List<WcpsSliceTemporalSubsetDimension> getTemporalSlicingCoefficientSubsets() {
+        return temporalSlicingCoefficientSubsets;
+    }
+
+    /**
+     * e.g. pt[0]
+     */
+    public String getRasqlRepresentation() {
+        String result = StringUtil.stripDollarSign(this.getRasqlAliasName()) + RASQL_OPEN_SUBSETS + this.getAxisIteratorOrder() + RASQL_CLOSE_SUBSETS;
+        return result;
+    }
+
+    // ---------------- properties
+
+    /**
+     * This is the alias name of the axis iterator (e.g: $px)
      */
     private final String aliasName;
+    
+    // e.g. X
+    private final String axisName;
+    
+    // Source axis is used ONLY for domain($c, axisLabel)
+    private final Axis axis;
 
     /**
      * This is the alias name of axis iterator in Rasql (e.g: px [0:20,0:30:0:50])
@@ -108,4 +148,7 @@ public class AxisIterator extends AxisSpec {
      */
     private String rasqlAliasName;
     private int axisIteratorOrder;
+
+    // NOTE: used only in case axis iterator iterates over a list of datetime values
+    private List<WcpsSliceTemporalSubsetDimension> temporalSlicingCoefficientSubsets = null;
 }

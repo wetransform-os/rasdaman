@@ -26,14 +26,11 @@ namespace rasmgr
 {
 
 ClientCredentials::ClientCredentials(const std::string &userNameArg,
-                                     const std::string &passwordHashArg)
+                                     const std::string &passwordHashArg,
+                                     const std::string &tokenArg)
+    : userName{userNameArg}, passwordHash{passwordHashArg}, token{tokenArg}
 {
-    this->userName = userNameArg;
-    this->passwordHash = passwordHashArg;
 }
-
-ClientCredentials::~ClientCredentials()
-{}
 
 const std::string &ClientCredentials::getPasswordHash() const
 {
@@ -55,4 +52,14 @@ void ClientCredentials::setUserName(const std::string &userNameArg)
     this->userName = userNameArg;
 }
 
+const std::string &ClientCredentials::getToken() const
+{
+    return this->token;
 }
+
+void ClientCredentials::setToken(const std::string &tokenArg)
+{
+    this->token = tokenArg;
+}
+
+}  // namespace rasmgr

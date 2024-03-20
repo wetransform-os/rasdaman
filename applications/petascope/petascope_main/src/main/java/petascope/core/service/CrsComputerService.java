@@ -184,7 +184,7 @@ public class CrsComputerService {
             BigDecimal minInput = numericSubset.getLowerLimit();
             BigDecimal maxInput = numericSubset.getUpperLimit();
             
-            BigDecimal zeroCoefficientValue = ((IrregularAxis) geoAxis).getCoefficientZeroBoundNumber();
+            BigDecimal zeroCoefficientValue = ((IrregularAxis) geoAxis).getCoefficientZeroValueAsNumber();
             BigDecimal normalizedMinInput = minInput.subtract(zeroCoefficientValue);
             BigDecimal normalizedMaxInput = maxInput.subtract(zeroCoefficientValue);
 

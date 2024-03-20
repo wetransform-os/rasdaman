@@ -31,7 +31,6 @@
  *
  ************************************************************/
 
-
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
@@ -44,20 +43,15 @@
 #include "raslib/mddtypes.hh"
 #include "raslib/miterf.hh"
 #include "raslib/minterval.hh"
-#include "raslib/rminit.hh"
-#include "raslib/rmdebug.hh"
 
 using namespace std;
 
-RMINITGLOBALS('C')
-
-
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     r_Dimension dim = 3;
     r_Minterval iv(dim);
     r_Dimension i;
-    double* iterMin, *iterMax, *iterStep;
+    double *iterMin, *iterMax, *iterStep;
     int typeLength = 1;
     long totalSize = typeLength;
     long totalSteps = 1;
@@ -89,20 +83,20 @@ int main(int argc, char* argv[])
         totalSize *= (r_Range)(iterMax[i]) - (r_Range)(iterMin[i]) + 1;
         steps = (int)((iterMax[i] - iterMin[i]) / iterStep[i]);
         totalSteps *= (steps + 1);
-        iterMax[i] = iterMin[i] + (steps + 0.5) * iterStep[i]; // rounding effects
+        iterMax[i] = iterMin[i] + (steps + 0.5) * iterStep[i];  // rounding effects
     }
 
-    char* srcData = new char[totalSize];
+    char *srcData = new char[totalSize];
 
     cout << "Total size: 0x" << hex << totalSize
-         << ", base address " << (void*)srcData << endl;
+         << ", base address " << (void *)srcData << endl;
 
     r_MiterFloat iter(&iv, iterMin, iterMax, iterStep, typeLength, srcData);
 
     long steps = 0;
     while (!iter.isDone())
     {
-        char* cell = iter.nextCell();
+        char *cell = iter.nextCell();
 
         if (cell + typeLength > srcData + totalSize)
         {
@@ -117,11 +111,11 @@ int main(int argc, char* argv[])
         cout << "!!! WRONG NUMBER OF STEPS !!!" << endl;
     }
 
-    delete [] srcData;
+    delete[] srcData;
 
-    delete [] iterMin;
-    delete [] iterMax;
-    delete [] iterStep;
+    delete[] iterMin;
+    delete[] iterMax;
+    delete[] iterStep;
 
     return 0;
 }

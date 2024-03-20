@@ -22,7 +22,7 @@
 package petascope.wcps.encodeparameters.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.Map;
+import java.util.List;
 import petascope.wcps.parameters.model.netcdf.Variable;
 
 /**
@@ -33,16 +33,19 @@ public class Variables {
     public Variables() {
         
     }
-    public Variables(Map<String, Variable> variableValues) {
+    
+    public Variables(List<Variable> variableValues) {
         this.variableValues = variableValues;
     }
-    public void setVariableValues(Map<String, Variable> variableValues) {
+    
+    public void setVariableValues(List<Variable> variableValues) {
         this.variableValues = variableValues;
     }
+    
     @JsonProperty("variables")
-    public Map<String, Variable> getVariableValues () {
+    public List<Variable> getVariableValues () {
         return this.variableValues;
     }
 
-    private Map<String, Variable> variableValues;
+    private List<Variable> variableValues;
 }

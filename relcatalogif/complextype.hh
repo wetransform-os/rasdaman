@@ -53,8 +53,10 @@ class OId;
 class GenericComplexType : public AtomicType
 {
 public:
-    GenericComplexType(const char *name, unsigned int newSize): AtomicType(name, newSize) {}
-    GenericComplexType(const OId &id): AtomicType(id) {}
+    GenericComplexType(const char *name, unsigned int newSize)
+        : AtomicType(name, newSize) {}
+    GenericComplexType(const OId &id)
+        : AtomicType(id) {}
     ~GenericComplexType() override = default;
     virtual unsigned int getReOffset() const = 0;
     virtual unsigned int getImOffset() const = 0;
@@ -74,7 +76,7 @@ public:
     using PartType = r_Float;
 
     ComplexType1();
-    ComplexType1(const OId &id);
+    explicit ComplexType1(const OId &id);
     ComplexType1(const ComplexType1 &);
     ComplexType1 &operator=(const ComplexType1 &);
     ~ComplexType1() override = default;
@@ -109,7 +111,7 @@ public:
     using PartType = r_Double;
 
     ComplexType2();
-    ComplexType2(const OId &id);
+    explicit ComplexType2(const OId &id);
     ComplexType2(const ComplexType2 &);
     ComplexType2 &operator=(const ComplexType2 &);
     ~ComplexType2() override = default;
@@ -144,7 +146,7 @@ public:
     using PartType = r_Short;
 
     CInt16();
-    CInt16(const OId &id);
+    explicit CInt16(const OId &id);
     CInt16(const CInt16 &);
     CInt16 &operator=(const CInt16 &);
     ~CInt16() override = default;
@@ -179,7 +181,7 @@ public:
     using PartType = r_Long;
 
     CInt32();
-    CInt32(const OId &id);
+    explicit CInt32(const OId &id);
     CInt32(const CInt32 &);
     CInt32 &operator=(const CInt32 &);
     ~CInt32() override = default;

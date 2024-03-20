@@ -321,7 +321,7 @@ send WCS requests, for example: ::
     http://localhost:8080/rasdaman/ows?service=WCS&version=2.0.1&request=GetCapabilities
 
 See `example queries
-<http://rasdaman.org/browser/systemtest/testcases_services/test_wcs/queries>`__
+<https://rasdaman.org/trac/browser/systemtest/32-wcs/queries>`__
 in the WCS systemtest which send KVP (key value pairs) GET request and XML POST
 request to Petascope.
 
@@ -683,6 +683,52 @@ Clipping Examples
 .. NOTE::
 
    :ref:`Subspace <sec-clipping-subspace>` clipping is not supported in WCS or WCPS.
+   
+
+.. _wcps-areas-of-validity:
+
+Areas of validity on irregular axes
+-----------------------------------
+
+By default, coefficients on an irregular axes act as single points: subsetting
+on such an axis must specify exactly the coefficient (slice), or contain the
+coefficient itself in the lower/upper bounds (trim).
+
+It is possible to customize this behavior when importing data by specifying
+*areas of validity* which extend the coefficients from single points into
+intervals with a start and an end; this concept is also known as *footprints*
+or *sample space*. Refer to the corresponding `import documentation 
+<wcst_import-areas-of-validity>` on how to specify the areas of validity.
+
+The areas of validity specify a closed interval ``[start, end]`` around each
+coefficient on an irregular axis, such that ``start <= coefficient <= end``.
+Areas of validity may not overlap.
+
+The start and end may be specified with less than millisecond precision, e.g.
+``"2010"`` and ``"2012-05"``. In this case they are expanded to millisecond
+precision internally such that start is the earliest possible datetime
+starting with ``"2010"`` (i.e. ``"2010-01-01T00:00:00.000Z"``) and end is the
+latest possible datetime starting with ``"2012-05"``
+(i.e. ``"2012-05-31T23:59:59.999Z"``). The same semantics applies in
+subsetting in queries, see :ref:`cal-temporal-subsets`.
+
+The effect on subsetting is as follows:
+
+- ''slicing'': a coordinate ``C`` will select the coefficient with area of
+  validity that intersects ``C``. For example if the coefficient is ``"2010"`` 
+  (resolved when importing in petascope as ``"2010-01-01T00:00:00.000Z"``) and
+  its area of validity has start ``"2009-01-01"`` and end ``"2011-12-31"``, then
+  slicing at coordinate ``"2009-05-01"`` will return the coefficient, as will 
+  at ``"2010-12-31"``, and anything else between the start and (not including) 
+  the end.
+
+- ''trimming'': an interval ``lo:hi`` will select all coefficients with areas of
+  validity that intersect or are contained in the ``[lo,hi]`` interval.
+
+If a coverage was imported with custom areas of validity, they will be listed in
+the WCS ``DescribeCoverage`` response under XML element
+``<rasdaman:covMetadata>``.  
+   
 
 .. _ogc-wcst:
 
@@ -747,7 +793,7 @@ Inserting a new coverage into the server's WCS offerings is done using the
     |             |"Float32,Int32,Float32")                         |Default: Byte.                                            |        |
     +-------------+-------------------------------------------------+----------------------------------------------------------+--------+
     |TILING       |rasdaman tiling clause, see                      |Indicates the array tiling to be applied during insertion |No      |
-    |             |`wiki:Tiling <http://rasdaman.org/wiki/Tiling>`__|                                                          |        |
+    |             |:ref:`storage-layout`                            |                                                          |        |
     +-------------+-------------------------------------------------+----------------------------------------------------------+--------+
 
 The response of a successful coverage request is the coverage id of the newly
@@ -863,9 +909,37 @@ For example, the below request will update the metadata of coverage
 ``test_mr_metadata`` with the one in a local XML file at
 ``/home/rasdaman/Downloads/test_metadata.xml`` by using the ``curl`` tool: ::
 
-   curl -F "COVERAGEID=test_mr_metadata" 
+   curl --form-string "COVERAGEID=test_mr_metadata" 
         -F "file=@/home/rasdaman/Downloads/test_metadata.xml" 
         "http://localhost:8080/rasdaman/admin/coverage/update"
+        
+.. _petascope-update-coverage-nullvalues:        
+        
+Update coverage's null values
+-----------------------------
+
+Coverage's null values can be updated via the non-standard API at
+``/rasdaman/admin/coverage/nullvalues/update`` endpoint
+with two mandatory parameters:
+
+- ``coverageId``: the name of the coverage to be updated
+- ``nullvalues``: null values of coverage's band(s) with the format
+  corresponding to rasql, see :ref:`syntax doc <sec-set-types>`.
+  
+.. NOTE::
+
+  Value of ``nullvalues`` must be encoded in clients properly
+  for special characters such as: ``[, ], {, }``.
+  
+Example of using ``curl`` tool to update null values
+of a 3-bands coverage:
+
+.. code-block:: text
+
+    curl 'http://localhost:8080/rasdaman/admin/coverage/nullvalues/update' 
+        -d 'COVERAGEID=test_rgb&NULLVALUES=[35, 25:35, 35:35]'
+        -u rasadmin:rasadmin
+
 
 .. _petascope-make_inspire_coverage:
 
@@ -940,7 +1014,7 @@ done by:
   coverage as follows: ::
 
     curl --user rasadmin:rasadmin -X POST \
-         -F 'COVERAGEID=test_inspire_metadata' \
+         --form-string 'COVERAGEID=test_inspire_metadata' \
          -F 'METADATAURL=https://inspire-geoportal.ec.europa.eu/16.iso19139.xml' \
          'http://localhost:8080//rasdaman/admin/inspire/metadata/update'
 
@@ -1021,6 +1095,32 @@ as documented below.
             </ows:AdditionalParameter>
         </ows:AdditionalParameters> 
 
+GetCoverage request
+-------------------
+
+.. _wcs-getcoverage-interpolation:
+
+Interpolation
+^^^^^^^^^^^^^
+
+There are two supported formats for interpolation parameter in WCS ``GetCoverage`` requests:
+
+- Full URI, e.g. ``http://www.opengis.net/def/interpolation/OGC/1.0/bilinear``
+- Short hand format, e.g. ``bilinear``
+
+CRS notation
+------------
+
+.. _crs-notation:
+
+When a CRS is used in WCS / WCPS request for doing subsetting or projecting to an output CRS,
+these notations below are supported:
+
+- Full CRS URL, e.g. ``http://localhost:8080/rasdaman/def/crs/EPSG/0/4326`` (standardized format)
+- Shorthand CRS with authority, version and code, e.g. ``EPSG/0/4326``
+- Shorthand CRS with authority and code, e.g. ``EPSG:4326``
+
+
 OGC Web Coverage Processing Service (WCPS)
 ==========================================
 
@@ -1033,8 +1133,8 @@ General
 -------
 
 WCPS requests can be submitted in both
-abstract syntax (`example <http://rasdaman.org/browser/systemtest/testcases_services/test_wcps/queries/233-extra_params_merge_new_metadata.test>`__)
-and in XML (`example <http://rasdaman.org/browser/systemtest/testcases_services/test_wcps/queries/245-test_enqoute_cdata_greate_less_character.xml>`__).
+abstract syntax (`example <https://rasdaman.org/trac/browser/systemtest/31-wcps/queries/233-extra_params_merge_new_metadata.test>`__)
+and in XML (`example <https://rasdaman.org/trac/browser/systemtest/31-wcps/queries/245-test_enqoute_cdata_greate_less_character.xml>`__).
 
 For example, using the WCS GET/KVP protocol binding, a WCPS request can be sent
 through the following ``ProcessCoverages`` request: ::
@@ -1390,7 +1490,7 @@ result encoded in ``png`` format (specified by positional parameter ``$3``):
 .. code-block:: text
 
    curl -s "http://localhost:8080/rasdaman/ows?SERVICE=WCS&VERSION=2.0.1&REQUEST=ProcessCoverages" \
-        -F 'query=for $c in (existing_coverage), $d in (decode($1)), $e in (decode($2)) 
+        --form-string 'query=for $c in (existing_coverage), $d in (decode($1)), $e in (decode($2)) 
             return encode(($c + $d + $e)[Lat(0:90), Long(-180:180)], "$3"))' \
         -F "1=@/home/rasdaman/file1.tiff" \
         -F "2=@/home/rasdaman/file2.tiff" \
@@ -1740,6 +1840,321 @@ The following examples illustrate the syntax of the ``SORT`` operator.
       , "json")
 
 
+.. _cal-capabilities:
+           
+Calendar capabilities
+---------------------
+
+Since v10.3, rasdaman supports quite flexible and powerful methods for
+addressing temporal coordinates in WCS / WCPS subsetting and other operations.
+A common use case is aggregating data over a time series per temporal unit,
+e.g. per day, month, year, etc.
+
+.. _cal-temporal-coordinates:
+
+Temporal coordinates
+^^^^^^^^^^^^^^^^^^^^
+
+Temporal coordinates must be specified in ISO datetime format; the full format
+including all components is ``YYYY-MM-DDTHH:MM:SS.SSSZ``, explained as follows:
+
+- ``YYYY``: year
+- ``MM``: month
+- ``DD``: day
+- ``T``: separator between date and time components
+- ``HH``: hour
+- ``SS``: second
+- ``SSS``: milisecond
+- ``Z``: UTC timezone (GMT +0); imported coverages has a fixed timezone UTC
+  currently, there is no support to change to different timezone when importing
+  data
+
+Not all components must be specified: at minimum ``YYYY`` is required.
+
+.. _cal-granularity:
+
+The last component in the datetime value determines its *granularity*; for
+example, the granularity of ``"2015-01-02"`` is *day*, while ``"2015-02"`` has
+granularity *month*. The granularity modifies the range of a datetime string in
+a subset. For example, the datetime value ``"2015-01"`` with
+granularity *month* has a time range from lower bound 
+``"2015-01-01T00:00:00:000Z"`` (first moment of January, 2015) to upper bound 
+``"2015-01-31T23:59:59:999Z"`` (last moment of January, 2015).
+
+.. _cal-shift-temporal-coordinates:
+
+Shifting temporal coordinates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is possible to add or subtract a time period from a datetime value, thereby
+shifting the granularity as well. The shift period is specified separated by a
+whitespace after the datetime string. It is composed of several parts in 
+sequence:
+
+- Initial designator ``P`` (for Period): required
+- Number of years followed by ``Y``
+- Number of months followed by ``M``
+- Number of days followed by ``D``
+- Time designator (separator) ``T`` required only if any time components are specified
+- Number of hours followed by ``H``
+- Number of minutes followed by ``M``
+- Number of seconds followed by ``S``
+
+If any *number* is negative then the preceding datetime is shifted backward
+instead of forward as usual; non-required parts can be omitted.
+
+For example, ``time("2015-01-01 P2Y")`` shifts the input datetime forward by 2
+years to ``time("2017-01-01")``.
+
+.. _cal-concatenate-time-comp:
+
+Concatenating time components
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Individual time components can be concatenated into a full datetime string with
+the ``.`` operator. Each component is either a string or a temporal function
+which returns a string. For example ``time("2015" . "01" . "01")`` is a
+slice which will be resolved as ``time("2015-01-01")``.
+
+.. _cal-temporal-subsets:
+
+Temporal subsets
+^^^^^^^^^^^^^^^^
+
+The semantics of slices and trims in temporal subsets is clarified subsequently.
+
+*Slicing* generally selects a single index on a coverage axis. In temporal
+slices, however, we have to keep in mind the granularity of the datetime value.
+
+- If the time range defined by the granularity of the slice coordinate
+  encompases exactly one grid index, then this index is returned.
+- Otherwise an error is returned, if it does not contain any grid index or
+  contains more than one index. In this case it may be necessary to adjust the
+  slicing to one with larger or smaller granularity, e.g. from ``"2015-01"``
+  with month granularity to ``"2015-01-01"`` with *day* granularity.
+  
+*Trimming* corresponds to selecting all the indices between a lower and upper
+bounds. On a temporal axis, the lower bound is converted to the full ISO 
+datetime format as before, while the upper bound is converted up to the last 
+moment of the granularity of the datetime value. For example, a trim
+``time("2015-01-01":"2015-01-03")`` is first expanded internally to 
+``time("2015-01-01T00:00:00.000Z":"2015-01-03T23:59:59.999Z")``
+before it is used to subset the ``time`` axis.
+  
+For example, selecting only data in January 2023 could be done with
+``time("2023-01":"2023-01")``; note that it is not necessary to specify any
+further time components, e.g. day.
+
+.. _cal-time-axis-iterator:
+
+Time axis iterator
+^^^^^^^^^^^^^^^^^^
+
+Coverage constructors and condensers have an ``OVER`` clause where iterator
+variables over the coordinates of a coverage axis (potentially a subset) can be
+specified. In case of a temporal axis, lists of temporal coordinates are built
+from coverage domain information or time string literals. Afterwards, when the
+constructor or condenser are evaluated, the iterator variable goes over the
+list in sequence.
+
+There are two ways to specify the temporal coordinates for iteration:
+
+1. ``iterVar axis( "lowerBound" : "upperBound" [ : "step" ] )``
+
+   Here ``lowerBound`` and ``upperBound`` are datetime values. The ``step``
+   is an optional parameter with same format as specified earlier in 
+   :ref:`cal-shift-temporal-coordinates`, which indicates that the ``iterVar``
+   steps from the lower to the upper bound in ``step`` increments. If ``step`` 
+   is omitted, then it is derived from the :ref:`granularity <cal-granularity>` of 
+   the ``lowerBound``. For example, ``over $pt date("2014" : "2023" : "P1Y" )``
+   is identical to ``over $pt date("2014" : "2023")``, as the granularity of the
+   lower bound is ``P1Y``; the iterated time coordinates will be ``"2014"``,
+   ``"2015"``, ..., ``"2023"``.
+    
+2. ``iterVar axis( "dateTime1", "dateTime2", ... )``
+
+   Here ``iterVar`` goes through a list of explicitly specified datetime values.
+   For example, this query will build a coverage of maximum values of the
+   data slices at days explicitly listed in the ``over`` clause:
+    
+   .. code-block:: 
+    
+       for c in (testCov)
+       return encode(
+         coverage result
+         over $pt t("2023-01-01", "2023-01-02", "2023-01-03")
+         values max ( c[t($pt : $pt)] )
+       , "csv")
+
+3. ``iterVar axis( timeTruncator(...) )``
+
+   The set of coordinates to iterate through is in this case generated by a 
+   :ref:`time truncator function <cal-time-truncators>`.
+
+
+.. _cal-time-truncators:
+
+Time truncator functions
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time truncators allow to extract the actually present time coordinates, at a
+particular :ref:`granularity <cal-granularity>`, from a particular coverage under
+inspection. They are used typically in :ref:`axis iterators
+<cal-time-axis-iterator>` of coverage constructor / general condenser.
+
+They are a family of functions ``tr: list<datetime> -> list<datetime>`` which
+reduce accuracy beyond the chosen granularity from all time stamps passed and
+returns a set without duplicated values of matched datetimes; ``tr`` is one of
+``allyears, allmonths, alldays, allhours, allminutes, allseconds``.
+
+If ``$c`` is a coverage alias in a ``for`` clause, and its axis ``time`` extends
+from ``2022-11-01`` to ``2023-03-31``, then:
+
+- ``allyears($c.domain.date)`` = ``"2022"``, ``"2023"``
+- ``allmonths($c.domain.date)`` = ``"2022-11"``, ..., ``"2023-03"``
+- ``alldays($c.domain.date)`` = ``"2022-11-01"``, ..., ``"2023-03-31"``
+- ``allhours($c.domain.date)`` = ``"2022-11-01T00"``, ..., ``"2023-03-30T23"``, ``"2023-03-31T00"``
+- ``allminutes($c.domain.date)`` = ``"2022-11-01T00:00"``, ..., ``"2023-03-30T23:59"``, ``"2023-03-31T00:00"``
+- ``allseconds($c.domain.date)`` = ``"2022-11-01T00:00:00.000"``, .., ``"2023-03-30T23:59.999"``, ``"2023-03-31T00:00.000"``
+
+To iterate through all Januars in possible years on the ``time`` axis of a
+coverage, we can write a query as follows:
+
+.. code-block:: 
+
+    for $c in (test_365_days_irregular)
+    return encode(
+
+        coverage result
+        over $pt date( allmonths( domain($c, time) ) )
+        values $c[date($pt . "-01" : $pt . "-01")],
+
+    "json")
+
+Here, ``allyears( domain($c, time) )`` may return a list of ``"2022"`` and
+``"2023"``; then for each ``$pt``, ``date($pt . "-01" : $pt . "-01")`` will be
+resolved as:
+
+- First iteration: ``date("2022-01" : "2022-01")``
+- Second iteration: ``date("2023-01" : "2023-01")``
+
+
+.. _cal-time-extractors:
+
+Time extractor functions
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time extractors allow to extract time components by a
+specified :ref:`granularity <cal-granularity>` in the used function name. They
+are used typically in :ref:`axis iterators <cal-time-axis-iterator>` of
+coverage constructor / general condenser.
+
+They are a family of functions ``s: list<datetime> -> list<numbers>`` which
+return a set without duplicated values of time components contained in the
+input list; ``s`` is one of ``years, months, days, hours, minutes, seconds``.
+
+If ``$c`` is a coverage alias in a ``for`` clause, and its axis ``time`` extends
+from ``2022-11-01`` to ``2023-03-31``, then:
+
+- ``years(domain($c, time))`` = ``"2022"``, ``"2023"``
+- ``months(domain($c, time))`` = ``"01"``, ``"02"``, ``"03"``, ``"11"``, ``"12"``
+- ``days(domain($c, time))`` = ``"01"``, ..., ``"31"``
+- ``hours(domain($c, time))`` = ``"00"``, ..., ``"23"``
+- ``minutes(domain($c, time))`` = ``"00"``, ..., ``"59"``
+- ``second(domain($c, time))`` = ``"00.000"``, .., ``"59.999"``
+
+For example, if the ``time`` axis is irregular with two indexes at
+``"2023-01-01"`` and ``"2023-08-01"``, then ``months( domain($c, time) )`` in
+the query below returns ``"01"`` and ``"08"``, and the iterated subsets in
+``date("2023-" .  $m)`` will be ``"2023-01"`` and ``"2023-08"``:
+
+  .. code-block:: 
+  
+      for $c in (test_cov)
+      return encode(
+             coverage temp_cov
+             OVER $m date( months( domain($c, time) ) )
+             VALUES $c[date("2023-" .  $m)],
+      "csv")
+
+Another example: the ``time`` axis has daily coefficients over years 2020, 2021,
+2022, 2023; this query will return all coefficients in February 2020:
+
+  .. code-block:: 
+  
+      for $c in (test_cov)
+      return encode(
+             coverage temp_cov
+             OVER $d date( days( domain($c[time("2020-02":"2020-02")], time) ) )
+             VALUES $c[date("2020-02-" . $d)],
+      "csv")
+
+Here, ``days( domain($c[time("2020-02":"2020-02")], time)`` returns
+a set of ``01","02",...,"29"``, and for each ``$d`` in the set
+``date("2020-02-" . $d)`` will be resolved as:
+
+- First iteration: ``date("2020-02-01")``
+- Second iteration: ``date("2020-02-02)``
+- ...
+- Last iteration: ``date("2020-02-29)``
+
+.. _cal-incompatibilities:
+
+Incompatibilites
+^^^^^^^^^^^^^^^^
+
+Prior to this calendar feature, subsets on a temporal axis is done like below:
+
+- Slice: e.g. ``time("2015-01-01")``, then this value is converted to ISO datetime format
+  ``"2015-01-01T00:00:00.000Z"`` and the slice is applied on the ``time`` axis.
+  If this axis is irregular and it does not contain the coefficient at the above exact datetime,
+  then petascope throws an exception because the coefficient is not found.
+  
+- Trim: e.g. ``time("2015-01":"2015-12")``, then the subset is converted to ISO datetime format
+  as ``"2015-01-01T00:00:00:000Z":"2015-12-01T00:00:00:000Z"`` and if ``time`` axis is irregular,
+  then petascope will find any coefficients between these subsets and return them.
+
+
+.. _wcps-polygonize-operator:
+
+Polygonize function
+-------------------
+
+
+This operation is useful in geographical context,
+providing ability to layer additional information on existing maps,
+for example.
+For more details, see also :ref:`rasql polygonize <polygonize-operation>`.
+
+When the result includes multiple files, as is the case with ``ESRI Shapefile``,
+the files will be compressed into a single zip archive.
+
+**Syntax**
+
+::
+
+    polygonize(covExp, targetFormat)
+    polygonize(covExp, targetFormat, connectedness)
+
+Where
+
+.. code-block:: text
+
+    covExp: coverage expression
+    targetFormat: StringLit
+    connectedness: integerLit
+
+**Examples**
+
+The following WCPS query vectorizes a 2D geo-referenced coverage
+into shape file format:
+
+    .. code-block:: 
+
+       for $c in (test_mean_summer_airtemp)
+       return 
+           polygonize($c, "ESRI Shapefile")
+
 .. _ogc-wms:
 
 OGC Web Map Service (WMS)
@@ -1762,8 +2177,8 @@ GetMap extensions
 
 .. _wms-transparency:
 
-Transparency
-^^^^^^^^^^^^
+Transparency and background color
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 By adding a parameter ``transparent=true`` to WMS requests the returned image
 will have ``NoData Value=0`` in the metadata indicating to the client 
@@ -1777,6 +2192,28 @@ encoding format. Example:
         &BBOX=618887,3228196,690885,3300195.0
         &CRS=EPSG:32615&WIDTH=600&HEIGHT=600&FORMAT=image/png
         &TRANSPARENT=true
+
+When ``transparent=false`` or omitted in a WMS ``GetMap`` request, by default 
+the response has white color for no-data pixels. To colorize no-data pixels the
+``GetMap`` request should specify ``BGCOLOR=<hexcolor>``, where ``<hexcolor>``
+is in format ``0xRRGGBB``, e.g. ``0x0000FF`` for blue color:
+  
+  .. hidden-code-block:: text
+
+    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
+        REQUEST=GetMap&LAYERS=test_wms_4326&
+        BBOX=111.976,-44.525,156.274,-8.978&
+        CRS=CRS:84&WIDTH=60&HEIGHT=60&
+        STYLES=&FORMAT=image/png&
+        BGCOLOR=0x0000FF
+        &TRANSPARENT=TRUE
+   
+  .. NOTE::
+
+     - ``BGCOLOR`` is valid only with a layer containing 1, 3 or 4 bands.
+     - ``BGCOLOR`` does not work together with range constructor defined in a 
+       WMS style via rasql / WCPS fragments.
+     - ``BGCOLOR`` is ignored when ``transparent=true``.
 
 .. _wms-interpolation:
 
@@ -1802,6 +2239,30 @@ available and their meaning. Example:
         &FORMAT=image/png
         &INTERPOLATION=bilinear
 
+.. _wms-random:
+
+Random parameter
+^^^^^^^^^^^^^^^^
+
+Normally, Web Browser cache the WMS requests from a WMS client (e.g. WebWorldWind).
+In order to bypass that, one needs to add append extra parameter ``random`` with its
+value equals to a random number for all WMS `GetMap` requests. For example:
+
+.. hidden-code-block:: text
+
+    http://localhost:8080/rasdaman/ows?SERVICE=WMS&VERSION=1.3.0
+        &REQUEST=GetMap&LAYERS=waxlake1
+        &BBOX=618887,3228196,690885,3300195.0
+        &CRS=EPSG:32615&WIDTH=600&HEIGHT=600&FORMAT=image/png
+        &TRANSPARENT=true
+        &RANDOM=12345678
+
+
+In petascope, this ``random`` parameter is stripped when petascope
+receives a ``W*S`` request containing this parameter, hence, if the request is already processed,
+the result stored in the cache will be returned as usual.
+
+
 nD Coverages as WMS Layers
 --------------------------
 
@@ -1809,7 +2270,7 @@ Petascope allows to import a 3D+ coverage as a WMS layer. To this end, the
 ingredients file used for ``wcst_import`` must contain ``wms_import": true``. 
 For 3D+ coverages this works with recipes *regular_time_series*,
 *irregular_time_series*, and *general_coverage*.
-`This example <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/wms_3d_time_series_irregular/ingest.template.json>`__
+`This example <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/143-wms_3d_time_series_irregular/ingest.template.json>`__
 shows how to define an *irregular_time_series* 3D coverage from 2D TIFF files.
 
 Once the coverage is created, ``GetMap`` requests can use the additional
@@ -1857,8 +2318,8 @@ delivered.
 
 Examples:
 
-- Multiple values on `time axis of a 3D coverage <http://rasdaman.org/browser/systemtest/testcases_services/test_wms/queries/29-get_map_on_3d_time_series_irregular_time_specified.test>`__
-- Multiple values on `time and dim_pressure axes of a 4d coverage <http://rasdaman.org/browser/systemtest/testcases_services/test_wms/queries/31-get_map_on_4d_coverage_dim_pressure_and_time_irregular_specified.test>`__
+- Multiple values on `time axis of a 3D coverage <https://rasdaman.org/trac/browser/systemtest/33-wms/queries/029-get_map_on_3d_time_series_irregular_time_specified.test>`__
+- Multiple values on `time and dim_pressure axes of a 4d coverage <https://rasdaman.org/trac/browser/systemtest/33-wms/queries/031-get_map_on_4d_coverage_dim_pressure_and_time_irregular_specified.test>`__
 
 .. _get-legend-graphic:
 
@@ -2135,7 +2596,7 @@ Examples
    which always refer to the current layer, other layers can be referenced by
    name using an iterator of the form ``$LAYER_NAME`` in the style
    expression. 
-  
+
    Example: create a WCPS query fragment style referencing 2 layers
    (``$c`` refers to layer *sentinel2_B4* which defines the style):
 
@@ -2159,6 +2620,17 @@ Examples
         &WIDTH=800&HEIGHT=600
         &FORMAT=image/png&transparent=true
         &STYLES=BandsCombined
+
+   The WCPS query fragment must follow one of these patterns in order to allow
+   petascope to instantiate the fragment into a full valid query for any
+   WMS request bbox:
+
+    - If no subsets are in the style, just use ``$c`` and ``$otherLayerName``
+      as usual in the fragment query.
+
+    - If there is a subset, usually a slice on non-XY axes for 3D+ coverages,
+      then the subsets must follow the pattern
+      ``$c[axisLabel(geoSubset),..]`` or ``$otherLayerName[axisLabel(geoSubset),..]``.
 
 -  WMS styling supports colorizing the result of GetMap request when the style
    is requested by applying a color table definition to it. A style can contain
@@ -2424,6 +2896,109 @@ For example, a WMTS ``GetTile`` request in KVP format to get a tile, encoded in 
     &TILECOL=0
 
 
+
+Experimental API
+================
+
+The following sections cover API supported by rasdaman, which are still
+experimental in their standardization or implementation. As the corresponding
+specifications have not been released in stable version and are mostly still in
+flux, the implementation in rasdaman my be out of sync to some extent.
+
+.. _ogc-oapi:
+
+OGC API - Coverages (OAPI)
+--------------------------
+
+The OGC API family of standards is organized by resource type. `OGC API -
+Coverages <https://docs.ogc.org/DRAFTS/19-087.html>`__ specifies the
+fundamental API building blocks for interacting with coverages. The spatial
+data community uses the term 'coverage' for homogeneous collections of values
+located in space/time, such as spatio-temporal sensor, image, simulation, and
+statistics data.
+
+Following the ``/rasdaman/oapi`` endpoint prefix, several features from 
+OGC API - Coverages are supported:
+
+- Collection listing:
+
+  - ``/collections`` - returns the list of names
+    of the collections hosted by the server
+  - ``/collections/{collectionId}`` - returns the collection
+    object identified by ``{collectionId}``
+    
+- Coverage access:
+
+  - ``/collections/{coverageId}`` - returns the full
+    coverage with the specified ``{coverageId}``
+  - ``/collections/{coverageId}?subset={subset}&f={format}`` - returns
+    the coverage subsetted by ``{subset}`` and encoded in ``{format}``;
+    typically called coverage subsetting
+  - ``collections/test_rgb/coverage?properties={selectedBands}&f={format}`` - returns
+    the coverage with bands subsetted by ``{selectedBands}``and
+    encoded in ``{format}``; typically called range subsetting
+  - ``collections/scale-X&f={format}`` with ``X`` is one of ``factor|size|axes`` - returns the
+    scaled coverage encoded in ``{format}``; typically called coverage scaling
+    
+- Coverage component access:
+  
+  - ``/collections/{collectionId}/domainset`` - returns the domain set of the coverage
+    with the specified id
+  - ``/collections/{collectionId}/rangetype`` - returns the range type of the coverage
+    with the specified id
+  - ``/collections/{collectionId}/rangeset`` - returns the range set
+    of the coverage with the specified id
+  - ``/collections/{collectionId}/metadata`` - returns the metadata of the coverage
+    with the specified id
+    
+- Coverage processing by WCPS:
+
+  - ``/wcps?Q={encodedQuery}`` - sends an encoded WCPS query to the OAPI
+    endpoint and return the result accordingly to the query
+
+
+.. _openeo:
+
+openEO
+------
+
+`openEO <https://openeo.org/>`__ is an API that allows users to connect to Earth
+observation cloud back-ends in a simple and unified way. The capabilities are
+similar to the :ref:`OGC WCPS standard <ogc-wcps>`.
+
+Rasdaman supports (partially) `openEO API (1.2.0)
+<https://openeo.org/documentation/1.0/developers/api/reference.html>`__ at
+endpoint ``/rasdaman/openeo``. In particular the following features are
+supported:
+
+- ``/processes`` - returns the list of predefined processes
+- ``/process_graphs`` - returns the list of custom user-defined processes
+- ``/process_graphs/{processGraphId}`` - insert / update a user-defined 
+  process via POST HTTP request
+- ``/process_graphs/{processGraphId}`` - delete a user-defined process
+  via DELETE HTTP request
+- ``/result`` - synchronously send a process description in JSON format via a
+  POST HTTP request and get back the result from rasdaman
+
+For authentication the ``/rasdaman/credentials/basic`` endpoint allows
+authenticate via basic header mechanism, which returns a token that can be used
+in further openEO requests.
+
+
+.. _ogc-gdc:
+
+OGC GeoDataCube (GDC)
+---------------------
+
+Rasdaman partially supports the `OGC GeoDataCube (GDC) specification
+<https://m-mohr.github.io/geodatacube-api/>`__ at endpoint ``/rasdaman/gdc``.
+Following features are supported:
+
+- OGC API Coverages: subsetting, range subsetting, scaling (see :ref:`ogc-oapi`)
+- openEO: authentication, predefined and user-defined processes, and synchronous 
+  process execution (see :ref:`openeo`)
+
+
 .. _data-import:
 
 Data Import
@@ -2440,8 +3015,9 @@ up-to-date as new data become available is supported for a large variety of data
 formats and file/directory organizations.
 
 The systemtest contains 
-`many examples <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata>`__
-for importing different types of data.
+`many examples <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata>`__
+for importing different types of data. Note that the ``ingest.template.json`` are template files
+which cannot be directly imported, as several variables need to be set first.
 
 .. _data-import-intro:
 
@@ -2485,8 +3061,8 @@ The workflow behind is depicted approximately on :numref:`wcst_import_workflow`.
    Data importing process with ``wcst_import.sh``
 
 An ingredients file showing all possible options (across all recipes) can be found `here
-<http://rasdaman.org/browser/applications/wcst_import/ingredients/possible_ingredients.json>`__ 
-in the `same directory <http://rasdaman.org/browser/applications/wcst_import/ingredients>`__
+<https://rasdaman.org/trac/browser/applications/wcst_import/ingredients/possible_ingredients.json>`__ 
+in the `same directory <https://rasdaman.org/trac/browser/applications/wcst_import/ingredients>`__
 there are several examples of different recipes.
 
 .. _data-import-recipes:
@@ -2504,7 +3080,7 @@ The following recipes are provided in the rasdaman repository:
   * :ref:`Sentinel 2 <data-import-recipe-sentinel2>`
 
 For each one of these there is an ingredients example under the
-`ingredients/ <http://rasdaman.org/browser/applications/wcst_import/ingredients>`__
+`ingredients/ <hhttps://rasdaman.org/trac/browser/applications/wcst_import/ingredients>`__
 directory, together with an example for the available parameters
 Further on each recipe type is described in turn, starting with the common
 options shared by all recipes.
@@ -2534,7 +3110,9 @@ config section
 
       "service_url": "http://localhost:8080/rasdaman/ows"
 
-* ``service_is_local`` -  ``true`` if the WCS service endpoint runs locally on the same machine,
+.. _wcst_import-service_is_local:
+
+*  ``service_is_local`` -  ``true`` if the WCS service endpoint runs locally on the same machine,
    ``false`` otherwise. When set to ``false``, the data to be imported will be uploaded
    to the remote host. This may also be done even when the WCS service endpoint runs locally
    but has no read permissions on the data files, in which case the only way to import the data
@@ -2581,7 +3159,8 @@ config section
   .. NOTE::
 
      - If set this parameter will override the null/nodata values present in
-       the input files.
+       the input files and the ``nilValue`` setting specified in
+       the ingredients file.
      - If this parameter is not set, wcst_import will try to detect these values
        for bands implicity from the first input file.
      - If set this parameter to: ``[]``, then, wcst_import will
@@ -2605,8 +3184,15 @@ config section
 * ``url_root`` - In case the files are exposed via a web-server and not locally,
   you can specify the root file url here; the default value is ``"file://"``.
 
-* ``skip`` - Set to ``true`` to ignore files that failed to import; by default it
-  is ``false``, i.e. the import process is terminated when a file fails to import.
+.. _data-import-skip:
+
+* ``skip`` - Set to ``true`` to ignore files that failed to analyze 
+  (i.e. file can be accessed but it is not possible to open and read its content) 
+  or failed to import to rasdaman. If set to ``files_that_fail_to_open``,
+  then files that failed to analyze will be skipped,
+  however if a file failed to import to rasdaman, then import process is terminated.
+  By default it is ``false``, i.e. the import process is terminated when a file fails to import.
+  
 
 * ``retry`` - Set to ``true`` to retry a failed request. The number of retries is
   either 5, or the value of setting ``retries`` if specified. This is set to
@@ -2667,11 +3253,24 @@ input section
 * ``coverage_id`` - The name of the coverage to be created; if the coverage 
   already exists, it will be updated with the new files collected by ``paths``.
 
-* ``paths`` - List of absolute or relative (to the ingredients file) paths or regex patterns that
-  would work with the ls command. Multiple paths separated by commas
-  can be specified. The collected paths are sorted by file name by default,
-  unless specified otherwise in the recipe section (e.g. by date/time for 
-  time-series recipes).
+* ``paths`` - List of absolute or relative (to the ingredients file) paths or
+  regex patterns in format acceptable by the Python `glob
+  <https://docs.python.org/3/library/glob.html#glob.glob>`__ function. Multiple
+  paths separated by commas can be specified. The collected file paths are by
+  default sorted in ascending order before import, either by calculated
+  datetime in time-series recipes, or by lexicographic comparison of the file
+  path strings otherwise. The ordering can be changed to descending or disabled
+  completely with the :ref:`import_order <import-order>` option.
+
+  .. NOTE::
+
+     wcst_import analyzes each input file from ``paths`` and maximum time to open one file
+     for this purpose is 60 seconds. If during this time the file cannot be opened, then wcst_import
+     will try to open it two more times. If the file is still not possible to open, then it will:
+    
+     - throw exception and stop the importing process if ``skip`` setting is ``False``, or
+     - ignore this file and continue with the other input files if ``skip`` setting is ``True``
+
 
 * ``inspire`` section contains the settings for importing INSPIRE coverage:
 
@@ -2685,23 +3284,37 @@ input section
 recipe section
 ^^^^^^^^^^^^^^
 
-* ``import_order`` - Allow to sort the input files (``ascending`` (default)
-  or ``descending``).Currently, it sorts by *datetime* which allows
-  to import coverage from the first date or the recent date. Example:
+.. _recipe-tiling:
 
-  .. hidden-code-block:: json
-
-      "import_order": "descending"
-
-* ``tiling`` - Specifies the tile structure to be created for the coverage
-  in rasdaman. You can set arbitrary tile sizes for the tiling option only
-  if the tile name is ``ALIGNED``. Example:
+* ``tiling`` - (required) Specifies the tile structure to be created for the
+  coverage in rasdaman. You can set arbitrary tile sizes for the tiling option
+  only if the tile name is ``ALIGNED``. Example:
 
   .. hidden-code-block:: json
 
       "tiling": "ALIGNED [0:0, 0:1023, 0:1023] TILE SIZE 5000000"
 
-  For more information on tiling please check the :ref:`storage-layout`
+  For more information on tiling check :ref:`storage-layout`
+
+.. _import-order:
+
+* ``import_order`` - Indicate in which order the input files collected with the
+  ``paths`` setting should be imported. In time-series recipes, the ordering is
+  based on the datetime calculated for each file. In other recipes, e.g.
+  ``map_mosaic``, the ordering is based on lexicographic comparison of the file
+  paths. Possible values are:
+
+  - ``ascending`` (default) - import files in ascending order;
+
+  - ``descending`` - import files in descending order;
+
+  - ``none`` - do not order files in any particular way before import.
+
+  Example:
+
+  .. hidden-code-block:: json
+
+      "import_order": "descending"
 
 .. _wms-import:
 
@@ -2892,6 +3505,11 @@ JSON array, with parameters as follows:
 * ``description`` - Describe what this hook does and wcst_import prints this message when processing this hook.
 * ``when`` - mandatory parameter. Run a command before (set to ``before_import``) or after (set to ``after_import``)
   importing files to a coverage.
+* ``execute_if`` - Optional parameter applied only for ``after_import`` hooks. 
+  If omitted the default value is ``import_succeeded`` which indicates that the
+  hook should be executed only for successfully imported files.
+  If it is set to ``import_failed`` (note: only works when ``skip:true`` is set, see :ref:`doc <data-import-skip>`)
+  then the hook will be executed only when a file fails to import for some reason. 
 * With one of the following options either Bash or Python code must be specified,
   which will be run for each input file.
 
@@ -3021,7 +3639,20 @@ Recipe time_series_regular
 
 Well suited for importing multiple 2-D slices created at regular
 intervals of time (e.g sensor data, satelite imagery etc) as 3-D cube
-with the third axis being a temporal one. Parameters are explained below
+with the third axis being a temporal one. 
+
+.. NOTE::
+
+    This recipe should be used to update an existing coverage with new data
+    only in the case when ``"track_files": "false"`` and previously imported files
+    have not been removed. The *timestamp* for the first input file
+    is set by the ``time_start`` setting, so if old imported files are removed 
+    the timestamp will be set again to ``time_start`` when wcst_import is run again
+    with new files to be imported. The effect is that new input files will 
+    override the existing time slices instead of adding new time slices on top of *time* axis.
+
+
+Parameters are explained below:
 
 .. hidden-code-block:: json
 
@@ -3176,10 +3807,13 @@ Using `ingredient sentences <data-import-ingredient-sentences>`__ we can define
 any coverage model directly in the options of the ingredients file. Each
 coverage model contains the following parts:
 
+.. _data-import-crs:
+
 * ``crs`` - Indicates the crs of the coverage to be constructed. Either a CRS 
-  url can be used e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326 or the shorthand 
-  notation ``CRS1@CRS2@CRS3``, e.g. ``OGC/0/AnsiDate@EPSG/0/4326`` for 
-  indicating a time/date + spatial CRS.
+  url can be used e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326 or a shorthand 
+  notation ``CRS1<op>CRS2<op>..``, where CRS1/CRS2/.. are of the form EPSG/0/4326 or
+  EPSG:4326, and ``<op>`` is either ``@`` or ``+``. For example, a time/date + spatial
+  compound CRS could be ``OGC/0/AnsiDate@EPSG/0/4326``, or ``OGC:AnsiDate+EPSG:4326``.
 
 * ``metadata`` - A group of options controlling metadata extraction and 
   consolidation; more detailed information follows :ref:`below 
@@ -3229,7 +3863,7 @@ petascope) the maximum size is 2GB (`source
   with 256 color entries is supported. 
 
   A path to an explicit Color Palette Table file can be specified, see `example file
-  <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/055-wcps_color_palette_rasql_ready_encoded_png/color_palette_table_rasql_READY.cpt>`__;
+  <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/055-wcps_color_palette_rasql_ready_encoded_png/color_palette_table_rasql_READY.cpt>`__;
   such a file can be referenced in the ingredients file with, e.g.,
   ``"colorPaletteTable": "PATH/TO/table.cpt"``.
 
@@ -3278,6 +3912,20 @@ bounds and resolution corresponding to each file.
     to flip it before importing to rasdaman, e.g. with
     ``cdo invertlat input.grib output.grib``.
 
+.. _wcst_import-subtype:
+
+* ``subtype`` - Specify a slicer subtype. Currently only ``"sentinel2"`` is
+  supported as a value, valid in combination with ``"type": "gdal"``. When
+  present in the ingredients, instead of opening files to be imported with GDAL
+  in order to read needed metadata such as CRS and geo bbox, this will be done
+  by reading the ``MTD_TL.xml`` file present in the SAFE container that
+  contains the file to be imported. This can be much faster compared to reading
+  the metadata from JPEG 2000 files with GDAL. Note that this only works with
+  file paths on the filesystem in extracted SAFE directories, or with SAFE
+  directories on S3 object storage. In the latter case, wcst_import will try to
+  use s3cmd to retrieve the ``MTD_TL.xml`` locally first in
+  ``/tmp/rasdaman_wcst_import/``; these temporary files need to be manually removed.
+
 * ``pixelIsPoint`` - Only valid if ``type`` is ``netcdf`` or ``grib``.
   In some cases, by convention in the input files, the coordinates 
   are set in the middle of grid pixels, hence, set to ``true`` to extend the 
@@ -3296,13 +3944,28 @@ bounds and resolution corresponding to each file.
     imported; this only works for input GRIB files with only one band.
   * ``name`` - The name of the band which will be used in the created coverage;
     this can be set to different from the ``indentifier``;
+  * ``observationType`` - set the output type in GML format of a band in SWE standard. 
+    If omitted, then it set to ``numerical`` by default. Valid values are:
+    ``numeric`` (in GML showed as ``swe:Quantity``) and ``categorial``
+    (in GML showed as ``swe:Category``).    
   * ``description`` - Metadata description of the band;
-  * ``nilValue``` - Metadata null value of the band;
-  * ``nilReason`` - Metadata reason for the null value of the band;
+  * ``definition`` - Metadata definition of the band, typically it is a URL pointing to
+    online registries, ontologies or dictionaries. If omitted, petascope sets the value
+    to the URL corresponding to band's data type.  
+  * ``nilValue``` - Metadata null value of the band; used 
+    in case band has only one null value.
+    
+    If ``default_null_values`` setting is specified, then ``nilValue`` setting is ignored.
+  * ``nilReason`` - Metadata reason for the null value of the band;      
   * ``uomCode`` - Set the Unit of measurement (uom) code of the band. Besides 
     setting it directly, it can also be derived from the input file metadata,
     with e.g. ``${netcdf:variable:NAME:units}`` for NetCDF or
-    ``${grib:unitsOfFirstFixedSurface}`` for GRIB.
+    ``${grib:unitsOfFirstFixedSurface}`` for GRIB. 
+    Note: only valid for ``swe:Quantity``.
+  * ``codeSpace`` - List and define the meaning of all possible values
+    for this component. Note: only valid for ``swe:Category``. 
+    ``${grib:unitsOfFirstFixedSurface}`` for GRIB. 
+    Note: only used for ``swe:Category``.    
   * ``filterMessagesMatching`` - Default is empty. If not-empty (a dictionary of 
     user input GRIB keys:values; keys (e.g. ``shortName``) must exist in the input GRIB files),
     then it filters any GRIB message which has a GRIB value not contain a user input value of a GRIB key.
@@ -3315,6 +3978,8 @@ bounds and resolution corresponding to each file.
   properties are listed below; generally, ``gridOrder``, ``min``, ``max``,
   and ``resolution`` have to be specified, except for irregular axes where
   ``resolution`` is not applicable.
+
+  .. _wcst_import-gridorder:
 
   * ``gridOrder`` - specify the grid order of axes defined by the coverage CRS.
     If not specified, wcst_import will try to automatically derive the gridOrder
@@ -3371,7 +4036,7 @@ bounds and resolution corresponding to each file.
     For example, let's consider a netCDF file that has a ``time`` dimension with attribute
     ``units: "days since 1970-01-01 00:00:00"``. All stored values of the ``time`` axis 
     must be converted to datetime based on the lower bound value (``"1970-01-01"``) as an origin.
-    See this `ingredients file <https://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/132-wcs_scientfic_null_value_with_trailing_zero/ingest.template.json#L42>`__
+    See this `ingredients file <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/132-wcs_scientfic_null_value_with_trailing_zero/ingest.template.json#L42>`__
     for a full example.
 
     .. hidden-code-block:: json
@@ -3412,6 +4077,54 @@ bounds and resolution corresponding to each file.
   * ``sliceGroupSize`` - Group multiple input slices into a single slice in the
     created coverage, e.g., multiple daily data files onto a single week index
     on the coverage time axis; explained in more detail :ref:`here <slice-group-size>`;
+    
+  .. _wcst_import-areas-of-validity:
+  
+  * ``areasOfValidity`` - Specify a list of ``start`` and ``end`` bounds for each
+    coefficient in an irregular axis to extend their areas to ``[start, end]``
+    intervals (see :ref:`wcps-areas-of-validity`). The start/end intervals must
+    not overlap, and the number of pairs must equal the number of coefficients
+    imported. 
+
+    The start and end may be specified with less than millisecond precision, e.g.
+    ``"2010"`` and ``"2012-05"``. In this case they are expanded to millisecond
+    precision internally such that start is the earliest possible datetime
+    starting with ``"2010"`` (i.e. ``"2010-01-01T00:00:00.000Z"``) and end is the
+    latest possible datetime starting with ``"2012-05"``
+    (i.e. ``"2012-05-31T23:59:59.999Z"``). The same semantics applies in
+    subsetting in queries, see :ref:`cal-temporal-subsets`.
+
+    By default if not specified, a coefficient is a single point.
+  
+    The example below imports 3 input files with the datetime coefficients for 
+    the irregular axis ``ansi`` collected from the filename
+    (``"dataBound": false``) and custom areas of validity for the 3 coefficients:
+  
+      .. hidden-code-block:: json
+            
+          "axes": {
+            "ansi": {
+              "statements": "from datetime import datetime, timedelta; from dateutil.relativedelta import relativedelta",
+              "min": "datetime.strptime(regex_extract('${file:name}', '(.*)_(.*).tif', 1), '%Y%m%d').isoformat()",
+              "areasOfValidity": [
+                {
+                  "start": "2000",
+                  "end": "2003"
+                },
+                {
+                  "start": "2004",
+                  "end": "2008"
+                },
+                {
+                  "start": "2009",
+                  "end": "2011"
+                }
+              ],
+              "dataBound": false,
+              "irregular": true
+            }
+          }
+    
 
 .. _data-import-recipe-general-coverage-examples:
 
@@ -3420,7 +4133,7 @@ Examples
 
 The examples below illustrate importing data in different formats with the
 ``general_coverage`` recipe; many more can be found in the rasdaman
-`test suite <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/>`__.
+`test suite <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata>`__.
 
 * Commented example for importing GRIB data (only the ``recipe`` section is 
   shown for brevity):
@@ -3534,7 +4247,7 @@ The examples below illustrate importing data in different formats with the
     }
 
 - Example for importing NetCDF data (full ingredients file `here 
-  <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/072-wcps_irregular_time_nc/ingest.template.json>`__):
+  <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/072-wcps_irregular_time_nc/ingest.template.json>`__):
 
   .. hidden-code-block:: json
 
@@ -3643,7 +4356,7 @@ The examples below illustrate importing data in different formats with the
 
 * Example for importing TIFF data with the ``gdal`` driver 
   (full ingredients file `here 
-  <http://rasdaman.org/browser/systemtest/testcases_services/test_all_wcst_import/testdata/134-wcs_slice_group_size_7days/ingest.template.json>`__):
+  <https://rasdaman.org/trac/browser/systemtest/30-wcstimport/testdata/134-wcs_slice_group_size_7days/ingest.template.json>`__):
 
   .. hidden-code-block:: json
 
@@ -4649,8 +5362,8 @@ file called ``recipe.py``
 
 Use your favorite editor or IDE to work on the recipe (there are type
 annotations for most WCSTImport classes so an IDE like PyCharm would give out of
-the box completion support). First, let's add the skeleton of the recipe (please
-note that in this tutorial, we will omit the import section of the files (your
+the box completion support). First, let's add the skeleton of the recipe (note that
+in this tutorial, we will omit the import section of the files (your
 IDE will help you auto import them)):
 
 .. hidden-code-block:: python
@@ -5201,8 +5914,7 @@ are forwarded by petascope to the client.
    for being visible as coverages.
 
 For further internal documentation on petascope see
-`Developer introduction to petascope and its metadata database 
-<http://rasdaman.org/wiki/PetascopeDevGuide>`__.
+:ref:`petascope-dev-guide`.
 
 .. _petascope-startup-shutdown:
 

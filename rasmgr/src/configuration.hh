@@ -23,16 +23,15 @@
 #ifndef RASMGR_X_SRC_CONFIGURATION_HH
 #define RASMGR_X_SRC_CONFIGURATION_HH
 
+#include "common/commline/cmlparser.hh"
+
 #include <string>
 #include <cstdint>
-
-#include "../../commline/cmlparser.hh"
 
 namespace rasmgr
 {
 /**
- * @brief The Configuration class Configuration object used to initialize rasmgr
- * from the command line.
+ * Configuration object to initialize rasmgr from the command line.
  */
 class Configuration
 {
@@ -47,13 +46,13 @@ public:
 
     std::uint32_t getPort() const;
 
-    std::string getHostName() const;
+    const std::string &getHostName() const;
 
-    std::string getName() const;
+    const std::string &getName() const;
 
     bool isQuiet() const;
 
-    std::string getLogFile() const;
+    const std::string &getLogFile() const;
 
 private:
     static const std::uint32_t HOSTNAME_SIZE;
@@ -61,17 +60,16 @@ private:
     static const std::uint32_t MAXMSGOUTBUFF;
 
     //interface program
-    CommandLineParser    &cmlInter;
+    CommandLineParser &cmlInter;
     CommandLineParameter &cmlHelp, &cmlHostName, &cmlPort;
     CommandLineParameter &cmlName, &cmlQuiet, &cmlLog;
 
     bool quiet;
-    std::string name; /*!< symbolic name of this rasmgr  */
-    std::string hostName;/*!< the advertized host name (master only, default: same as UNIX command 'hostname')" */
-    std::uint32_t port;/*!< Port number */
-    std::string logFile;/*!< The file to which to output the log */
-
+    std::string name;         /*!< symbolic name of this rasmgr  */
+    std::string hostName;     /*!< the advertized host name (master only, default: same as UNIX command 'hostname')" */
+    std::uint32_t port;       /*!< Port number */
+    std::string logFile;      /*!< The file to which to output the log */
 };
-}
+}  // namespace rasmgr
 
-#endif // CONFIGURATION_HH
+#endif  // CONFIGURATION_HH

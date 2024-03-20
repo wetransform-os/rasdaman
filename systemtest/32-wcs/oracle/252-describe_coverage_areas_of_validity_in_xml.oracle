@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wcs:CoverageDescriptions xsi:schemaLocation="http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsDescribeCoverage.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd" xmlns:wcs="http://www.opengis.net/wcs/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org" xmlns:gmlrgrid="http://www.opengis.net/gml/3.3/rgrid" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0">
+    <wcs:CoverageDescription gml:id="test_wcps_areas_of_validity_netcdf">
+        <gml:boundedBy>
+            <gml:Envelope srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" axisLabels="ansi Lat Long" uomLabels="d degree degree" srsDimension="3">
+                <gml:lowerCorner>"2000-01-01T00:00:00.000Z" -90 -180</gml:lowerCorner>
+                <gml:upperCorner>"2012-12-31T23:59:59.999Z" 90 180</gml:upperCorner>
+            </gml:Envelope>
+        </gml:boundedBy>
+        <wcs:CoverageId>test_wcps_areas_of_validity_netcdf</wcs:CoverageId>
+        <gml:coverageFunction>
+            <gml:GridFunction>
+                <gml:sequenceRule axisOrder="+2 +3 +1">Linear</gml:sequenceRule>
+                <gml:startPoint>0 0 0</gml:startPoint>
+            </gml:GridFunction>
+        </gml:coverageFunction>
+        <gmlcov:metadata>
+            <gmlcov:Extension>
+                <rasdaman:covMetadata>
+                    <bands>
+                        <Red>
+                            <valid_min>0</valid_min>
+                            <valid_max>255</valid_max>
+                            <grid_mapping>crs</grid_mapping>
+                            <units>10</units>
+                        </Red>
+                        <Green>
+                            <valid_min>0</valid_min>
+                            <valid_max>255</valid_max>
+                            <grid_mapping>crs</grid_mapping>
+                            <units>10</units>
+                        </Green>
+                        <Blue>
+                            <valid_min>0</valid_min>
+                            <valid_max>255</valid_max>
+                            <grid_mapping>crs</grid_mapping>
+                            <units>10</units>
+                        </Blue>
+                    </bands>
+                    <axes>
+                        <ansi>
+                            <areasOfValidity>
+                                <area start="2000-01-01T00:00:00.000Z" end="2002-01-01T00:00:59.999Z"/>
+                                <area start="2004-01-01T00:00:00.000Z" end="2006-12-31T23:59:59.999Z"/>
+                                <area start="2009-01-01T00:00:00.000Z" end="2012-12-31T23:59:59.999Z"/>
+                            </areasOfValidity>
+                        </ansi>
+                    </axes>
+                    <grid_mapping>
+                        <identifier>crs</identifier>
+                        <grid_mapping_name>latitude_longitude</grid_mapping_name>
+                        <long_name>CRS definition</long_name>
+                        <longitude_of_prime_meridian>0.0</longitude_of_prime_meridian>
+                        <semi_major_axis>6378137.0</semi_major_axis>
+                        <inverse_flattening>298.257223563</inverse_flattening>
+                        <crs_wkt>GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]</crs_wkt>
+                    </grid_mapping>
+                </rasdaman:covMetadata>
+            </gmlcov:Extension>
+        </gmlcov:metadata>
+        <gml:domainSet>
+            <gmlrgrid:ReferenceableGridByVectors dimension="3">
+                <gml:limits>
+                    <gml:GridEnvelope>
+                        <gml:low>0 0 0</gml:low>
+                        <gml:high>2 19 39</gml:high>
+                    </gml:GridEnvelope>
+                </gml:limits>
+                <gml:axisLabels>ansi Lat Long</gml:axisLabels>
+                <gmlrgrid:origin>
+                    <gml:Point gml:id="test_wcps_areas_of_validity_netcdf-point" srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">
+                        <gml:pos>"2000-01-01T00:00:00.000Z" 85.5 -175.5</gml:pos>
+                    </gml:Point>
+                </gmlrgrid:origin>
+                <gmlrgrid:generalGridAxis>
+                    <gmlrgrid:GeneralGridAxis>
+                        <gmlrgrid:offsetVector srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">1 0 0</gmlrgrid:offsetVector>
+                        <gmlrgrid:coefficients>"2001-01-01T00:00:00.000Z" "2005-01-01T00:00:00.000Z" "2010-01-01T00:00:00.000Z"</gmlrgrid:coefficients>
+                        <gmlrgrid:gridAxesSpanned>ansi</gmlrgrid:gridAxesSpanned>
+                        <gmlrgrid:sequenceRule axisOrder="+1">Linear</gmlrgrid:sequenceRule>
+                    </gmlrgrid:GeneralGridAxis>
+                </gmlrgrid:generalGridAxis>
+                <gmlrgrid:generalGridAxis>
+                    <gmlrgrid:GeneralGridAxis>
+                        <gmlrgrid:offsetVector srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">0 -9 0</gmlrgrid:offsetVector>
+                        <gmlrgrid:coefficients/>
+                        <gmlrgrid:gridAxesSpanned>Lat</gmlrgrid:gridAxesSpanned>
+                        <gmlrgrid:sequenceRule axisOrder="+1">Linear</gmlrgrid:sequenceRule>
+                    </gmlrgrid:GeneralGridAxis>
+                </gmlrgrid:generalGridAxis>
+                <gmlrgrid:generalGridAxis>
+                    <gmlrgrid:GeneralGridAxis>
+                        <gmlrgrid:offsetVector srsName="http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate&amp;2=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326">0 0 9</gmlrgrid:offsetVector>
+                        <gmlrgrid:coefficients/>
+                        <gmlrgrid:gridAxesSpanned>Long</gmlrgrid:gridAxesSpanned>
+                        <gmlrgrid:sequenceRule axisOrder="+1">Linear</gmlrgrid:sequenceRule>
+                    </gmlrgrid:GeneralGridAxis>
+                </gmlrgrid:generalGridAxis>
+            </gmlrgrid:ReferenceableGridByVectors>
+        </gml:domainSet>
+        <gmlcov:rangeType>
+            <swe:DataRecord>
+                <swe:field name="Red">
+                    <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
+                        <swe:label>Red</swe:label>
+                        <swe:description/>
+                        <swe:uom code="10^0"/>
+                    </swe:Quantity>
+                </swe:field>
+                <swe:field name="Green">
+                    <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
+                        <swe:label>Green</swe:label>
+                        <swe:description/>
+                        <swe:uom code="10^0"/>
+                    </swe:Quantity>
+                </swe:field>
+                <swe:field name="Blue">
+                    <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
+                        <swe:label>Blue</swe:label>
+                        <swe:description/>
+                        <swe:uom code="10^0"/>
+                    </swe:Quantity>
+                </swe:field>
+            </swe:DataRecord>
+        </gmlcov:rangeType>
+        <wcs:ServiceParameters>
+            <wcs:CoverageSubtype>ReferenceableGridCoverage</wcs:CoverageSubtype>
+            <wcs:nativeFormat>application/octet-stream</wcs:nativeFormat>
+        </wcs:ServiceParameters>
+    </wcs:CoverageDescription>
+</wcs:CoverageDescriptions>

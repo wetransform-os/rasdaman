@@ -20,7 +20,6 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-
 #ifndef RASMGR_X_SRC_CLIENTSERVERREQUEST_HH
 #define RASMGR_X_SRC_CLIENTSERVERREQUEST_HH
 
@@ -29,27 +28,23 @@
 namespace rasmgr
 {
 /**
- * @brief The ClientServerRequest struct contains information
- * required for requesting a new server from a remote rasmgr.
+ * Information required for requesting a new server from a remote rasmgr.
  */
 class ClientServerRequest
 {
 public:
-    ClientServerRequest(const std::string &userName, const std::string &password, const std::string &dbName);
+    ClientServerRequest(const std::string &userName, const std::string &password,
+                        const std::string &dbName);
 
-    std::string getUserName() const;
-
-    std::string getPassword() const;
-
-    std::string getDatabaseName() const;
+    const std::string &getUserName() const;
+    const std::string &getPassword() const;
+    const std::string &getDatabaseName() const;
 
 private:
-    std::string userName;/*!< The name of the user requesting a new server*/
-
-    std::string password;/*!< The password hash of the user requesting a new server*/
-
-    std::string databaseName;/*!< The name of the database that the user is trying to access*/
+    std::string userName;     /*!< The name of the user requesting a new server*/
+    std::string password;     /*!< The password hash of the user requesting a new server*/
+    std::string databaseName; /*!< The name of the database that the user is trying to access*/
 };
-}
+}  // namespace rasmgr
 
-#endif // RASMGR_X_SRC_CLIENTSERVERREQUEST_HH
+#endif  // RASMGR_X_SRC_CLIENTSERVERREQUEST_HH

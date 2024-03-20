@@ -1,0 +1,76 @@
+{
+    "id": "absolute",
+    "summary": "Absolute value",
+    "description": "Computes the absolute value of `x`, which is the non-negative value of `x` (*`abs(x)`*).\n\nThe operand can be a scalar number or a datacube.\n\n\nThe result is a scalar number if the operand is scalar, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type   | result type   |\n|----------------|---------------|\n| complex        | error         |\n| X              | X             |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "Null where `x` is null, the absolute value of `x` otherwise.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": 5
+            },
+            "returns": 5
+        },
+        {
+            "arguments": {
+                "x": "DatacubeA"
+            },
+            "returns": "DatacubeB"
+        },
+        {
+            "arguments": {
+                "x": null
+            },
+            "returns": null
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "http://mathworld.wolfram.com/AbsoluteValue.html",
+            "title": "Absolute value explained by Wolfram MathWorld"
+        }
+    ],
+    "wcps": "abs(<x>)",
+    "categories": [
+        "Arithmetic"
+    ]
+}

@@ -22,6 +22,8 @@
  *
 """
 import decimal
+from decimal import Decimal
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 def numpy_array_to_list_decimal(numpy_array):
@@ -52,6 +54,16 @@ def numpy_array_to_string(numpy_array):
     :return: str: the representation string of numpy array
     """
     return str(list(numpy_array))
+
+
+def join_list(values, separator=","):
+    """
+    Joint elements in the list with comma separated
+    :param values: list of string values
+    :return: str
+    """
+    result = separator.join(f'"{w}"' for w in values)
+    return result
 
 
 def to_list_string(input_list):
@@ -106,14 +118,53 @@ def get_null_values(default_null_values):
     """
     Parse from 1 list of user-defined null values to individual null values
      (e.g: ["20", "30, 40, 50"] -> [20, 30, 40, 50])
-    :param list[str] default_null_values: user defined null values in ingredient file
+    :param list[RangeTypeNilValue] default_null_values: user defined null values in ingredient file
     """
-    null_values = None
+    range_type_nil_values = None
     if default_null_values is not None:
-        null_values = []
-        for value in default_null_values:
-            values = str(value).strip().split(",")
-            values = [x.strip() for x in values]
-            null_values += values
+        range_type_nil_values = []
 
-    return null_values
+        tmp_values = []
+        for element in default_null_values:
+            if isinstance(element, list):
+                # multiple null values per band, e.g. ["30:60", 30, 50]
+                for value in element:
+                    tmp_values.append(value)
+            else:
+                # single null value per band, e.g. "20:30" or 233.333
+                value = element
+                tmp_values.append(value)
+
+        for tmp_value in tmp_values:
+            if isinstance(tmp_value, Decimal):
+                # e.g. 35.35
+                value = [float(tmp_value)]
+            elif isinstance(tmp_value, str):
+                # e.g. "60, 70, 80" or "30:50"
+                value = tmp_value.split(", ")
+            else:
+                # e.g. 25
+                value = [tmp_value]
+
+            for tmp in value:
+                range_type_nil_values.append(RangeTypeNilValue("", tmp))
+
+    return range_type_nil_values
+
+
+def __parse_null_values_in_string_to_list(input_str):
+    """
+    Given "30, 40, 50" returns [30, 40, 50]
+    :param str input_str:
+    :return: list
+    """
+    results = []
+    if isinstance(input_str, str) and "," in input_str:
+        # e.g. "30, 40, 50"
+        values = str(input_str).strip().split(",")
+        results = [x.strip() for x in values]
+    else:
+        # e.g. "30:60" or 30
+        results.append(input_str)
+
+    return results

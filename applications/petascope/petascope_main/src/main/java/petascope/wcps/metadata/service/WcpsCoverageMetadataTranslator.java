@@ -27,6 +27,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.rasdaman.domain.cis.*;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.repository.service.CoverageRepositoryService;
@@ -37,10 +39,11 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.core.Pair;
 import org.rasdaman.admin.pyramid.service.PyramidService;
+import petascope.core.AxisTypes;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.ListUtil;
-import static petascope.wcps.handler.GeneralCondenserHandler.USING;
+import static petascope.wcps.handler.CoverageGeneralCondenserHandler.USING;
 import petascope.wcps.metadata.model.RangeField;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.model.Axis;
@@ -50,6 +53,7 @@ import petascope.wcps.metadata.model.NumericTrimming;
 import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.metadata.model.Subset;
 import petascope.wcps.result.WcpsResult;
+import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 
@@ -108,8 +112,11 @@ public class WcpsCoverageMetadataTranslator {
         // parse extra metadata of coverage to map
         String extraMetadata = coverage.getMetadata();
         List<List<NilValue>> nilValues = coverage.getNilValues();
-        
-        String rasdamanCollectionName = coverage.getRasdamanRangeSet().getCollectionName();
+
+        String rasdamanCollectionName = null;
+        if (coverage.getRasdamanRangeSet() != null) {
+            rasdamanCollectionName = coverage.getRasdamanRangeSet().getCollectionName();
+        }
         
         List<String> axisCrsUris = new ArrayList<>();
         for (Axis axis : axes) {
@@ -122,7 +129,11 @@ public class WcpsCoverageMetadataTranslator {
                                                         coverage.getCoverageType(), axes, crsUri, 
                                                         rangeFields, nilValues, extraMetadata, originalAxes);
 
-	wcpsCoverageMetadata.setDecodedFilePath(coverage.getRasdamanRangeSet().getDecodeExpression());
+
+        if (coverage.getRasdamanRangeSet() != null) {
+            wcpsCoverageMetadata.setDecodedFilePath(coverage.getRasdamanRangeSet().getDecodeExpression());
+        }
+
         return wcpsCoverageMetadata;
     }
 
@@ -151,7 +162,8 @@ public class WcpsCoverageMetadataTranslator {
      * e.g: Lat axis with grid bound (0:10) will change to (0/2:10/2) = (0:5)
      */
     public WcpsCoverageMetadata applyDownscaledLevelOnXYGridAxesForScale(WcpsResult coverageExpression, 
-                                                         WcpsCoverageMetadata wcpsCoverageMetadataBase, List<Subset> numericSubsets) throws PetascopeException {
+                                                         WcpsCoverageMetadata wcpsCoverageMetadataBase, List<Subset> numericSubsets
+                                                    ) throws PetascopeException {
         // @TODO: NOTE: it needs to find out which pyramid member should be selected before subsetting in scale() operator
         // e.g. for c in (base) return encode(
         //      scale(c[ansi("2016-01-01":"2020-01-01")], {Lat:"CRS:1"(0:30), Long:"CRS:1"(0:20)}), "csv")
@@ -177,7 +189,7 @@ public class WcpsCoverageMetadataTranslator {
             List<Axis> nonXYAxes = wcpsCoverageMetadataBase.getNonXYAxes();
 
             for (Subset numericSubset : numericSubsets) {
-                // In case X or Y axis is speficied in the target scaling of scale() operator
+                // In case X or Y axis is specified in the target scaling of scale() operator
                 if (CrsUtil.axisLabelsMatch(subsettedAxisX.getLabel(), numericSubset.getAxisName())) {
                     width = numericSubsets.get(0).getNumericSubset().getUpperLimit().toBigInteger().intValue() - numericSubsets.get(0).getNumericSubset().getLowerLimit().toBigInteger().intValue();
                 }
@@ -199,6 +211,18 @@ public class WcpsCoverageMetadataTranslator {
                     }
                 }
             }
+
+            for (WcpsSubsetDimension sliceSubsetDimension : wcpsCoverageMetadataBase.getSlicedWcpsSubsetDimensions()) {
+                String sliceAxisLabel = sliceSubsetDimension.getAxisName();
+
+                if (!(CrsUtil.axisLabelsMatch(subsettedAxisX.getLabel(), sliceAxisLabel)
+                    || CrsUtil.axisLabelsMatch(subsettedAxisY.getLabel(), sliceAxisLabel))) {
+                    // NOTE: In this case this is sliced dimension on non-XY axis from ShorthandSubsetHandler before, but this is kept to consider to select
+                    // a suitable pyramid member. e.g. Base coverage has 2 dates: "2020-05-07" and "2021-06-07" and pyramid member has only date "2020-05-07"
+                    // then scaling on c[ansi("2021-06-07")] should go to base coverage, even though the XY domains are fit in pyramid member.
+                    nonXYSubsetDimensions.add(sliceSubsetDimension);
+                }
+            }
             
             List<Subset> trimmingSubsets = new ArrayList<>();
             for (Axis axis : wcpsCoverageMetadataBase.getAxes()) {
@@ -206,34 +230,31 @@ public class WcpsCoverageMetadataTranslator {
                 trimmingSubsets.add(new Subset(numericTrimming, axis.getNativeCrsUri(), axis.getLabel()));
             }
             
-            // NOTE: only support scale() with pyramid on a single coverage expression
-            // @TODO: https://projects.rasdaman.com/ticket/308 to support scale on pyramid member of a virtual coverage // -- rasdaman enterprise
-                
-                String contributingCoverageId = wcpsCoverageMetadataBase.getCoverageName();
+            String contributingCoverageId = wcpsCoverageMetadataBase.getCoverageName();
 
-                GeneralGridCoverage baseCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(contributingCoverageId);
-                CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY,
-                                                                                                        subsettedAxisX, subsettedAxisY,
-                                                                                                        width, height, nonXYSubsetDimensions);
-                
+            GeneralGridCoverage baseCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(contributingCoverageId);
 
-                GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(coveragePyramid.getPyramidMemberCoverageId());
+            CoveragePyramid coveragePyramid = this.pyramidService.getSuitableCoveragePyramidForScaling(baseCoverage, geoSubsetX, geoSubsetY,
+                                                                                                    subsettedAxisX, subsettedAxisY,
+                                                                                                    width, height, nonXYSubsetDimensions);
 
-                String fullRasql = coverageExpression.getRasql();
-                // e.g: grid subset for level 1
-                String originalContributingRasql = fullRasql;
-                
-                // remove c0 -> level 1 coverage
-                String coverageAlias = this.coverageAliasRegistry.getAliasByCoverageName(contributingCoverageId);
 
-                // e.g. test_pyramid_8
-                WcpsCoverageMetadata wcpsCoverageMetadataPyramid = this.translate(coveragePyramid.getPyramidMemberCoverageId());
-                result = wcpsCoverageMetadataPyramid;
-                
-                // Remove any stripped axes of input coverage in pyramid member coverage (e.g: slicing in time axis of a virtual coverage, 
-                // then the pyramid member of it also needs to remove this time axis)
-                this.applyGeoSubsetOnPyramidCoverage(wcpsCoverageMetadataBase, wcpsCoverageMetadataPyramid);
-            
+            GeneralGridCoverage pyramidMemberCoverage = (GeneralGridCoverage) this.persistedCoverageService.readCoverageFullMetadataByIdFromCache(coveragePyramid.getPyramidMemberCoverageId());
+
+            String fullRasql = coverageExpression.getRasql();
+            // e.g: grid subset for level 1
+            String originalContributingRasql = fullRasql;
+
+            // remove c0 -> level 1 coverage
+            String coverageAlias = this.coverageAliasRegistry.getAliasByCoverageName(contributingCoverageId);
+
+            // e.g. test_pyramid_8
+            WcpsCoverageMetadata wcpsCoverageMetadataPyramid = this.translate(coveragePyramid.getPyramidMemberCoverageId());
+            result = wcpsCoverageMetadataPyramid;
+
+            // Remove any stripped axes of input coverage in pyramid member coverage (e.g: slicing in time axis of a virtual coverage, 
+            // then the pyramid member of it also needs to remove this time axis)
+            this.applyGeoSubsetOnPyramidCoverage(wcpsCoverageMetadataBase, wcpsCoverageMetadataPyramid);
         }
         
         return result;
@@ -375,6 +396,8 @@ public class WcpsCoverageMetadataTranslator {
             rangeField.setNodata(quantity.getNilValues());
             rangeField.setUomCode(quantity.getUom().getCode());
             rangeField.setAllowedValues(quantity.getAllowedValues());
+            rangeField.setObservationType(quantity.getObservationType());
+            rangeField.setCodeSpace(quantity.getCodeSpace());
 
             rangeFields.add(rangeField);
         }
@@ -384,10 +407,7 @@ public class WcpsCoverageMetadataTranslator {
 
     /**
      * Build list of axes for WcpsCoverageMetadata from the coverage's axes
-     *
-     * @param geoDomains
-     * @param gridDomains
-     * @return
+
      */
     private List<Axis> buildAxes(String coverageCRS, List<GeoAxis> geoAxes, List<IndexAxis> indexAxes) throws PetascopeException {
         List<Axis> result = new ArrayList();
@@ -414,10 +434,19 @@ public class WcpsCoverageMetadataTranslator {
             NumericSubset gridBounds = new NumericTrimming(new BigDecimal(indexAxis.getLowerBound()), new BigDecimal(indexAxis.getUpperBound()));
             
             String crsUri = geoAxis.getSrsName();
-
-            CrsDefinition crsDefinition = CrsUtil.getCrsDefinition(crsUri);
-            // x, y, t,...
-            String axisType = CrsUtil.getAxisTypeByIndex(coverageCRS, i);
+            
+            String axisType = geoAxis.getAxisType();
+            if (axisType == null) {
+                // x, y, t,...
+                axisType = CrsUtil.getAxisTypeByIndex(coverageCRS, i);
+            }
+            
+            CrsDefinition crsDefinition = null;
+            if (axisType.equals(AxisTypes.T_AXIS)) {
+                // NOTE: only time axis needs CrsDefinition as it needs to know the date time origin from the CRS
+                // to convert time coefficient in number to ISO datetime format
+                crsDefinition = CrsUtil.getCrsDefinition(crsUri);
+            }
 
             // Get the metadata of CRS (needed when using TimeCrs)
             String axisUoM = geoAxis.getUomLabel();
@@ -431,10 +460,32 @@ public class WcpsCoverageMetadataTranslator {
             // Check domainElement's type
             if (geoAxis.isIrregular()) {
                 // All stored coefficients for irregular axis in coverage
-                List<BigDecimal> directPositions = ((org.rasdaman.domain.cis.IrregularAxis) geoAxis).getDirectPositionsAsNumbers();
+                org.rasdaman.domain.cis.IrregularAxis irregularAxis = ((org.rasdaman.domain.cis.IrregularAxis) geoAxis);
+
+                List<BigDecimal> directPositions = irregularAxis.getDirectPositionsAsNumbers();
+                List<BigDecimal> directPositionsAreaOfValidityStarts = irregularAxis.getDirectPositionsAreaOfValidityStartsAsNumbers();
+                List<BigDecimal> directPositionsAreaOfValidityEnds = irregularAxis.getDirectPositionsAreaOfValidityEndsAsNumbers();
+
+                if (irregularAxis.getDirectPositionsAreaOfValidityStarts().size() > 0) {
+                    // NOTE: in case coefficients have areas of validity -> the geo domains of the irregular axis is extend and allow to query larger
+                    // then the original geo bounds imported by directPositions (!)
+                    // and the coefficients in areas of validity starts / ends are calculated based on value of coefficient zero number in directPositions
+                    // e.g. coefficientZero number is "2001-01" then areas of validity start with date = "2000-01" will contain coefficient value = -366
+                    BigDecimal smallestCoefficientOfAreasOfValidityStart = new BigDecimal(irregularAxis.getDirectPositionsAreaOfValidityStarts().get(0));
+                    BigDecimal biggestCoefficientOfAreasOfValidityEnd = new BigDecimal(irregularAxis.getDirectPositionsAreaOfValidityEnds().get( irregularAxis.getDirectPositionsAreaOfValidityEnds().size() - 1 ));
+
+                    BigDecimal adjustedGeoLowerBound = irregularAxis.getCoefficientZeroValueAsNumber().add(smallestCoefficientOfAreasOfValidityStart);
+                    BigDecimal adjustedGeoUpperBound = irregularAxis.getCoefficientZeroValueAsNumber().add(biggestCoefficientOfAreasOfValidityEnd);
+                    originalGeoBounds = new NumericTrimming(adjustedGeoLowerBound, adjustedGeoUpperBound);
+                    geoBounds = new NumericTrimming(adjustedGeoLowerBound, adjustedGeoUpperBound);
+                }
+
                 result.add(new IrregularAxis(axisLabel, geoBounds, originalGridBounds, gridBounds,
                         crsUri, crsDefinition, axisType, axisUoM, gridAxisOrder,
-                        originNumber, scalarResolution, directPositions, originalGeoBounds));
+                        originNumber, scalarResolution, directPositions,
+                        directPositionsAreaOfValidityStarts,
+                        directPositionsAreaOfValidityEnds,
+                        originalGeoBounds));
             } else {
 
                 result.add(new RegularAxis(axisLabel, geoBounds, originalGridBounds, gridBounds,

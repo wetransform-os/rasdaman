@@ -1,0 +1,1 @@
+service=WMS&version=1.3.0&request=GetMap&layers=test_wms_world_temperature_out_of_range_null_values_NEW&bbox=-90,-60,80,70&format=image/png&transparent=true&styles=&crs=EPSG:4326&width=30&height=30

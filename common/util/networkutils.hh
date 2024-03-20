@@ -25,7 +25,6 @@
 #define NETWORKUTILS_HH
 
 #include <string>
-using std::string;
 
 /**
  * Namespace containing utility functions for network interactions
@@ -40,16 +39,13 @@ static const int MAX_HOSTNAME_SIZE = 256;
  * Returns the cannonical host name of the machine that is running this code
  * @return a string containing the host name
  */
-string getLocalHostName();
+std::string getLocalHostName();
 
 /**
  * @return true if the hostName:port is valid, false otherwise.
  */
 bool isAddressValid(const std::string &hostName, std::int32_t port);
 
-}
+}  // namespace networkutils
 
-
-
-#endif  /* NETWORKUTILS_HH */
-
+#endif /* NETWORKUTILS_HH */

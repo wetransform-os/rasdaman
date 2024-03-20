@@ -1,0 +1,5 @@
+for $c in (test_eobstest)
+return encode(
+coverage x
+over $year t( years( "1950-01-01" ) )
+values $c[ t( $year . "01-01T01" ) ] , "csv")

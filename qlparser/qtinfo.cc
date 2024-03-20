@@ -82,13 +82,14 @@ QtInfo::QtInfo(QtVariable *newInput, const char *paramsStr)
                 printTiles = SVG;
             }
         }
-        else{
-            LERROR << "Error: QtInfo::QtInfo() - printtiles argument is not supported.";
+        else
+        {
+            LERROR << "printtiles argument is not supported.";
             throw r_Error(INFO_PRINTTILESNOTSUPPORTED);
         }
         if (printParam != NULL)
         {
-            delete [] printParam;
+            delete[] printParam;
         }
     }
     delete params;
@@ -162,6 +163,11 @@ QtInfo::evaluate(QtDataList *inputList)
                         if (collType)
                         {
                             info << "\",\n \"setTypeName\": \"" << collType->getName();
+                            auto nulls = collType->getNullValues();
+                            if (nulls)
+                            {
+                                info << "\",\n \"nullValues\": \"" << nulls->toString();
+                            }
                         }
                         info << "\",\n \"mddTypeName\": \"" << dbObj->getMDDBaseType()->getTypeName();
 
@@ -204,7 +210,13 @@ QtInfo::evaluate(QtDataList *inputList)
                             break;
                         }
                         info << "\",\n\t\"tileSize\": \"" << storageLayout->getTileSize();
-                        info << "\",\n\t\"tileConfiguration\": \"" << storageLayout->getTileConfiguration() << "\"";
+                        auto tileConf = storageLayout->getTileConfiguration();
+                        if (tileConf.has_axis_names())
+                        {
+                            std::vector<std::string> emptyAxisNames(tileConf.dimension());
+                            tileConf.set_axis_names(emptyAxisNames);
+                        }
+                        info << "\",\n\t\"tileConfiguration\": \"" << tileConf << "\"";
 
                         if (printTiles == EMBEDDED)
                         {
@@ -412,7 +424,6 @@ QtInfo::checkType(QtTypeTuple *typeTuple)
     // check operand branches
     if (input)
     {
-
         // get input type
         const QtTypeElement &inputType = input->checkType(typeTuple);
 

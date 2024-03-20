@@ -21,6 +21,7 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  *
 """
+from rasdapy.cores.format_utils import format_scalar
 
 
 class Complex(object):
@@ -28,16 +29,18 @@ class Complex(object):
     Represent a complex number object
     e.g: select complex( 42, 73 ) from test_grey will return (42,73)
     """
-    def __init__(self, re, im):
+    def __init__(self, re, im, dt):
         # real and imagine numbers
         self.re = re
         self.im = im
+        self.dt = dt
 
     def __str__(self):
         """
         String representing the complex number object
         :return: String (e.g: (42,73))
         """
-        output = "(" + str(self.re) + "," + str(self.im) + ")"
-        return output
-
+        if self.dt == 'float' or self.dt == 'double':
+            return "(" + "{:g}".format(self.re) + "," + "{:g}".format(self.im) + ")"
+        else:
+            return "(" + str(self.re) + "," + str(self.im) + ")"

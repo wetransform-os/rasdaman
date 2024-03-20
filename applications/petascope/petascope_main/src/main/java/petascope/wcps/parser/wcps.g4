@@ -38,9 +38,18 @@
 grammar wcps;
 import wcpsLexerTokens;
 
+// NOTE: Comments are ignored in WCPS
+
+LINE_COMMENT
+    : '--' ~[\r\n]* -> skip;
+
+MULTILINE_COMMENT
+    : '/*' .*? '*/' -> skip
+;
+
 wcpsQuery : (forClauseList) 
-            (whereClause)? 
             (letClauseList)? 
+            (whereClause)? 
             (returnClause)
 #WcpsQueryLabel;
 
@@ -82,7 +91,7 @@ letClauseDimensionIntervalList: coverageVariableName COLON EQUAL LEFT_BRACKET di
 
 letClause: letClauseDimensionIntervalList
            #letClauseDimensionIntervalListLabel
-           | coverageVariableName COLON EQUAL coverageExpression
+           | coverageVariableName COLON EQUAL ( coverageExpression | wktExpression )
            #letClauseCoverageExpressionLabel;
 
 /**
@@ -112,10 +121,18 @@ e.g: imageCrsdomain(c) returns (0:5,0:20,0:60)
 imageCrsdomain(c, ansi) returns (0:5)
 imageCrsdomain(c, Lat).lo returns 0
 imageCrsdomain(c, Long).hi returns 60
+domain($c, Lat).resolution returns 15.5
 **/
-sdomExtraction: LOWER_BOUND | UPPER_BOUND;
+domainPropertyValueExtraction: LOWER_BOUND | UPPER_BOUND | RESOLUTION;
 
-domainIntervals: (domainExpression | imageCrsDomainExpression | imageCrsDomainByDimensionExpression) (DOT sdomExtraction)?;
+domainIntervals: (domainExpression | imageCrsDomainExpression | imageCrsDomainByDimensionExpression) (DOT domainPropertyValueExtraction)?;
+
+/**
+Workaround for crsTransform($c, ... {Lat:domain($c, Lat).resolution, ...})
+**/
+
+geoXYAxisLabelAndDomainResolution: COVERAGE_NAME  LEFT_PARENTHESIS coverageExpression COMMA axisName (COMMA crsName)?  RIGHT_PARENTHESIS (DOT domainPropertyValueExtraction)
+#GeoXYAxisLabelAndDomainResolutionLabel;
 
 /**
  * Example
@@ -158,10 +175,15 @@ scalarValueCoverageExpression: (LEFT_PARENTHESIS)?  coverageExpression (RIGHT_PA
  * Example:
  *  See the examples for each of the subclasses.
  */
-scalarExpression: booleanScalarExpression
+scalarExpression: 
+               geoXYAxisLabelAndDomainResolution 
+                | booleanScalarExpression
                 | numericalScalarExpression
                 | stringScalarExpression
-                | starExpression;
+                | starExpression
+                | domainIntervals 
+                | cellCountExpression
+                ;
 
 /**
  *  Example:
@@ -253,8 +275,8 @@ numericalScalarExpression: numericalUnaryOperation LEFT_PARENTHESIS numericalSca
  */
 complexNumberConstant: LEFT_PARENTHESIS REAL_NUMBER_CONSTANT COMMA REAL_NUMBER_CONSTANT RIGHT_PARENTHESIS               #ComplexNumberConstantLabel;
 numericalOperator: PLUS | MINUS | MULTIPLICATION | DIVISION;
-numericalUnaryOperation: ABSOLUTE_VALUE | SQUARE_ROOT |  REAL_PART | IMAGINARY_PART | ROUND | MINUS | PLUS;
-trigonometricOperator: SIN | COS | TAN | SINH | COSH | TANH | ARCSIN | ARCCOS | ARCTAN;
+numericalUnaryOperation: ABSOLUTE_VALUE | SQUARE_ROOT |  REAL_PART | IMAGINARY_PART | ROUND | MINUS | PLUS | CEIL | FLOOR;
+trigonometricOperator: SIN | COS | TAN | SINH | COSH | TANH | ARCSIN | ARCCOS | ARCTAN | ATAN2 | ARCTAN2;
 
 
 
@@ -268,6 +290,7 @@ getComponentExpression: coverageIdentifierExpression
 		                  | imageCrsDomainExpression
 		                  | imageCrsDomainByDimensionExpression
 		                  | imageCrsExpression
+                          | cellCountExpression
                           ;
 
 /**
@@ -279,6 +302,9 @@ return someCov
 */
 coverageIdentifierExpression: IDENTIFIER LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
 #CoverageIdentifierExpressionLabel;
+
+cellCountExpression: CELLCOUNT LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
+#CellCountExpressionLabel;
 
 
 /**
@@ -379,24 +405,7 @@ decodeCoverageExpression: DECODE LEFT_PARENTHESIS
  */
 coverageExpression: coverageExpression booleanOperator coverageExpression
                     #CoverageExpressionLogicLabel
-
-		          | domainIntervals
-                    #CoverageExpressionDomainIntervalsLabel
-                  | coverageExpression DOT fieldName
-                    #CoverageExpressionRangeSubsettingLabel
-
-		          | coverageConstructorExpression
-                    #CoverageExpressionConstructorLabel
-                  | coverageExpression coverageArithmeticOperator coverageExpression
-                    #CoverageExpressionArithmeticLabel
-                  | coverageExpression numericalComparissonOperator coverageExpression
-                    #CoverageExpressionComparissonLabel
-                  | coverageVariableName
-                    #CoverageExpressionVariableNameLabel
-                  | coverageConstantExpression
-                    #CoverageExpressionConstantLabel
-                  | decodeCoverageExpression
-                    #CoverageExpressionDecodeLabel
+                    
                   | coverageExpression LEFT_BRACKET dimensionPointList RIGHT_BRACKET
                     #CoverageExpressionShorthandSliceLabel
                   | SLICE LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionPointList RIGHT_BRACE
@@ -408,11 +417,46 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                     #coverageExpressionShortHandSubsetWithLetClauseVariableLabel
                   | TRIM LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
                     RIGHT_PARENTHESIS
-                    #CoverageExpressionTrimCoverageLabel
-                  | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
+                    #CoverageExpressionTrimCoverageLabel                    
+
+                  | LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
+                    #CoverageExpressionCoverageLabel
+                  | scalarExpression
+                    #CoverageExpressionScalarLabel
+
+		          | domainIntervals
+                    #CoverageExpressionDomainIntervalsLabel
+                  | timeExtractorElement
+                    #CoverageExpressionTimeExtractorLabel
+                  | timeTruncatorElement
+                    #CoverageExpressionTimeTruncatorLabel
+
+                  | geoXYAxisLabelAndDomainResolution
+                    #CoverageExpressionGeoXYAxisLabelAndDomainResolution
+
+
+                  | coverageExpression DOT fieldName
+                    #CoverageExpressionRangeSubsettingLabel
+
+		          | coverageConstructorExpression
+                    #CoverageExpressionConstructorLabel
+                  | coverageVariableName
+                    #CoverageExpressionVariableNameLabel
+                  | coverageExpression numericalComparissonOperator coverageExpression
+                    #CoverageExpressionComparissonLabel
+                  | coverageExpression coverageArithmeticOperator coverageExpression
+                    #CoverageExpressionArithmeticLabel
+
+                  | coverageConstantExpression
+                    #CoverageExpressionConstantLabel
+                  | decodeCoverageExpression
+                    #CoverageExpressionDecodeLabel
+
+                  
+                  | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE ( dimensionIntervalList  | coverageVariableName )  RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionExtendLabel
-                  | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE domainIntervals RIGHT_BRACE
+                  | EXTEND LEFT_PARENTHESIS coverageExpression COMMA LEFT_BRACE ( domainIntervals  | coverageVariableName )  RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionExtendByDomainIntervalsLabel
                   | unaryArithmeticExpression
@@ -447,34 +491,26 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                     #CoverageExpressionCrsTransformShorthandLabel
 		          | switchCaseExpression
                     #CoverageExpressionSwitchCaseLabel
-                  | SCALE LEFT_PARENTHESIS
-                        coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE
-                    RIGHT_PARENTHESIS
-                    #CoverageExpressionScaleByDimensionIntervalsLabel
 		          | SCALE LEFT_PARENTHESIS
-		                coverageExpression COMMA LEFT_BRACE domainIntervals RIGHT_BRACE
+		                coverageExpression COMMA LEFT_BRACE ( domainIntervals | coverageVariableName ) RIGHT_BRACE
                     RIGHT_PARENTHESIS
                     #CoverageExpressionScaleByImageCrsDomainLabel
-                  | LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
-                    #CoverageExpressionCoverageLabel
-                  | SCALE_FACTOR LEFT_PARENTHESIS
-                        coverageExpression COMMA number
+
+                  | SCALE LEFT_PARENTHESIS
+                        coverageExpression COMMA LEFT_BRACE? ( scalarExpression | coverageVariableName ) RIGHT_BRACE?
                     RIGHT_PARENTHESIS
                     #CoverageExpressionScaleByFactorLabel
-                  | SCALE_AXES LEFT_PARENTHESIS
-                        coverageExpression COMMA LEFT_BRACKET scaleDimensionIntervalList RIGHT_BRACKET
+
+                  | SCALE LEFT_PARENTHESIS
+                        coverageExpression COMMA LEFT_BRACE ( scaleDimensionPointList | coverageVariableName ) RIGHT_BRACE
                     RIGHT_PARENTHESIS
-                    #CoverageExpressionScaleByAxesLabel
-                  | SCALE_SIZE LEFT_PARENTHESIS
-                        coverageExpression COMMA LEFT_BRACKET scaleDimensionIntervalList RIGHT_BRACKET
+                    #CoverageExpressionScaleByFactorListLabel
+
+                  | SCALE LEFT_PARENTHESIS
+                        coverageExpression COMMA LEFT_BRACE ( dimensionIntervalList | coverageVariableName ) RIGHT_BRACE
                     RIGHT_PARENTHESIS
-                    #CoverageExpressionScaleBySizeLabel
-                  | SCALE_EXTENT LEFT_PARENTHESIS
-                        coverageExpression COMMA LEFT_BRACKET scaleDimensionIntervalList RIGHT_BRACKET
-                    RIGHT_PARENTHESIS
-                    #CoverageExpressionScaleByExtentLabel
-                  | scalarExpression
-                    #CoverageExpressionScalarLabel
+                    #CoverageExpressionScaleByDimensionIntervalsLabel
+
   		          | coverageExpression IS (NOT)? NULL
 		            #CoverageIsNullExpression
                   | coverageExpression OVERLAY coverageExpression
@@ -482,7 +518,9 @@ coverageExpression: coverageExpression booleanOperator coverageExpression
                   | flipExpression
                     #coverageExpresisonFlipLabel
                   | sortExpression
-                    #coverageExpressionSortLabel;
+                    #coverageExpressionSortLabel
+                  | polygonizeExpression
+                    #coverageExpressionPolygonizeLabel;
 /**
  * Example:
  *   $c1 AND $c2
@@ -524,7 +562,7 @@ coverageArithmeticOperator: PLUS | MULTIPLICATION | DIVISION | MINUS;
 
 
 
-unaryArithmeticExpressionOperator: ABSOLUTE_VALUE | SQUARE_ROOT | REAL_PART | IMAGINARY_PART;
+unaryArithmeticExpressionOperator: MINUS | ABSOLUTE_VALUE | SQUARE_ROOT | REAL_PART | IMAGINARY_PART;
 
 /**
  * Example
@@ -562,10 +600,10 @@ exponentialExpression: exponentialExpressionOperator LEFT_PARENTHESIS coverageEx
  * Query:
  *   for c in (mr) return encode( pow( c[i(100:110),j(100:110)], -0.5 ), "csv" )
 */
-unaryPowerExpression: POWER LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
+unaryPowerExpression: POWER LEFT_PARENTHESIS coverageExpression COMMA ( numericalScalarExpression | coverageVariableName ) RIGHT_PARENTHESIS
 #UnaryPowerExpressionLabel;
 
-unaryModExpression: MOD LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
+unaryModExpression: MOD LEFT_PARENTHESIS coverageExpression COMMA ( numericalScalarExpression | coverageVariableName ) RIGHT_PARENTHESIS
 #UnaryModExpressionLabel;
 
 /**
@@ -586,7 +624,7 @@ maxBinaryExpression: MAX LEFT_PARENTHESIS coverageExpression COMMA coverageExpre
  */
 unaryBooleanExpression: NOT LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
                         #NotUnaryBooleanExpressionLabel
-                      | BIT LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
+                      | BIT LEFT_PARENTHESIS coverageExpression COMMA ( numericalScalarExpression | coverageVariableName ) RIGHT_PARENTHESIS
                         #BitUnaryBooleanExpressionLabel;
 
 
@@ -650,14 +688,31 @@ dimensionPointList: dimensionPointElement (COMMA dimensionPointElement)*
 dimensionPointElement: axisName (COLON crsName)? LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
 #DimensionPointElementLabel;
 
+
 dimensionIntervalList: dimensionIntervalElement (COMMA dimensionIntervalElement)*
 #DimensionIntervalListLabel;
+
+
+/*
+e.g: i(0.5)
+used for scaleaxes, scalesize
+*/
+
+scaleDimensionPointElement: axisName LEFT_PARENTHESIS scalarExpression
+                            RIGHT_PARENTHESIS
+#SliceScaleDimensionPointElementLabel;
+                          
+
 
 /*
  Used by WCS scaling extension, e.g: GetCoverage&coverageId=test_mr&scaleaxes=i(0.5),j(0.5)
  then the grid pixels of i and j axes are: number / 0.5
  WCPS: scale(c, [i(0.5), j(0.5)])
 */
+scaleDimensionPointList: scaleDimensionPointElement (COMMA scaleDimensionPointElement)*
+#ScaleDimensionPointListLabel;
+
+
 scaleDimensionIntervalList: scaleDimensionIntervalElement (COMMA scaleDimensionIntervalElement)* 
 #ScaleDimensionIntervalListLabel;  
 
@@ -667,24 +722,63 @@ which means scale to the grid interval 20:30
 used only for scaleextent
 */
 scaleDimensionIntervalElement: axisName LEFT_PARENTHESIS
-                            (number | STRING_LITERAL) COLON (number | STRING_LITERAL)
-                          RIGHT_PARENTHESIS                                                                             #TrimScaleDimensionIntervalElementLabel
-/*
-e.g: i(0.5)
-used for scaleaxes, scalesize
-*/
-                        | axisName LEFT_PARENTHESIS number
-                          RIGHT_PARENTHESIS                                                                             #SliceScaleDimensionIntervalElementLabel;
-                          
+                               scalarExpression COLON scalarExpression
+                               RIGHT_PARENTHESIS                                                                             
+#TrimScaleDimensionIntervalElementLabel;
+
+
+
+dimensionBoundConcatenationElement: LEFT_PARENTHESIS? coverageExpression RIGHT_PARENTHESIS? ( DOT LEFT_PARENTHESIS? coverageExpression RIGHT_PARENTHESIS? ) *
+#DimensionBoundConcatenationElementLabel;
+
+
                           
 /*
 Use for trimming, slicing of coverage (e.g: Lat:"CRS:1"(0:20))
 */
 dimensionIntervalElement: axisName (COLON crsName)? LEFT_PARENTHESIS
-                            coverageExpression COLON coverageExpression
+                            dimensionBoundConcatenationElement COLON dimensionBoundConcatenationElement
                           RIGHT_PARENTHESIS                                                                             #TrimDimensionIntervalElementLabel
-                        | axisName (COLON crsName)? LEFT_PARENTHESIS coverageExpression
+
+
+
+                        | axisName (COLON crsName)? LEFT_PARENTHESIS
+                           imageCrsDomainByDimensionExpression
+                          RIGHT_PARENTHESIS                                
+
+                                                                                                                        #TrimDimensionIntervalByImageCrsDomainElementLabel
+
+
+                        | axisName (COLON crsName)? LEFT_PARENTHESIS dimensionBoundConcatenationElement
                           RIGHT_PARENTHESIS                                                                             #SliceDimensionIntervalElementLabel;
+
+
+// Calendar features
+
+// Time extractors
+
+timeIntervalElement:
+
+                        dimensionBoundConcatenationElement ( COLON dimensionBoundConcatenationElement )?
+                        | domainExpression;
+
+
+timeExtractorElement:  YEARS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | MONTHS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | DAYS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | HOURS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | MINUTES LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | SECONDS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS;
+
+// Time truncators
+
+timeTruncatorElement:  ALL_YEARS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_MONTHS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_DAYS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_HOURS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_MINUTES LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS
+                     | ALL_SECONDS LEFT_PARENTHESIS timeIntervalElement RIGHT_PARENTHESIS;
+
 
 /* e.g: 20 30, 30 40, 50 60 */
 wktPoints: (constant (constant)*) (COMMA constant (constant)*)*
@@ -706,7 +800,11 @@ wktPolygon: POLYGON LEFT_PARENTHESIS wktPointElementList RIGHT_PARENTHESIS
 wktMultipolygon: MULTIPOLYGON LEFT_PARENTHESIS LEFT_PARENTHESIS wktPointElementList RIGHT_PARENTHESIS (COMMA LEFT_PARENTHESIS wktPointElementList RIGHT_PARENTHESIS)* RIGHT_PARENTHESIS
 #WKTMultipolygonLabel;
 
-wktExpression: (wktPolygon | wktLineString | wktMultipolygon)
+/* Used only for LET clause, e.g. let $wkt := POLYGON((...))), then here clip($c, $wkt) */
+wktCoverageExpression: coverageExpression
+#WKTCoverageExpressionLabel;
+
+wktExpression: (coverageExpression | wktPolygon | wktLineString | wktMultipolygon)
 #WKTExpressionLabel;
 
 
@@ -729,14 +827,18 @@ clipCurtainExpression: CLIP LEFT_PARENTHESIS coverageExpression
 corridorProjectionAxisLabel1: COVERAGE_VARIABLE_NAME;
 corridorProjectionAxisLabel2: COVERAGE_VARIABLE_NAME;
 
+
+corridorWKTLabel1: wktExpression;
+corridorWKTLabel2: wktExpression;
+
 /*
   clip( coverageExpression, corridor( project(axis1, axis2), LineString, WKT, discrete), CRS ) 
 */
 clipCorridorExpression: CLIP LEFT_PARENTHESIS coverageExpression
                                               COMMA CORRIDOR LEFT_PARENTHESIS
                                                    PROJECTION LEFT_PARENTHESIS corridorProjectionAxisLabel1 COMMA corridorProjectionAxisLabel2 RIGHT_PARENTHESIS
-                                                   COMMA wktLineString 
-                                                   COMMA wktExpression 
+                                                   COMMA corridorWKTLabel1 
+                                                   COMMA corridorWKTLabel2 
                                                    (COMMA DISCRETE)?
                                                 RIGHT_PARENTHESIS
 					                          (COMMA crsName)?
@@ -776,14 +878,24 @@ clipWKTExpression: CLIP LEFT_PARENTHESIS coverageExpression COMMA wktExpression 
 crsTransformExpression: CRS_TRANSFORM LEFT_PARENTHESIS
                           coverageExpression COMMA dimensionCrsList
                           (COMMA LEFT_BRACE interpolationType? RIGHT_BRACE)?
+                          (COMMA LEFT_BRACE dimensionGeoXYResolutionsList RIGHT_BRACE)?
+                          (COMMA LEFT_BRACE ( dimensionIntervalList | domainExpression ) RIGHT_BRACE)?
+
                         RIGHT_PARENTHESIS
 #CrsTransformExpressionLabel;
 
 crsTransformShorthandExpression: CRS_TRANSFORM LEFT_PARENTHESIS
                               coverageExpression COMMA crsName
                           (COMMA LEFT_BRACE interpolationType? RIGHT_BRACE)?
+                          (COMMA LEFT_BRACE dimensionGeoXYResolutionsList RIGHT_BRACE)?
+                          (COMMA LEFT_BRACE ( dimensionIntervalList | domainExpression ) RIGHT_BRACE)?
                         RIGHT_PARENTHESIS
 #CrsTransformShorthandExpressionLabel;
+
+
+
+polygonizeExpression: POLYGONIZE LEFT_PARENTHESIS coverageExpression COMMA STRING_LITERAL ( COMMA INTEGER )?
+#PolygonizeExpressionLabel;
 
 
 /*
@@ -793,11 +905,25 @@ dimensionCrsList: LEFT_BRACE dimensionCrsElement (COMMA dimensionCrsElement)* RI
 #DimensionCrsListLabel;
 
 
+dimensionGeoXYResolutionsList: dimensionGeoXYResolution (COMMA dimensionGeoXYResolution)*
+#DimensionGeoXYResolutionsListLabel;
+
+
+/*
+ * e.g: Lat:3/5 or Lat:domain($c, Lat).resolution
+*/
+
+dimensionGeoXYResolution:
+COVERAGE_VARIABLE_NAME COLON coverageExpression
+|     coverageExpression ;
+
+
 /*
  * e.g: Lat:"http://localhost:8080/def/crs/EPSG/0/4326"
 */
 dimensionCrsElement: axisName COLON crsName
 #DimensionCrsElementLabel;
+
 
 /*
  * GDAL supported interpolation methods (near, bilinear, cubic, average,...)
@@ -821,10 +947,14 @@ AxisIteratorImageCrsDomainByDimensionLabel
 * $px x (imageCrsdomain(c[Long(0), Lat(0:20)))
 AxisIteratorImageCrsDomainLabel
 */
-axisIterator:   coverageVariableName axisName LEFT_PARENTHESIS  domainIntervals RIGHT_PARENTHESIS
+axisIterator:   coverageVariableName axisName LEFT_PARENTHESIS  domainIntervals (COLON  regularTimeStep) ? RIGHT_PARENTHESIS
                 #AxisIteratorDomainIntervalsLabel
-		          | coverageVariableName dimensionIntervalElement
-                #AxisIteratorLabel;
+		          | coverageVariableName axisName LEFT_PARENTHESIS dimensionBoundConcatenationElement COLON dimensionBoundConcatenationElement (COLON regularTimeStep) ? RIGHT_PARENTHESIS
+                #AxisIteratorLabel
+		          | coverageVariableName axisName LEFT_PARENTHESIS dimensionBoundConcatenationElement (COMMA dimensionBoundConcatenationElement)* RIGHT_PARENTHESIS
+		        #AxisIteratorEnumerationListLabel;
+
+regularTimeStep: STRING_LITERAL;
 
 
 intervalExpression: scalarExpression COLON scalarExpression
@@ -843,7 +973,7 @@ condenseExpression: reduceExpression
 
 reduceBooleanExpressionOperator: ALL | SOME;
 
-reduceNumericalExpressionOperator: COUNT | ADD | AVG | MIN | MAX;
+reduceNumericalExpressionOperator: COUNT | ADD | SUM | AVG | MIN | MAX;
 
 reduceBooleanExpression: reduceBooleanExpressionOperator LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
 #ReduceBooleanExpressionLabel;

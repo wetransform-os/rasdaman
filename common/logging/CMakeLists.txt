@@ -29,12 +29,12 @@ add_library(common_logging STATIC
         signalhandler.cc signalhandler.hh
         ${LOGGING_HEADERS})
 
-target_link_libraries(common_logging ${ELPP_LIBRARY})
+target_link_libraries(common_logging PUBLIC ${ELPP_LIBRARY} common_string)
 if (HAVE_LIBDW)
-    target_link_libraries(common_logging ${LIBDW_LIBRARY})
+    target_link_libraries(common_logging PRIVATE ${LIBDW_LIBRARY})
 endif()
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(common_logging PRIVATE common.hh)
 endif()
 

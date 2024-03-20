@@ -24,7 +24,7 @@ package petascope.oapi.handlers.model;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
-import static petascope.controller.OapiController.COLLECTION;
+
 import static petascope.controller.OapiController.COLLECTIONS;
 import static petascope.controller.OapiController.COVERAGE;
 import static petascope.controller.OapiController.COVERAGE_DOMAIN_SET;
@@ -41,6 +41,7 @@ public class Link {
     
     public static final String DATA_REL = "data";
     public static final String PROCESSING_REL = "processing";
+    public static final String CONFORMANCE = "conformance";
     public static final String REL_SELF = "self";
     
     private static final String COVERAGE_REL = "http://www.opengis.net/def/rel/ogc/1.0/coverage";
@@ -51,6 +52,8 @@ public class Link {
     
     private String rel = "self";
     private String href;
+    private String type = null;
+    private String title = null;
 
     public Link(String href) {
         this.href = href;
@@ -61,6 +64,13 @@ public class Link {
         this.href = href;
     }
 
+    public Link(String rel, String href, String type, String title) {
+        this.rel = rel;
+        this.href = href;
+        this.type = type;
+        this.title = title;
+    }
+
     public String getRel() {
         return rel;
     }
@@ -68,7 +78,14 @@ public class Link {
     public String getHref() {
         return href;
     }
-    
+
+    public String getType() {
+        return this.type;
+    }
+    public String getTitle() {
+        return this.title;
+    }
+
     public static Link getSelfLink(String urlPrefix) {
         Link selfLink = new Link(urlPrefix);
         return selfLink;
@@ -83,7 +100,12 @@ public class Link {
         Link link = new Link(PROCESSING_REL, urlPrefix + "/" + WCPS);
         return link;
     }
-    
+
+    public static Link getConformanceLink(String urlPrefix) {
+        Link link = new Link(CONFORMANCE, urlPrefix + "/" + CONFORMANCE);
+        return link;
+    }
+
     public static Link getDomainLink(String urlPrefix, String coverageId) {
         return new Link(StringUtils.EMPTY, urlPrefix + "/" + COLLECTIONS + "/" + coverageId + "/" + COVERAGE + "/" + COVERAGE_DOMAIN_SET);
     }
@@ -91,6 +113,7 @@ public class Link {
     public static Link getRangeTypeLink(String urlPrefix, String coverageId) {
         return new Link(StringUtils.EMPTY, urlPrefix + "/" + COLLECTIONS + "/" + coverageId + "/" + COVERAGE + "/" + COVERAGE_RANGE_TYPE);
     }
+
     
     /**
      * e.g: return https://oapi.rasdaman.org/rasdaman/oapi/collections/S2_FALSE_COLOR_84

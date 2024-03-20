@@ -35,25 +35,24 @@ rasdaman GmbH.
 #ifndef _TILE_HH_
 #define _TILE_HH_
 
-#include "raslib/minterval.hh"   // for r_Minterval
-#include "raslib/point.hh"       // for r_Point
-#include "raslib/mddtypes.hh"    // for r_Data_Format
-#include "raslib/rminit.hh"
-#include "catalogmgr/ops.hh"                // for Ops::OpType
+#include "raslib/minterval.hh"  // for r_Minterval
+#include "raslib/point.hh"      // for r_Point
+#include "raslib/mddtypes.hh"   // for r_Data_Format
+#include "catalogmgr/ops.hh"    // for Ops::OpType
 #include "reladminif/dbref.hh"
 #include "relblobif/tileid.hh"
 #include "relblobif/blobtile.hh"
 #include "relblobif/inlinetile.hh"
 #include "relblobif/dbtile.hh"
 #ifdef RMANBENCHMARK
-#include "raslib/rmdebug.hh"        // for RMTimer
+#include "raslib/rmdebug.hh"  // for RMTimer
 #endif
 
-#include <functional>               // for less
-#include <iosfwd>                   // for cout, ostream
-#include <set>                      // for set
-#include <string>                   // for string
-#include <vector>                   // for vector
+#include <functional>  // for less
+#include <iosfwd>      // for cout, ostream
+#include <set>         // for set
+#include <string>      // for string
+#include <vector>      // for vector
 
 class KeyObject;
 class PersMDDObjIx;
@@ -247,7 +246,6 @@ public:
        be freed by the caller!
     */
 
-
     //@Man: methods for carrying out operations
     //@{
     /// carries out condense function (const)
@@ -259,7 +257,6 @@ public:
       is a pointer to a member of myOp, so it gets invalid if myOp is
       deleted! For further information on condense operations see \Ref{Ops}.
     */
-
 
     /// carries out unary function with self as result.
     void execUnaryOp(UnaryOp *myOp, const r_Minterval &areaRes, const Tile *opTile, const r_Minterval &areaOp);
@@ -295,7 +292,6 @@ public:
       areaRes. \c areaOp and \c areaRes must have the same
       extent, but may differ in an offset.
     */
-
 
     /// fills tile in area \c areaRes using MarrayOp \c myOp.
     virtual void execMarrayOp(MarrayOp *myOp, const r_Minterval &areaRes, const r_Minterval &areaOp);
@@ -399,15 +395,8 @@ Tile::Tile(std::vector<TilePtr> *tilesVec, const r_Minterval &resDom, NullValues
     type = (*tileIt)->getType();
 
     // init contents
-    if (RMInit::useTileContainer)
-    {
-        blobTile = new InlineTile(getSize(), static_cast<char>(0), (*tileIt)->getDataFormat());
-    }
-    else
-    {
-        blobTile = new BLOBTile(getSize(), static_cast<char>(0), (*tileIt)->getDataFormat());
-    }
-    
+    blobTile = new BLOBTile(getSize(), static_cast<char>(0), (*tileIt)->getDataFormat());
+
     if (nullvalues)
     {
         nullvalues->fillTileWithNullvalues(blobTile->getCells(), resDom.cell_count(), type);
@@ -417,7 +406,7 @@ Tile::Tile(std::vector<TilePtr> *tilesVec, const r_Minterval &resDom, NullValues
     while (tileIt != tilesVec->end())
     {
         auto currDom = (*tileIt)->getDomain().create_intersection(resDom);
-        copyTile(currDom, (& **tileIt), currDom);
+        copyTile(currDom, (&**tileIt), currDom);
         tileIt++;
     }
 }

@@ -21,17 +21,22 @@
 */
 
 #include "turboqueryresult.hh"
+#include <utility>
 
-TurboQueryResult::TurboQueryResult(char *rawData1, size_t rawDataSize1, r_Data_Format data_format1, std::string domain1):
-    rawData(rawData1),
-    rawDataSize(rawDataSize1),
-    domain(domain1),
-    data_format(data_format1)
-{}
+TurboQueryResult::TurboQueryResult(char *rawData1, size_t rawDataSize1,
+                                   r_Data_Format data_format1, std::string domain1,
+                                   bool *nullMask1, std::size_t nullMaskSize1)
+    : rawData(rawData1),
+      rawDataSize(rawDataSize1),
+      domain(std::move(domain1)),
+      data_format(data_format1),
+      nullMask(nullMask1),
+      nullMaskSize(nullMaskSize1)
+{
+}
 
 TurboQueryResult::~TurboQueryResult()
 {
-
 }
 
 char *TurboQueryResult::getRawData()
@@ -54,3 +59,12 @@ size_t TurboQueryResult::getRawDataSize() const
     return rawDataSize;
 }
 
+bool *TurboQueryResult::getNullMask()
+{
+    return nullMask;
+}
+
+size_t TurboQueryResult::getNullMaskSize() const
+{
+    return nullMaskSize;
+}

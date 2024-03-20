@@ -32,11 +32,8 @@
 #include "relblobif/dirwrapper.hh"
 #include "relblobif/blobfs.hh"
 #include "testing.h"
-#include "raslib/rminit.hh"
 
 #include "loggingutils.hh"
-
-RMINITGLOBALS('C')
 
 using namespace std;
 
@@ -46,8 +43,7 @@ char globalDbUser[255] = {0};
 char globalDbPasswd[255] = {0};
 
 class MDDColl;
-MDDColl *mddConstants = 0; // used in QtMDD
-unsigned long maxTransferBufferSize = 4000000;
+MDDColl *mddConstants = 0;  // used in QtMDD
 int noTimeOut = 0;
 char testData[] = {'t', 'e', 's', 't'};
 
@@ -55,9 +51,7 @@ INITIALIZE_EASYLOGGINGPP
 
 class TestBlobFSTransaction
 {
-
 public:
-
     TestBlobFSTransaction()
         : config(string("/tmp/rasdata/"), string("/tmp/rasdata/TILES/"),
                  string("/tmp/rasdata/TRANSACTIONS/"), "/tmp/rasdata")
@@ -70,7 +64,7 @@ public:
 
     void testFinalBlobPath()
     {
-        BlobFSTransaction* transaction = new BlobFSSelectTransaction(config);
+        BlobFSTransaction *transaction = new BlobFSSelectTransaction(config);
         long long blobId = 139364;
 
         auto expectedFinalBlobPath = config.tilesPath + "0/8/139364";
@@ -84,7 +78,7 @@ public:
 
     void testInsertTransactionCommit()
     {
-        BlobFSTransaction* transaction = new BlobFSInsertTransaction(config);
+        BlobFSTransaction *transaction = new BlobFSInsertTransaction(config);
         string transactionPath = transaction->transactionPath;
         string trLockPath = transaction->transactionLock->transactionLockPath;
         string transactionLockFile = trLockPath + BlobFSTransactionLock::TRANSACTION_LOCK;
@@ -130,7 +124,7 @@ public:
 
     void testInsertTransactionAbort()
     {
-        BlobFSTransaction* transaction = new BlobFSInsertTransaction(config);
+        BlobFSTransaction *transaction = new BlobFSInsertTransaction(config);
         string transactionPath = transaction->transactionPath;
         string trLockPath = transaction->transactionLock->transactionLockPath;
         string transactionLockFile = trLockPath + BlobFSTransactionLock::TRANSACTION_LOCK;
@@ -164,7 +158,7 @@ public:
         BlobData blobData(blobId, 4, testData);
         insertTestdata(blobData);
 
-        BlobFSTransaction* transaction = new BlobFSUpdateTransaction(config);
+        BlobFSTransaction *transaction = new BlobFSUpdateTransaction(config);
         string transactionPath = transaction->transactionPath;
         string trLockPath = transaction->transactionLock->transactionLockPath;
         string expectedFinalBlobPath = config.tilesPath + "16/262144/4294967296";
@@ -215,7 +209,7 @@ public:
         BlobData blobData(blobId, 4, testData);
         insertTestdata(blobData);
 
-        BlobFSTransaction* transaction = new BlobFSUpdateTransaction(config);
+        BlobFSTransaction *transaction = new BlobFSUpdateTransaction(config);
         string transactionPath = transaction->transactionPath;
         string trLockPath = transaction->transactionLock->transactionLockPath;
         string expectedFinalBlobPath = config.tilesPath + "16/262144/4294967296";
@@ -262,7 +256,7 @@ public:
         BlobData blobData(blobId, 4, testData);
         insertTestdata(blobData);
 
-        BlobFSTransaction* transaction = new BlobFSRemoveTransaction(config);
+        BlobFSTransaction *transaction = new BlobFSRemoveTransaction(config);
         string transactionPath = transaction->transactionPath;
         string trLockPath = transaction->transactionLock->transactionLockPath;
         string expectedFinalBlobPath = config.tilesPath + "16/262144/4294967296";
@@ -298,7 +292,7 @@ public:
         BlobData blobData(blobId, 4, testData);
         insertTestdata(blobData);
 
-        BlobFSTransaction* transaction = new BlobFSRemoveTransaction(config);
+        BlobFSTransaction *transaction = new BlobFSRemoveTransaction(config);
         string transactionPath = transaction->transactionPath;
         string trLockPath = transaction->transactionLock->transactionLockPath;
         string expectedFinalBlobPath = config.tilesPath + "16/262144/4294967296";
@@ -329,7 +323,7 @@ public:
         BlobData blobData(blobId, 4, testData);
         insertTestdata(blobData);
 
-        BlobFSTransaction* transaction = new BlobFSRemoveTransaction(config);
+        BlobFSTransaction *transaction = new BlobFSRemoveTransaction(config);
         string transactionPath = transaction->transactionPath;
         string trLockPath = transaction->transactionLock->transactionLockPath;
         string expectedFinalBlobPath = config.tilesPath + "16/262144/4294967296";
@@ -371,8 +365,7 @@ public:
     }
 
 private:
-
-    void insertTestdata(BlobData& blobData)
+    void insertTestdata(BlobData &blobData)
     {
         BlobFSInsertTransaction insertTransaction(config);
         insertTransaction.add(blobData);
@@ -382,7 +375,7 @@ private:
     BlobFSConfig config;
 };
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
 #ifndef BASEDB_SQLITE
     cerr << "testsuite runs only on SQLite / Filestorage rasdaman." << endl;

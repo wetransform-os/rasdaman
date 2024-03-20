@@ -34,6 +34,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.PetascopeException;
+import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.Subset;
 import petascope.wcps.metadata.service.RasqlTranslationService;
 import petascope.wcps.metadata.service.SubsetParsingService;
@@ -84,32 +85,50 @@ public class CoverageConstantHandler extends Handler {
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        String coverageName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String coverageName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
         List<Handler> axisIteratorHandlers = this.getChildren().subList(1, this.getChildren().size() - 1);
         List<AxisIterator> axisIterators = new ArrayList<>();
         
         for (Handler handler : axisIteratorHandlers) {
-            AxisIterator axisIterator = (AxisIterator)handler.handle();
+            AxisIterator axisIterator = (AxisIterator)handler.handle(serviceRegistries);
             axisIterators.add(axisIterator);
         }
         
         Handler constantValuesListHandler = this.getChildren().get(this.getChildren().size() - 1);
-        String rasql = ((WcpsResult)constantValuesListHandler.handle()).getRasql();
+        String rasql = ((WcpsResult)constantValuesListHandler.handle(serviceRegistries)).getRasql();
         List<String> constantValues = Arrays.asList(rasql.split(","));
         
         WcpsResult result = this.handle(coverageName, axisIterators, constantValues);
         return result;        
+    }
+    
+    public static void updateAxisNamesFromAxisIterators(WcpsCoverageMetadata metadata, List<AxisIterator> axisIterators) {
+        for (int i = 0; i < metadata.getAxes().size(); i++) {
+            AxisIterator axisIterator = axisIterators.get(i);
+            // e.g. in axis iterator is is called X from $px X(...)
+            String axisName = axisIterator.getAxisName();
+            Axis axis = metadata.getAxes().get(i);
+            if (axis != null) {
+                axis.setLabel(axisName);
+                if (axisIterator.isTemporal()) {
+                    // e.g. OVER $pt ansi("2015-01":"2015-12") then it is a list of slicing monthly points
+                    axis.setCreatedFromAxisIteratorTemporalSlicingInterval(true);
+                }
+            }
+        }        
     }
 
     private WcpsResult handle(String coverageName, List<AxisIterator> axisIterators,
             List<String> constantList) throws PetascopeException {
 
         List<WcpsSubsetDimension> subsetDimensions = new ArrayList();
+        List<Axis> axes = new ArrayList<>();
         for (AxisIterator axisIterator : axisIterators) {
             subsetDimensions.add(axisIterator.getSubsetDimension());
+            axes.add(axisIterator.getAxis());
         }
-        String intervals = rasqlTranslationService.constructRasqlDomainFromSubsets(subsetDimensions);
+        String intervals = rasqlTranslationService.constructRasqlDomainFromSubsets(axes, subsetDimensions);
         ArrayList<String> constantsByDimension = new ArrayList<>();
 
         for (String constant : constantList) {
@@ -117,10 +136,13 @@ public class CoverageConstantHandler extends Handler {
         }
         String rasql = TEMPLATE.replace("$intervals", intervals).replace("$constants", StringUtils.join(constantsByDimension, ","));
         List<Subset> subsets = subsetParsingService.convertToRawNumericSubsets(subsetDimensions);
-        WcpsCoverageMetadata metadata = wcpsCoverageMetadataService.createCoverage(coverageName, subsets);
+        WcpsCoverageMetadata metadata = wcpsCoverageMetadataService.createCoverage(coverageName, null, subsets, axes);
+        
+        updateAxisNamesFromAxisIterators(metadata, axisIterators);
+                
         WcpsResult result = new WcpsResult(metadata, rasql);
         return result;
     }
-
+    
     private final String TEMPLATE = "<[$intervals] $constants>";
 }

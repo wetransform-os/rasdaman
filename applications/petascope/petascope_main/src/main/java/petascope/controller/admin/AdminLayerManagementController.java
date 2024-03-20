@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import petascope.controller.AbstractController;
+import petascope.controller.AuthenticationController;
 import petascope.controller.RequestHandlerInterface;
 import petascope.core.KVPSymbols;
 import petascope.core.response.Response;
@@ -81,7 +82,7 @@ public class AdminLayerManagementController extends AbstractController {
                 Response response = this.layerIsActiveService.handle(httpServletRequest, kvpParameters);
                 this.writeResponseResult(response);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -105,10 +106,10 @@ public class AdminLayerManagementController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
                 this.activateLayerService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         
@@ -132,10 +133,10 @@ public class AdminLayerManagementController extends AbstractController {
         
         RequestHandlerInterface requestHandlerInterface = () -> {
             try {
-                this.validateWriteRequestFromIP(httpServletRequest);
+                this.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
                 this.deactivateLayerService.handle(httpServletRequest, kvpParameters);
             } catch (Exception ex) {
-                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, this.injectedHttpServletResponse);
+                ExceptionUtil.handle(VersionManager.getLatestVersion(KVPSymbols.WMS_SERVICE), ex, httpServletRequest, this.injectedHttpServletResponse);
             }
         };
         

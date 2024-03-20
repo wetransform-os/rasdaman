@@ -52,7 +52,7 @@ def validate_and_read_url(url, data=None, timeout_in_seconds=None):
     :param dict data: POST parameters
     :rtype: str
     """
-    url = __encode_quote(url)
+    url = __encode_quote(url).strip()
 
     try:
         request = Request(url)

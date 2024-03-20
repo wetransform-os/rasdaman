@@ -22,19 +22,18 @@ rasdaman GmbH.
 */
 // This is -*- C++ -*-
 
-#include "basetype.hh"             // for BaseType
-#include "mddbasetype.hh"          // for MDDBaseType
-#include "mdddomaintype.hh"        // for MDDDomainType
-#include "mddtype.hh"              // for MDDType, MDDType::MDDBASETYPE, MDD...
-#include "raslib/mddtypes.hh"      // for r_Bytes
-#include "type.hh"                 // for Type (ptr only), ostream
-#include "relcatalogif/typefactory.hh" // for TypeFactory
-#include "mymalloc/mymalloc.h"
+#include "basetype.hh"                  // for BaseType
+#include "mddbasetype.hh"               // for MDDBaseType
+#include "mdddomaintype.hh"             // for MDDDomainType
+#include "mddtype.hh"                   // for MDDType, MDDType::MDDBASETYPE, MDD...
+#include "raslib/mddtypes.hh"           // for r_Bytes
+#include "type.hh"                      // for Type (ptr only), ostream
+#include "relcatalogif/typefactory.hh"  // for TypeFactory
 
-#include <logging.hh>              // for Writer, CTRACE, LTRACE
-#include <cstring>                 // for strcat, strcpy, strlen
-#include <iostream>                // for operator<<, basic_ostream, char_tr...
-#include <string>                  // for string
+#include <logging.hh>  // for Writer, CTRACE, LTRACE
+#include <cstring>     // for strcat, strcpy, strlen
+#include <iostream>    // for operator<<, basic_ostream, char_tr...
+#include <string>      // for string
 
 MDDBaseType::MDDBaseType()
     : MDDType("unnamed mddbasetype")
@@ -75,27 +74,32 @@ MDDBaseType::~MDDBaseType() noexcept(false)
     validate();
 }
 
-char *MDDBaseType::getTypeStructure() const
+std::string MDDBaseType::getTypeStructure() const
 {
-    char *baseType = myBaseType->getTypeStructure();
-    char *result = static_cast<char *>(mymalloc(10 + strlen(baseType)));
+    auto baseType = myBaseType->getTypeStructure();
+    auto resultLen = 10 + baseType.size();
 
-    strcpy(result, "marray <");
-    strcat(result, baseType);
-    strcat(result, ">");
-    
-    free(baseType);
-    return result;
+    std::string ret;
+    ret.reserve(resultLen);
+    ret += "marray <";
+    ret += baseType;
+    ret += ">";
+
+    return ret;
 }
 
-char *MDDBaseType::getNewTypeStructure() const
+std::string MDDBaseType::getNewTypeStructure() const
 {
-    auto baseTypeStr = TypeFactory::getSyntaxTypeFromInternalType(std::string(myBaseType->getTypeName()));
-    const char *baseType = baseTypeStr.c_str();
-    char *result = static_cast<char *>(mymalloc(10 + strlen(baseType)));
+    auto baseType = TypeFactory::getSyntaxTypeFromInternalType(myBaseType->getTypeName());
+    auto resultLen = 10 + baseType.size();
 
-    sprintf(result, "marray {%s}", baseType);
-    return result;
+    std::string ret;
+    ret.reserve(resultLen);
+    ret += "marray {";
+    ret += baseType;
+    ret += "}";
+
+    return ret;
 }
 
 void MDDBaseType::print_status(std::ostream &s) const

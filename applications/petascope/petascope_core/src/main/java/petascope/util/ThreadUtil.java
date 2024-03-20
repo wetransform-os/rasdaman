@@ -21,10 +21,10 @@
  */
 package petascope.util;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
+
 import org.slf4j.LoggerFactory;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
@@ -42,31 +42,25 @@ public class ThreadUtil {
     /**
      * Run a list of tasks in parallel in batch mode (max = number of CPU cores)
      */
-    public static void executeMultipleTasksInParallel(List<Callable<Object>> tasks) throws PetascopeException {
-        try {
-            executorService.invokeAll(tasks);
-        } catch (InterruptedException ex) {
-            throw new PetascopeException(ExceptionCode.RuntimeError, 
-                      "Error while running multiple threads. Reason: " + ex.getMessage(), ex);
+    public static void executeMultipleTasksInParallel(List<Task> tasks) throws PetascopeException {
+        if (tasks.size() > 0) {
+            long startTime = System.currentTimeMillis();
+
+            try {
+                executorService.invokeAll(tasks);
+            } catch (Exception ex) {
+                String errorMessage = "Executor running tasks in parallel was interrupted. " +
+                        "First task description is: " + tasks.get(0).getThreadNameWithDescription()
+                        + ". Reason: " + ex.getMessage();
+                log.error(errorMessage, ex);
+                throw new PetascopeException(ExceptionCode.InternalComponentError, errorMessage, ex);
+            }
+
+            long endTime = System.currentTimeMillis();
+            log.debug("Total time to process: " + tasks.size() + " tasks in parallel is: " + (endTime - startTime) + " ms. " +
+                    "First task description is: " + tasks.get(0).getThreadNameWithDescription());
+            log.debug("Total tasks are waiting in ExecutorService queue is: " + ((ThreadPoolExecutor) executorService).getQueue().size());
         }
     }
-    
-    /**
-     * Given a list of tasks, run them in a separated thread
-     */
-    public static void executeTasksInParallelInBackground(final String tasksDescription, final List<Callable<Object>> tasks) {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    ThreadUtil.executeMultipleTasksInParallel(tasks);
-                } catch (PetascopeException ex) {
-                    log.warn("Failed to run tasks to " + tasksDescription + ". Reason: " + ex.getMessage(), ex);
-                }
-            }
-        };
-        
-        Thread thread = new Thread(runnable);
-        thread.start();
-    }
+
 }

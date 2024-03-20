@@ -7,18 +7,27 @@
 namespace rasmgr
 {
 class ServerGroup;
+class DatabaseHostManager;
+class ServerFactory;
 
 /**
- * @brief The ServerGroupFactory class Abstract Factory for creating a server
- * group given a server group configuration.
+ * Factory for creating a server group given a server group configuration. It's
+ * only necessary to allow testing with mocked objects.
  */
 class ServerGroupFactory
 {
 public:
-    virtual ~ServerGroupFactory();
+    ServerGroupFactory(std::shared_ptr<DatabaseHostManager> dbhManager,
+                       std::shared_ptr<ServerFactory> serverFactory);
 
-    virtual std::shared_ptr<ServerGroup> createServerGroup(const ServerGroupConfigProto &config) = 0;
+    virtual ~ServerGroupFactory() = default;
+
+    virtual std::shared_ptr<ServerGroup> createServerGroup(const ServerGroupConfigProto &config);
+
+private:
+    std::shared_ptr<DatabaseHostManager> dbhManager;
+    std::shared_ptr<ServerFactory> serverFactory;
 };
-}
+}  // namespace rasmgr
 
-#endif // RASMGR_X_SRC_SERVERGROUPFACTORY_HH
+#endif  // RASMGR_X_SRC_SERVERGROUPFACTORY_HH

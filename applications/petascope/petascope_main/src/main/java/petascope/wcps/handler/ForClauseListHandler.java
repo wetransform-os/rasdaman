@@ -60,27 +60,22 @@ public class ForClauseListHandler extends Handler {
     }
     
     
-    public WcpsResult handle() throws PetascopeException {
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
         List<WcpsResult> temps = new ArrayList<>();
         for (Handler childHandler : this.getChildren()) {
-            WcpsResult result = (WcpsResult) childHandler.handle();
+            WcpsResult result = (WcpsResult) childHandler.handle(serviceRegistries);
             temps.add(result);
         }
-        
-        WcpsResult result = this.handle(temps);
-        return result;
-    }
 
-    private WcpsResult handle(List<WcpsResult> forClauses) {
         List<String> rasqls = new ArrayList();
-        for (WcpsResult forClause : forClauses) {
+        for (WcpsResult forClause : temps) {
             rasqls.add(forClause.getRasql());
         }
         String template = TEMPLATE.replace("$forClausesList", StringUtils.join(rasqls, FROM_CLAUSE_SEPARATOR));
         WcpsResult result = new WcpsResult(null, template);
         return result;
     }
-    
+
     public static final String FROM = "FROM";
 
     private static final String TEMPLATE = FROM + " $forClausesList";

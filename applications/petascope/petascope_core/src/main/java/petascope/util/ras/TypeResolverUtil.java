@@ -22,11 +22,9 @@
 package petascope.util.ras;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+import org.rasdaman.domain.cis.Field;
 import org.rasdaman.domain.cis.NilValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,10 +52,17 @@ public class TypeResolverUtil {
      * @return the rasdaman collection type
      * @throws IOException
      */
-    public static String guessCollectionTypeFromFile(String collectionName, String filePath, int dimension, List<List<NilValue>> nullValues) throws PetascopeException {
+    public static String guessCollectionTypeFromFile(String collectionName, String filePath, int dimension,
+                                                    List<List<NilValue>> nullValues, List<Field> rangeFields) throws PetascopeException {
         Pair<Integer, ArrayList<String>> dimTypes = Gdalinfo.getDimensionAndTypes(filePath);
+        Map<String, String> gdalBandTypesMap = new LinkedHashMap<>();
+        for (int i = 0; i < rangeFields.size(); i++) {
+            String bandName = rangeFields.get(i).getName();
+            String dataType = dimTypes.snd.get(i);
+            gdalBandTypesMap.put(bandName, dataType);
+        }
         
-        return guessCollectionType(collectionName, dimension, dimTypes.snd, nullValues);
+        return guessCollectionType(collectionName, dimension, gdalBandTypesMap, nullValues);
     }
 
     /**
@@ -65,13 +70,14 @@ public class TypeResolverUtil {
      * band type char.
      *
      * @param collectionName     name of creating collection (coverage Id)
-     * @param numberOfBands      how many band the dataset has
      * @param numberOfDimensions how many dimensions the dataset has
      * @param nullValues
      * @param inputPixelDataType      the pixel data type, if not given assumed Float32
      * @return pair containing the collection type and a list of cell types suffixes (e.g. <"GreySet", ["c"]>)
      */
-    public static Pair<String, List<String>> guessCollectionType(String collectionName, Integer numberOfBands, Integer numberOfDimensions, List<List<NilValue>> nullValues, String inputPixelDataType) throws PetascopeException {
+    public static Pair<String, List<String>> guessCollectionType(String collectionName, List<Field> rangeFields,
+                                                                 Integer numberOfDimensions, List<List<NilValue>> nullValues,
+                                                                 String inputPixelDataType) throws PetascopeException {
         if (inputPixelDataType == null) {
             inputPixelDataType = GDT_Float32;
         }
@@ -80,7 +86,7 @@ public class TypeResolverUtil {
         String[] pixelDataTypes = inputPixelDataType.split(",");
         int numberOfBandTypes = pixelDataTypes.length;
         
-        if (numberOfBandTypes > 1 && numberOfBandTypes != numberOfBands) {
+        if (numberOfBandTypes > 1 && numberOfBandTypes != rangeFields.size()) {
             // e.g: 3 bands but only 2 band types 
             throw new PetascopeException(ExceptionCode.InvalidRequest, "Number of bands is different from number of data types."
                                   + " Given: " + numberOfBandTypes + " and " + numberOfBandTypes + " respectively.");
@@ -93,18 +99,23 @@ public class TypeResolverUtil {
             }
         }
         
-        List<String> bandTypes = new ArrayList<>();
+        Map<String, String> bandTypesMap = new LinkedHashMap<>();
         List<String> typeSuffixes = new ArrayList<>();
-        for (Integer i = 0; i < numberOfBands; i++) {
+        for (Integer i = 0; i < rangeFields.size(); i++) {
+            String bandName = rangeFields.get(i).getName();
             String dataType = (numberOfBandTypes > 1 ? pixelDataTypes[i] : pixelDataTypes[0]);
-            bandTypes.add(dataType);
+            bandTypesMap.put(bandName, dataType);
             
             // e.g: char -> c
             String typeSuffix = RAS_TYPES_TO_ABBREVIATION.get(GDAL_TYPES_TO_RAS_TYPES.get(dataType));
             typeSuffixes.add(typeSuffix);
         }
         
-        String result = guessCollectionType(collectionName, numberOfDimensions, bandTypes, nullValues);
+        if (collectionName == null) {
+            collectionName = TEMP_COLLECTION_PREFIX;
+        }
+        
+        String result = guessCollectionType(collectionName, numberOfDimensions, bandTypesMap, nullValues);
         
         return Pair.of(result, typeSuffixes);
     }
@@ -207,7 +218,7 @@ public class TypeResolverUtil {
      * Guesses the collection type. If no type is found, a new one is created.
      */
     private static String guessCollectionType(String collectionName, Integer numberOfDimensions, 
-                                              List<String> gdalBandTypes, List<List<NilValue>> nilValues) throws PetascopeException {
+                                              Map<String, String> gdalBandTypesMap, List<List<NilValue>> nilValues) throws PetascopeException {
         
         String result = "";
 
@@ -229,13 +240,17 @@ public class TypeResolverUtil {
                     //we are left with something like char red, char green, char blue
                     String[] cellTypeByBand = cellType.split(",");
                     //filter by number of bands
-                    if (cellTypeByBand.length == gdalBandTypes.size()) {
+                    if (cellTypeByBand.length == gdalBandTypesMap.size()) {
                         Boolean allBandsMatch = true;
                         //compare band by band
-                        for (int j = 0; j < cellTypeByBand.length; j++) {       
-                            if (!cellTypeByBand[j].contains(GDAL_TYPES_TO_RAS_TYPES.get(gdalBandTypes.get(j)))) {
+                        int i = 0;
+                        for (Map.Entry<String, String> entryTmp : gdalBandTypesMap.entrySet()) {
+                            String dataType = entryTmp.getValue();
+                            if (!cellTypeByBand[i].contains(GDAL_TYPES_TO_RAS_TYPES.get(dataType))) {
                                 allBandsMatch = false;
                             }
+
+                            i++;
                         }
                         
                         // if band types are the same then last check for nilValues
@@ -249,7 +264,8 @@ public class TypeResolverUtil {
                 } else {
                     //1 band
                     cellType = entry.getValue().getCellType();
-                    if (gdalBandTypes.size() == 1 && cellType.equals(GDAL_TYPES_TO_RAS_TYPES.get(gdalBandTypes.get(0)))) {
+                    String dataType = gdalBandTypesMap.values().stream().findFirst().get();
+                    if (gdalBandTypesMap.size() == 1 && cellType.equals(GDAL_TYPES_TO_RAS_TYPES.get(dataType))) {
                         // all nil values are the same then the existing set type is good for this coverage, no need to create new cell/array/set types
                         if (allNilValuesMatch(entry.getValue().getNilValues(), nilValues)) {
                             return entry.getKey();                            
@@ -266,13 +282,13 @@ public class TypeResolverUtil {
         }
         // no existing set type can be used for the coverage, so create the new one
         try {
-            result = typeRegistry.createNewType(collectionName, numberOfDimensions, translateTypes(gdalBandTypes), nilValues);
+            result = typeRegistry.createNewType(collectionName, numberOfDimensions, translateTypes(gdalBandTypesMap), nilValues);
         } catch (PetascopeException ex) {
             // In case, one creates rasql types manually, then petascope cannot see them and it should create new ones to avoid duplicate names.
             if (ex.getMessage().toLowerCase().contains("type already exists")) {
                 log.warn("Type names for '" + collectionName + "' already exists. Creating new ones...");
                 collectionName = StringUtil.addDateTimeSuffix(collectionName);
-                result = typeRegistry.createNewType(collectionName, numberOfDimensions, translateTypes(gdalBandTypes), nilValues);
+                result = typeRegistry.createNewType(collectionName, numberOfDimensions, translateTypes(gdalBandTypesMap), nilValues);
             } else {
                 throw ex;
             }
@@ -317,19 +333,20 @@ public class TypeResolverUtil {
 
     /**
      * Translates an array of gdal types into rasdaman types.
-     *
-     * @param gdalTypes
-     * @return
+
      */
-    private static List<String> translateTypes(List<String> gdalTypes) {
-        List<String> rasTypes = new ArrayList<>();
-        for (String i : gdalTypes) {
-            rasTypes.add(GDAL_TYPES_TO_RAS_TYPES.get(i));
+    private static Map<String, String> translateTypes(Map<String, String> gdalTypesMap) {
+        Map<String, String> rasTypesMap = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : gdalTypesMap.entrySet()) {
+            rasTypesMap.put(entry.getKey(), GDAL_TYPES_TO_RAS_TYPES.get(entry.getValue()));
         }
-        return rasTypes;
+
+        return rasTypesMap;
     }
     
     public static final String STRUCT = "struct";
+    // This coverage is created temporarily from WCPS queries having decode() operators
+    public static final String TEMP_COLLECTION_PREFIX = "TEMP_COLLECTION";
 
     //rasdaman base types
     public static final String R_Char = "char";

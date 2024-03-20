@@ -21,29 +21,30 @@
  */
 package petascope.controller;
 
+import com.rasdaman.admin.model.AuthIsActiveResult;
 import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import static java.lang.System.in;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.io.IOException;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.rasdaman.rasnet.util.DigestUtils;
 import javax.servlet.http.HttpServletRequest;
 import org.rasdaman.config.ConfigManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import static org.rasdaman.config.ConfigManager.CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH;
 import org.rasdaman.rasnet.util.DigestUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import static org.rasdaman.config.ConfigManager.*;
+
+import petascope.controller.model.BasicCredentialsToken;
 import petascope.core.Pair;
 import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.util.JSONUtil;
 import petascope.util.ListUtil;
 import petascope.util.MIMEUtil;
 import petascope.util.ras.RasUtil;
@@ -57,8 +58,65 @@ import petascope.util.ras.RasUtil;
 public class AuthenticationController extends AbstractController {
     
     public static final String LOGIN = "login";
+
+    @Autowired
+    private AuthenticationService authenticationService;
+
+    @RequestMapping(value = { CREDENTIALS_BASIC, OPENEO_CREDENTIALS_BASIC, GDC_CREDENTIALS_BASIC })
+    /**
+     * 7. Return an access token for the valid credentials
+     * see https://openeo.org/documentation/1.0/developers/api/reference.html#tag/Account-Management/operation/authenticate-basic
+     */
+    private void handleCredentialsBasic() throws Exception {
+        Pair<String, String> credentialsPair = this.authenticationService.getBasicAuthUsernamePassword(this.injectedHttpServletRequest);
+        if (credentialsPair == null) {
+            throw new PetascopeException(ExceptionCode.InvalidRequest, "Missing required credentials in basic authentication format.");
+        } else {
+            String username = credentialsPair.fst;
+            String password = credentialsPair.snd;
+            RasUtil.checkValidUserCredentials(username, password);
+
+            // this access token is generated new everytime
+            String accessToken = this.authenticationService.generateBasicCredentialsAccessToken(username, password);
+
+            BasicCredentialsToken basicCredentialsToken = new BasicCredentialsToken(accessToken);
+            Response response = new Response(Arrays.asList(JSONUtil.serializeObjectToJSONString(basicCredentialsToken).getBytes()), MIMEUtil.MIME_JSON);
+            this.writeResponseResult(response);
+        }
+
+    }
+
+
+    // -- rasdaman enterprise begin
     
     public static final String READ_WRITE_RIGHTS = "RW";
+
+    /**
+     * Check if petascope has being enabled authentication in petascope.properties,
+     * then WSClient shows a login form.
+     */
+    @RequestMapping(value = CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH)
+    private void handleCheckEnableAuthentication() throws Exception {
+        if (startException != null) {
+            throw startException;
+        }
+
+        boolean basicAuthenticationHeaderEnabled = false;
+        String rasdamanUser = "";
+
+        if (ConfigManager.enableAuthentication()) {
+            basicAuthenticationHeaderEnabled = true;
+        }
+
+        if (!ConfigManager.RASDAMAN_USER.trim().isEmpty()
+                && !ConfigManager.RASDAMAN_PASS.trim().isEmpty()) {
+            rasdamanUser = ConfigManager.RASDAMAN_USER;
+        }
+
+        AuthIsActiveResult result = new AuthIsActiveResult(basicAuthenticationHeaderEnabled, rasdamanUser);
+        Response response = new Response(Arrays.asList(JSONUtil.serializeObjectToJSONString(result).getBytes()), MIMEUtil.MIME_JSON);
+        this.writeResponseResult(response);
+    }
     
     /**
      * Check the credentials provided by the user. If the credentials are valid, return the list of roles for the requesting user.
@@ -73,7 +131,7 @@ public class AuthenticationController extends AbstractController {
         
         String username = resultPair.fst;
         String password = resultPair.snd;
-        
+
         String result = "";
         
         RasUtil.checkValidUserCredentials(username, password);
@@ -138,7 +196,7 @@ public class AuthenticationController extends AbstractController {
                     }
                 }
             }
-            
+
             return roleNames;
         } catch (IOException ex) {
             throw new PetascopeException(ExceptionCode.IOConnectionError, 

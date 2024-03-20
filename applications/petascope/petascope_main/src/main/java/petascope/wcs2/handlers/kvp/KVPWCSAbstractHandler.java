@@ -25,10 +25,15 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.rasdaman.config.VersionManager;
+
+import static petascope.controller.AbstractController.getValueByKeyAllowNull;
 import static petascope.core.KVPSymbols.KEY_FORMAT;
 import static petascope.core.KVPSymbols.KEY_OUTPUT_TYPE;
 import static petascope.core.KVPSymbols.KEY_VERSION;
 import static petascope.core.KVPSymbols.VALUE_GENERAL_GRID_COVERAGE;
+
+import petascope.controller.AbstractController;
+import petascope.core.KVPSymbols;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCSException;
@@ -49,7 +54,7 @@ public abstract class KVPWCSAbstractHandler implements IKVPHandler {
      */
     public static void validateParameters(Map<String, String[]> kvpParameters, Set<String> validParameters) throws WCSException {
         for (String key : kvpParameters.keySet()) {
-            if (!validParameters.contains(key.toLowerCase())) {
+            if (!key.startsWith(KVPSymbols.KEY_INTERNAL_PREFIX) && !validParameters.contains(key.toLowerCase())) {
                 throw new WCSException(ExceptionCode.InvalidRequest, "Parameter '" + key + "' is not valid in request.");
             }
         }
@@ -67,7 +72,7 @@ public abstract class KVPWCSAbstractHandler implements IKVPHandler {
         }
 
         for (String key : kvpParameters.keySet()) {
-            if (!validParameters.contains(key.toLowerCase())) {
+            if (!key.startsWith(KVPSymbols.KEY_INTERNAL_PREFIX) && !validParameters.contains(key.toLowerCase())) {
                 throw new PetascopeException(ExceptionCode.InvalidRequest, "Parameter '" + key + "' is not valid in request.");
             }
         }
@@ -84,28 +89,14 @@ public abstract class KVPWCSAbstractHandler implements IKVPHandler {
             }
         }
     }
-    
-    /**
-     *  Check if key exists in KVP GET request to return its value. 
-     * 
-    **/
-    protected String getKVPValue(Map<String, String[]> kvpParameters, String kvpKey) {
-        String value = null;
-        
-        if (kvpParameters.get(kvpKey) != null) {
-            value = kvpParameters.get(kvpKey)[0];
-        }
-        
-        return value;
-    }
-    
+
     /**
      * Check if petascope should converse CIS 1.0 to CIS 1.1 with format GML
      * by parameter outputType=GeneralGridCoverage
      */
     protected void validateCoverageConversionCIS11(Map<String, String[]> kvpParameters) throws PetascopeException {
-        String outputType = this.getKVPValue(kvpParameters, KEY_OUTPUT_TYPE);
-        String version = this.getKVPValue(kvpParameters, KEY_VERSION);
+        String outputType = getValueByKeyAllowNull(kvpParameters, KEY_OUTPUT_TYPE);
+        String version = getValueByKeyAllowNull(kvpParameters, KEY_VERSION);
         
         if (outputType != null) {            
             if (!outputType.equalsIgnoreCase(VALUE_GENERAL_GRID_COVERAGE)) {
@@ -118,7 +109,7 @@ public abstract class KVPWCSAbstractHandler implements IKVPHandler {
                                                                                + VersionManager.WCS_VERSION_20 + "' as CIS 1.1 only supported in version 2.1+.");
                 }
                 
-                String outputFormat = this.getKVPValue(kvpParameters, KEY_FORMAT);
+                String outputFormat = getValueByKeyAllowNull(kvpParameters, KEY_FORMAT);
                 if (outputFormat != null && !this.isValidGeneralGridCoverageFormat(outputFormat) ) {
                     throw new PetascopeException(ExceptionCode.InvalidRequest, 
                             "GET KVP '" + KEY_OUTPUT_TYPE + "=" + VALUE_GENERAL_GRID_COVERAGE + "'"

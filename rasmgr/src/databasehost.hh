@@ -23,12 +23,12 @@
 #ifndef RASMGR_X_SRC_DATABASEHOST_HH
 #define RASMGR_X_SRC_DATABASEHOST_HH
 
+#include "rasmgr/src/messages/rasmgrmess.pb.h"
+
 #include <string>
 #include <memory>
 #include <list>
 #include <boost/thread/shared_mutex.hpp>
-
-#include "rasmgr/src/messages/rasmgrmess.pb.h"
 
 namespace rasmgr
 {
@@ -36,34 +36,33 @@ namespace rasmgr
 class Database;
 
 /**
- * @brief The DatabaseHost class A database host manages multiple databases,
- * keeps track of servers using this database host
+ * A database host manages multiple databases, and keeps track of servers using
+ * this database host. Properties of a database host are:
+ * 
+ * - hostname, e.g. localhost
+ * - database connect string, e.g. path to an SQLite RASBASE file
+ * - username and password credentials for connecting to the database
  */
 class DatabaseHost
 {
 public:
     /**
-     * @brief DatabaseHost Initialize a new instance of the DatabaseHost object.
      * @param hostName Name of the database host, the machine on which the database will run.
      * @param connectString The string that will be used to connect to the database
-     * @param userName The user name used for secure connection to the database
-     * @param passwdString The password string associated with the user name
      */
-    DatabaseHost(std::string hostName, std::string connectString,
-                 std::string userName, std::string passwdString);
+    DatabaseHost(const std::string &hostName, const std::string &connectString);
 
     /**
-     * @brief addClientSessionOnDB Increase the number of sessions running
-     * on the given database
-     * @throws An exception is thrown if this host does not contain a database
+     * Increase the number of sessions running on the given database.
+     * @throws InexistentDatabaseException if this host does not contain databaseName
      */
-    void addClientSessionOnDB(const std::string &databaseName, const std::string &clientId, const std::string &sessionId);
+    void addClientSessionOnDB(const std::string &databaseName,
+                              std::uint32_t clientId, std::uint32_t sessionId);
 
     /**
-     * @brief removeClientSessionFromDB Decrease the number of sessions running
-     * on the given database
+     * Decrease the number of sessions running on the given database.
      */
-    void removeClientSessionFromDB(const std::string &clientId, const std::string &sessionId);
+    void removeClientSessionFromDB(std::uint32_t clientId, std::uint32_t sessionId);
 
     /**
      * @brief increaseServerCount Increase the number of servers using this host.
@@ -95,19 +94,18 @@ public:
 
     /**
      * Add the database to this host.
-     * @param db
+     * @throws DatabaseAlreadyExistsException
      */
     void addDbToHost(std::shared_ptr<Database> db);
 
     /**
      * Remove the database with the given name from this host.
-     * @param dbName
+     * @throws DbBusyException
+     * @throws InexistentDatabaseException
      */
     void removeDbFromHost(const std::string &dbName);
 
     /**
-     * @brief serializeToProto
-     * @param dbHost
      * @return Serialized representation of this DatabaseHost
      */
     static DatabaseHostProto serializeToProto(const DatabaseHost &dbHost);
@@ -118,22 +116,14 @@ public:
     const std::string &getConnectString() const;
     void setConnectString(const std::string &connectString);
 
-    const std::string &getUserName() const;
-    void setUserName(const std::string &userName);
-
-    const std::string &getPasswdString() const;
-    void setPasswdString(const std::string &passwdString);
-
 private:
-    std::string hostName; /*!< Name of this database host */
+    std::string hostName;      /*!< Name of this database host */
     std::string connectString; /*!< String used to connect to this database host*/
-    std::string userName; /*!< User name used to connect to the database host*/
-    std::string passwdString; /*!< Password string used to connect to the database host*/
 
-    int sessionCount; /*!< Counter used to track the number of active sessions*/
-    int serverCount;/*!< Counter used to track the number of server groups using this host*/
-    std::list<std::shared_ptr<Database>> databaseList;/*!< List of databases located on this host */
-    mutable boost::shared_mutex databaseListMutex;/*!< Mutex used for syncrhonizing access to this object*/
+    int sessionCount;                                  /*!< Counter used to track the number of active sessions*/
+    int serverCount;                                   /*!< Counter used to track the number of server groups using this host*/
+    std::list<std::shared_ptr<Database>> databaseList; /*!< List of databases located on this host */
+    mutable boost::shared_mutex databaseListMutex;     /*!< Mutex used for syncrhonizing access to this object*/
 
     /**
      * Check if this host contains the database identified by the given name.
@@ -141,6 +131,6 @@ private:
     bool containsDatabase(const std::string &dbName);
 };
 
-}
+}  // namespace rasmgr
 
-#endif // DATABASEHOST_HH
+#endif  // DATABASEHOST_HH

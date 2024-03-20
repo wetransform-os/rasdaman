@@ -37,26 +37,24 @@ namespace test
 using rasmgr::Database;
 using rasmgr::DatabaseHost;
 using rasmgr::DatabaseHostManager;
-using rasmgr::DatabaseManager;
 using rasmgr::DatabaseHostPropertiesProto;
-using rasmgr::DatabasePropertiesProto;
+using rasmgr::DatabaseManager;
 using rasmgr::DatabaseMgrProto;
+using rasmgr::DatabasePropertiesProto;
 
-class DatabaseManagerTest: public ::testing::Test
+class DatabaseManagerTest : public ::testing::Test
 {
 protected:
-    DatabaseManagerTest(): hostName("hostName"), connectString("connectString"),
-        userName("userName"), passwdString("passwdString"), dbName("dbName"),
-        db(new Database(dbName))
+    DatabaseManagerTest()
+        : hostName("hostName"), connectString("connectString"), dbName("dbName"),
+          db(new Database(dbName))
     {
         this->dbhManager.reset(new DatabaseHostManager());
         this->dbManager.reset(new DatabaseManager(this->dbhManager));
     }
 
     std::string hostName;
-    std::string connectString ;
-    std::string userName;
-    std::string passwdString;
+    std::string connectString;
     std::string dbName;
     std::shared_ptr<Database> db;
     std::shared_ptr<DatabaseHostManager> dbhManager;
@@ -74,8 +72,6 @@ TEST_F(DatabaseManagerTest, defineDatabaseSuccess)
     DatabaseHostPropertiesProto proto;
     proto.set_host_name(hostName);
     proto.set_connect_string(connectString);
-    proto.set_user_name(userName);
-    proto.set_password(passwdString);
     dbhManager->defineDatabaseHost(proto);
 
     //Succeed
@@ -87,8 +83,6 @@ TEST_F(DatabaseManagerTest, defineDatabaseFailsWhenDoneTwice)
     DatabaseHostPropertiesProto proto;
     proto.set_host_name(hostName);
     proto.set_connect_string(connectString);
-    proto.set_user_name(userName);
-    proto.set_password(passwdString);
     dbhManager->defineDatabaseHost(proto);
 
     //Succeed
@@ -102,8 +96,6 @@ TEST_F(DatabaseManagerTest, defineDatabaseWithSameNameOnTwoHosts)
     DatabaseHostPropertiesProto proto;
     proto.set_host_name(hostName);
     proto.set_connect_string(connectString);
-    proto.set_user_name(userName);
-    proto.set_password(passwdString);
     dbhManager->defineDatabaseHost(proto);
 
     std::string secondHost = "secondHost";
@@ -118,26 +110,23 @@ TEST_F(DatabaseManagerTest, defineDatabaseWithSameNameOnTwoHosts)
 
 TEST_F(DatabaseManagerTest, changeDatabaseNameWhenDatabaseDoesNotExist)
 {
-    std::string newName =  "newName";
+    std::string newName = "newName";
     DatabasePropertiesProto dbProperties;
     dbProperties.set_n_name(newName);
 
     //Throw because there is no db
     ASSERT_ANY_THROW(dbManager->changeDatabase(dbName, dbProperties));
-
 }
 
 TEST_F(DatabaseManagerTest, changeDatabaseName)
 {
-    std::string newName =  "newName";
+    std::string newName = "newName";
     DatabasePropertiesProto dbProperties;
     dbProperties.set_n_name(newName);
 
     DatabaseHostPropertiesProto proto;
     proto.set_host_name(hostName);
     proto.set_connect_string(connectString);
-    proto.set_user_name(userName);
-    proto.set_password(passwdString);
 
     //Define the database host
     dbhManager->defineDatabaseHost(proto);
@@ -148,7 +137,7 @@ TEST_F(DatabaseManagerTest, changeDatabaseName)
     //Succeed
     ASSERT_NO_THROW(dbManager->changeDatabase(dbName, dbProperties));
 
-    DatabaseMgrProto dbMgrData =  dbManager->serializeToProto();
+    DatabaseMgrProto dbMgrData = dbManager->serializeToProto();
 
     ASSERT_EQ(1, dbMgrData.databases_size());
     ASSERT_EQ(newName, dbMgrData.databases(0).database().name());
@@ -163,8 +152,6 @@ TEST_F(DatabaseManagerTest, removeDatabase)
     DatabaseHostPropertiesProto proto;
     proto.set_host_name(hostName);
     proto.set_connect_string(connectString);
-    proto.set_user_name(userName);
-    proto.set_password(passwdString);
 
     //Define the database host
     dbhManager->defineDatabaseHost(proto);
@@ -184,8 +171,6 @@ TEST_F(DatabaseManagerTest, serializeToProto)
     DatabaseHostPropertiesProto proto;
     proto.set_host_name(hostName);
     proto.set_connect_string(connectString);
-    proto.set_user_name(userName);
-    proto.set_password(passwdString);
 
     //Define the database host
     dbhManager->defineDatabaseHost(proto);
@@ -193,12 +178,12 @@ TEST_F(DatabaseManagerTest, serializeToProto)
     //Succeed
     ASSERT_NO_THROW(dbManager->defineDatabase(hostName, dbName));
 
-    DatabaseMgrProto dbMgrData =  dbManager->serializeToProto();
+    DatabaseMgrProto dbMgrData = dbManager->serializeToProto();
 
     ASSERT_EQ(1, dbMgrData.databases_size());
     ASSERT_EQ(dbName, dbMgrData.databases(0).database().name());
     ASSERT_EQ(hostName, dbMgrData.databases(0).database_host());
 }
 
-}
-}
+}  // namespace test
+}  // namespace rasmgr

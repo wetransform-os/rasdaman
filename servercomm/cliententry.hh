@@ -40,17 +40,16 @@ class r_Parse_Params;
 
 enum class ClientType
 {
-    Invalid, // invalid client
-    Http,    // requests routed via HttpServer
-    Regular  // requests go directly to ServerComm
+    Invalid,  // invalid client
+    Http,     // requests routed via HttpServer
+    Regular   // requests go directly to ServerComm
 };
 
 /// the class defines an entry of the client table
 class ClientTblElt
 {
 public:
-
-    ClientTblElt(ClientType clientTypeArg, unsigned long clientId);
+    ClientTblElt(ClientType clientTypeArg, std::uint32_t clientId);
 
     ClientTblElt(const ClientTblElt &) = delete;
 
@@ -60,8 +59,11 @@ public:
     /// creation and deletion must be done within the same transaction.
     void releaseTransferStructures();
 
+    /// @return true if data needs endianess swap before transferring to client
+    bool needEndianessSwap() const;
+
     /// unique client identification assigned by the server
-    unsigned long clientId;
+    std::uint32_t clientId;
 
     /// client type
     ClientType clientType{ClientType::Invalid};
@@ -123,10 +125,10 @@ public:
     common::Stopwatch timer;
     //timer saved for evaluation
     double evaluationTime = 0;
-    
+
     /// parameter object
     r_Parse_Params *clientParams{0};
-    
+
     /// the tile data converted into the transfer format, if required
     void *encodedData{0};
     unsigned long encodedSize{0};
@@ -135,12 +137,12 @@ public:
     /// for establishing the compression ratio
     unsigned long totalRawSize{0};
     unsigned long totalTransferedSize{0};
-    
+
 #ifdef RASDEBUG
     /// time when the database was opened (for debugging purposes)
     unsigned long creationTime{0};
 #endif
-    
+
     /// send data to client in the exact transfer format
     int exactFormat{1};
     /// convert raw array data to this data format before transfer
@@ -149,7 +151,6 @@ public:
     r_Data_Format storageFormat{r_Array};
     /// if true, feedback will be printed with info level in endTransfer
     bool reportTransferedSize{false};
-
 };
 
 #endif

@@ -105,7 +105,7 @@ queries. The request format is as follows: ::
   http(s)://<endpoint url>?service=WCS&version=2.0.1&request=ProcessCoverages
                           &query=<wcps query>
 
-E.g, calculate the average on the subset from the previous GetCoverage example:
+e.g. calculate the average on the subset from the previous GetCoverage example:
 
   `http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=ProcessCoverages&query=for $c in (AvgLandTemp) return avg($c[Lon(-90.0:85.3), ansi("2014-10-01")]) <http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=ProcessCoverages&query=for $c in (AvgLandTemp) return avg($c[Lon(-90.0:85.3), ansi("2014-10-01")])>`__
 
@@ -136,6 +136,7 @@ to downscale all axes by 4x:
 
   `http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AvgLandTemp&subset=ansi("2014-10-01")&format=image/jpeg&scaleFactor=0.25 <http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AvgLandTemp&subset=ansi("2014-10-01")&format=image/jpeg&scaleFactor=0.25>`__
 
+Currently only nearest neighbour interpolation is supported for scaling.
 
 Reprojection
 ------------
@@ -145,25 +146,27 @@ reproject a coverage before retreiving it. For example ``AverageChlorophyllScale
 has native CRS EPSG:4326, and the following request will return the result in
 EPSG:3857:
 
-  `http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=unix("2015-01-01")&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857 <http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=unix("2015-01-01")&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857>`__
+  http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=unix("2015-01-01")&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857
 
 or change the CRS in which subset or scale coordinates are specified:
 
-  `http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=Lon(0,10000000)&subset=Lat(0,20000000)&subset=unix(%222015-01-01%22)&subsettingCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857 <http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=Lon(0,10000000)&subset=Lat(0,20000000)&subset=unix(%222015-01-01%22)&subsettingCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857>`__
+  http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=AverageChlorophyllScaled&format=image/png&subset=Lon(0,10000000)&subset=Lat(0,20000000)&subset=unix(%222015-01-01%22)&subsettingCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857
+  
+
+The CRS in ``subsettingCrs`` / ``outputCrs`` can be specified in :ref:`these notations <crs-notation>`.
 
 
 Interpolation
 -------------
 
-Scaling or reprojection can be performed with various interpolation methods as
+Reprojection (optionally with subsequent scaling) can be performed with various interpolation methods as
 enabled by the `Interpolation extension
 <https://portal.opengeospatial.org/files/12-049>`__:
 
-  http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=mean_summer_airtemp&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857&interpolation=http://www.opengis.net/def/interpolation/OGC/1/cubic
+  http://ows.rasdaman.org/rasdaman/ows?service=WCS&version=2.0.1&request=GetCoverage&coverageId=mean_summer_airtemp&outputCrs=http://ows.rasdaman.org/def/crs/EPSG/0/3857&interpolation=http://www.opengis.net/def/interpolation/OGC/1.0/cubic
 
-Rasdaman supports several interpolations as documented `here
-<http://doc.rasdaman.org/04_ql-guide.html#the-project-function>`__.
-
+Rasdaman supports several interpolation methods as documented 
+:ref:`here <sec-geo-projection-interpolation>`.
 
 .. _cheatsheet-wcps:
 
@@ -210,44 +213,45 @@ http://localhost:8080/rasdaman/ows in your Web browser and proceed to the
 Operations can be categorized by the type of data they result in: scalar,
 coverage, or metadata.
 
+.. _wcps_scalar_operations:
+
 Scalar operations
 -----------------
 
 - **Standard operations** applied on scalar operands return scalar results:
 
-  +------------------------------+-----------------------------------------+
-  | Operation category           | Operations                              |
-  +==============================+=========================================+
-  | Arithmetic                   | ``+  -  *  /  abs  round``              |
-  +------------------------------+-----------------------------------------+
-  | Exponential                  | ``exp  log  ln  pow  sqrt``             |
-  +------------------------------+-----------------------------------------+
-  | Trigonometric                | | ``sin  cos  tan  sinh  cosh  tanh``   |
-  |                              | | ``arcsin  arccos  arctan``            |
-  +------------------------------+-----------------------------------------+
-  | Comparison                   | ``>  <  >=  <=  =  !=``                 |
-  +------------------------------+-----------------------------------------+
-  | Logical                      | ``and  or  xor  not  bit  overlay``     |
-  +------------------------------+-----------------------------------------+
-  | Select field from multiband  | ``.``                                   |
-  | value                        |                                         |
-  +------------------------------+-----------------------------------------+
-  | Create multiband value       | ``{ bandName: value; ..., bandName:     |
-  |                              | value }``                               |
-  +------------------------------+-----------------------------------------+
-  | Type casting                 | ``(baseType) value``                    |
-  |                              |                                         |
-  |                              | | where baseType is one of: boolean,    |
-  |                              | | [unsigned] char / short / int / long, |
-  |                              | | float, double, complex, complex2      |
-  +------------------------------+-----------------------------------------+
+  +------------------------------+---------------------------------------------------+
+  | Operation category           | Operations                                        |
+  +==============================+===================================================+
+  | Arithmetic                   | ``+  -  *  /  abs  round  mod  floor  ceil``      |
+  +------------------------------+---------------------------------------------------+
+  | Exponential                  | ``exp  log  ln  pow  sqrt``                       |
+  +------------------------------+---------------------------------------------------+
+  | Trigonometric                | | ``sin  cos  tan  sinh  cosh  tanh``             |
+  |                              | | ``arcsin  arccos  arctan atan2 arctan2``        |
+  +------------------------------+---------------------------------------------------+
+  | Comparison                   | ``>  <  >=  <=  =  !=``                           |
+  +------------------------------+---------------------------------------------------+
+  | Logical                      | ``and  or  xor  not  bit  overlay``               |
+  +------------------------------+---------------------------------------------------+
+  | Select field from multiband  | ``.``                                             |
+  | value                        |                                                   |
+  +------------------------------+---------------------------------------------------+
+  | Create multiband value       | ``{ bandName: value; ..., bandName:  value }``    |
+  +------------------------------+---------------------------------------------------+
+  | Type casting                 | ``(baseType) value``                              |
+  |                              |                                                   |
+  |                              | | where baseType is one of: boolean,              |
+  |                              | | [unsigned] char / short / int / long,           |
+  |                              | | float, double, complex, complex2                |
+  +------------------------------+---------------------------------------------------+
 
 - **Aggregation operations** summarize coverages into a scalar value. 
 
   +-----------------------+------------------------------------------------------+
   | Aggregation type      | Function / Expression                                |
   +=======================+======================================================+
-  | Of numeric coverages  | ``avg``, ``add``, ``min``, ``max``                   |
+  | Of numeric coverages  | ``avg``, ``add`` (or alias ``sum``), ``min``, ``max``|
   +-----------------------+------------------------------------------------------+
   | Of boolean coverages  | | ``count`` number of true values;                   |
   |                       | | ``some``/``all`` = true if some/all values are true|
@@ -277,7 +281,7 @@ Coverage operations
 - **Subsetting** allows to select a part of a coverage (or crop it to a smaller
   domain): ::
 
-    covExpr[ axis1(lo:hi), axis2(slice), axis3:crs(...), ... ]
+    covExpr[ axis1(lo:hi), axis2(slice), axis3:"crs"(...), ... ]
   
   1. ``axis1`` in the result is reduced to span from coordinate ``lo`` to ``hi``.
      Either or both ``lo`` and ``hi`` can be indicated as ``*``, corresponding to
@@ -286,7 +290,8 @@ Coverage operations
   2. ``axis2`` is restricted to the exact slice coordinate and removed from the
      result.
 
-  3. ``axis3`` is subsetted in coordinates specified in the given ``crs``. By
+  3. ``axis3`` is subsetted in coordinates specified in the given ``crs``; 
+     the CRS must be specified in one of :ref:`these formats <crs-notation>`. By
      default coordinates must be given in the native CRS of ``C``.
 
 - **Extend** is similar to subsetting but can be used to enlarge a coverage with 
@@ -295,14 +300,77 @@ Coverage operations
 
     extend( covExpr, { axis1(lo:hi), axis2:crs(lo:hi), ... } )
 
-- **Scale** is like extend but it resamples the current coverage values to fit 
-  the new domain: ::
+  .. _wcps-scale:
 
-    scale( covExpr, { axis1(lo:hi), axis2:crs(lo:hi), ... } )
+- **Scale** is like extend but it resamples the current coverage values to:
 
-- **Reproject** allows to change the CRS of the coverage: ::
+  - Fit a new *grid* domain: ::
 
-    crsTransform( covExpr, { axis1:crs1, axis2:crs2, ... } )
+      scale( covExpr, { axis1(lo:hi), axis2:"CRS:1"(lo:hi), ... } )
+
+    Note that ``axis1`` in this case should have a grid native CRS, such as
+    Index1D, while ``axis2`` may be any type of axis; in all cases ``lo`` and
+    ``hi`` should be grid integer bounds.
+
+  - Fit the domain of another coverage: ::
+
+      scale( covExpr, { imageCrsDomain( $anotherCoverage ) } )
+
+  - Scale by a factor (factor > 1 for scaling up, 0 < factor < 1 for scaling down): ::
+
+      scale( covExpr, number )
+
+  - Scale by custom factor per axis: ::
+
+      scale( covExprs, { axi1(factor1), axis2(factor2), ... } )
+
+  Non-spatial axes which are omitted in the first and last variants will not be
+  scaled (details `here <wcps-optional-non-scaled-axes>`). If only one spatial
+  axis is specified, then the other spatial axis will be resampled so that the
+  original ratio is preserved(more details `here <wcps-auto-ratio-scaling>`).
+  Currently only nearest neighbour interpolation is supported for scaling.
+
+- **Reproject** to a different CRS can be done with ``crsTransform``: ::
+
+    crsTransform( covExpr, { axisX:outputCRS, axisY:outputCRS }
+                           [ , { interpolation } ]
+                           [ , { axisLabelX:geoXRes, axisLabelY:geoYRes }   ]
+                           [ , { axisLabelX(lo:hi), axisLabelY(lo:hi)} |
+                               { domain(2Dcoverage) } ] 
+                )
+
+  where the ``outputCrs`` can be specified in :ref:`these formats <crs-notation>`.
+
+  For example, the query below reprojects a 2D coverage to ``EPSG:4326`` CRS
+  with ``bilinear`` interpolation, target geo resolutions for ``Lat`` and
+  ``Lon`` axes ``0.5`` and ``1 + the resolution of Lat axis in coverage $d``
+  respectively, and crops the result to the target geo domain 
+  ``[Lat(30.5:60.5), Lon(50.5:70.5)]``: ::
+
+    crsTransform($c, 
+                 { Lat:"http://localhost:8080/rasdaman/def/crs/EPSG/0/4326", 
+                   Lon:"http://localhost:8080/rasdaman/def/crs/EPSG/0/4326" }, 
+                 { bilinear },
+                 { Lat:0.5, Lon:1 + domain($d, Lat).resolution },
+                 { Lat(30.5:60.5), Lon(50.5:70.5) }
+                )
+
+.. _wcps-crstransform-shorthand:
+ 
+  Alternatively, a shorthand version can be used where the target CRS is applied
+  to both axes (instead of specifying it individually for each axis). A similar
+  example as above but with shorthand CRS notation and target geo domain that
+  matches the domain of coverage `$d`: ::
+
+    crsTransform($c, 
+                 "EPSG:4326", 
+                 { bilinear },
+                 { Lat:0.5, Lon:1 + domain($d, Lat).resolution },
+                 { domain($d) }
+                )
+
+  For supported interpolation methods see the options for 
+  :ref:`resampleAlg parameter <sec-geo-projection-interpolation>`.
 
 - **Conditional evaluation** is possible with the ``switch`` statement:
 
@@ -324,6 +392,25 @@ Coverage operations
     over $iterVar axis(lo:hi), ...
     values scalarExpr
 
+  Typically the iterator variable is iterated through a grid domain, e.g. by using the
+  ``imageCrsdomain(coverageExpr, axisLabel)`` operator. However, iteration over
+  a geo domain is also supported with ``domain(coverageExpr, axisLabel)``.
+  Note that this feature is a non-standard extension that rasdaman provides
+  for convenience. For example, to create a 2D geo-referenced coverage with
+  ``Lat`` and ``Lon`` axes, based on an existing geo-referenced coverage:
+
+  .. code-block:: rasql
+
+    for $c in (test_mean_summer_airtemp)
+    return 
+        encode(
+          coverage targetCoverage
+          over  $pLat Lat(domain($c[Lat(-30:-28.5)], Lat)),
+                $pLon Lon(domain($c[Lon(111.975:113.475)], Lon))
+
+          values $c[Lat($pLat), Lon($pLon)]
+          , "tiff")
+
 - **General condenser on coverages** is same as the scalar general condenser,
   except that in the ``using`` clause we have a coverage expression. The coverage 
   values produced in each iteration are cell-wise aggregated into a single
@@ -340,8 +427,9 @@ Coverage operations
 
     encode(covExpr, "image/jpeg")
 
-   WCPS supports ``application/gml+xml`` format corresponding to OGC WCS ``GetCoverage`` request.
-   Many further formats are supported, see :ref:`here <rasql-encode-function-data-format>` for details.
+  WCPS supports ``application/gml+xml`` corresponding to an OGC WCS
+  ``GetCoverage`` request. Many further formats are supported, see :ref:`here
+  <rasql-encode-function-data-format>` for details.
 
 
 Atomic types
@@ -404,7 +492,9 @@ Several functions allow to extract metadata information about a coverage ``C``:
 |                           | returning the lower and upper bounds respectively  |
 +---------------------------+----------------------------------------------------+
 | domain(C, a, c).x         | Where x is one of ``lo`` or ``hi``                 | 
-|                           | returning the lower or upper bounds respectively   |
+|                           | (returning the lower or upper bounds respectively) |
+|                           | or ``resolution`` (returning the geo resolution of |
+|                           | axis a)                                            |
 +---------------------------+----------------------------------------------------+
 | domain(C, a)              | Geo (lo, hi) bounds for axis a                     |
 |                           | returning the lower and upper bounds respectively  |
@@ -423,7 +513,35 @@ Several functions allow to extract metadata information about a coverage ``C``:
 +---------------------------+----------------------------------------------------+
 | nullSet(C)                | Set of null values                                 |
 +---------------------------+----------------------------------------------------+
+| cellCount(C)              | Total number of grid pixels                        |
++---------------------------+----------------------------------------------------+
 
+
+.. _wcps-comment-lines:
+
+Comments
+--------
+
+WCPS supports SQL-like commenting styles:
+
+- Single line comments start with ``--``. Any text following ``--``
+  to the end of the line will be ignored. Example:
+
+  .. code-block:: rasql
+
+    return encode($c, "image/png") -- Output encoded as 2D image
+
+- Multi-line comments start with ``/*`` and end with ``*/``.
+  Any text between ``/*`` and ``*/`` are ignored. Example:
+
+  .. code-block:: rasql
+
+    /*
+        Output encoded as 2D image; result can be viewed in
+        Web browsers or image viewer tools.
+    */
+    return encode($c, "image/png")
+ 
 
 .. _cheatsheet-wms:
 
@@ -437,7 +555,7 @@ including 3-D or higher dimensional; the latest 1.3.0 version is supported.
 
 rasdaman supports two operations: *GetCapabilities*, *GetMap* from the standard.
 We will not go into the details, as users do not normally hand-write WMS 
-requests, but let a client tool or library generate them instead. Please check
+requests, but let a client tool or library generate them instead. Check
 the :ref:`cheatsheet-clients` section for some examples.
 
 .. _cheatsheet-clients:
@@ -646,7 +764,7 @@ collection level.
 `NASA WebWorldWind <https://worldwind.arc.nasa.gov/web/>`__
 -----------------------------------------------------------
 
-Simple example to setup a web page with a map from a WMS server using WebWorldWind:
+- Simple example to setup a web page with a map from a WMS server using WebWorldWind:
 
   .. code-block:: html
 
@@ -695,6 +813,75 @@ Simple example to setup a web page with a map from a WMS server using WebWorldWi
     </html> 
 
 
+- Simple example to setup a web page with a map from a WMTS server using WebWorldWind:
+
+  .. code-block:: html
+
+    <html>
+
+      <head>
+        <script src="https://files.worldwind.arc.nasa.gov/artifactory/web/0.9.0/worldwind.min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js" type="text/javascript"></script>
+      </head>
+
+      <body>
+        <canvas id="canvasOne" style="width: 100%; height: 100%;"> </canvas>
+
+        <script>
+          var wwd = new WorldWind.WorldWindow("canvasOne");
+          document.addEventListener("DOMContentLoaded", function(event) {
+            WorldWind.Logger.setLoggingLevel(WorldWind.Logger.LEVEL_WARNING);
+            var layers = [{
+              layer: new WorldWind.BingRoadsLayer(null),
+              enabled: true
+            }, {
+              layer: new WorldWind.CoordinatesDisplayLayer(wwd),
+              enabled: true
+            }, {
+              layer: new WorldWind.ViewControlsLayer(wwd),
+              enabled: true
+            }];
+
+            for (var l = 0; l < layers.length; l++) {
+              wwd.addLayer(layers[l].layer);
+            }
+
+          });
+
+          // Web Map Tiling Service information from
+          var serviceAddress = "http://localhost:8080/rasdaman/ows?service=WMTS&version=1.0.0&request=GetCapabilities";
+          // Layer displaying Gridded Population of the World density forecast
+          var layerIdentifier = "test_world_map";
+
+          // Called asynchronously to parse and create the WMTS layer
+          var createLayer = function(xmlDom) {
+            // Create a WmtsCapabilities object from the XML DOM
+            var wmtsCapabilities = new WorldWind.WmtsCapabilities(xmlDom);
+            // Retrieve a WmtsLayerCapabilities object by the desired layer name
+            var wmtsLayerCapabilities = wmtsCapabilities.getLayer(layerIdentifier);
+            // Form a configuration object from the WmtsLayerCapabilities object
+            var wmtsConfig = WorldWind.WmtsLayer.formLayerConfiguration(wmtsLayerCapabilities);
+
+            // Create the WMTS Layer from the configuration object
+            var wmtsLayer = new WorldWind.WmtsLayer(wmtsConfig);
+
+
+            // Add the layers to WorldWind and update the layer manager
+            wwd.addLayer(wmtsLayer);
+          };
+
+          // Called if an error occurs during WMTS Capabilities document retrieval
+          var logError = function(jqXhr, text, exception) {
+            console.log("There was a failure retrieving the capabilities document: " + text + " exception: " + exception);
+          };
+
+          $.get(serviceAddress).done(createLayer).fail(logError);
+        </script>
+      </body>
+
+    </html>
+
+
 Python / Jupter Notebook
 ------------------------
 
@@ -703,7 +890,7 @@ OWSLib
 
 `OWSLib <https://geopython.github.io/OWSLib/>`__ is a Python package that helps
 with programming clients for OGC services such as WCS, WCPS, or WMS. To install
-it please follow the official `installation instructions
+it follow the official `installation instructions
 <https://geopython.github.io/OWSLib/#installation>`__. Example usage for WCS
 follows below.
 
@@ -774,19 +961,39 @@ wcps_rasdaman.py
 is a python client which sends a WCPS query to a rasdaman server and wraps the response for further use 
 depending on the response format chosen in the query.
 
+.. _cheatsheets-access-from-r:
 
 Access from R
 -------------
 
-Accessing rasdaman from R is possible in two ways right now:
+Accessing rasdaman from R is possible in three ways right now:
 
 - :ref:`RRasdaman <sec-rrasdaman-install>` enables connecting to rasdaman,
-  executing rasql queries, and retreiving results.
+  executing rasql queries, and retreiving results. 
+  Note that it is *only* for rasql queries, so it is not suitable for querying geo-referenced coverages.
 
 - `CubeR <​https://mattia6690.github.io/CubeR/>`__ allows convenient executiong
   of WCPS queries directly from R. Check also this accompanying `presentation
   <​https://sao.eurac.edu/wp-content/uploads/2018/07/RossiEtAl_EGU2018_PICO_DataCubes.compressed.pdf>`__.
 
+- `ows4R <​https://cran.r-project.org/web/packages/ows4R/>`__ provides an interface to OGC Web services,
+  including Web Coverage Service (WCS) which is supported by rasdaman.
+  Steps to install ``ows4R`` package and its dependencies on Ubuntu 20.04:
+
+   .. code-block:: shell
+
+      sudo apt-get install libsodium-dev libudunits2-dev
+
+      sudo R
+
+      install.packages("sodium")
+      install.packages("keyring")
+      install.packages("geometa")
+      install.packages("units")
+      install.packages("sf")
+      install.packages("ows4R")
+
+  For more details check the `ows4R WCS tutorial <https://eblondel.github.io/ows4R/articles/wcs.html>`__.
 
 
 `OpenLayers <https://openlayers.org/>`__
@@ -860,6 +1067,25 @@ Simple example to setup a web page with a map from a WMS server using Leaflet:
         <div id="map" style="width: 100%; height: 100%;"> </div>
       </body>
     </html>
+    
+`ArcGIS <https://www.esri.com/en-us/arcgis/products/arcgis-online/overview>`__
+------------------------------------------------------------------------------
+
+`ArcGIS Online
+<https://www.esri.com/en-us/arcgis/products/arcgis-online/overview>`__ does not
+directly allow accessing 3rd party services, however such a service can be
+connected into some existing ArcGIS Server instance. In the following, the
+`ArcGIS Online documentation
+<https://doc.arcgis.com/en/arcgis-online/manage-data/add-item-from-url.htm>`__
+is cited.
+
+OGC WMS or WMTS layers can be added to ArcGIS Online `to maps
+<https://doc.arcgis.com/en/arcgis-online/reference/ogc.htm#ESRI_SECTION1_CE375065C52946C783C460BE1618B721>`__
+in Map Viewer or Map Viewer Classic `to scenes
+<https://doc.arcgis.com/en/arcgis-online/create-maps/add-layers-to-scene.htm>`__
+in Scene Viewer, and `as items
+<https://doc.arcgis.com/en/arcgis-online/manage-data/add-item-from-url.htm>`__
+to ArcGIS. 
 
 `QGIS <https://docs.qgis.org/3.4/en/docs/user_manual/working_with_ogc/ogc_client_support.html#wms-wmts-client>`__
 -----------------------------------------------------------------------------------------------------------------
@@ -881,12 +1107,14 @@ terminal. Examples with ``curl`` follow.
 
   .. code-block:: shell
 
-    curl "http://ows.rasdaman.org/rasdaman/ows" --out test.png --data-urlencode \
+    curl "http://ows.rasdaman.org/rasdaman/ows" -o test.png --data-urlencode \
     'service=WCS&version=2.0.1&request=ProcessCoverages&query=\
     for c in (mean_summer_airtemp) return encode(c, "png")'
 
-When the server requires basic authentication for a request, the rasdaman
-user credentials can be specified with the ``--user`` option, e.g.
+- Upload files to be processed with ``decode()`` operator, see :ref:`here <positional_parameters_in_wcps>`.
+
+- When the server requires basic authentication for a request, the rasdaman
+  user credentials can be specified with the ``--user`` option, e.g.
 
   .. code-block:: shell
 
@@ -907,9 +1135,149 @@ Various widgets are available, with the most commonly-used being:
 - ``diagram`` on csv encoded data, e.g. ``diagram(type=area,width=300)>>select encode(..., "csv") from ...``
 - ``text`` to visualize a text result, e.g. ``text>>select dbinfo(...) from ...``
 
-Without using a widget the result is downloaded.
+Without using a widget the result is downloaded:
 
 .. figure:: media/cheatsheets/rasql-web-console-example.png
    :align: center
 
    Example of a 2D image result.
+
+WCPS QGIS Plugin
+----------------
+
+This plugin allows sending datacube queries as per OGC Web Coverage Processing 
+Service (WCPS) to a server and displaying the results directly in QGIS.
+
+Installation
+^^^^^^^^^^^^
+
+1. On the terminal, install the ``xmltodict`` dependency required by the plugin:
+
+   .. code-block:: shell
+
+      pip3 install xmltodict
+
+2. Select QGIS menu ``Plugins`` → ``Manage and Install Plugins``, then search for 
+   ``wcps``; this should return the plugin ``WCPS datacube query``;
+3. Click ``Install Plugin`` to install it in QGIS;
+4. Now you can access the plug-in via the QGIS Menu ``Plugins`` → 
+   ``WcpsClient1`` → ``WCPS 1.0 Client``, or click on the new cube icon on the 
+   toolbar.
+
+.. figure:: media/cheatsheets/install_plugin.png
+   :align: center
+
+Server configuration
+^^^^^^^^^^^^^^^^^^^^
+
+To start working with the plugin, you need to add a server to which requests
+will be sent. To do this, click on the ``New`` button and specify a name/link
+to the server, then click ``OK``. After adding the server data, select it from
+the available ones in the drop-down list.
+
+.. figure:: media/cheatsheets/server_tab.jpg
+   :align: center
+
+If the server requires authentication to send requests, you can specify
+credentials in the ``Username`` and ``Password`` fields.
+
+After specifying all the necessary data, click the ``Connect`` button to connect
+to the server. This should show a list of all available coverages on the
+``Coverage List`` tab.
+
+.. figure:: media/cheatsheets/list_of_all_coverages.jpg
+   :align: center
+
+Query writing
+^^^^^^^^^^^^^
+
+You can create a query using the ``WCPS Query Editor`` and ``Visual Query
+Editor`` tabs.
+
+.. figure:: media/cheatsheets/query_editor_tab.jpg
+   :align: center
+
+On the ``WCPS Query Editor`` tab the query is entered as free text. Queries can
+be persisted and loaded with the ``Store Query`` and ``Load Query`` buttons. To
+submit a query to the server, click the ``Submit`` button. If the request is
+successful, a window for choosing further actions with the result will be
+shown.
+
+.. figure:: media/cheatsheets/result_of_evaluating_query.jpg
+   :align: center
+
+.. _qgis_result_actions:
+
+- To save the query result click the ``Save result`` button
+- To show the file in QGIS click the ``Show result in QGIS layer`` button
+- To save and show the file in QGIS click the ``Save and show result in QGIS 
+  layer`` button. 
+- To ignore the result click the ``Discard result`` button
+
+.. figure:: media/cheatsheets/visual_query_tab.jpg
+   :align: center
+
+The ``Visual Query Editor`` tab allows to construct the high-level structure of
+the query with buttons and inputs with support for code-completion.
+
+To add datacubes over which you will iterate in the for part, click the ``Add
+datacube`` button, which allows to select datacubes from the list of available
+ones on the server and enter a variable that will be used to refer to the
+datacube in the query body.
+
+.. figure:: media/cheatsheets/add_coverages.jpg
+   :align: center
+
+To remove datacubes from the list, select them in the ``Selected Datacubes``
+list and click the ``Delete Datacube`` button.
+
+.. figure:: media/cheatsheets/coverage_delete.jpg
+   :align: center
+
+To add multiple variables for iteration click on the Add datacubes button
+several times. To add filtering to your query (a WHERE clause) click on the
+``Set filter condition`` button and enter the necessary conditions.
+
+The ``Result expression`` field should contain the processing expression that
+should be calculated as a result. Select the format in which the result will be
+encoded in the drop-down list; to specify a custom format, select custom from
+the drop-down list and write it in the corresponding field.
+
+.. figure:: media/cheatsheets/coverage_delete.jpg
+   :align: center
+
+You can also specify the format parameters by clicking on the 
+``Format Parameters`` button and entering them in a special field in the window 
+that opens. After specifying all the required data, click the Evaluate button to
+send the generated query. If the query is successful, you will see a window
+for choosing further actions with the results of the request, which was
+described previously :ref:`here <qgis_result_actions>`.
+
+Plugin development
+^^^^^^^^^^^^^^^^^^
+
+Below are some common steps needed when changing the plugin's code.
+
+- Go to the plugin code directory in the rasdaman repository: ::
+
+    cd applications/qgis-wcps/qgis3/wcps_client
+
+- The ``metadata.txt`` file configures the information displayed on the
+  `QGIS plugin page <https://plugins.qgis.org/plugins/QgsWcpsClient1/>`__;
+  the version should be updated in this file before uploading a new plugin
+  version to the `QGIS plugin repository <https://plugins.qgis.org/plugins/>`__.
+
+- Install the ``pb_tool`` helper tool; this tool depends on the ``pb_tool.cfg``
+  configuration file, which should be updated whenever files are added or
+  removed: ::
+
+    pip3 install pb_tool
+
+- To deploy a new version to your local QGIS application: ::
+
+    pb_tool deploy
+
+- To create a zip archive that can be uploaded to the `QGIS plugin repository
+  <https://plugins.qgis.org/plugins/>`__: ::
+
+    pb_tool zip

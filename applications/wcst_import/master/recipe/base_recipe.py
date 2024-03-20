@@ -33,6 +33,7 @@ from recipes.general_coverage.abstract_to_coverage_converter import AbstractToCo
 
 from session import Session
 from util.coverage_util import CoverageUtil, CoverageUtilCache
+from util.list_util import join_list
 from util.log import log, make_bold
 from util.file_util import FileUtil
 import copy
@@ -71,7 +72,7 @@ class BaseRecipe:
         """
         cov = CoverageUtilCache.get_cov_util(self.session.get_coverage_id())
         operation_type = "UPDATE" if cov.exists() else "INSERT"
-        log.info("The recipe has been validated and is ready to run.")
+        log.info("The recipe at '{}' has been validated and is ready to run.".format(ConfigManager.ingredients_file_path))
         log.info(make_bold("Recipe: ") + self.session.get_recipe()['name'])
         log.info(make_bold("Coverage: ") + self.session.get_coverage_id())
         log.info(make_bold("WCS Service: ") + ConfigManager.wcs_service)
@@ -79,6 +80,7 @@ class BaseRecipe:
         log.info(make_bold("Subset Correction: ") + str(ConfigManager.subset_correction))
         log.info(make_bold("Mocked: ") + str(ConfigManager.mock))
         log.info(make_bold("WMS Import: ") + str(self.session.wms_import))
+        log.info(make_bold("Skip: ") + str(ConfigManager.skip))
 
         # Blocking means analyzing all input files before importing all coverage slices
         # Non-blocking means analyzing 1 file then import 1 file then continue with next file.
@@ -89,7 +91,7 @@ class BaseRecipe:
 
         if ConfigManager.track_files:
             log.info(make_bold("Track files: ") + str(ConfigManager.track_files))
-        if ConfigManager.skip:
+        if self.session.skip_is_enabled():
             log.info(make_bold("Skip: ") + str(ConfigManager.skip))
         if ConfigManager.retry:
             log.info(make_bold("Retries: ") + str(ConfigManager.retries))
@@ -189,15 +191,18 @@ class BaseRecipe:
         self.validate_pyramid_bases()
 
         if "import_order" in self.options:
-            if self.options['import_order'] != AbstractToCoverageConverter.IMPORT_ORDER_ASCENDING \
-                    and self.options['import_order'] != AbstractToCoverageConverter.IMPORT_ORDER_DESCENDING:
-                error_message = "'import_order' option must be '{}' or '{}', given '{}'.".\
-                                  format(AbstractToCoverageConverter.IMPORT_ORDER_ASCENDING,
-                                         AbstractToCoverageConverter.IMPORT_ORDER_DESCENDING,
-                                         self.options['import_order'])
+            value = self.options['import_order']
+            supported_list = [AbstractToCoverageConverter.IMPORT_ORDER_ASCENDING,
+                              AbstractToCoverageConverter.IMPORT_ORDER_DESCENDING,
+                              AbstractToCoverageConverter.IMPORT_ORDER_NONE]
+            if value not in supported_list:
+                error_message = "'import_order' option must be one of: {}. Given '{}'.".\
+                                  format(join_list(supported_list),
+                                         value)
                 raise RecipeValidationException(error_message)
         else:
-            self.options['import_order'] = None
+            # if not defined, then it is sorted by ascending
+            self.options['import_order'] = AbstractToCoverageConverter.IMPORT_ORDER_ASCENDING
 
     def validate_pyramid_members(self):
         """

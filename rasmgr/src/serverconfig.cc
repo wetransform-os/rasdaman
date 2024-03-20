@@ -25,15 +25,14 @@
 namespace rasmgr
 {
 
-ServerConfig::ServerConfig(const std::string &hostName1, const std::uint32_t &port1, std::shared_ptr<DatabaseHost> dbHost1):
-    hostName(hostName1), port(port1), dbHost(dbHost1)
-{}
+ServerConfig::ServerConfig(const std::string &hostName1,
+                           const std::uint32_t &port1,
+                           std::shared_ptr<DatabaseHost> dbHost1)
+    : hostName(hostName1), port(port1), dbHost(dbHost1)
+{
+}
 
-
-ServerConfig::~ServerConfig()
-{}
-
-std::string ServerConfig::getHostName() const
+const std::string &ServerConfig::getHostName() const
 {
     return hostName;
 }
@@ -62,7 +61,7 @@ void ServerConfig::setDbHost(const std::shared_ptr<DatabaseHost> &value)
     dbHost = value;
 }
 
-std::string ServerConfig::getOptions() const
+const std::string &ServerConfig::getOptions() const
 {
     return options;
 }
@@ -72,4 +71,4 @@ void ServerConfig::setOptions(const std::string &value)
     options = value;
 }
 
-}
+}  // namespace rasmgr

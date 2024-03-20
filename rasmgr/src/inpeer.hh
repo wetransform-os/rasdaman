@@ -28,8 +28,8 @@
 namespace rasmgr
 {
 /**
- * @brief The InPeer class contains information needed to identify a peer from
- * which requests can be received.
+ * Contains information needed to identify a peer from which requests can be
+ * received.
  */
 class InPeer
 {
@@ -45,6 +45,6 @@ public:
 private:
     std::string hostName; /*! Name of the host on which the rasmgr is running.*/
 };
-}
+}  // namespace rasmgr
 
-#endif // INPEER_HH
+#endif  // INPEER_HH

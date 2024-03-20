@@ -874,7 +874,18 @@ Options:
 
 --user u            name of user (default: rasguest)
 
---passwd p          password of user (default: rasguest)
+.. _rasql-passwd-option:
+
+--passwd p          password of user (default: rasguest). If this option is not specified, 
+                    rasql will try to find a matching password in file ``~/.raspass``
+                    if it exists. This text file should contain ``username:password``
+                    pairs, each one on a separate line, and it must have permissions
+                    u=rw (0600) or less (that is, at most read/writeable for the
+                    owner system user). If ``:`` characters appear in the 
+                    password or username, they must be escaped with a backward 
+                    slash ``\``; e.g. ``username:pass\:word`` will be interpreted
+                    as ``username`` with password ``pass:word``. In case of multiple
+                    lines with matching username, rasql will pick the first one.
 
 --quiet             print no ornament messages, only results and errors
 
@@ -1842,6 +1853,8 @@ where
 
 - ``xres``, ``yres`` - axis resolution in target georeferenced units.
 
+.. _sec-geo-projection-interpolation:
+
 - ``resampleAlg`` - resampling algorithm to use, equivalent to the ones in GDAL:
 
    near
@@ -2649,7 +2662,7 @@ pow, power
 
         pow( base, exp )
 
-    where *base* is an MDD or scalar and *exp* is a floating point number.
+    where *base* and is an MDD or scalar, and *exp* is likewise an MDD or scalar.
 
 =, <, >, <=, >=, !=
     For two MDD values (or evaluated MDD expressions), compare for each
@@ -2726,16 +2739,20 @@ bit(mdd, pos)
 
     In C/C++ style, ``bit(mdd, pos)`` is equivalent to ``mdd >> pos & 1``.
 
+.. _induction-all-ops-arithmetic:
+
 Arithmetic, trigonometric, and exponential functions
     The following advanced arithmetic functions are available with the
-    obvious meaning, each of them accepting an MDD object: ::
+    obvious meaning, each of them accepting an MDD object (except ``arctan2``
+    which expects two floating-point operands of the same type): ::
 
         abs()
         sqrt()
         exp() log() ln()
         sin() cos() tan()
         sinh() cosh() tanh()
-        arcsin() arccos() arctan()
+        arcsin() arccos() arctan() arctan2()
+        ceil() floor() round()
 
     **Exceptions**
 
@@ -2743,6 +2760,11 @@ Arithmetic, trigonometric, and exponential functions
     not throw an error, but result in NaN or similar according to IEEE
     floating-point arithmetic. Internally the rasdaman implementation calls the
     corresponding C++ functions, so the C++ documentation applies.
+
+    The ``ceil``, ``floor``, and ``round`` functions are applicable only on
+    floating-point arguments and have no effect on other atomic types (e.g. char).
+    On multi-band arguments with bands of mixed floating-point and other base
+    types, these function are not applicable and throw an error.
 
 cast
     Sometimes the desired ultimate scalar type or MDD cell type is different
@@ -2859,6 +2881,9 @@ In the final example, mr images are scaled to obtain 100x100 thumbnails
 
 .. note::
     Currently only nearest neighbour interpolation is supported for scaling.
+    It uses floor for rounding to integer coordinates when finding the nearest
+    neighbour. So it has same behavior as OpenCV, for example, as explained in
+    this `blog post <https://kwojcicki.github.io/blog/NEAREST-NEIGHBOUR>`__.
 
 
 Concatenation
@@ -2868,18 +2893,19 @@ Concatenation of two arrays "glues" together arrays by lining them up
 along an axis.
 
 This can be achieved with a shorthand function, ``concat``, which for
-convenience is implemented as an n-ary operator accepting an unlimited number of
-arrays of the same base type. The operator takes the input arrays, lines them up
-along the concatenation dimension specified in the request, and outputs one
-result array. To this end, each input array is shifted to the appropriate
-position, with the first array's position remaining unchanged; therefore, it is
-irrelevant whether array extents, along the concatenation dimension, are
-disjoint, overlapping, or containing each other.
+convenience is implemented as an n-ary operator accepting an unlimited number
+of arrays of the same base type. The operator takes the input arrays, lines
+them up along the concatenation dimension specified in the request, and outputs
+one result array. To this end, each input array from the second one on is
+shifted to the origin of the first one, except along the concatenation
+dimension where it's shifted so that the lower bound of the current array is
+right after the upper bound of the previous array.
 
 The resulting array's dimensionality is equal to the input array dimensionality.
 
 The resulting array extent is the sum of all extents along the concatenation
-dimension, and the extent of the input arrays in all other dimensions.
+dimension, and the extent of the input arrays in all other dimensions; the
+origin is same as the origin of the first input array.
 
 The resulting array cell type is same as the cell types of the input arrays.
 
@@ -2888,7 +2914,7 @@ The resulting array cell type is same as the cell types of the input arrays.
 All participating arrays must have the same number of dimensions.
 
 All participating arrays must have identical extents in all dimensions, except
-that dimension along which concatenation is performed.
+the dimension along which concatenation is performed.
 
 Input arrays must have the same cell types, i.e. concatenating a char and float
 arrays is not possible and requires explicit casting to a common type.
@@ -3715,6 +3741,22 @@ underlying type derived by applying the rules to the underlying types of the
 inputs. E.g. ``char + CInt16 = char + short = CInt32``, and ``CInt32 * CFloat32
 = long * float = CFloat64``.
 
+.. _type-coercion-multiply:
+
+**\***
+
+A special rule for multiplication applicable when one of the operands is
+boolean. In this case the result type does not change from the non-boolean
+operand.
+
+    +-----------+------------+------------------------+
+    | first     | second     | result                 |
+    +===========+============+========================+
+    | X         | bool       | X                      |
+    +-----------+------------+------------------------+
+    | bool      | X          | X                      |
+    +-----------+------------+------------------------+
+
 **+, \*, div, mod**
 
     +-----------+------------+------------------------+
@@ -3768,12 +3810,22 @@ unnecessary check for division by zero. Integer division is supported with the
 Note: operand types are not commutative, the second operand must be a float or
 double scalar.
 
+    +-----------+----------------+------------------------+
+    | first     | second         | result                 |
+    +===========+================+========================+
+    | c,o,s,us,f| c, o, s, us, f | f                      |
+    +-----------+----------------+------------------------+
+    | ul,l,d    | f, d           | d                      |
+    +-----------+----------------+------------------------+
+
+**arctan2**
+
     +-----------+------------+------------------------+
     | first     | second     | result                 |
     +===========+============+========================+
-    | c,o,s,us,f| f, d       | f                      |
+    | f         | f          | f                      |
     +-----------+------------+------------------------+
-    | ul,l,d    | f, d       | d                      |
+    | d         | d          | d                      |
     +-----------+------------+------------------------+
 
 **<, >, <=, >=, =, !=**
@@ -3856,6 +3908,14 @@ Unary Induced
     | u,l,d     | d          |
     +-----------+------------+
 
+**ceil, floor, round**
+
+    +-----------+------------+
+    | op        | result     |
+    +===========+============+
+    | X         | X          |
+    +-----------+------------+
+
 
 Condensers
 ----------
@@ -3933,6 +3993,100 @@ clip, concat, and geographic reprojection.
     +-----------+------------+
 
 
+.. _polygonize-operation:
+
+Polygonize operation
+====================
+
+The ``polygonize`` function creates vector polygons for all connected regions of
+pixels in a given array, resulting in a vector format file such as Shapefile.
+This operation is useful in geographical context, providing ability to layer
+additional information on existing maps, for example.
+
+**Syntax**
+
+::
+
+    polygonize(mddExp, targetFormat)
+    polygonize(mddExp, targetFormat, connectedness)
+
+    polygonize(mddExp, targetFormat, crs, bbox)
+    polygonize(mddExp, targetFormat, connectedness, crs, bbox)
+
+Where
+
+.. code-block:: text
+
+    targetFormat: StringLit
+    connectedness: integerLit
+
+    crs: StringLit
+    bbox: StringLit
+
+The ``targetFormat`` indicates the vector file format in which the result will
+be encoded. To check supported ``targetFormat``, refer to the `GDAL
+documentation <https://gdal.org/drivers/vector/index.html>`_. Only those
+formats can be used that support creation option. When omitted, ``targetFormat``
+is assumed to be "ESRI Shapefile".
+
+The ``connectedness`` parameter can be set to 4 or 8; if omitted, it will be set
+to 4 by default. Setting it to 4 would ensure a 'true'-cell can only be
+considered a neighbor if it shares at least a corner with some
+other 'true'-cell. If we set the connectedness parameter to 8, a 'true'-cell
+can only be a neighbor if it shares a least an edge with some
+other 'true'-cell.
+
+The ``crs`` is the geographic CRS of the mddExp. The same CRS formats as GDAL are accepted:
+
+- Well Known Text (as per GDAL)
+- "EPSG:n"
+- "EPSGA:n"
+- "AUTO:proj_id,unit_id,lon0,lat0" indicating OGC WMS auto projections
+- "urn:ogc:def:crs:EPSG::n" indicating OGC URNs (deprecated by OGC)
+- PROJ.4 definitions
+- well known names, such as NAD27, NAD83, WGS84 or WGS72.
+- WKT in ESRI format, prefixed with "ESRI::"
+- "IGNF:xxx" and "+init=IGNF:xxx", etc.
+- Since recently (v1.10), GDAL also supports OGC CRS URLs, OGC’s preferred way of identifying CRSs.
+
+The ``bbox`` parameter is a geographic bounding box given as a string of 
+comma-separated floating-point values of the format: "xmin, ymin, xmax, ymax".
+
+As a result, the operation produces a file in the desired target format. If the
+format assumes several output files, they will be packaged in a zip archive.
+
+**Limitations**
+
+The implementation uses
+`GDALPolygonize <https://gdal.org/api/gdal_alg.html#_CPPv414GDALPolygonize15GDALRasterBandH15GDALRasterBandH9OGRLayerHiPPc16GDALProgressFuncPv>`__
+internally, so it has similar limitations. In particular, arrays with complex
+values are not supported, and floating-point arrays will be truncated to 64-bit
+integer. The operation is applicable only on 2-D arrays.
+
+**Examples**
+
+The following query uses default parameters to polygonize ``rgb`` collection: ::
+
+    select polygonize(rgb) from rgb
+
+The result is a ``.zip`` archive that consists of the three files in accordance
+to the "ESRI Shapefile" format: ``polygonize.shp``, ``polygonize.shx``,
+``polygonize.dbf``
+
+The next query produces the result in ``pdf`` format: ::
+
+    select polygonize(rgb, "PDF") from rgb
+
+The retrieved file is ``polygonize.pdf``. 
+
+To specify 8-connectedness instead of the default 4, one can use the following query: ::
+
+    select polygonize(rgb, "ESRI Shapefile", 8) from rgb
+
+If the input array is geo-referenced, its CRS and geo bbox can be specified: ::
+
+    select polygonize(c, "EPSG:4326", "-180, -90, 180, 90") from worldmap as c
+
 
 .. _format-conversion:
 
@@ -3967,6 +4121,7 @@ Decode for data import
 The ``decode()`` function allows for decoding data represented in one of
 the supported formats, into an MDD which can be persisted or processed in
 rasdaman.
+
 
 Syntax
 ------
@@ -4473,24 +4628,30 @@ Coloring Arrays
     color with an array cell value, the cell value is used as a subscript into
     the color table (starting from 0).
 
+.. _netcdf-encode:
+
 NetCDF
 ^^^^^^
 
 The following are mandatory options when encoding to NetCDF:
+
+- ``dimensions`` - An array of names for each dimension, e.g. ``["Lat","Long"]``.
 
 - ``variables`` -  Specify variable names for each band of the MDD,
   dimension names if they need to be saved as `coordinate variables
   <https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_data_set_components.html#coordinate_variables>`__,
   as well as non-data `grid mapping variables
   <https://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html#grid-mappings-and-projections>`__.
-  There are two ways to specify the variables:
+  There are three ways to specify the variables:
 
   1. An array of strings for each variable name, e.g. ``["var1", "var2"]``;
      no coordinate variables should be specified in this case, as there is no
      way to specify the data for them;
 
-  2. An object of variable name - object pairs, where each object lists the
-     following variable details:
+  2. An array of variable objects, where each object lists the following
+     variable details:
+
+     - ``name`` - The variable name, e.g. ``"name": "var1"``
 
      - ``metadata`` - An object of string key-value pairs which are added as
        attributes to the variable;
@@ -4510,8 +4671,12 @@ The following are mandatory options when encoding to NetCDF:
      attribute is ignored in this case, so the value for it can be an empty
      JSON array ``[]``.
 
-- ``dimensions`` - An array of names for each dimension, e.g. ``["Lat","Long"]``.
-
+  3. An object of variable name - object pairs, where each object lists the
+     variable details in similar fashion to the option 2. above, except that
+     the key ``name`` is optional. This way of specifying the variables in a
+     JSON object is deprecated because their order is non-deterministic and may
+     not work as expected when encoding multiple variables. It is recommended
+     to use the method in option 2.
 
 .. _csv-encode:
 
@@ -5194,8 +5359,8 @@ Select
 
 The select statement allows for the retrieval from array collections.
 The result is a set (collection) of items whose structure is defined in
-the select clause. Result items can be arrays, atomic values, or
-structs. In the where clause, a condition can be expressed which acts as
+the select clause. Result items can be arrays or scalar values.
+In the where clause, a condition can be expressed which acts as
 a filter for the result set. A single query can address several
 collections.
 
@@ -5225,12 +5390,6 @@ This query, on the other hand, delivers a set of integers: ::
 
     select count_cells( mr[120:160, 55:75] > 250 )
     from mr
-
-Finally, this query delivers a set of **struct**\ s, each one with an
-integer and a 2-D array component: ::
-
-    select struct { max_cells( a ), a }
-    from mr as a
 
 .. _sec-insert:
 
@@ -5531,6 +5690,55 @@ effect ``[5:7,100:200,0:100]``: ::
     assign shift(decode($1, "netcdf"), [5,100,0])
 
 The sdom of Coll is now ``[0:10,100:200,0:100]``.
+
+.. _sec-update-tiling:
+
+Tiling Update
+-------------
+
+The **update** statement in rasdaman offers the functionality to modify the tiling configuration of MDD objects within a collection. This manipulation can be applied overall to all MDDs in a collection, or selectively, by using the **where** clause to affect specific arrays.
+
+
+Syntax
+^^^^^^
+
+The syntax for the **update** operation involving tiling is as follows:
+
+::
+
+    update collName as collIterator
+    mddConfiguration
+
+    update collName as collIterator
+    mddConfiguration
+    where generalExp
+
+Each element of the set *collName* which fulfils the selection predicate *booleanEpxr* (or all elements in the absence of the **where** clause) is retiled based on the tiling configuration specified in *mddConfiguration*. 
+
+Examples
+^^^^^^^^
+
+The following examples demonstrate the usage of the **update** statement for tiling.
+
+1. To update the tiling configuration of all MDDs in a collection, you can use:
+
+::
+
+    update MyCollection
+    tiling
+        area of interest [0:20,0:40],[45:80,80:85]
+        tile size 1000000
+
+2. To update the tiling configuration of selected MDDs in a collection based on a condition, you can use:
+
+::
+
+    update MyCollection
+    tiling
+        regular [ 256 : 256 ]
+    where oid( MyCollection ) = 337
+
+For additional details on tiling, different tiling methods and how to work with tiling configurations, refer to the :ref:`storage-layout` of the documentation.
 
 .. _sec-delete:
 
@@ -6064,7 +6272,7 @@ appearance.
 **Example**
 
 The following defines a directional tiling with split vectors (0; 512;
-1024) and (0; 15; 200) for axes 0 and 2, respectively, with dimension 1
+1)    and (0; 15; 200) for axes 0 and 2, respectively, with dimension 1
 as a pre­ferred axis: ::
 
     tiling directional [0,512,1024], [], [0,15,200]
@@ -6399,8 +6607,7 @@ they are in double quotes to distinguish them from the grammar parentheses
               :| `createSetTypeExp`
     createCollExp : create collection
                   : `namedCollection` `typeName`
-    createCellTypeExp : create type `typeName`
-                      : a" `cellTypeExp`
+    createCellTypeExp : create type `typeName` `cellTypeExp`
     cellTypeExp : "(" `attributeName` `typeName`
                 :     [ , `attributeName` `typeName` ]... ")"
     createMarrayTypeExp : create type `typeName`
@@ -6513,6 +6720,7 @@ they are in double quotes to distinguish them from the grammar parentheses
     unaryInductionOp :  sqrt | abs | exp | log | ln
                      :| sin | cos | tan | sinh | cosh
                      :| tanh | arcsin | arccos | arctan
+                     :| ceil | floor | round
     binaryInductionOp :  overlay | is | = | and | or
                       :| xor | plus | minus | mult
                       :| div| equal | < | > | <=
@@ -6758,8 +6966,11 @@ This appendix presents the list of all tokens that CANNOT be used as variable na
       - sort
       - flip
       - asc
-      - desc
-
+    * - desc
+      - ceil
+      - floor
+      - round
+      - arctan2
 
 
 .. [2]

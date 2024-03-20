@@ -68,22 +68,28 @@ public class RasUtil {
     private static final Logger log = LoggerFactory.getLogger(RasUtil.class);
     static long QUERY_COUNTER = 0;
     
-    private static void closeDB(Database db) throws RasdamanException {
+    /**
+     * On error logs a warning, but doesn't throw anything.
+     */
+    private static void closeDB(Database db) {
         if (db != null) {
             try {
                 db.close();
             } catch (Exception ex) {
-                throw new RasdamanException("Failed closing rasdaman db connection. Reason: " + ex.getMessage(), ex);
+                log.warn("Failed closing rasdaman db connection. Reason: " + ex.getMessage());
             }
         }
     }
     
-    private static void abortTR(Transaction tr) throws RasdamanException {
+    /**
+     * On error logs a warning, but doesn't throw anything.
+     */
+    private static void abortTR(Transaction tr) {
         if (tr != null) {
             try {
                 tr.abort();
             } catch (Exception ex) {
-                throw new RasdamanException("Failed closing rasdaman transaction. Reason: " + ex.getMessage(), ex);
+                log.warn("Failed closing rasdaman transaction. Reason: " + ex.getMessage());
             }
         }
     }
@@ -109,6 +115,75 @@ public class RasUtil {
         Object ret = executeRasqlQuery(query, username, password, rw, null);
         return ret;
     }
+    
+
+    /**
+     * Execute a rasql query without logging result
+     */
+    public static Object executeRasqlQueryNoLogging(String query, String username, String password) throws PetascopeException {
+        RasImplementation impl = null;
+        
+        try {
+            impl = new RasImplementation(ConfigManager.RASDAMAN_URL);
+        } catch (Exception ex) {
+            log.error("Failed initializing connection to " + ConfigManager.RASDAMAN_URL + ". Reason: "  + ex.getMessage(), ex);
+            throw new RasdamanException(ExceptionCode.RasdamanError, ex, query);
+        }
+        
+        impl.setUserIdentification(username, password);
+        Database db = impl.newDatabase();
+        try {
+            // open db
+            db.open(ConfigManager.RASDAMAN_DATABASE, Database.OPEN_READ_ONLY);
+        } catch (Exception ex) {
+            log.error("Failed opening ro database connection to rasdaman. Reason: " + ex.getMessage());
+            throw new RasdamanException(ExceptionCode.RasdamanUnavailable, ex, query);
+        }
+        
+        Transaction tr = null;
+        try {
+            // open transaction
+            tr = impl.newTransaction();
+            tr.begin();
+        } catch (Exception ex) {
+            log.error("Failed opening ro transaction to rasdaman. Reason: " + ex.getMessage());
+            closeDB(db);
+            throw new RasdamanException(ExceptionCode.RasdamanUnavailable, ex, query);
+        }
+        
+        OQLQuery q = null;
+        try {
+            q = impl.newOQLQuery();
+            q.create(query);
+        } catch (Exception ex) {
+            // not really supposed to ever throw an exception
+            log.error("Failed creating query object. Reason: " + ex.getMessage());
+            abortTR(tr);
+            closeDB(db);
+            throw new RasdamanException(ExceptionCode.InternalComponentError, ex, query);
+        }
+        
+        Object ret = null;
+        try {
+            ret = q.execute();
+            tr.commit();
+        } catch (ODMGException ex) {
+            log.error("Failed querying rasdaman. Reason: " + ex.getMessage());
+            abortTR(tr);
+            throw new RasdamanException(ExceptionCode.RasdamanRequestFailed, ex.getMessage(), ex, query);
+        } catch (Exception ex) {
+            if (ex.getMessage().contains("GRPC Exception"))
+                log.error("Lost connection to the rasdaman server, possibly the server crashed or there was a network problem.");
+            abortTR(tr);
+            log.error("Failed querying rasdaman. Reason: " + ex.getMessage());
+            throw new RasdamanException(ExceptionCode.RasdamanRequestFailed, 
+                    ex.getMessage(), ex, query);
+        } finally {
+            closeDB(db);
+        }
+        
+        return ret;
+    }    
        
     /**
      * Executes a rasql query and returns result.
@@ -122,11 +197,18 @@ public class RasUtil {
     public static Object executeRasqlQuery(String query, String username, String password, boolean rw, RasGMArray rasGMArray) throws PetascopeException {
         final long startTime = System.currentTimeMillis();
         String queryCounter = QUERY_COUNTER_PREFIX + QUERY_COUNTER;
+                
         QUERY_COUNTER++;
+        log.info("Executing rasql query " + queryCounter + " with user " + username + ": " + query);
         
-        log.info("Executing rasql query " + queryCounter + ": " + query);
+        RasImplementation impl = null;
         
-        RasImplementation impl = new RasImplementation(ConfigManager.RASDAMAN_URL);
+        try {
+            impl = new RasImplementation(ConfigManager.RASDAMAN_URL);
+        } catch (Exception ex) {
+            log.error("Failed initializing connection to " + ConfigManager.RASDAMAN_URL + ". Reason: "  + ex.getMessage(), ex);
+            throw new RasdamanException(ExceptionCode.RasdamanError, ex, query);
+        }
         impl.setUserIdentification(username, password);
 
         Database db = impl.newDatabase();
@@ -175,7 +257,7 @@ public class RasUtil {
             ret = q.execute();
             tr.commit();
         } catch (ODMGException ex) {
-            log.error("Failed querying to rasdaman " + getExecutedRasqlTimeMessage(queryCounter, startTime) + ". Reason: " + ex.getMessage());
+            log.error("Failed querying rasdaman " + getExecutedRasqlTimeMessage(queryCounter, startTime) + ". Reason: " + ex.getMessage());
             abortTR(tr);
             if (ex.getMessage().contains("CREATE: Collection name exists already.") || ex.getMessage().contains("Collection already exists")) {
                 throw new RasdamanCollectionExistsException(ExceptionCode.CollectionExists, query, ex);
@@ -191,16 +273,13 @@ public class RasUtil {
             throw new PetascopeException(ExceptionCode.OutOfMemory, "Requested more data than the server can handle at once. "
                     + "Try increasing the maximum memory allowed for Tomcat (-Xmx JVM option).");
         } catch (Exception ex) {
+            if (ex.getMessage().contains("GRPC Exception"))
+                log.error("Lost connection to the rasdaman server, possibly the server crashed or there was a network problem.");
             abortTR(tr);
-            if (ex.getMessage().contains("GRPC Exception")) {
-                log.warn("Lost connection to rasdaman server.");
-            } else {
-                log.error("Failed querying to rasdaman " + getExecutedRasqlTimeMessage(queryCounter, startTime) + ". Reason: " + ex.getMessage());
-                throw new RasdamanException(ExceptionCode.RasdamanRequestFailed, 
-                    ex.getMessage(), ex, query);
-            }
+            log.error("Failed querying rasdaman " + getExecutedRasqlTimeMessage(queryCounter, startTime) + ". Reason: " + ex.getMessage());
+            throw new RasdamanException(ExceptionCode.RasdamanRequestFailed, ex, query);
         } finally {
-            closeDB(db);
+		    closeDB(db);
         }
 
         final long endTime = System.currentTimeMillis();
@@ -232,9 +311,16 @@ public class RasUtil {
         if (result.isEmpty()) {
             //no object left, delete the collection so that the name can be reused in the future
             log.info("No objects left in the collection, dropping the collection so the name can be reused in the future.");
-            executeRasqlQuery(TEMPLATE_DROP_COLLECTION.replace(TOKEN_COLLECTION_NAME, collectionName), 
-                              username, password, true);
+            dropCollection(collectionName, username, password);
         }
+    }
+
+    /**
+     * Drop a rasdaman collection
+     */
+    public static void dropCollection(String collectionName, String username, String password) throws PetascopeException {
+        executeRasqlQuery(TEMPLATE_DROP_COLLECTION.replace(TOKEN_COLLECTION_NAME, collectionName),
+                username, password, true);
     }
 
     /**
@@ -642,8 +728,16 @@ public class RasUtil {
             } else {
                 throw new RasdamanException("Could not check if credentials for user '" + username + "' are valid in rasdaman. Reason: " + ex.getMessage(), ex);
             }
+        } finally {
+            try {
+                // impl.setUserIdentification(...) implicitly calls connectClient(...),
+                // which registers a client in rasmgr, so it has to be unregistered
+                // with disconnectClient() at the end.
+                impl.disconnectClient();
+            } catch (Exception ex) {
+                log.warn("Failed closing connection to rasdaman, reason: " + ex.getMessage());
+            }
         }
-        
     }
     
     /**

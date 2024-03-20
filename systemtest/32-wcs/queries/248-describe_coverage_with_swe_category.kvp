@@ -1,0 +1,1 @@
+service=WCS&version=2.1.0&request=DescribeCoverage&coverageId=test_rgb_categorial_bands_nil_values

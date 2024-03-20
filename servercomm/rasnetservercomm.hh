@@ -26,6 +26,7 @@ rasdaman GmbH.
 
 #include "rasnet/messages/client_rassrvr_service.grpc.pb.h"
 #include "raslib/error.hh"
+#include "common/exceptions/exception.hh"
 
 namespace rasserver
 {
@@ -74,13 +75,12 @@ public:
     virtual grpc::Status GetNextStreamedHttpQuery(grpc::ServerContext *context, const rasnet::service::GetNextStreamedHttpQueryReq *request, rasnet::service::StreamedHttpQueryRepl *response) override;
 
 private:
-
-
     std::shared_ptr<rasserver::ClientManager> clientManager;
 
     static grpc::Status getRErrorStatus(r_Error &err);
     static grpc::Status getSTLExceptionStatus(std::exception &ex);
+    static grpc::Status getCommonExceptionStatus(common::Exception &ex);
     static grpc::Status getUnknownExceptionStatus();
 };
 
-#endif // RASNETSERVERCOMM_HH
+#endif  // RASNETSERVERCOMM_HH

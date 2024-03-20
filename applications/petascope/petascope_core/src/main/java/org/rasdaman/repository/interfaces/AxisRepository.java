@@ -28,5 +28,5 @@ import org.springframework.data.repository.CrudRepository;
  * Repository to store the Axis object to database
  */
 public interface AxisRepository extends CrudRepository<Axis, Long> {
-    Axis findOne(Long id);
+    
 }

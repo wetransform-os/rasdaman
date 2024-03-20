@@ -24,6 +24,8 @@ package petascope.wms.handlers.service;
 import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.BoundingBox;
 import petascope.core.Pair;
@@ -39,6 +41,8 @@ import petascope.wms.handlers.model.WMSLayer;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapWCPSMetadataTranslatorService {
    
     @Autowired
@@ -49,10 +53,10 @@ public class WMSGetMapWCPSMetadataTranslatorService {
      */
     public WMSLayer createWMSLayer(String layerName, BoundingBox originalXYBoundsBBox, BoundingBox requestBBox,
                                    BoundingBox extendedRequestBBox, int width, int height
-                                   , List<WcpsSubsetDimension> subsetDimensions
+                                   , List<WcpsSubsetDimension> nonXYSubsetDimensions
                                    , String wmtsTileMatrixName) {
         WMSLayer wmsLayer = new WMSLayer(layerName, originalXYBoundsBBox, requestBBox, extendedRequestBBox, width, height,
-                                        subsetDimensions
+                                        nonXYSubsetDimensions
                                         , wmtsTileMatrixName
                                         ); 
         return wmsLayer;
@@ -65,41 +69,20 @@ public class WMSGetMapWCPSMetadataTranslatorService {
         WcpsCoverageMetadata wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(layerName);
         return wcpsCoverageMetadata;
     }
-    
-    /**
-     * Create a WCPS Coverage metadata object based on layerName (coverageId) and original XY bounding box of coverage's XY axes which fits on a rasdaman downscaled collection.
-     */
-    public WcpsCoverageMetadata createWcpsCoverageMetadataForDownscaledLevelByOriginalXYBBox(WMSLayer wmsLayer) throws PetascopeException {
-        WcpsCoverageMetadata wcpsCoverageMetadata;
-        String tileMatrixName = wmsLayer.getWMTSTileMatrixName();
-        
-        if (tileMatrixName == null) {
-            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(wmsLayer.getLayerName());
-            Pair<BigDecimal, BigDecimal> geoSubsetX = new Pair(wmsLayer.getOriginalBoundsBBox().getXMin(), wmsLayer.getOriginalBoundsBBox().getXMax());
-            Pair<BigDecimal, BigDecimal> geoSubsetY = new Pair(wmsLayer.getOriginalBoundsBBox().getYMin(), wmsLayer.getOriginalBoundsBBox().getYMax());
-
-            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.createForDownscaledLevelByGeoXYSubsets(wcpsCoverageMetadata, 
-                                                                                                         geoSubsetX, geoSubsetY, 
-                                                                                                         wmsLayer.getWidth(), wmsLayer.getHeight(),
-                                                                                                         wmsLayer.getNonXYSubsetDimensions());
-
-        } else {
-            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.create(tileMatrixName);
-        }
-        
-        return wcpsCoverageMetadata;
-    }
-    
         
     /**
      * Create a WCPS Coverage metadata object based on layerName (coverageId) and input extended BBOX on XY axes which fits on a rasdaman downscaled collection.
      */
     public WcpsCoverageMetadata createWcpsCoverageMetadataForDownscaledLevelByExtendedRequestBBox(WMSLayer wmsLayer) throws PetascopeException {
-        WcpsCoverageMetadata wcpsCoverageMetadata;
+        WcpsCoverageMetadata wcpsCoverageMetadata = wmsLayer.getWcpsCoverageMetadata();
+        
         String tileMatrixName = wmsLayer.getWMTSTileMatrixName();
         
         if (tileMatrixName == null) {
-            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(wmsLayer.getLayerName());
+            if (wcpsCoverageMetadata == null) {
+                wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(wmsLayer.getLayerName());  
+            } 
+             
             Pair<BigDecimal, BigDecimal> geoSubsetX = new Pair(wmsLayer.getExtendedRequestBBox().getXMin(), wmsLayer.getExtendedRequestBBox().getXMax());
             Pair<BigDecimal, BigDecimal> geoSubsetY = new Pair(wmsLayer.getExtendedRequestBBox().getYMin(), wmsLayer.getExtendedRequestBBox().getYMax());
 
@@ -108,9 +91,10 @@ public class WMSGetMapWCPSMetadataTranslatorService {
                                                                                                          wmsLayer.getWidth(), wmsLayer.getHeight(),
                                                                                                          wmsLayer.getNonXYSubsetDimensions());
         } else {
-            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.create(tileMatrixName);
+            wcpsCoverageMetadata = wcpsCoverageMetadataTranslator.translate(tileMatrixName);
         }
         
+        wmsLayer.setWcpsCoverageMetadata(wcpsCoverageMetadata);        
         return wcpsCoverageMetadata;
     }
 }

@@ -23,7 +23,8 @@ package petascope.wms.handlers.service;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rasdaman.accesscontrol.service.AuthenticationService;
+
+import java.awt.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,7 +37,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
-import org.rasdaman.domain.cis.Coverage;
+import com.rasdaman.accesscontrol.service.AuthenticationService;
+import java.util.regex.Matcher;
+
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
+import org.rasdaman.config.ConfigManager;
+import org.rasdaman.domain.cis.NilValue;
+import org.rasdaman.domain.cis.Wgs84BoundingBox;
 import org.rasdaman.domain.wms.Layer;
 import org.rasdaman.domain.wms.Style;
 import org.rasdaman.repository.service.CoverageRepositoryService;
@@ -54,25 +62,20 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCPSException;
 import petascope.exceptions.WMSException;
-import petascope.util.CrsUtil;
-import petascope.util.ListUtil;
-import petascope.util.MIMEUtil;
+import petascope.util.*;
 import petascope.util.ras.RasUtil;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wms.exception.WMSInternalException;
 import petascope.core.gml.metadata.model.CoverageMetadata;
 import petascope.rasdaman.exceptions.RasdamanException;
-import petascope.util.CrsProjectionUtil;
-import petascope.util.JSONUtil;
 import petascope.wcps.encodeparameters.model.JsonExtraParams;
 import petascope.wcps.encodeparameters.model.NoData;
 import petascope.wcps.encodeparameters.service.SerializationEncodingService;
 import petascope.wcps.encodeparameters.service.TranslateColorTableService;
-import petascope.wcps.handler.SubsetExpressionHandler;
-import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wms.exception.WMSStyleNotFoundException;
+import petascope.wms.exception.WMSUnsupportedBgColorException;
 import petascope.wms.handlers.model.WMSLayer;
 import static petascope.wms.handlers.service.WMSGetMapStyleService.ENCODE;
 import static petascope.wms.handlers.service.WMSGetMapStyleService.EXTEND;
@@ -155,6 +158,9 @@ public class WMSGetMapService {
     private String interpolation;    
     private boolean transparent;
     
+    // The original requested BBox translated to EPSG:4326 to be used in the cache
+    private Wgs84BoundingBox wgs84BBox;
+    
     // The bbox parameter from WMS clients (e.g: in EPSG:4326), the layer's native CRS can be different
     private BoundingBox originalRequestBBox;
     
@@ -195,6 +201,12 @@ public class WMSGetMapService {
     
     // e.g: test_wms_4326 layer: {c0 -> test_wms_4326_collection, c1 -> test_wms_4326_new_collection}
     private Map<String, String> aliasCollectionNameRegistry = new LinkedHashMap<>();
+    
+    private List<WMSLayer> wmsLayers = new ArrayList<>();
+
+    private static final String DEFAULT_ONE_BAND_COLOR_TEMPLATE = "<[0:0,0:0] $VALUE>";
+
+    private Triple<Integer, Integer, Integer> backgroundColorTriple = null;
     
     private static Logger log = LoggerFactory.getLogger(WMSGetMapService.class);
     
@@ -259,6 +271,10 @@ public class WMSGetMapService {
         this.interpolation = interpolation;
     }
 
+    public void setBackgroundColorTriple(Triple<Integer, Integer, Integer> backgroundColorTriple) {
+        this.backgroundColorTriple = backgroundColorTriple;
+    }
+
     public String getWMTSTileMatrixName() {
         return wmtsTileMatrixName;
     }
@@ -266,11 +282,18 @@ public class WMSGetMapService {
     public void setWMTSTileMatrixName(String wmtsTileMatrixName) {
         this.wmtsTileMatrixName = wmtsTileMatrixName;
     }
+
+    public Wgs84BoundingBox getWgs84BBox() {
+        return wgs84BBox;
+    }
     
     public void setBBoxes(BoundingBox bbox, List<String> layerNames) throws PetascopeException, SecoreException {
         // If request is in YX order for bounding box (e.g: EPSG:4326 Lat, Long, swap it to XY order Long, Lat)
         // NOTE: as all layers requested with same outputCRS so only do this one time
         this.originalRequestBBox = this.wmsGetMapBBoxService.swapYXBoundingBox(bbox, outputCRS);
+        this.wgs84BBox = CrsProjectionUtil.createLessPreciseWgs84BBox(originalRequestBBox.getXMin(), originalRequestBBox.getYMin(),
+                                                                    originalRequestBBox.getXMax(), originalRequestBBox.getYMax(),
+                                                                    CrsUtil.getEPSG4326FullURL());
         
         for (String layerName : layerNames) {
             BoundingBox fittedRequestBBox = this.wmsGetMapBBoxService.swapYXBoundingBox(bbox, outputCRS);
@@ -287,6 +310,9 @@ public class WMSGetMapService {
                                                                                            this.width, this.height,
                                                                                            this.nonXYSubsetDimensions
 									                 , this.getWMTSTileMatrixName());
+            wmsLayers.add(wmsLayer);
+            
+            wmsLayer.setWcpsCoverageMetadata(wcpsCoverageMetadataTmp);
 
             WcpsCoverageMetadata wcpsCoverageMetadata = this.wmsGetMapWCPSMetadataTranslatorService.createWcpsCoverageMetadataForDownscaledLevelByExtendedRequestBBox(wmsLayer);
             List<Axis> xyAxes = wcpsCoverageMetadata.getXYAxes();
@@ -325,12 +351,24 @@ public class WMSGetMapService {
             }
             
             List<WcpsCoverageMetadata> wcpsCoverageMetadatas = this.getWcpsCoverageMetadataByLayernames();
+
             List<WMSLayer> wmsLayers = this.createWMSLayers(wcpsCoverageMetadatas);
 
-            List<String> finalCollectionExpressions = new ArrayList<>();            
-            // If GetMap requests with transparent=true then extract the nodata values from layer to be added to final rasql query
-            List<BigDecimal> nodataValues = new ArrayList<>();
-            
+            List<String> finalCollectionExpressions = new ArrayList<>();
+
+            // @TODO: This number of bands selection (e.g. 10 bands) from the first layer doesn't work with rasql / wcps style
+            //  in where the range constructor defined by user can have different number of bands (e.g. 3 bands)
+            String backgroundColorFragment = this.getBackgroundColorFragment(wcpsCoverageMetadatas.get(0).getRangeFields().size());
+
+            if (backgroundColorFragment != null) {
+                // NOTE: in case transparent=FALSE then depending on BGCOLOR value -> return corresponding background color as the base layer
+                finalCollectionExpressions.add(backgroundColorFragment);
+            }
+            if (this.transparent) {
+                // In case transparent = true -> get a transparent fragment to be used when it is needed
+                backgroundColorFragment = this.getTransparentFragment();
+            }
+
             int styleIndex = 0;
                        
             // e.g layers=layer1,layer2,layer3 then according to WMS standard (leftmost = bottommost)
@@ -342,16 +380,8 @@ public class WMSGetMapService {
                     styleName = this.styleNames.get(styleIndex);
                 }
 
-                WcpsCoverageMetadata wcpsCoverageMetadata = this.wmsGetMapWCPSMetadataTranslatorService.createWcpsCoverageMetadataForDownscaledLevelByExtendedRequestBBox(wmsLayer);
-                
-                if (nodataValues.isEmpty()) {
-                    if (wcpsCoverageMetadata.getNilValues().size() > 0) {
-                        if (wcpsCoverageMetadata.getNilValues().get(0).size() > 0) {
-                            nodataValues.add(new BigDecimal(wcpsCoverageMetadata.getNilValues().get(0).get(0).getValue()));
-                        }
-                    }
-                }
-                
+                WcpsCoverageMetadata wcpsCoverageMetadata = wmsLayer.getWcpsCoverageMetadata();
+
                 List<Axis> xyAxes = wcpsCoverageMetadata.getXYAxes();
                 String nativeCRS = xyAxes.get(0).getNativeCrsUri();
                 
@@ -364,7 +394,7 @@ public class WMSGetMapService {
                 
                 if (!isProjection) {
                     finalCollectionExpressionLayer = this.wmsGetMapSubsetTranslatingService.createGridScalingOutputNonProjection(subsetCollectionExpression,
-                                                                                            wmsLayer, this.originalRequestBBox, outputCRS);
+                                                                                            wmsLayer, this.originalRequestBBox, outputCRS, backgroundColorFragment);
                 } else {
                     finalCollectionExpressionLayer = this.wmsGetMapSubsetTranslatingService.createGridScalingOutputProjection(nativeCRS, subsetCollectionExpression,
                                                                                             wmsLayer, this.originalRequestBBox, outputCRS, 
@@ -386,7 +416,7 @@ public class WMSGetMapService {
             }
 
             String formatType = MIMEUtil.getFormatType(this.format);
-            String collections = this.wmsGetMapStyleService.builRasqlFromExpression(this.width, this.height);
+            String collections = this.wmsGetMapStyleService.builRasqlFromExpression(finalCollectionExpressionLayers);
             
             WcpsCoverageMetadata wcpsCoverageMetadata = wcpsCoverageMetadatas.get(0);
             
@@ -394,7 +424,7 @@ public class WMSGetMapService {
                 // NOTE: if the layer returns a transparent image, then it needs to set the null value to 0
                 this.transparent = true;
             }
-            String encodeFormatParameters = this.createEncodeFormatParameters(nodataValues, wcpsCoverageMetadata);
+            String encodeFormatParameters = this.createEncodeFormatParameters(wcpsCoverageMetadata);
             
             // Create the final Rasql query for all layers's styles of this GetMap request.
             finalRasqlQuery = FINAL_TRANSLATED_RASQL_TEMPLATE
@@ -411,7 +441,7 @@ public class WMSGetMapService {
             bytes = RasUtil.getRasqlResultAsBytes(finalRasqlQuery, userPair.fst, userPair.snd);
         } catch (PetascopeException ex) {
             if (ex instanceof RasdamanException) {
-                throw new PetascopeException(ex.getExceptionCode(), "Failed to run query: " + finalRasqlQuery + ". Reason: " + ex.getMessage(), ex);
+                throw new PetascopeException(ex.getExceptionCode(), "Failed to run query: " + finalRasqlQuery + ". Reason: " + ex.getExceptionText(), ex);
             } else {
                 throw new WMSInternalException(ex.getMessage(), ex);
             }
@@ -419,7 +449,7 @@ public class WMSGetMapService {
 
         return new Response(Arrays.asList(bytes), this.format, this.layerNames.get(0));
     }
-    
+  
     /**
      * Return a list of WcpsCoverageMetadata objects from the request layer names
      */
@@ -452,6 +482,8 @@ public class WMSGetMapService {
                                                                                 this.width, this.height,
                                                                                 this.nonXYSubsetDimensions,
                                                                                 this.getWMTSTileMatrixName());
+            
+            this.wmsGetMapWCPSMetadataTranslatorService.createWcpsCoverageMetadataForDownscaledLevelByExtendedRequestBBox(wmsLayer);
             wmsLayers.add(wmsLayer);
         }
         
@@ -484,17 +516,37 @@ public class WMSGetMapService {
      * (especially in case of requesting in different CRS to layer's native geo XY CRS)
      */
     private boolean needExtendedGeoXYBBox(WMSLayer wmsLayer) throws PetascopeException {
+        BoundingBox extendedRequestBBoxTmp = this.wmsGetMapBBoxService.createExtendedGeoBBox(wmsLayer);
+        wmsLayer.setExtendedRequestBBox(extendedRequestBBoxTmp);
+        
+        // Check if base layer or a pyramid member should be used for handling request
+        WcpsCoverageMetadata wcpsCoverageMetadata = this.wmsGetMapWCPSMetadataTranslatorService.createWcpsCoverageMetadataForDownscaledLevelByExtendedRequestBBox(wmsLayer);
+        isProjection = !CrsUtil.equalsWKT(CrsUtil.getWKT(this.outputCRS), CrsUtil.getWKT(wcpsCoverageMetadata.getXYAxes().get(0).getNativeCrsUri()));
+        wmsLayer.setExtendedRequestBBox(wmsLayer.getRequestBBox());
+        
         BoundingBox bbox = this.layerRequestCRSBBoxesMap.get(wmsLayer.getLayerName());
+        
         // If request BBox contains the layer (layer is inside the request BBox)
         // then no point to create extended request geo BBox as there are no more pixels to fill gaps
-        
-        boolean result = ((isProjection 
-                ) 
-                && wmsLayer.getOriginalBoundsBBox().intersectsXorYAxis(bbox));
+        BoundingBox originalXYAxesBBox = wmsLayer.getOriginalXYBoundsBBox();
+        BoundingBox requestBBOX = wmsLayer.getRequestBBox();
+
+        boolean result = (isProjection || originalXYAxesBBox.containsXorYAxis(requestBBOX));
         
         return result;
     }
     
+    /**
+     * e.g. WCPS query fragment: $cb_abc + $c > 300 with layerName is $cb_xyz
+     * return $cb_abc + $cb_xyz > 300
+     */
+    public static String replaceLayerIteratorByLayerName(String styleQuery, String layerNameAlias, String layerName) {
+        // e.g. \\$test_abc
+        String regexPattern = "\\" + layerNameAlias + "\\b";
+        String result = styleQuery.replaceAll(regexPattern, Matcher.quoteReplacement(layerName));
+        return result;
+    }
+     
     /**
      * Create a list of Rasql collection expressions' string representations for a specific layer.
      * 
@@ -506,7 +558,7 @@ public class WMSGetMapService {
         
         String layerName = wmsLayer.getLayerName();
         List<String> coverageExpressionsLayer = new ArrayList<>();
-            
+
         // CoverageExpression is the main part of a Rasql query builded from the current layer and style
         // e.g: c1 + 5, case c1 > 5 then {0, 1, 2}
         String collectionExpression = null;
@@ -516,8 +568,7 @@ public class WMSGetMapService {
             throw new WMSStyleNotFoundException(styleName, layerName);
         } 
 
-        if (this.needExtendedGeoXYBBox(wmsLayer) 
-            ) {
+        if (this.needExtendedGeoXYBBox(wmsLayer)) {
             BoundingBox bbox = this.wmsGetMapBBoxService.createExtendedGeoBBox(wmsLayer);
             this.extendedFittedRequestGeoBBoxesMap.put(layerName, bbox);
             wmsLayer.setExtendedRequestBBox(bbox);
@@ -547,7 +598,7 @@ public class WMSGetMapService {
         if (style == null) {
             // Layer has no style
             String styleQuery = FRAGMENT_ITERATOR_PREFIX + layerName;
-            collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery, layerName,                                                                        
+            collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery,
                                                                         wmsLayer, wcpsCoverageMetadata,
                                                                         dimSubsetsMap,
                                                                         extendedFittedRequestGeoBBoxesMap.get(orgLayerName));
@@ -555,24 +606,24 @@ public class WMSGetMapService {
             if (!StringUtils.isEmpty(style.getRasqlQueryFragment())) {
                 // rasqlTransformFragment
                 // e.g: $Iterator -> $covA
-                String styleQuery = style.getRasqlQueryFragment().replace(RASQL_FRAGMENT_ITERATOR, FRAGMENT_ITERATOR_PREFIX + layerName);
-                collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery, layerName,
+                String styleQuery = this.replaceLayerIteratorByLayerName(style.getRasqlQueryFragment(), RASQL_FRAGMENT_ITERATOR, FRAGMENT_ITERATOR_PREFIX + layerName);
+                collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery,
                                                                         wmsLayer, wcpsCoverageMetadata,
                                                                         dimSubsetsMap,
                                                                         extendedFittedRequestGeoBBoxesMap.get(orgLayerName));
             } else if (!StringUtils.isEmpty(style.getWcpsQueryFragment())) {
                 // wcpsQueryFragment
                 // e.g: $c -> $covA
-                String styleQuery = style.getWcpsQueryFragment().replace(WCPS_FRAGMENT_ITERATOR, FRAGMENT_ITERATOR_PREFIX + layerName);
+                String styleQuery = this.replaceLayerIteratorByLayerName(style.getWcpsQueryFragment(), WCPS_FRAGMENT_ITERATOR, FRAGMENT_ITERATOR_PREFIX + layerName);
                 collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForWCPSFragment(
-                                                                        styleQuery, layerName,
+                                                                        styleQuery,
                                                                         wmsLayer, wcpsCoverageMetadata,
                                                                         dimSubsetsMap,
                                                                         extendedFittedRequestGeoBBoxesMap.get(orgLayerName));
             } else {
                 // Style is not null, but no query fragment was defined, e.g: only contains colorTable value
                 String styleQuery = FRAGMENT_ITERATOR_PREFIX + layerName;
-                collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery, layerName,
+                collectionExpression = this.wmsGetMapStyleService.buildRasqlStyleExpressionForRasqFragment(styleQuery,
                                                                         wmsLayer, wcpsCoverageMetadata,
                                                                         dimSubsetsMap,
                                                                         extendedFittedRequestGeoBBoxesMap.get(orgLayerName));   
@@ -596,15 +647,15 @@ public class WMSGetMapService {
         String result = ListUtil.join(coverageExpressionsLayer, OVERLAY);
         return result;
     }
-    
+
     /**
      * Check if request BBox in native CRS intersects with first layer's BBox.
      */
     private boolean intersectLayerXYBBox() throws PetascopeException {
-        // Check if the request BBox (e.g: in EPSG:4326) intersects with layer's BBox (e.g: in UTM 32)
+        // Check if the request BBox (e.g: in EPSG:4326) intersects with layer's BBox (e.g: in UTM 32 but projected to EPSG:4326)
         for (String layerName : this.layerNames) {
             BoundingBox bbox = this.layerRequestCRSBBoxesMap.get(layerName);
-            if (bbox.intersectsXorYAxis(this.originalRequestBBox)) {
+            if (bbox.containsOrIntersects(this.originalRequestBBox)) {
                 return true;
             }
         }
@@ -613,10 +664,10 @@ public class WMSGetMapService {
     
     /**
      * From the list of nodata values from all combined layers, create a nodata string for SELECT encode() query.
-     * NOTE: if layer was imported with lat, long grid axes order (e.g: via netCDF) then it must need tranpose to make the output correctly.
+     * NOTE: if layer was imported with lat, long grid axes order (e.g: via netCDF) then it must need transpose to make the output correctly.
      * 
      */
-    private String createEncodeFormatParameters(List<BigDecimal> nodataValues, WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException {
+    private String createEncodeFormatParameters(WcpsCoverageMetadata wcpsCoverageMetadata) throws PetascopeException {
         
         List<Axis> xyAxes = wcpsCoverageMetadata.getXYAxes();
         
@@ -626,18 +677,6 @@ public class WMSGetMapService {
         
         JsonExtraParams jsonExtraParams = new JsonExtraParams();
 
-        if (this.transparent) {
-            if (nodataValues.isEmpty()) {
-                // 0 is default null value if layer doesn't have other values
-                nodataValues.add(BigDecimal.ZERO);
-            }
-            // e.g: {"nodata": [10, 20, 40]}
-            NoData nodata = new NoData();
-            nodata.setNoDataValues(nodataValues);
-            
-            jsonExtraParams.setNoData(nodata);
-        }
-        
         if (xyAxes.get(0).getRasdamanOrder() > xyAxes.get(1).getRasdamanOrder()) {
             // NOTE: if layer imported with Lat, Long grid order (via netCDF) so it needs to use transpose
             List<Integer> transposeList = new ArrayList<>();
@@ -667,11 +706,17 @@ public class WMSGetMapService {
         String key = this.width + "_" + this.height;
         Response response = this.blankTileMap.get(key);
         
-        if (response == null) {
+        if (ConfigManager.MAX_WMS_CACHE_SIZE == 0 || response == null) {
             // Create a transparent image by input width and height parameters
-            String query = SELECT + ENCODE + "(" + EXTEND + "(" + TRANSPARENT_DOMAIN 
-                         + ", [0:" + (this.width - 1) + ",0:" + (this.height - 1) + "])  NULL VALUES [" + DEFAULT_NULL_VALUE + "] , \"" 
-                         + this.format + "\", \"{\\\"nodata\\\": [" + DEFAULT_NULL_VALUE + "]}\") ";
+            String query = SELECT + ENCODE + "(";
+
+            if (this.transparent) {
+                query += this.getTransparentFragment();
+            } else {
+                query += this.getBackgroundColorFragment(1);
+            }
+
+            query +=  " , \"" + this.format + "\", \"{\\\"nodata\\\": [" + DEFAULT_NULL_VALUE + "]}\") ";
             
             Pair<String, String> userPair = AuthenticationService.getBasicAuthCredentialsOrRasguest(httpServletRequest);
             byte[] bytes = RasUtil.getRasqlResultAsBytes(query, userPair.fst, userPair.snd);
@@ -680,5 +725,53 @@ public class WMSGetMapService {
         }
         
         return response;       
+    }
+
+    /**
+     * According to WMS standard,
+     * - if transparent=TRUE -> transparency for no-data pixels
+     * - if transparent=FALSE -> BGCOLOR parameter omitted -> whitecolor for no-data pixels
+     * - if transparent=FALSE and BGCOLOR specified -> RGB color for no-data pixels
+     *
+     */
+    private String getBackgroundColorFragment(int numberOfBands) throws WMSUnsupportedBgColorException {
+        String result = null;
+
+        if (!this.transparent) {
+            result = "SCALE( $COLOR_FRAGMENT, [0:" + (this.width - 1) + ", 0:"  + (this.height - 1) + "] )";
+            String colorFragment = "";
+
+            if (this.backgroundColorTriple == null) {
+                // Then, default color is white color
+                colorFragment = DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", "255c");
+            } else {
+                if (numberOfBands != 1 && numberOfBands != 3 && numberOfBands != 4) {
+                    throw new WMSUnsupportedBgColorException(numberOfBands);
+                }
+                // BGCOLOR parameter is set with Hex-color RGB -> return band constructor for it
+                // TODO: convert RGB hex color to RGB colors
+                String threeBandsValues = "{ " + this.backgroundColorTriple.getLeft().toString() + "c, "
+                                        + this.backgroundColorTriple.getMiddle().toString() + "c, "
+                                        + this.backgroundColorTriple.getRight().toString() + "c }";
+                colorFragment = DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", threeBandsValues);
+
+                if (numberOfBands == 4) {
+                    // alpha band in case layer has 4 bands
+                    colorFragment += ", " + DEFAULT_ONE_BAND_COLOR_TEMPLATE.replace("$VALUE", "255c");
+                }
+
+            }
+
+            result = result.replace("$COLOR_FRAGMENT", colorFragment);
+        }
+
+        return result;
+    }
+
+    /**
+     * Return a rasql fragment to return a transparent image
+     */
+    private String getTransparentFragment() {
+        return EXTEND + "(" + TRANSPARENT_DOMAIN + ", [0:" + (this.width - 1) + ",0:" + (this.height - 1) + "]) NULL VALUES [" + DEFAULT_NULL_VALUE + "]";
     }
 }

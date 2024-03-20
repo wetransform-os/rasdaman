@@ -37,6 +37,7 @@ from util.file_util import FileUtil, File, FilePair
 from util.gdal_util import GDALGmlUtil
 from util.log import log, make_bold
 from master.importer.resumer import Resumer
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 class Recipe(GeneralCoverageRecipe):
@@ -70,30 +71,33 @@ class Recipe(GeneralCoverageRecipe):
     VAR_RESOLUTION = '${resolution}'
     VAR_LEVEL = '${level}'
     # bands for each resolution
+
+    range_type_nil_values = [RangeTypeNilValue("", 0)]
+
     BANDS_L1C = {
         RES_10m: [
-            UserBand("0", "B4", "red, central wavelength 665 nm", "", "", [0], ""),
-            UserBand("1", "B3", "green, central wavelength 560 nm", "", "", [0], ""),
-            UserBand("2", "B2", "blue, central wavelength 490 nm", "", "", [0], ""),
-            UserBand("3", "B8", "nir, central wavelength 842 nm", "", "", [0], "")
+            UserBand("0", "B4", "red, central wavelength 665 nm", "", range_type_nil_values, ""),
+            UserBand("1", "B3", "green, central wavelength 560 nm", "", range_type_nil_values, ""),
+            UserBand("2", "B2", "blue, central wavelength 490 nm", "", range_type_nil_values, ""),
+            UserBand("3", "B8", "nir, central wavelength 842 nm", "", range_type_nil_values, "")
         ],
         RES_20m: [
-            UserBand("0", "B5", "central wavelength 705 nm", "", "", [0], ""),
-            UserBand("1", "B6", "central wavelength 740 nm", "", "", [0], ""),
-            UserBand("2", "B7", "central wavelength 783 nm", "", "", [0], ""),
-            UserBand("3", "B8A", "central wavelength 865 nm", "", "", [0], ""),
-            UserBand("4", "B11", "central wavelength 1610 nm", "", "", [0], ""),
-            UserBand("5", "B12", "central wavelength 2190 nm", "", "", [0], "")
+            UserBand("0", "B5", "central wavelength 705 nm", "", range_type_nil_values, ""),
+            UserBand("1", "B6", "central wavelength 740 nm", "", range_type_nil_values, ""),
+            UserBand("2", "B7", "central wavelength 783 nm", "", range_type_nil_values, ""),
+            UserBand("3", "B8A", "central wavelength 865 nm", "", range_type_nil_values, ""),
+            UserBand("4", "B11", "central wavelength 1610 nm", "", range_type_nil_values, ""),
+            UserBand("5", "B12", "central wavelength 2190 nm", "", range_type_nil_values, "")
         ],
         RES_60m: [
-            UserBand("0", "B1", "central wavelength 443 nm", "", "", [0], ""),
-            UserBand("1", "B9", "central wavelength 945 nm", "", "", [0], ""),
-            UserBand("2", "B10", "central wavelength 1375 nm", "", "", [0], "")
+            UserBand("0", "B1", "central wavelength 443 nm", "", range_type_nil_values, ""),
+            UserBand("1", "B9", "central wavelength 945 nm", "", range_type_nil_values, ""),
+            UserBand("2", "B10", "central wavelength 1375 nm", "", range_type_nil_values, "")
         ],
         RES_TCI: [
-            UserBand("0", "red", "B4, central wavelength 665 nm", "", "", [0], ""),
-            UserBand("1", "green", "B3, central wavelength 560 nm", "", "", [0], ""),
-            UserBand("2", "blue", "B2, central wavelength 490 nm", "", "", [0], "")
+            UserBand("0", "red", "B4, central wavelength 665 nm", "", range_type_nil_values, ""),
+            UserBand("1", "green", "B3, central wavelength 560 nm", "", range_type_nil_values, ""),
+            UserBand("2", "blue", "B2, central wavelength 490 nm", "", range_type_nil_values, "")
         ],
     }
     # L2A is same as L1C but doesn't have B10 in the 60m subdataset
@@ -101,8 +105,8 @@ class Recipe(GeneralCoverageRecipe):
         RES_10m: BANDS_L1C[RES_10m],
         RES_20m: BANDS_L1C[RES_20m],
         RES_60m: [
-            UserBand("0", "B1", "central wavelength 443 nm", "", "", [0], "nm"),
-            UserBand("1", "B9", "central wavelength 945 nm", "", "", [0], "nm"),
+            UserBand("0", "B1", "central wavelength 443 nm", "", range_type_nil_values, "nm"),
+            UserBand("1", "B9", "central wavelength 945 nm", "", range_type_nil_values, "nm"),
         ],
         RES_TCI: BANDS_L1C[RES_TCI],
     }
@@ -140,7 +144,7 @@ class Recipe(GeneralCoverageRecipe):
         log.info(make_bold("Mocked: ") + str(ConfigManager.mock))
         if ConfigManager.track_files:
             log.info(make_bold("Track files: ") + str(ConfigManager.track_files))
-        if ConfigManager.skip:
+        if self.session.skip_is_enabled():
             log.info(make_bold("Skip: ") + str(ConfigManager.skip))
         if ConfigManager.retry:
             log.info(make_bold("Retries: ") + str(ConfigManager.retries))
@@ -267,7 +271,7 @@ class Recipe(GeneralCoverageRecipe):
             if not FileUtil.validate_file_path(f.get_filepath()):
                 continue
 
-            gdal_ds = GDALGmlUtil(f.get_filepath())
+            gdal_ds = GDALGmlUtil.init(f.get_filepath())
             subdatasets = self._get_subdatasets(gdal_ds, f)
             gdal_ds.close()
 
@@ -310,7 +314,9 @@ class Recipe(GeneralCoverageRecipe):
                 # Fixed values for 3 axes of Sentinel 2 coverage
                 axis_resolutions = self.RES_DICT[res]
 
-                slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice, axis_resolutions)
+                user_axes = self._read_axes(conv.crs)
+
+                slices_dict = conv._create_coverage_slices(conv.crs, crs_axes, evaluator_slice, axis_resolutions, user_axes)
                 if conv.coverage_slices == {}:
                     conv.coverage_slices = slices_dict
                 else:

@@ -22,16 +22,16 @@ rasdaman GmbH.
 */
 // This is -*- C++ -*-
 
-#include "config.h"        // for BASEDB_SQLITE
-#include "globals.hh"      // DEFAULT_DBNAME
-#include "adminif.hh"      // for AdminIf
-#include "databaseif.hh"   // for DatabaseIf, ostream, operator<<
-#include "raslib/error.hh" // for r_Error, r_Error::r_Error_DatabaseOpen
+#include "config.h"         // for BASEDB_SQLITE
+#include "globals.hh"       // DEFAULT_DBNAME
+#include "adminif.hh"       // for AdminIf
+#include "databaseif.hh"    // for DatabaseIf, ostream, operator<<
+#include "raslib/error.hh"  // for r_Error, r_Error::r_Error_DatabaseOpen
 
-#include <logging.hh>           // for Writer, CTRACE, LTRACE, CERROR, CFATAL
-#include <ostream>              // for operator<<, std::endl, ostream, basic_ostream
-#include <stdlib.h>             // for free
-#include <string.h>             // for strdup
+#include <logging.hh>  // for Writer, CTRACE, LTRACE, CERROR, CFATAL
+#include <ostream>     // for operator<<, std::endl, ostream, basic_ostream
+#include <stdlib.h>    // for free
+#include <string.h>    // for strdup
 
 #ifdef SPARC
 #define RASARCHITECTURE "SPARC"
@@ -47,8 +47,8 @@ rasdaman GmbH.
 
 // schema version, change whenever a change is made to the relational schema -- PB 2005-oct-04
 #ifndef RASSCHEMAVERSION
-const int RASSCHEMAVERSION = 5; // currently still v5
-#endif // RASSCHEMAVERSION
+const int RASSCHEMAVERSION = 5;  // currently still v5
+#endif                           // RASSCHEMAVERSION
 
 const char *DatabaseIf::DefaultDatabaseName = DEFAULT_DBNAME;
 
@@ -56,11 +56,6 @@ DatabaseIf::~DatabaseIf()
 {
     if (isConnected())
         baseDBMSClose();
-    if (myName)
-        free(myName), myName = nullptr;
-
-    connected = false;
-    opened = false;
 }
 
 void DatabaseIf::open(const char *dbName)
@@ -71,7 +66,7 @@ void DatabaseIf::open(const char *dbName)
         throw r_Error(r_Error::r_Error_DatabaseOpen);
     }
     opened = true;
-    myName = strdup(dbName);
+    myName = dbName;
     connect();
     connected = true;
 }
@@ -79,10 +74,12 @@ void DatabaseIf::open(const char *dbName)
 void DatabaseIf::close()
 {
     opened = false;
-    if (myName)
-        free(myName), myName = nullptr;
+    myName = "none";
     if (connected)
-        disconnect(), connected = false;
+    {
+        disconnect();
+        connected = false;
+    }
 }
 
 bool DatabaseIf::isConnected() const
@@ -97,7 +94,7 @@ bool DatabaseIf::isOpen() const
 
 const char *DatabaseIf::getName() const
 {
-    return myName;
+    return myName.c_str();
 }
 
 void DatabaseIf::baseDBMSOpen()
@@ -111,13 +108,13 @@ void DatabaseIf::baseDBMSOpen()
 #endif
     AdminIf::setCurrentDatabaseIf(this);
 
-#ifdef DBMS_PGSQL // cannot have this check in PostgreSQL -- PB 2005-jan-09
+#ifdef DBMS_PGSQL  // cannot have this check in PostgreSQL -- PB 2005-jan-09
     if (!databaseExists(myName))
     {
-        LERROR << "Database " << ((myName) ? myName : "NULL") << " unknown";
+        LERROR << "Database " << myName << " unknown";
         throw r_Error(r_Error::r_Error_DatabaseUnknown);
     }
-#endif // DBMS_PGSQL
+#endif  // DBMS_PGSQL
 
 #ifdef BASEDB_SQLITE
     // done on rasserver startup for sqlite
@@ -125,7 +122,7 @@ void DatabaseIf::baseDBMSOpen()
     checkCompatibility();
     if (!isConsistent())
     {
-        LERROR << "Database " << ((myName) ? myName : "NULL") << " inconsistent";
+        LERROR << "Database " << myName << " inconsistent";
         throw r_Error(DATABASE_INCONSISTENT);
     }
 #endif
@@ -151,7 +148,7 @@ void DatabaseIf::baseDBMSClose()
 std::ostream &operator<<(std::ostream &stream, DatabaseIf &db)
 {
     stream << "DatabaseIf\n"
-           << "\tConnected To\t: " << ((db.getName()) ? db.getName() : "") << std::endl;
+           << "\tConnected To\t: " << db.getName() << std::endl;
     if (db.opened)
     {
         if (db.connected)
@@ -169,4 +166,3 @@ std::ostream &operator<<(std::ostream &stream, DatabaseIf &db)
     }
     return stream;
 }
-

@@ -5,10 +5,12 @@
 #include "dbbusyexception.hh"
 #include "dbhostalreadyexistsexception.hh"
 #include "dbhostbusyexception.hh"
+#include "deadlineexceededexception.hh"
 #include "duplicatedbsessionexception.hh"
 #include "inexistentclientexception.hh"
 #include "inexistentdatabaseexception.hh"
 #include "inexistentdbhostexception.hh"
+#include "inexistentdbsessionexception.hh"
 #include "inexistentinpeerexception.hh"
 #include "inexistentoutpeerexception.hh"
 #include "inexistentservergroupexception.hh"
@@ -21,6 +23,6 @@
 #include "servergroupduplicateexception.hh"
 #include "useralreadyexistsexception.hh"
 #include "userdbrightsexception.hh"
+#include "clientevaluationexception.hh"
 
-
-#endif // RASMGR_X_SRC_EXCEPTIONS_RASMGREXCEPTIONS
+#endif  // RASMGR_X_SRC_EXCEPTIONS_RASMGREXCEPTIONS

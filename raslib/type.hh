@@ -20,16 +20,6 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
-/**
- * INCLUDE: type.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Type
- *
- * COMMENTS:
- *
-*/
-
 #ifndef D_TYPE_HH
 #define D_TYPE_HH
 
@@ -43,10 +33,14 @@ class r_Sinterval_Type;
 class r_Minterval_Type;
 class r_Point_Type;
 class r_Oid_Type;
+class r_String_Type;
 class r_Base_Type;
 class r_Collection_Type;
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
 /**
   This class the superclass for all types in the ODMG conformant
@@ -58,12 +52,31 @@ class r_Type : public r_Meta_Object
 public:
     /// typedef for the enum specifying a primitive type, structure type,
     /// marray type, interval type, minterval type, point type or oid type
-    enum r_Type_Id { ULONG, USHORT, BOOL, LONG, SHORT, OCTET,
-                     DOUBLE, FLOAT, CHAR, COMPLEXTYPE1, COMPLEXTYPE2, CINT16, CINT32,
-                     STRUCTURETYPE, MARRAYTYPE, COLLECTIONTYPE,
-                     SINTERVALTYPE, MINTERVALTYPE, POINTTYPE, OIDTYPE,
-                     UNKNOWNTYPE
-                   };
+    enum r_Type_Id
+    {
+        ULONG,
+        USHORT,
+        BOOL,
+        LONG,
+        SHORT,
+        OCTET,
+        DOUBLE,
+        FLOAT,
+        CHAR,
+        COMPLEXTYPE1,
+        COMPLEXTYPE2,
+        CINT16,
+        CINT32,
+        STRUCTURETYPE,
+        MARRAYTYPE,
+        COLLECTIONTYPE,
+        SINTERVALTYPE,
+        MINTERVALTYPE,
+        POINTTYPE,
+        OIDTYPE,
+        STRINGTYPE,
+        UNKNOWNTYPE
+    };
     /// default constructor.
     r_Type() = default;
     /// constructor getting name of type.
@@ -107,8 +120,12 @@ public:
     /// check, if type is a oid
     virtual bool isOidType() const;
 
+    /// check, if type is a string
+    virtual bool isStringType() const;
+
     /// build type schema from string representation
     static r_Type *get_any_type(const char *type_string);
+    static r_Type *get_any_type(const std::string &type_string);
 
     /// converts array of cells from NT byte order to Unix byte order.
     virtual void convertToLittleEndian(char *cells, r_Area noCells) const = 0;
@@ -116,20 +133,45 @@ public:
     /// converts array of cells from Unix byte order to NT byte order.
     virtual void convertToBigEndian(char *cells, r_Area noCells) const = 0;
 
-
 private:
-
     //@Man: Methodes and structures for dl parser:
     //@{
     ///
-    
+
     /// token enumeration for parser
-    enum DLTOKEN   { DLMARRAY, DLSET, DLSTRUCT, DLCOMMA,
-                     DLLEP, DLREP, DLLAP, DLRAP, DLLCP, DLRCP,
-                     DLIDENTIFIER, DLCHAR, DLOCTET, DLSHORT, DLUSHORT,
-                     DLLONG, DLULONG, DLFLOAT, DLDOUBLE, DLBOOL, DLCOMPLEXTYPE1, DLCOMPLEXTYPE2, DLCINT16, DLCINT32, 
-                     DLINTERVAL,  DLMINTERVAL, DLPOINT, DLOID, DLUNKNOWN
-                   };
+    enum DLTOKEN
+    {
+        DLMARRAY,
+        DLSET,
+        DLSTRUCT,
+        DLCOMMA,
+        DLLEP,
+        DLREP,
+        DLLAP,
+        DLRAP,
+        DLLCP,
+        DLRCP,
+        DLIDENTIFIER,
+        DLCHAR,
+        DLOCTET,
+        DLSHORT,
+        DLUSHORT,
+        DLLONG,
+        DLULONG,
+        DLFLOAT,
+        DLDOUBLE,
+        DLBOOL,
+        DLCOMPLEXTYPE1,
+        DLCOMPLEXTYPE2,
+        DLCINT16,
+        DLCINT32,
+        DLINTERVAL,
+        DLMINTERVAL,
+        DLPOINT,
+        DLOID,
+        DLSTRING,
+        DLUNKNOWN
+    };
     ///
     static DLTOKEN getNextToken(char *&pos, char *&identifier);
     ///
@@ -152,11 +194,11 @@ private:
     static r_Point_Type *getPointType(char *&pos);
     ///
     static r_Oid_Type *getOidType(char *&pos);
+    ///
+    static r_String_Type *getStringType(char *&pos);
 
     ///
     //@}
-
-
 };
 
 extern std::ostream &operator<<(std::ostream &s, r_Type::r_Type_Id t);
@@ -174,18 +216,57 @@ extern std::ostream &operator<<(std::ostream &s, r_Type::r_Type_Id t);
 //
 #define CODE(...) __VA_ARGS__
 #define MAKE_SWITCH_TYPEID(cellType, T, code, codeDefault) \
-    switch (cellType) { \
-    case r_Type::r_Type_Id::ULONG: { using T = r_ULong;   code break; } \
-    case r_Type::r_Type_Id::USHORT:{ using T = r_UShort;  code break; } \
-    case r_Type::r_Type_Id::CHAR:  { using T = r_Char;    code break; } \
-    case r_Type::r_Type_Id::BOOL:  { using T = r_Boolean; code break; } \
-    case r_Type::r_Type_Id::LONG:  { using T = r_Long;    code break; } \
-    case r_Type::r_Type_Id::SHORT: { using T = r_Short;   code break; } \
-    case r_Type::r_Type_Id::OCTET: { using T = r_Octet;   code break; } \
-    case r_Type::r_Type_Id::DOUBLE:{ using T = r_Double;  code break; } \
-    case r_Type::r_Type_Id::FLOAT: { using T = r_Float;   code break; } \
-    default:       { codeDefault break; } \
+    switch (cellType)                                      \
+    {                                                      \
+    case r_Type::r_Type_Id::ULONG:                         \
+    {                                                      \
+        using T = r_ULong;                                 \
+        code break;                                        \
+    }                                                      \
+    case r_Type::r_Type_Id::USHORT:                        \
+    {                                                      \
+        using T = r_UShort;                                \
+        code break;                                        \
+    }                                                      \
+    case r_Type::r_Type_Id::CHAR:                          \
+    {                                                      \
+        using T = r_Char;                                  \
+        code break;                                        \
+    }                                                      \
+    case r_Type::r_Type_Id::BOOL:                          \
+    {                                                      \
+        using T = r_Boolean;                               \
+        code break;                                        \
+    }                                                      \
+    case r_Type::r_Type_Id::LONG:                          \
+    {                                                      \
+        using T = r_Long;                                  \
+        code break;                                        \
+    }                                                      \
+    case r_Type::r_Type_Id::SHORT:                         \
+    {                                                      \
+        using T = r_Short;                                 \
+        code break;                                        \
+    }                                                      \
+    case r_Type::r_Type_Id::OCTET:                         \
+    {                                                      \
+        using T = r_Octet;                                 \
+        code break;                                        \
+    }                                                      \
+    case r_Type::r_Type_Id::DOUBLE:                        \
+    {                                                      \
+        using T = r_Double;                                \
+        code break;                                        \
+    }                                                      \
+    case r_Type::r_Type_Id::FLOAT:                         \
+    {                                                      \
+        using T = r_Float;                                 \
+        code break;                                        \
+    }                                                      \
+    default:                                               \
+    {                                                      \
+        codeDefault break;                                 \
+    }                                                      \
     }
-
 
 #endif

@@ -26,6 +26,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -34,9 +37,17 @@ import petascope.core.gml.metadata.model.LocalMetadataChild;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.util.JSONUtil;
+import petascope.util.StringUtil;
+import petascope.util.TimeUtil;
 import petascope.util.XMLUtil;
+import petascope.wcps.encodeparameters.model.AreaOfValidity;
+import petascope.wcps.encodeparameters.model.AxesMetadata;
+import petascope.wcps.encodeparameters.model.AxisMetadata;
 import petascope.wcps.exception.processing.InvalidCoverageMetadataToDeserializeException;
+import petascope.wcps.metadata.model.Axis;
+import petascope.wcps.metadata.model.IrregularAxis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
+
 
 /**
  *
@@ -51,7 +62,7 @@ public class CoverageMetadataService {
     
     private static final XmlMapper xmlMapper = new XmlMapper();
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    
+
     public CoverageMetadataService() {
         
     }  
@@ -64,14 +75,52 @@ public class CoverageMetadataService {
         
         CoverageMetadata coverageMetadata = wcpsCoverageMetadata.getCoverageMetadata();
 
+        for (Axis axis : wcpsCoverageMetadata.getAxes()) {
+            if (axis instanceof IrregularAxis) {
+                IrregularAxis irregularAxis = (IrregularAxis) axis;
+                if (irregularAxis.getDirectPositionsAreaOfValidityStarts() != null
+                    && !irregularAxis.getDirectPositionsAreaOfValidityStarts().isEmpty()) {
+
+                    if (coverageMetadata.getAxesMetadata() == null) {
+                        coverageMetadata.setAxesMetadata(new AxesMetadata());
+                    }
+
+                    coverageMetadata.getAxesMetadata().getAxesAttributesMap().put(irregularAxis.getLabel(), new AxisMetadata());
+
+                    List<AreaOfValidity> areasOfValidityList = new ArrayList<>();
+
+                    for (int i = 0; i < irregularAxis.getDirectPositionsAreaOfValidityStarts().size(); i++) {
+                        BigDecimal coefficientValidityStart = irregularAxis.getDirectPositionsAreaOfValidityStarts().get(i).add(irregularAxis.getCoefficientZeroValueAsNumber());
+                        BigDecimal coefficientValidityEnd = irregularAxis.getDirectPositionsAreaOfValidityEnds().get(i).add(irregularAxis.getCoefficientZeroValueAsNumber());
+
+                        String coefficientValidityStartStr = coefficientValidityStart.toPlainString();
+                        String coefficientValidityEndStr = coefficientValidityEnd.toPlainString();
+
+                        if (irregularAxis.isTimeAxis()) {
+                            coefficientValidityStartStr = StringUtil.stripQuotes(TimeUtil.listValuesToISODateTime(BigDecimal.ZERO, BigDecimal.ZERO, Arrays.asList(coefficientValidityStart),
+                                    irregularAxis.getCrsDefinition()).get(0));
+                            coefficientValidityEndStr = StringUtil.stripQuotes(TimeUtil.listValuesToISODateTime(BigDecimal.ZERO, BigDecimal.ZERO, Arrays.asList(coefficientValidityEnd),
+                                    irregularAxis.getCrsDefinition()).get(0));
+                        }
+
+                        AreaOfValidity areaOfValidity = new AreaOfValidity(coefficientValidityStartStr, coefficientValidityEndStr);
+                        areasOfValidityList.add(areaOfValidity);
+                    }
+
+                    AxisMetadata axisMetadata = coverageMetadata.getAxesMetadata().getAxesAttributesMap().get(irregularAxis.getLabel());
+                    axisMetadata.setAreaOfValidityList(areasOfValidityList);
+                }
+            }
+        }
+        
+        String originalCoverageMetadataStr = wcpsCoverageMetadata.getMetadata();
         String metadataStr = "";
         
         if (coverageMetadata.isIsNotDeserializable()) {
             // In this case, coverage's metadata is not possible to deserialize to CoverageMetadata object
             // then just return what it persisted in database
-            metadataStr = wcpsCoverageMetadata.getMetadata();
-        } else {
-            String originalCoverageMetadataStr = wcpsCoverageMetadata.getMetadata();
+            metadataStr = originalCoverageMetadataStr;
+        } else {            
             if (originalCoverageMetadataStr.isEmpty() || XMLUtil.containsXMLContent(originalCoverageMetadataStr)) {
                 // coverage's metadata is in XML
                 metadataStr = this.serializeCoverageMetadataInXML(coverageMetadata);

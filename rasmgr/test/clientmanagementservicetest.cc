@@ -27,7 +27,6 @@
 
 #include "../src/clientmanager.hh"
 #include "../src/servermanager.hh"
-#include "../src/constants.hh"
 #include "../src/clientmanagementservice.hh"
 #include "../src/exceptions/rasmgrexceptions.hh"
 
@@ -35,7 +34,6 @@
 #include "mocks/clientmanagermock.hh"
 #include "mocks/usermanagermock.hh"
 #include "mocks/servergroupfactorymock.hh"
-#include "mocks/mockrasserver.hh"
 #include "mocks/peermanagermock.hh"
 
 namespace rasmgr
@@ -43,16 +41,16 @@ namespace rasmgr
 namespace test
 {
 
-using ::testing::AtLeast;                     // #1
 using ::testing::_;
-using ::testing::Return;
+using ::testing::AtLeast;  // #1
 using ::testing::DoAll;
+using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::Throw;
 
 using ::grpc::Status;
 
-class ClientManagementServiceTest: public ::testing::Test
+class ClientManagementServiceTest : public ::testing::Test
 {
 protected:
     ClientManagementServiceTest()
@@ -63,10 +61,13 @@ protected:
         this->serverGroupFactory = std::make_shared<ServerGroupFactoryMock>();
 
         this->serverManager = std::make_shared<ServerManagerMock>(serverManagerConfig, serverGroupFactory);
-        this->peerManager = std::make_shared<PeerManagerMock> ();
+        this->peerManager = std::make_shared<PeerManagerMock>();
 
         ClientManagerConfig config;
-        this->clientManager = std::make_shared<ClientManagerMock>(config, userManager, serverManager, peerManager);
+        
+        clientServerMatcher = std::make_shared<ClientServerMatcher>(config, serverManager, peerManager);
+
+        this->clientManager = std::make_shared<ClientManagerMock>(config, userManager, peerManager, clientServerMatcher);
 
         this->service.reset(new ClientManagementService(this->clientManager));
     }
@@ -75,11 +76,11 @@ protected:
     std::shared_ptr<ClientManager> clientManager;
     std::shared_ptr<UserManager> userManager;
     std::shared_ptr<PeerManager> peerManager;
+    std::shared_ptr<ClientServerMatcher> clientServerMatcher;
     std::shared_ptr<ServerGroupFactory> serverGroupFactory;
 
     std::shared_ptr<ClientManagementService> service;
 };
-
 
 TEST_F(ClientManagementServiceTest, ConnectSuccess)
 {
@@ -87,19 +88,19 @@ TEST_F(ClientManagementServiceTest, ConnectSuccess)
     request.set_username("user");
     request.set_passwordhash("password");
 
-    std::string clientId = "clientId";
+    std::uint32_t clientId = 1;
 
     rasnet::service::ConnectRepl reply;
 
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
 
     EXPECT_CALL(clientMgrMock, connectClient(_, _))
-    .WillOnce(SetArgReferee<1>(clientId));
+        .WillOnce(Return(clientId));
 
     Status status = this->service->Connect(NULL, &request, &reply);
 
     ASSERT_TRUE(status.ok());
-    ASSERT_EQ(clientId, reply.clientuuid());
+    ASSERT_EQ(clientId, reply.clientid());
     ASSERT_EQ(this->clientManager->getConfig().getClientLifeTime(), reply.keepalivetimeout());
 }
 
@@ -113,10 +114,10 @@ TEST_F(ClientManagementServiceTest, ConnectFailure)
     std::runtime_error exception("errorMessage");
     grpc::Status expectedStatus = common::GrpcUtils::convertExceptionToStatus(exception);
 
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
 
     EXPECT_CALL(clientMgrMock, connectClient(_, _))
-    .WillOnce(Throw(exception));
+        .WillOnce(Throw(exception));
 
     Status status = this->service->Connect(NULL, &request, &reply);
 
@@ -130,12 +131,11 @@ TEST_F(ClientManagementServiceTest, DisconnectFailure)
     std::runtime_error exception("errorMessage");
     grpc::Status expectedStatus = common::GrpcUtils::convertExceptionToStatus(exception);
 
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
     EXPECT_CALL(clientMgrMock, disconnectClient(_)).WillOnce(Throw(exception));
 
     rasnet::service::DisconnectReq request;
     rasnet::service::Void reply;
-
 
     Status status = this->service->Disconnect(NULL, &request, &reply);
     ASSERT_FALSE(status.ok());
@@ -145,12 +145,11 @@ TEST_F(ClientManagementServiceTest, DisconnectFailure)
 
 TEST_F(ClientManagementServiceTest, DisconnectSuccess)
 {
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
     EXPECT_CALL(clientMgrMock, disconnectClient(_));
 
     rasnet::service::DisconnectReq request;
     rasnet::service::Void reply;
-
 
     Status status = this->service->Disconnect(NULL, &request, &reply);
     ASSERT_TRUE(status.ok());
@@ -158,14 +157,14 @@ TEST_F(ClientManagementServiceTest, DisconnectSuccess)
 
 TEST_F(ClientManagementServiceTest, OpenDbSucess)
 {
-    std::string clientUUID = "clientUUID";
+    std::uint32_t clientUUID = 1;
     std::string hostName = "hostName";
-    std::string dbId = "dbId";
+    std::uint32_t dbId = 2;
     std::uint32_t port = DEFAULT_PORT;
 
-    ClientServerSession session {clientUUID, dbId, hostName, port};
+    ClientServerSession session{clientUUID, dbId, hostName, port};
 
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
     EXPECT_CALL(clientMgrMock, openClientDbSession(_, _, _)).WillOnce(SetArgReferee<2>(session));
 
     rasnet::service::OpenDbReq request;
@@ -179,10 +178,9 @@ TEST_F(ClientManagementServiceTest, OpenDbSucess)
     ASSERT_EQ(dbId, response.dbsessionid());
 }
 
-
 TEST_F(ClientManagementServiceTest, OpenDbFailure)
 {
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
     EXPECT_CALL(clientMgrMock, openClientDbSession(_, _, _)).WillOnce(Throw(NoAvailableServerException()));
 
     rasnet::service::OpenDbReq request;
@@ -197,7 +195,7 @@ TEST_F(ClientManagementServiceTest, CloseDbFailure)
     std::runtime_error exception("errorMessage");
     grpc::Status expectedStatus = common::GrpcUtils::convertExceptionToStatus(exception);
 
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
     EXPECT_CALL(clientMgrMock, closeClientDbSession(_, _)).WillOnce(Throw(exception));
 
     rasnet::service::CloseDbReq request;
@@ -211,7 +209,7 @@ TEST_F(ClientManagementServiceTest, CloseDbFailure)
 
 TEST_F(ClientManagementServiceTest, CloseDbSuccess)
 {
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
     EXPECT_CALL(clientMgrMock, closeClientDbSession(_, _));
 
     rasnet::service::CloseDbReq request;
@@ -221,13 +219,12 @@ TEST_F(ClientManagementServiceTest, CloseDbSuccess)
     ASSERT_TRUE(status.ok());
 }
 
-
 TEST_F(ClientManagementServiceTest, KeepAliveFailure)
 {
     std::runtime_error exception("errorMessage");
     grpc::Status expectedStatus = common::GrpcUtils::convertExceptionToStatus(exception);
 
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
     EXPECT_CALL(clientMgrMock, keepClientAlive(_)).WillOnce(Throw(exception));
 
     rasnet::service::KeepAliveReq request;
@@ -241,7 +238,7 @@ TEST_F(ClientManagementServiceTest, KeepAliveFailure)
 
 TEST_F(ClientManagementServiceTest, KeepAliveSuccess)
 {
-    ClientManagerMock& clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
+    ClientManagerMock &clientMgrMock = *std::dynamic_pointer_cast<ClientManagerMock>(clientManager);
     EXPECT_CALL(clientMgrMock, keepClientAlive(_));
 
     rasnet::service::KeepAliveReq request;
@@ -251,5 +248,5 @@ TEST_F(ClientManagementServiceTest, KeepAliveSuccess)
     ASSERT_TRUE(status.ok());
 }
 
-}
-}
+}  // namespace test
+}  // namespace rasmgr

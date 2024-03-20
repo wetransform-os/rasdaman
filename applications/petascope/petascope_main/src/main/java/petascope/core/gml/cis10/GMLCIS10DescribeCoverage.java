@@ -123,10 +123,12 @@ public class GMLCIS10DescribeCoverage extends AbstractGMLCISDescribeCoverage {
         
         Element coverageSubTypeElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_SUBTYPE), NAMESPACE_WCS_20);
         coverageSubTypeElement.appendChild(coverageType);
+
+        serviceParametersElement.appendChild(coverageSubTypeElement);
+
         Element nativeFormatElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_NATIVE_FORMAT), NAMESPACE_WCS_20);
         nativeFormatElement.appendChild(VALUE_COVERAGE_NATIVE_FORMAT);
-        
-        serviceParametersElement.appendChild(coverageSubTypeElement);
+
         serviceParametersElement.appendChild(nativeFormatElement);
         
         coverageDescriptionElement.appendChild(serviceParametersElement);

@@ -24,25 +24,27 @@ package petascope.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.commons.lang3.StringUtils;
-import static org.rasdaman.config.ConfigManager.CONTEXT_PATH;
-import static org.rasdaman.config.ConfigManager.OAPI;
-import static org.rasdaman.config.ConfigManager.OWS;
-import static org.rasdaman.config.ConfigManager.PETASCOPE_ENDPOINT_URL;
+import org.rasdaman.config.ConfigManager;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import static petascope.controller.AbstractController.getValueByKeyAllowNull;
-import static petascope.controller.AbstractController.getValuesByKeyAllowNull;
-import static petascope.core.KVPSymbols.ACCEPT_HEADER_KEY;
+
+import static org.rasdaman.config.ConfigManager.*;
+
+import petascope.core.KVPSymbols;
 import petascope.core.json.cis11.model.metadata.Metadata;
 import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
@@ -53,7 +55,12 @@ import petascope.oapi.handlers.model.Collection;
 import petascope.oapi.handlers.service.OapiHandlersService;
 import petascope.oapi.handlers.service.OapiResultService;
 import petascope.oapi.handlers.service.OapiSubsetParsingService;
+import petascope.util.ExceptionUtil;
+import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
+
+import static petascope.controller.OpenEOController.GDC_PROCESS_WCPS_CONTEXT_PATH;
+import static petascope.core.KVPSymbols.*;
 import static petascope.util.MIMEUtil.MIME_JSON;
 
 /**
@@ -73,6 +80,8 @@ public class OapiController extends AbstractController {
     private OapiResultService oapiResultService;
     @Autowired
     private OapiSubsetParsingService opaiParsingService;
+    @Autowired
+    private HttpServletResponse httpServletResponse;
     
     // e.g: localhost:8080/rasdaman/oapi
     private static String BASE_URL;
@@ -80,12 +89,13 @@ public class OapiController extends AbstractController {
     public static final String WCPS = "wcps";
     public static final String WCPS_CONTEXT_PATH = OAPI + "/" + WCPS;
     public static final String COLLECTIONS = "collections";
-    public static final String COLLECTIONS_CONTEXT_PATH = OAPI + "/" + COLLECTIONS;
-    
-    public static final String COLLECTION = "collection";
-    
+    // so it can match with /rasdaman/openeo/collections or /rasdaman/oapi/collections
+    public static final String COLLECTIONS_CONTEXT_PATH = "/{symbolicName:" + GDC + "|" + OPENEO + "|" + OAPI + "}/" + COLLECTIONS;
+
     public static final String COVERAGE_ID = "{coverageId}";
     public static final String COVERAGE_ID_CONTEXT_PATH = COLLECTIONS_CONTEXT_PATH + "/" + COVERAGE_ID;
+
+    public static final String OAPI_CONFORMANCE = OAPI + "/conformance";
     
     public static final String COVERAGE = "coverage";
     public static final String COVERAGE_CONTEXT_PATH = COVERAGE_ID_CONTEXT_PATH + "/" + COVERAGE;
@@ -99,17 +109,14 @@ public class OapiController extends AbstractController {
     public static final String COVERAGE_RANGE_SET_CONTEXT_PATH = COVERAGE_CONTEXT_PATH + "/" + COVERAGE_RANGE_SET;
     public static final String COVERAGE_METADATA = "metadata";
     public static final String COVERAGE_METADATA_CONTEXT_PATH = COVERAGE_CONTEXT_PATH + "/" + COVERAGE_METADATA;
-    
-    public static final String QUERY_PARAM = "q";
-    
-    // GetCapabilities with coverages filter (7.4.1. Collections)
-    public static final String BBOX_PARAM = "bbox";    
-    public static final String DATETIME_PARAM = "datetime";
-    
-    // GetCoverage with subset and output format
-    public static final String SUBSET_PARAM = "subset";
-    public static final String OUTPUT_FORMAT_PARAM = "f";
-    
+
+    // No need basic authentication to access these endpoints
+    public static final List<String> NO_NEED_AUTHENTICATION_ENDPOINTS = Arrays.asList(
+            OAPI,
+            OAPI_CONFORMANCE
+
+            );
+
 
     public OapiController() {
         
@@ -121,47 +128,58 @@ public class OapiController extends AbstractController {
      * e.g: https://oapi.rasdaman.org/rasdaman/oapi (7.3.1. API landing page), see: Landing Page Response Schema
      */
     @RequestMapping(path = OAPI)
-    public void getLandingPage(HttpServletRequest httpServletRequest) throws PetascopeException, JsonProcessingException, IOException {
+    public void getLandingPage(HttpServletRequest httpServletRequest) throws Exception {
         this.setBaseURL(httpServletRequest);
-        
-        try {
-            Response response = this.oapiResultService.getJsonResponse(oapiHandlersService.getLandingPageResult(BASE_URL));
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning landing page. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = this.oapiResultService.getJsonErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage);
-            this.writeResponseResult(response);
-        }
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+            try {
+                Response response = this.oapiResultService.getJsonResponse(oapiHandlersService.getLandingPageResult(BASE_URL));
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning landing page. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
     /**
      * Execute a WCPS query, 
      * e.g: https://oapi.rasdaman.org/rasdaman/oapi/wcps?Q=for c in (mean_summer_airtemp) return encode(c, "png")
      */
-    @RequestMapping(path = WCPS_CONTEXT_PATH)
+    @RequestMapping(path = { WCPS_CONTEXT_PATH, GDC_PROCESS_WCPS_CONTEXT_PATH} )
     public void getProcessingWcpsResult(HttpServletRequest httpServletRequest) throws Exception {
         
         this.setBaseURL(httpServletRequest);
         
         Map<String, String[]> kvpParameters = this.parsePostRequestToKVPMap(httpServletRequest);
-        String query = getValueByKeyAllowNull(kvpParameters, QUERY_PARAM);
-        
-        if (query == null) {
-            String errorMessage = "Query parameter '" + QUERY_PARAM.toUpperCase() + "' is missing.";
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.BAD_REQUEST.value());
-            this.writeResponseResult(response);
-        } else {
-            try {
-                Response response = oapiHandlersService.executeWcpsQuery(kvpParameters);
-                this.writeResponseResult(response);
-            } catch (Exception ex) {
-                String errorMessage = "Error processing WCPS query. Reason: " + ex.getMessage();
-                log.error(errorMessage, ex);
-                Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-                this.writeResponseResult(response);
+
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+            String query = getValueByKeyAllowNull(kvpParameters, KEY_QUERY_SHORT_HAND);
+            if (query == null) {
+                query = getValueByKeyAllowNull(kvpParameters, KEY_QUERY);
             }
-        }
+
+            if (query == null) {
+                String errorMessage = "Query parameter '" + KEY_QUERY_SHORT_HAND.toUpperCase() + "' is missing.";
+                Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.BAD_REQUEST.value());
+                this.writeResponseResult(response);
+            } else {
+                try {
+                    Response response = oapiHandlersService.executeWcpsQuery(kvpParameters);
+                    this.writeResponseResult(response);
+                } catch (Exception ex) {
+                    String errorMessage = "Error processing WCPS query. Reason: " + ex.getMessage();
+                    Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                    this.writeResponseResult(response);
+                }
+            }
+        };
+
+        super.handleRequest(kvpParameters, requestHandlerInterface);
     }
 
     /**
@@ -178,20 +196,27 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COLLECTIONS_CONTEXT_PATH)
     public void getCollections(HttpServletRequest request,
-                                         @RequestParam(value = "bbox", required = false) String bbox,
-                                         @RequestParam(value = "datetime", required = false) String datetime,
-                                         HttpServletRequest httpServletRequest) throws PetascopeException, SecoreException, WMSException, IOException {
+                                         @RequestParam(value = KEY_OAPI_BBOX, required = false) String bbox,
+                                         @RequestParam(value = KEY_OAPI_DATETIME, required = false) String datetime,
+                                         HttpServletRequest httpServletRequest) throws Exception {
+
+        Map<String, String[]> kvpParameters = this.parseKvpParametersFromRequest(httpServletRequest);
+
         this.setBaseURL(httpServletRequest);
-        
-        try {
-            Response response = this.oapiResultService.getJsonResponse(oapiHandlersService.getCollectionsResult(BASE_URL, bbox, datetime));
-            this.writeResponseResult(response);            
-        } catch (Exception ex) {
-            String errorMessage = "Error returning list of coverages. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Response response = this.oapiResultService.getJsonResponse(oapiHandlersService.getCollectionsResult(BASE_URL, bbox, datetime));
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning list of coverages. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+        };
+
+        super.handleRequest(kvpParameters, requestHandlerInterface);
     }
 
     /**
@@ -201,19 +226,24 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COVERAGE_ID_CONTEXT_PATH)
     public void getCoverageInformation(@PathVariable String coverageId,
-                                                 HttpServletRequest httpServletRequest) throws PetascopeException, IOException {
+                                       HttpServletRequest httpServletRequest) throws Exception {
         this.setBaseURL(httpServletRequest);
-        
-        try {
-            Collection collection = oapiHandlersService.getCollectionInformationResult(coverageId, BASE_URL);
-            Response response = this.oapiResultService.getJsonResponse(collection);
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning coverage information. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Collection collection = oapiHandlersService.getCollectionInformationResult(coverageId, BASE_URL);
+                Response response = this.oapiResultService.getJsonResponse(collection);
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning coverage information. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
     /**
@@ -224,32 +254,56 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COVERAGE_CONTEXT_PATH, method = RequestMethod.GET)
     public void getCoverageObject(@PathVariable String coverageId,
-                                            HttpServletRequest httpServletRequest)
-            throws PetascopeException, SecoreException, WMSException, JsonProcessingException, Exception {
+                                  HttpServletRequest httpServletRequest) throws Exception {
         
         this.setBaseURL(httpServletRequest);
-        
-        Map<String, String[]> kvpParameters = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
-        String[] inputSubsets = kvpParameters.get(SUBSET_PARAM);
-        String outputFormat = getValueByKeyAllowNull(kvpParameters, OUTPUT_FORMAT_PARAM);
-        String acceptHeaderValue = httpServletRequest.getHeader(ACCEPT_HEADER_KEY);
-        
-        if (outputFormat == null && acceptHeaderValue != null) {
-            // content negotiation if *f* parameter is missing from the request
-            // then select the supported MIME type from left to right
-            outputFormat = this.getSupportedMIMETypeForContentNegotiation(acceptHeaderValue);
-        }
-        
-        String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(inputSubsets);
-        try {
-            Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, outputFormat);
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning coverage data. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
+        Map<String, String[]> inputKVPMap = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            String[] inputSubsets = inputKVPMap.get(KEY_OAPI_SUBSET);
+            String outputFormat = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_GET_COVERAGE_OUTPUT_FORMAT);
+            String acceptHeaderValue = httpServletRequest.getHeader(ACCEPT_HEADER_KEY);
+
+            // bbox and datetime are required parameters for subsetting at https://docs.ogc.org/DRAFTS/19-087.html#bbox-parameter-domainset-subset-requirements
+            String bbox = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX);
+            String datetime = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_DATETIME);
+            String bboxCRS = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX_CRS);
+
+            if (outputFormat == null && acceptHeaderValue != null) {
+                // content negotiation if *f* parameter is missing from the request
+                // then select the supported MIME type from left to right
+                outputFormat = this.getSupportedMIMETypeForContentNegotiation(acceptHeaderValue);
+            }
+
+            boolean outputGeneralGridCoverageInJSON = false;
+
+            if (outputFormat == null) {
+                // In this case, petascope will return the best format for OAPI request (e.g. 1D without output format -> JSON)
+                this.injectedHttpServletRequest.setAttribute(KEY_INTERNAL_OAPI_GET_COVERAGE, KEY_INTERNAL_OAPI_GET_COVERAGE);
+            } else {
+                // e.g. f=image/png
+                this.injectedHttpServletRequest.setAttribute(KEY_INTERNAL_OAPI_GET_COVERAGE, outputFormat);
+                if (outputFormat.equals(MIME_JSON)) {
+                    outputGeneralGridCoverageInJSON = true;
+                }
+
+            }
+
+            String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(coverageId, bbox, bboxCRS, datetime, inputSubsets);
+            try {
+                // Internally it translates to WCS GetCoverage request
+                Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, outputFormat, inputKVPMap, outputGeneralGridCoverageInJSON);
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning coverage data. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(inputKVPMap, requestHandlerInterface);
     }
     
     /**
@@ -259,20 +313,44 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COVERAGE_DOMAIN_SET_CONTEXT_PATH, method = RequestMethod.GET)
     public void getDomainSet(@PathVariable String coverageId,
-                                       HttpServletRequest httpServletRequest) throws PetascopeException, IOException {
+                             HttpServletRequest httpServletRequest) throws Exception {
         
         this.setBaseURL(httpServletRequest);
-        
-        try {
-            Object domainSet = oapiHandlersService.getJSONCoreCIS11Result(coverageId).getDomainSet();
-            Response response = this.oapiResultService.getJsonResponse(domainSet);
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning coverage's domainset. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
+
+        Map<String, String[]> inputKVPMap = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            // bbox and datetime are required parameters for subsetting at https://docs.ogc.org/DRAFTS/19-087.html#bbox-parameter-domainset-subset-requirements
+            String bbox = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX);
+            String datetime = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_DATETIME);
+            String bboxCRS = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX_CRS);
+
+            String[] inputSubsets = inputKVPMap.get(KEY_OAPI_SUBSET);
+            String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(coverageId, bbox, bboxCRS, datetime, inputSubsets);
+
+            // this request should not run the rasql query
+            this.injectedHttpServletRequest.setAttribute(KEY_INTERNAL_WCPS_NOT_RUN_RASQL_QUERY, true);
+
+            try {
+                Response response = oapiHandlersService.getCoverageSubsetResult(coverageId, parsedSubsets, null, inputKVPMap, true);
+                String json = new String(response.getDatas().get(0));
+                JsonNode jsonNode = JSONUtil.getJsonNode(json);
+
+                // Extract the content of "domainSet" JSON node and return to client
+                String domainSetJsonStr = jsonNode.get("domainSet").toPrettyString();
+                response.setDatas(Arrays.asList(domainSetJsonStr.getBytes()));
+
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning coverage's domainset. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(inputKVPMap, requestHandlerInterface);
     }
     
     /**
@@ -282,20 +360,25 @@ public class OapiController extends AbstractController {
      *
      */
     @RequestMapping(path = COVERAGE_RANGE_TYPE_CONTEXT_PATH)
-    public void getRangeType(@PathVariable String coverageId, HttpServletRequest httpServletRequest) throws PetascopeException, IOException {
+    public void getRangeType(@PathVariable String coverageId, HttpServletRequest httpServletRequest) throws Exception {
         
         this.setBaseURL(httpServletRequest);
-        
-        try {
-            Object rangeType = oapiHandlersService.getJSONCoreCIS11Result(coverageId).getRangeType();
-            Response response = this.oapiResultService.getJsonResponse(rangeType);
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning coverage's rangetype. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Object rangeType = oapiHandlersService.getJSONCoreCIS11Result(coverageId).getRangeType();
+                Response response = this.oapiResultService.getJsonResponse(rangeType);
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning coverage's rangetype. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
     /**
@@ -305,24 +388,34 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COVERAGE_RANGE_SET_CONTEXT_PATH, method = RequestMethod.GET)
     public void getRangeSet(@PathVariable String coverageId,
-                                      HttpServletRequest httpServletRequest)
-            throws Exception {
+                            HttpServletRequest httpServletRequest) throws Exception {
         
         this.setBaseURL(httpServletRequest);
         
-        Map<String, String[]> kvpParameters = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
-        String[] inputSubsets = getValuesByKeyAllowNull(kvpParameters, SUBSET_PARAM);        
-        String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(inputSubsets);
-        try {
-            Object rangeSet = oapiHandlersService.getCoverageRangeSetResult(coverageId, parsedSubsets);
-            Response response = this.oapiResultService.getJsonResponse(rangeSet);
-            this.writeResponseResult(response);
-        } catch (Exception ex) {
-            String errorMessage = "Error returning coverage's rangeset. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
+        Map<String, String[]> inputKVPMap = buildGetRequestKvpParametersMap(httpServletRequest.getQueryString());
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            // bbox and datetime are required parameters for subsetting at https://docs.ogc.org/DRAFTS/19-087.html#bbox-parameter-domainset-subset-requirements
+            String bbox = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX);
+            String datetime = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_DATETIME);
+            String bboxCRS = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX_CRS);
+
+            String[] inputSubsets = getValuesByKeyAllowNull(inputKVPMap, KEY_OAPI_SUBSET);
+            String[] parsedSubsets = this.opaiParsingService.parseGetCoverageSubsets(coverageId, bbox, bboxCRS, datetime, inputSubsets);
+            try {
+                Object rangeSet = oapiHandlersService.getCoverageRangeSetResult(coverageId, parsedSubsets, inputKVPMap);
+                Response response = this.oapiResultService.getJsonResponse(rangeSet);
+                this.writeResponseResult(response);
+            } catch (Exception ex) {
+                String errorMessage = "Error returning coverage's rangeset. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
+                this.writeResponseResult(response);
+            }
+
+        };
+
+        super.handleRequest(inputKVPMap, requestHandlerInterface);
     }
 
 
@@ -333,25 +426,30 @@ public class OapiController extends AbstractController {
      */
     @RequestMapping(path = COVERAGE_METADATA_CONTEXT_PATH)
     public void getMetadata(@PathVariable String coverageId, 
-                                      HttpServletRequest httpServletRequest) throws PetascopeException, IOException {
+                            HttpServletRequest httpServletRequest) throws Exception {
         
         this.setBaseURL(httpServletRequest);
-        
-        try {
-            Object metadata = oapiHandlersService.getJSONCoreCIS11Result(coverageId).getMetadata();
-            if (metadata != null) {
-                Response response = this.oapiResultService.getJsonResponse(metadata);
-                this.writeResponseResult(response);
-            } else {
-                Response response = this.oapiResultService.getJsonResponse(new Metadata(null));
+
+        RequestHandlerInterface requestHandlerInterface = () -> {
+
+            try {
+                Object metadata = oapiHandlersService.getJSONCoreCIS11Result(coverageId).getMetadata();
+                if (metadata != null) {
+                    Response response = this.oapiResultService.getJsonResponse(metadata);
+                    this.writeResponseResult(response);
+                } else {
+                    Response response = this.oapiResultService.getJsonResponse(new Metadata(null));
+                    this.writeResponseResult(response);
+                }
+            } catch (Exception ex) {
+                String errorMessage = "Error returning coverage's metadata. Reason: " + ex.getMessage();
+                Response response = this.oapiResultService.getErrorResponse(ex, errorMessage);
                 this.writeResponseResult(response);
             }
-        } catch (Exception ex) {
-            String errorMessage = "Error returning coverage's metadata. Reason: " + ex.getMessage();
-            log.error(errorMessage, ex);
-            Response response = new Response(Arrays.asList(errorMessage.getBytes()), MIME_JSON, HttpStatus.INTERNAL_SERVER_ERROR.value());
-            this.writeResponseResult(response);
-        }
+
+        };
+
+        super.handleRequest(new HashMap<>(), requestHandlerInterface);
     }
 
     /**
@@ -360,10 +458,10 @@ public class OapiController extends AbstractController {
     private void setBaseURL(HttpServletRequest httpServletRequest) {
         if (StringUtils.isEmpty(BASE_URL)) {
             // petascope endpoint proxy is configured in petascope.properies
-            if (!PETASCOPE_ENDPOINT_URL.isEmpty()) {
+            if (StringUtils.isNotEmpty(PETASCOPE_ENDPOINT_URL)) {
                 BASE_URL = PETASCOPE_ENDPOINT_URL.replace(CONTEXT_PATH + "/" + OWS, CONTEXT_PATH + "/" + OAPI);
             } else {
-                BASE_URL = httpServletRequest.getRequestURL().toString().split("/" + OAPI)[0];
+                BASE_URL = httpServletRequest.getRequestURL().toString().split("/" + OAPI)[0] + "/" + OAPI;
             }
         }
     }
@@ -374,7 +472,7 @@ public class OapiController extends AbstractController {
     private String getSupportedMIMETypeForContentNegotiation(String acceptHeaderValue) throws PetascopeException {
         // e.g: image/tiff;application=geotiff;q=1.0,image/png;q=0.5, */*; q=0.1
         // if image/tiff is not supported, then check image/png
-        
+
         String[] values = acceptHeaderValue.split(",");
         for (String value : values) {
             // e.g: image/tiff;application=geotiff;q=1.0
@@ -387,6 +485,11 @@ public class OapiController extends AbstractController {
                     }
                 }
             }
+        }
+
+        if (acceptHeaderValue.contains("*/*")) {
+            // No content negotiation is selected, then later it is marked as the json CIS 1.1 output format
+            return null;
         }
         
         throw new PetascopeException(ExceptionCode.NoApplicableCode, 

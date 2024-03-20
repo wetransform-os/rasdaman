@@ -218,9 +218,16 @@
                                         "type": {
                                             "type": "string"
                                         },
+                                        "subtype": {
+                                            "type": "string"
+                                        },
 
                                         "pixelIsPoint": {
                                             "type": [ "boolean", "string" ]
+                                        },
+
+                                        "observationType": {
+                                            "type": "string"
                                         },
 
                                         "bands": {
@@ -239,13 +246,33 @@
                                                             "description": {
                                                                 "type": "string"
                                                             },
+                                                            "definition": {
+                                                                "type": "string"
+                                                            },
                                                             "nilValue": {
                                                                 "type": "string"
                                                             },
                                                             "nilReason": {
                                                                 "type": "string"
                                                             },
+                                                            "nilValues": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "value": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "reason": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            },
                                                             "uomCode": {
+                                                                "type": "string"
+                                                            },
+                                                            "codeType": {
                                                                 "type": "string"
                                                             },
                                                             "filterMessagesMatching": {
@@ -301,6 +328,30 @@
                                                         "dataBound": {
                                                             "type": [ "boolean", "string" ]
                                                         },
+                                                        "areasOfValidity": {
+                                                            "type": [ "array", "string" ],
+                                                            "items": {
+                                                                "type": "object",
+                                                                "required": [
+                                                                    "start",
+                                                                    "end"
+                                                                ],
+                                                                "properties": {
+                                                                    "start": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "number"
+                                                                        ]
+                                                                    },
+                                                                    "end": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "number"
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
                                                         "sliceGroupSize": {
                                                             "type": "number"
                                                         },
@@ -343,6 +394,9 @@
                          "type": "string"
                      },
                      "when": {
+                         "type": "string"
+                     },
+                     "execute_if": {
                          "type": "string"
                      },
                      "cmd": {

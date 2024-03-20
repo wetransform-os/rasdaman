@@ -46,7 +46,7 @@ module rasdaman {
             this.wcsEndpoint = this.wcsEndpoint.replace("wcs-client/app/", "rasdaman/ows");
             this.wcsServiceNameVersion = "SERVICE=WCS&VERSION=2.0.1";
 
-            // # TESTING
+            // TESTING !!!!!!!!!!!!!!
             // this.wcsEndpoint = "http://localhost:8080/rasdaman/ows";
 
             this.setWCSEndPoint(this.wcsEndpoint);
@@ -63,8 +63,22 @@ module rasdaman {
                 this.wcsEndpoint = this.wcsEndpoint + "ows";
             }            
             
-            this.contextPath = this.wcsEndpoint.replace("/rasdaman/ows", "/rasdaman");
+            this.contextPath = this.stripLastOWSFromURL(this.wcsEndpoint);
             this.adminEndpoint = this.contextPath + "/admin";
         }
+
+        public stripLastOWSFromURL(url:string) {
+            // e.g. http://localhost:8080/rasdaman/ows -> http://localhost:8080/rasdaman
+            let result:string = url;
+            if (url.endsWith("/ows")) {
+                let paths:string[] = url.split("/");
+                // remove the last element ows from url
+                paths = paths.slice(0, -1);
+                result = paths.join("/");
+            }
+
+            return result;
+        }
+
     }
 }

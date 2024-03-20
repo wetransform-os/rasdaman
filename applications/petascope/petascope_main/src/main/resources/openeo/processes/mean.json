@@ -1,0 +1,56 @@
+{
+    "id": "mean",
+    "summary": "Arithmetic mean (average)",
+    "description": "Computes the arithmetic mean (average) of a datacube `x` (*`avg(x)`*).\n\nThe operand must be a datacube.\n\n\nThe result is a scalar number. Operand elements which are null are ignored while computing the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type     | result type   |\n|------------------|---------------|\n| any complex type | CFloat64      |\n| X                | double        |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "A datacube.",
+            "schema": {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        }
+    ],
+    "returns": {
+        "description": "The computed arithmetic mean (average) of `x`; null elements are ignored.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": [
+                    0,
+                    1,
+                    2,
+                    null,
+                    3
+                ]
+            },
+            "returns": 1.5
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/11_cheatsheets.html#scalar-operations",
+            "title": "Documentation on operations resulting in scalar values in rasdaman"
+        }
+    ],
+    "wcps": "avg(<x>)",
+    "categories": [
+        "Aggregation"
+    ]
+}

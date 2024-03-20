@@ -1,0 +1,63 @@
+{
+  "type" : "CoverageByDomainAndRangeType",
+  "id" : "test_mean_summer_airtemp",
+  "envelope" : {
+    "type" : "EnvelopeByAxisType",
+    "srsName" : "http://localhost:8080/rasdaman/def/crs/EPSG/0/4326",
+    "axisLabels" : [ "Lat" ],
+    "axis" : [ {
+      "type" : "AxisExtentType",
+      "axisLabel" : "Lat",
+      "lowerBound" : -39.974999999999987,
+      "upperBound" : -34.974999999999987,
+      "uomLabel" : "degree"
+    } ]
+  },
+  "domainSet" : {
+    "type" : "DomainSetType",
+    "generalGrid" : {
+      "type" : "GeneralGridCoverageType",
+      "srsName" : "http://localhost:8080/rasdaman/def/crs/EPSG/0/4326",
+      "axisLabels" : [ "Lat" ],
+      "axis" : [ {
+        "type" : "RegularAxisType",
+        "axisLabel" : "Lat",
+        "lowerBound" : -39.974999999999987,
+        "upperBound" : -34.974999999999987,
+        "uomLabel" : "degree",
+        "resolution" : -0.5
+      } ],
+      "gridLimits" : {
+        "type" : "GridLimitsType",
+        "srsName" : "http://www.opengis.net/def/crs/OGC/0/Index1D",
+        "axisLabels" : [ "i" ],
+        "axis" : [ {
+          "type" : "IndexAxisType",
+          "axisLabel" : "i",
+          "lowerBound" : 52,
+          "upperBound" : 61
+        } ]
+      }
+    }
+  },
+  "rangeType" : {
+    "type" : "DataRecordType",
+    "field" : [ {
+      "type" : "QuantityType",
+      "name" : "Gray",
+      "description" : "",
+      "definition" : "ogcType:unsignedByte",
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      }
+    } ]
+  },
+  "rangeSet" : {
+    "type" : "RangeSetType",
+    "dataBlock" : {
+      "type" : "VDataBlockType",
+      "values" : [ 114, 103, 90, 86, 86, 0, 0, 0, 0, 0 ]
+    }
+  }
+}

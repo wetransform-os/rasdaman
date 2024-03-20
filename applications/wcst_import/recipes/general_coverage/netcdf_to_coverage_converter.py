@@ -42,9 +42,12 @@ from master.provider.metadata.irregular_axis import IrregularAxis
 from master.provider.metadata.regular_axis import RegularAxis
 from recipes.general_coverage.abstract_to_coverage_converter import AbstractToCoverageConverter
 from util.crs_util import CRSAxis
-from util.file_util import File
-from util.import_util import import_netcdf4
+from util.file_util import File, FileUtil
+from util.gdal_util import MAX_RETRIES_TO_OPEN_FILE
 from util.log import log
+from util.time_util import execute_with_retry_on_timeout
+from util.netcdf4_util import netcdf4_open
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 class NetcdfToCoverageConverter(AbstractToCoverageConverter):
@@ -111,31 +114,31 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
         if self.default_null_values is not None:
             return self.default_null_values
 
-        netCDF4 = import_netcdf4()
-
-        nci = None
+        netcdf_dataset = None
 
         # NOTE: all files should have same bands's metadata for each file
         for input_file in self.files:
+            file_path = input_file.get_filepath()
             try:
-                nci = netCDF4.Dataset(input_file.get_filepath(), 'r')
+                netcdf_dataset = netcdf4_open(file_path)
                 break
             except Exception as e:
-                if ConfigManager.skip == True:
+                if self.session.skip_file_that_fail_to_open():
+                    log.warn("Failed to open netCDF dataset from input file: '{}'. Reason: {}.".format(file_path, str(e)))
                     continue
                 else:
                     raise e
 
-        if nci is None:
+        if netcdf_dataset is None and ConfigManager.blocking is True:
             raise RuntimeException("Cannot get null values from one of input netCDF files. "
                                    "Hint: make sure at least one file is readable.")
 
         try:
-            nil_value = nci.variables[self.bands[index].identifier].missing_value
+            nil_value = netcdf_dataset.variables[self.bands[index].identifier].missing_value
         except AttributeError:
             # if file has no missing_value attribute of variable, then try with _FillValue
             try:
-                nil_value = nci.variables[self.bands[index].identifier]._FillValue
+                nil_value = netcdf_dataset.variables[self.bands[index].identifier]._FillValue
             except AttributeError:
                 # so variable does not have any null property
                 nil_value = None
@@ -143,7 +146,18 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
         if nil_value is None:
             return None
         else:
-            return [nil_value]
+            return [RangeTypeNilValue("", nil_value)]
+
+    def _get_file_band_data_type_and_chunk_sizes_from_file(self, band_id):
+        """
+        band_id is the identifier of the band (typically used in netCDF file)
+        """
+        from util.gdal_util import GDALGmlUtil
+        netcdf_dataset = FileUtil.open_dataset_from_any_file(NetcdfToCoverageConverter.RECIPE_TYPE, self.files, self.session)
+        band = netcdf_dataset.variables[band_id]
+        data_type = GDALGmlUtil.data_type_to_gdal_type(band.dtype.name)
+        chunk = band.chunking()
+        return data_type, chunk
 
     def _axis_subset(self, crs_axis, evaluator_slice, resolution=None):
         """
@@ -181,13 +195,16 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
             if user_axis.type == UserAxisType.DATE:
                 if crs_axis.is_time_day_axis():
                     coefficients = self._translate_day_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                            user_axis.directPositions)
+                                                                                            user_axis.directPositions,
+                                                                                            user_axis.areas_of_validity)
                 else:
                     coefficients = self._translate_seconds_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                                user_axis.directPositions)
+                                                                                                user_axis.directPositions,
+                                                                                                user_axis.areas_of_validity)
             else:
                 coefficients = self._translate_number_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                      user_axis.directPositions)
+                                                                                      user_axis.directPositions,
+                                                                                      user_axis.areas_of_validity)
 
             self._update_for_slice_group_size(self.coverage_id, user_axis, crs_axis, coefficients)
 
@@ -214,14 +231,13 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
         str file_path: path to first netCDF input file
         :return: dict: global_metadata
         """
-        netCDF4 = import_netcdf4()
 
         # NOTE: all files should have same global metadata for each file
-        dataset = netCDF4.Dataset(file_path, 'r')
+        netcdf_dataset = netcdf4_open(file_path)
         global_metadata = {}
-        for attr in dataset.ncattrs():
+        for attr in netcdf_dataset.ncattrs():
             try:
-                global_metadata[attr] = str(getattr(dataset, attr))
+                global_metadata[attr] = str(getattr(netcdf_dataset, attr))
             except:
                 log.warn("Attribute '" + attr + "' of global metadata cannot be parsed as string, ignored.")
 
@@ -237,15 +253,14 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
         then this method parses all metadata of the associated grid_mapping variable (e.g. rotated_pole)
         and puts that to coverage's global metadata under "grid_mapping" section.  
         """
-        netCDF4 = import_netcdf4()
-
+        
         # NOTE: all files should have same global metadata for each file
-        dataset = netCDF4.Dataset(file_path, 'r')
+        netcdf_dataset = netcdf4_open(file_path)
 
         first_user_band = user_bands[0]
 
         band_id = first_user_band.identifier
-        attrs_list = dataset.variables[band_id].ncattrs()
+        attrs_list = netcdf_dataset.variables[band_id].ncattrs()
 
         # NOTE: this metadata only exists on netCDF with rotated CRS (rlat,rlon axes)
         # In this case, band variable contains this metadata, e.g.
@@ -256,9 +271,9 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
         for attr in attrs_list:
             if attr == GRID_MAPPING_BAND_METADATA:
                 # e.g. rotated_pole
-                grid_mapping_variable = str(getattr(dataset.variables[band_id], attr))
+                grid_mapping_variable = str(getattr(netcdf_dataset.variables[band_id], attr))
 
-                if grid_mapping_variable in dataset.variables:
+                if grid_mapping_variable in netcdf_dataset.variables:
 
                     # Then, get all metadata from the associated non-dimension variable
                     tmp_dict = NetcdfToCoverageConverter.parse_netcdf_bands_metadata(file_path,
@@ -290,20 +305,19 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
 
         :return: dict:
         """
-        netCDF4 = import_netcdf4()
-
+        
         # NOTE: all files should have same bands's metadata for each file
-        dataset = netCDF4.Dataset(file_path, 'r')
+        netcdf_dataset = netcdf4_open(file_path)
         bands_metadata = {}
 
         for user_band in user_bands:
             band_id = user_band.identifier
-            attrs_list = dataset.variables[band_id].ncattrs()
+            attrs_list = netcdf_dataset.variables[band_id].ncattrs()
             bands_metadata[band_id] = {}
 
             for attr in attrs_list:
                 try:
-                    bands_metadata[band_id][attr] = str(getattr(dataset.variables[band_id], attr))
+                    bands_metadata[band_id][attr] = str(getattr(netcdf_dataset.variables[band_id], attr))
                 except:
                     log.warn("Attribute '" + attr + "' of band '" + band_id + "' cannot be parsed as string, ignored.")
 
@@ -318,10 +332,9 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
         under "slicer"/"axes" section.
         :return: dict:
         """
-        netCDF4 = import_netcdf4()
-
+        
         # NOTE: all files should have same axes's metadata for each file
-        dataset = netCDF4.Dataset(file_path, 'r')
+        netcdf_dataset = netcdf4_open(file_path)
         axes_metadata = {}
 
         # Iterate all slicer/axes configured in ingredient file
@@ -341,16 +354,17 @@ class NetcdfToCoverageConverter(AbstractToCoverageConverter):
 
             if variable_axis_label is not None:
 
-                if variable_axis_label in dataset.variables:
-                    axes_metadata[crs_axis_label] = {}
+                if variable_axis_label in netcdf_dataset.variables:
 
-                    attrs_list = dataset.variables[variable_axis_label].ncattrs()
-                    for attr in attrs_list:
-                        try:
-                            # crs axis (e.g: Long) -> variable axis (e.g: lon)
-                            axes_metadata[crs_axis_label][attr] = str(getattr(dataset.variables[variable_axis_label], attr))
-                        except:
-                            log.warn(
-                                "Attribute '" + attr + "' of axis '" + variable_axis_label + "' cannot be parsed as string, ignored.")
+                    attrs_list = netcdf_dataset.variables[variable_axis_label].ncattrs()
+                    if len(attrs_list) > 0:
+                        axes_metadata[crs_axis_label] = {}
+                        for attr in attrs_list:
+                            try:
+                                # crs axis (e.g: Long) -> variable axis (e.g: lon)
+                                axes_metadata[crs_axis_label][attr] = str(getattr(netcdf_dataset.variables[variable_axis_label], attr))
+                            except:
+                                log.warn(
+                                    "Attribute '" + attr + "' of axis '" + variable_axis_label + "' cannot be parsed as string, ignored.")
 
         return axes_metadata

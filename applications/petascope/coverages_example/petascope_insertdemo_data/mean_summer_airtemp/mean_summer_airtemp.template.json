@@ -17,6 +17,7 @@
   "recipe": {
     "name": "map_mosaic",
     "options": {
+      "tiling": "ALIGNED [0:1000, 0:1000]",
       "wms_import": true,
       "band_names": ["Gray"]
     }

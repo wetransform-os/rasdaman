@@ -23,17 +23,21 @@
 """
 from master.error.validate_exception import RecipeValidationException
 
+OBSERVATION_TYPE_NUMERIC = "numeric"
+OBSERVATION_TYPE_CATEGORIAL = "categorial"
+
+VALID_OBSERVATION_TYPES = [OBSERVATION_TYPE_NUMERIC, OBSERVATION_TYPE_CATEGORIAL]
 
 class UserBand:
-    def __init__(self, identifier, name, description, definition, nilReason="", nilValues=None, uomCode=None, filterMessagesMatching=None):
+    def __init__(self, identifier, name, description, definition, nilValues=[], uomCode=None, filterMessagesMatching=None,
+                 observationType=OBSERVATION_TYPE_NUMERIC, codeSpace=None):
         """
         Definition of a band as provided by a user in an ingredient file
         :param str identifier: the identifier of this band in the data provider (e.g. the gdal band id or the netcdf variable name)
         :param str name: the name of the band
         :param str description: a description for the band
         :param str definition: the definition of a band
-        :param str nilReason: the reason for which the value is a nil
-        :param list[str] | None nilValues: a list of nil values
+        :param list[RangeTypeNilValue] nilValues: a list of nil values
         :param str uomCode: the unit of measure
         :param filterMessagesMatching a dict of keys:values to filter GRIB messages, in case, messages contain user input GRIB keys
                 which contain user input values
@@ -47,7 +51,10 @@ class UserBand:
         self.name = name
         self.description = description
         self.definition = definition
-        self.nilReason = nilReason
         self.nilValues = nilValues
+        # NOTE: used only for observationType = numeric
         self.uomCode = uomCode
         self.filterMessagesMatching = filterMessagesMatching
+        self.observationType = observationType
+        # NOTE: used only for observationType = categorial
+        self.codeSpace = codeSpace

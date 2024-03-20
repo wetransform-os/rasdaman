@@ -1,0 +1,1 @@
+select encode(c[40:60,0:20], "png") from test_rgb2 as c

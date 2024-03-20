@@ -41,8 +41,11 @@ module rasdaman {
             "rasdaman.WMSService",                 
             "Notification",
             "rasdaman.ErrorHandlingService",
-            "rasdaman.WebWorldWindService"           
+            "rasdaman.WebWorldWindService"
         ];
+
+        // Store the extents of all WMS layers in WGS84 BBOX
+        public coveragesExtents:wms.CoverageExtent[] = [];        
 
         public constructor(private $window,
                            private $rootScope:angular.IRootScopeService,
@@ -54,6 +57,13 @@ module rasdaman {
                            private errorHandlingService:ErrorHandlingService,
                            private webWorldWindService:rasdaman.WebWorldWindService,
                            private adminService:rasdaman.AdminService) {
+
+            $scope.totalCoverages = 0;        
+            // NOTE: human-readable numbers, e.g. 20 GB                    
+            $scope.totalCoverageSizeInBytes = "";
+            $scope.totalLocalCoverageSizeInBytes = "";
+            $scope.totalRemoteCoverageSizeInBytes = "";
+
             $scope.isAvailableLayersOpen = false;            
             $scope.isServiceIdentificationOpen = false;
             $scope.isServiceProviderOpen = false;
@@ -63,9 +73,9 @@ module rasdaman {
 
             $scope.wmsServerEndpoint = settings.wmsEndpoint;
             // To init the Globe on this canvas           
-            var canvasId = "wmsCanvasGetCapabilities";          
+            let canvasId = "wmsCanvasGetCapabilities";          
             // to know which page are selected
-            var currentPageNumber = 1;
+            let currentPageNumber = 1;
 
             $scope.displayLayersDropdownItems = [{"name": "Display all layers", "value": ""},
                                                  {"name": "Display local layers", "value": "local"},
@@ -75,31 +85,22 @@ module rasdaman {
             $scope.display = true;
             $scope.showAllFootprints = {isChecked: false};
 
-            // When petascope admin user logged in, show the blacklist / whitelist buttons
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
-                if (newValue) {
-                    // Admin logged in
-                    $scope.adminUserLoggedIn = true;
-                } else {
-                    // Admin logged out
-                    $scope.adminUserLoggedIn = false;
-                }
-            });
+            $scope.hasBlackWhiteListeLayerRole = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_BLACKWHITELIST_LAYER);
 
             // From the WMS's EX_GeographicBoundingBox
             // NOTE: not like WCS, all layers can be display on the globe as they are geo-referenced.            
             $scope.initCheckboxesForLayerNames = () => {
                 // all layers
-                var layerArray = $scope.capabilities.layers;
-                for (var i = 0; i < layerArray.length; i++) {                        
+                let layerArray = $scope.capabilities.layers;
+                for (let i = 0; i < layerArray.length; i++) {                        
                     layerArray[i].displayFootprint = false;
                 }                     
             }
 
             // Return a layer object by a name
             $scope.getLayerByName = (layerName:string):wms.Layer => {
-                var layerArray = $scope.capabilities.layers;
-                for (var i = 0; i < layerArray.length; i++) {                        
+                let layerArray = $scope.capabilities.layers;
+                for (let i = 0; i < layerArray.length; i++) {                        
                     if (layerArray[i].name == layerName) {
                         return layerArray[i];
                     }
@@ -108,32 +109,61 @@ module rasdaman {
                 return null;
             }
 
-            // If a coverage can be displayed on globe, user can show/hide it's footprint by changing checkbox of current page
-            $scope.displayFootprintOnGlobe = (coverageId:string) => {     
-                webWorldWindService.showHideCoverageExtentOnGlobe(canvasId, coverageId);                
-            }
 
-            // Load/Unload all layers's extents on globe
+            // NOTE: When filtering rows on smart table (broadcasted by SmartTableGetFilteredRows.ts) -> recalculate the total layers and their size from the filtered rows
+            $scope.$on("filteredRowsEventWMS", (event, obj:any) => {
+
+                if ($window.wmsGetCapabilitiesFilteredRows != null) {                            
+                    let filteredRows = $window.wmsGetCapabilitiesFilteredRows;
+
+                    $scope.totalCoverages = filteredRows.length;
+                    let totalCoverageSizeInBytesTmp:number = 0;
+                    let totalLocalCoverageSizeInBytesTmp:number = 0;
+                    let totalRemoteCoverageSizeInBytesTmp:number = 0;
+
+                    for (let i = 0; i < filteredRows.length; i++) {
+                        let obj = filteredRows[i];
+
+                        let metadata:ows.CustomizedMetadata = obj["customizedMetadata"];
+                        if (metadata != null) {
+                            totalLocalCoverageSizeInBytesTmp += metadata.localCoverageSizeInBytes;
+                            totalRemoteCoverageSizeInBytesTmp += metadata.remoteCoverageSizeInBytes;
+
+                            let sizeInBytesTmp:number = metadata.localCoverageSizeInBytes > 0 
+                                                                ? metadata.localCoverageSizeInBytes 
+                                                                : metadata.remoteCoverageSizeInBytes;
+                            totalCoverageSizeInBytesTmp += sizeInBytesTmp;
+                        }
+                    }
+
+                    // Finally, make these numbers human-readable
+                    $scope.totalCoverageSizeInBytes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalCoverageSizeInBytesTmp);
+                    $scope.totalLocalCoverageSizeInBytes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalLocalCoverageSizeInBytesTmp);
+                    $scope.totalRemoteCoverageSizeInBytes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalRemoteCoverageSizeInBytesTmp);
+                }
+            });            
+
+            // Load all layers's extents on globe
             $scope.displayAllFootprintsOnGlobe = (status:boolean) => {
                 // Array of coverageExtents belong to WMS layers                
                 if (status == true) {
 
                     // Get filtered rows from smart table
-                    let filteredRows = JSON.parse($window.wmsGetCapabilitiesFilteredRows);
+                    let filteredRows = $window.wmsGetCapabilitiesFilteredRows;
 
                     $scope.hideAllFootprintsOnGlobe();
 
-                    for (var i = 0; i < filteredRows.length; i++) {
-                        var obj = filteredRows[i];
-                        var layerName = obj["name"];
+                    for (let i = 0; i < filteredRows.length; i++) {
+                        let obj = filteredRows[i];
+                        let layerName = obj["name"];
                         // load all unloaded footprints from all pages on globe                    
-                        for (var j = 0; j < $scope.capabilities.layers.length; j++) {
-                            var coverageExtent = $scope.capabilities.layers[j].coverageExtent;
-                            var coverageId = coverageExtent.coverageId;
+                        for (let j = 0; j < $scope.capabilities.layers.length; j++) {
+                            let coverageExtent = $scope.capabilities.layers[j].coverageExtent;
+                            let coverageId = coverageExtent.coverageId;
                             if (layerName == coverageId) {
                                 // checkbox is checked
                                 $scope.capabilities.layers[j].displayFootprint = true;
-                                webWorldWindService.showHideCoverageExtentOnGlobe(canvasId, coverageId);
+                                webWorldWindService.showCoverageExtentOnGlobe(canvasId, coverageId, coverageExtent, false);
                             }
                         }
                     }
@@ -143,29 +173,47 @@ module rasdaman {
                 }
             }
 
+            // Unload all layer's extents on globe
             $scope.hideAllFootprintsOnGlobe = () => {
-                for (var i = 0; i <  $scope.capabilities.layers.length; i++) {
-                    var coverageExtent = $scope.capabilities.layers[i].coverageExtent;
-                    var coverageId = coverageExtent.coverageId;
-                    if (coverageExtent.displayFootprint == true) {
+                if ($scope.capabilities != null) {
+                    for (let i = 0; i < $scope.capabilities.layers.length; i++) {
+                        let layer:any = $scope.capabilities.layers[i];
                         // checkbox is unchecked
-                        $scope.capabilities.layers[i].displayFootprint = false;
-                        webWorldWindService.showHideCoverageExtentOnGlobe(canvasId, coverageId);
+                        layer.displayFootprint = false;
+                        webWorldWindService.hideCoverageExtentOnGlobe(canvasId, layer.name);
+                        
                     }
                 }
+            }
+
+            // Handle click on checkbox in smart table
+            $scope.showHideFootprintOnGlobe = (layerName) => {
+                let layerArray = $scope.capabilities.layers;
+                for (let i = 0; i < layerArray.length; i++) {      
+                    let layer:wms.Layer = layerArray[i];
+                    if (layer.name == layerName) {
+                        if (layer.displayFootprint == true) {
+                            webWorldWindService.showCoverageExtentOnGlobe(canvasId, layerName, layer.coverageExtent, false);
+                        } else {
+                            webWorldWindService.hideCoverageExtentOnGlobe(canvasId, layerName);
+                        }
+
+                        break;
+                    }
+                }       
             }
 
             // If a layer is checked as blacklist, no one, except petascope admin user can see it from GetCapabilities
             $scope.handleBlackListOneLayer = (layerName:string) => {
                                 
-                var status = $scope.getLayerByName(layerName).customizedMetadata.isBlackedList;
+                let status = $scope.getLayerByName(layerName).customizedMetadata.isBlackedList;
                 if (status == true) {
                     // layer is added to blacklist
 
                     this.wmsService.blackListOneLayer(layerName).then(
-                        (...args:any[])=> {
+                        (...args:any[]) => {
                             this.alertService.success("Blacklisted layer <b>" + layerName + "</b>");
-                        }, (...args:any[])=> {
+                        }, (...args:any[]) => {
                             this.errorHandlingService.handleError(args);
                             this.$log.error(args);
                         }).finally(function () {
@@ -176,9 +224,9 @@ module rasdaman {
                     // layer is removed from blacklist (whitelisted)
                     
                     this.wmsService.whiteListOneLayer(layerName).then(
-                        (...args:any[])=> {
+                        (...args:any[]) => {
                             this.alertService.success("Whitelisted layer <b>" + layerName + "</b>");
-                        }, (...args:any[])=> {
+                        }, (...args:any[]) => {
                             this.errorHandlingService.handleError(args);
                             this.$log.error(args);
                         }).finally(function () {
@@ -195,7 +243,7 @@ module rasdaman {
                         this.alertService.success("Blacklisted <b>all layers</b>");
 
                         // Check all checkboxes in blacklist column
-                        for (var i = 0; i < $scope.capabilities.layers.length; i++) {
+                        for (let i = 0; i < $scope.capabilities.layers.length; i++) {
                             $scope.capabilities.layers[i].customizedMetadata.isBlackedList = true;
                         }
                     }, (...args:any[]) => {
@@ -214,7 +262,7 @@ module rasdaman {
                         this.alertService.success("Whitelisted <b>all layers</b>");
 
                         // Uncheck all checkboxes in blacklist column
-                        for (var i = 0; i < $scope.capabilities.layers.length; i++) {
+                        for (let i = 0; i < $scope.capabilities.layers.length; i++) {
                             $scope.capabilities.layers[i].customizedMetadata.isBlackedList = false;
                         }
                     }, (...args:any[]) => {
@@ -225,18 +273,111 @@ module rasdaman {
                     });                    
             }
 
-            // rootScope broadcasts an event to all children controllers
-            $scope.$on("reloadWMSServerCapabilities", function(event, b) {                
-                $scope.getServerCapabilities();
+            // NOTE: When DescribeCoverageController broadcasts message when a coverage id is renamed -> do some updatings
+            $rootScope.$on("renamedCoverageId", (event, tupleObj:any) => {
+                if (tupleObj != null) {
+                    let oldCoverageId:string = tupleObj.oldCoverageId;
+                    let newCoverageId:string = tupleObj.newCoverageId;
+
+                    for (let i = 0; i < this.coveragesExtents.length; i++) {
+                        if (this.coveragesExtents[i].coverageId == oldCoverageId) {
+                            this.coveragesExtents[i].coverageId = newCoverageId;
+                            $scope.capabilities.layers[i].name = newCoverageId;
+                            break;
+                        }
+                    }
+
+                    // NOTE: also update any pyramid member coverage ids
+                    for (let i = 0; i < $scope.capabilities.layers.length; i++) {
+                        let layer:wms.Layer = $scope.capabilities.layers[i];
+                        if (layer.pyramidCoverageMembers != null) {
+                            for (let j = 0; j < layer.pyramidCoverageMembers.length; j++) {
+                                if (layer.pyramidCoverageMembers[j].coverageId == oldCoverageId) {
+                                    layer.pyramidCoverageMembers[j].coverageId = newCoverageId;
+                                }
+                            }
+                        }
+                    }
+
+                    webWorldWindService.wmsGetCapabilitiesWGS84CoverageExtents = this.coveragesExtents;
+                    webWorldWindService.updateSurfacePolygonCoverageId(canvasId, oldCoverageId, newCoverageId);
+                }
+            });
+            
+            // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
+                if (coverageIdToDelete != null) {
+                    $scope.cleanAfterDeletingLayer(coverageIdToDelete);
+                }
+            });            
+
+            // NOTE: When DeleteLayerController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedWMSLayerName", (event, layerNameToDelete:string) => {
+                if (layerNameToDelete != null) {
+                    $scope.cleanAfterDeletingLayer(layerNameToDelete);                   
+                }
             });
 
-            // When WMS insertStyle, updateStyle, deleteStyle is called sucessfully, it should reload the new capabilities            
-            $scope.$watch("wmsStateInformation.reloadServerCapabilities", (capabilities:wms.Capabilities)=> {                
-                if ($scope.wmsStateInformation.reloadServerCapabilities == true) {                    
-                    $scope.getServerCapabilities();
+            $scope.cleanAfterDeletingLayer = (layerNameToDelete:string) => {
+                try {
+                    let layerToDelete:wms.Layer = null;
+                    let layerNameToDeleteIndex = -1;
+                    let layers:wms.Layer[] = $scope.capabilities.layers;
+                    for (let i = 0; i < layers.length; i++) {
+                        if (layers[i].name == layerNameToDelete) {
+                            layerNameToDeleteIndex = i;
+                            layerToDelete = layers[i];
+                            break;                            
+                        }
+                    }
+
+                    if (layerNameToDeleteIndex != -1) {
+                        // remove the deleted layer from the cached layes
+                        $scope.wmsStateInformation.serverCapabilities.layers.splice(layerNameToDeleteIndex, 1);
+                        let coverageExtent = this.coveragesExtents[layerNameToDelete];
+                        // and delete it from cached coverageExtents array
+                        this.coveragesExtents.splice(layerNameToDeleteIndex, 1);                            
+                        webWorldWindService.wmsGetCapabilitiesWGS84CoverageExtents = this.coveragesExtents;
+
+                        // Then recalculate the total layers and their sizes after the deleted layer is removed
+                        $scope.wmsStateInformation.serverCapabilities.recalculateTotalAndSizes(layerToDelete);
+                        // And hide its extent on webworldwind if it is shown before
+                        webWorldWindService.hideCoverageExtentOnGlobe(canvasId, layerNameToDelete);
+                    }
+
+                    // Then, check if this deleted coverage exists in pyramid members of any layer and remove it from the pyramids
+                    for (let i = 0; i < layers.length; i++) {
+                        let layer:wms.Layer = layers[i];
+                        let pyramidCoverageMembers:wms.PyramidCoverageMember[] = layer.pyramidCoverageMembers;
+
+                        if (pyramidCoverageMembers != null) {
+                            for (let j = 0; j < pyramidCoverageMembers.length; j++) {
+                                if (pyramidCoverageMembers[j].coverageId == layerNameToDelete) {
+                                    pyramidCoverageMembers.splice(j, 1);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                } catch(error) {
+                    errorHandlingService.handleError(error);
+                    console.log("Error in WMS GetCapabilitiesController");
+                    console.log(error);
+                } finally {
+
                 }
-                // It already reloaded, then set to false.
-                $scope.wmsStateInformation.reloadServerCapabilities = false;
+            }
+
+            // When WMS CreateLayer is called sucessfully, it should reload the new capabilities      
+            // NOTE: using $broadcast in WCSMainController and $on here will not make this method invoked when loading web page      
+            $rootScope.$watch("wmsReloadServerCapabilities", (obj:any) => {
+                if (obj == true) {                    
+                    $scope.getServerCapabilities();
+
+                    // NOTE: Mark as null, so when it is set to true in some places, this watch will be invoked
+                    // $rootScope.wmsReloadServerCapabilities = null;
+                }
             });  
             
             // Handle the click event on GetCapabilities button
@@ -247,23 +388,31 @@ module rasdaman {
             }
           
             // Handle server capabilities request
-            $scope.getServerCapabilities = (...args: any[])=> {                
+            $scope.getServerCapabilities = (...args: any[]) => {                
                 if (!$scope.wmsServerEndpoint) {
                     alertService.error("The entered WMS endpoint is invalid.");
                     return;
                 }
 
-                //Update settings:
+                // Hide any layers' footprints which are shown before
+                $scope.hideAllFootprintsOnGlobe();      
+
+                // Update settings:
                 settings.wmsEndpoint = $scope.wmsServerEndpoint;
-                //Reload the full WMS URL
+                // Reload the full WMS URL
                 settings.setWMSFullEndPoint();   
 
-                //Create capabilities request
-                var capabilitiesRequest = new wms.GetCapabilities();
+                // Load new coverage extents
+                this.coveragesExtents = [];     
 
+                //Create capabilities request
+                let capabilitiesRequest = new wms.GetCapabilities();
+
+                $scope.generatedGETURL = settings.wmsFullEndpoint + "&" + capabilitiesRequest.toKVP();
+    
                 wmsService.getServerCapabilities(capabilitiesRequest)
-                    .then((response:rasdaman.common.Response<wms.Capabilities>)=> {
-                            //Success handler
+                    .then((response:rasdaman.common.Response<wms.Capabilities>) => {
+                            // Success handler
                             // This is output from GetCapabilities request in XML
                             $scope.capabilitiesDocument = response.document;                            
                             // This is the parsed object from XML output by wmsService
@@ -278,14 +427,19 @@ module rasdaman {
                             // But, WMS still needs to convert the EX_GeographicBoundingBox the same outcome (CoverageExtent) to be displayable on globe.                            
                             $scope.initCheckboxesForLayerNames();
                             
-                            var coverageExtentArray = [];
-
-                            for (var i = 0; i < $scope.capabilities.layers.length; i++) {
-                                coverageExtentArray.push($scope.capabilities.layers[i].coverageExtent);
+                            for (let i = 0; i < $scope.capabilities.layers.length; i++) {
+                                this.coveragesExtents.push($scope.capabilities.layers[i].coverageExtent);
                             }
-                            webWorldWindService.prepareCoveragesExtentsForGlobe(canvasId, coverageExtentArray);                            
+                            webWorldWindService.wmsGetCapabilitiesWGS84CoverageExtents = this.coveragesExtents;
+
+                            webWorldWindService.initWebWorldWind(canvasId);   
+                            
+                            // NOTE: loaded and $broadcast to be used with $on in other controllers, such as: WMS CreateLayer controller
+                            $rootScope.$broadcast("wmsReloadServerCapabilitiesDone", true);
+
+                            $rootScope.wmsReloadServerCapabilities = null;
                         },
-                        (...args:any[])=> {
+                        (...args:any[]) => {
                             //Error handler
                             $scope.capabilitiesDocument = null;
                             $scope.capabilities = null;
@@ -298,7 +452,7 @@ module rasdaman {
                             errorHandlingService.handleError(args);
                             $log.error(args);
                         })
-                    .finally(()=> {
+                    .finally(() => {
                         $scope.wmsStateInformation.serverCapabilities = $scope.capabilities;
                     });
             };            
@@ -317,13 +471,13 @@ module rasdaman {
         isServiceProviderOpen:boolean;
         isCapabilitiesDocumentOpen:boolean;
 
-        adminUserLoggedIn:boolean;
+        generatedGETURL:string;
 
         // return a correspondent layer by a name
         getLayerByName(layerName:string):wms.Layer;
         
         // Show/Hide the checked layer's extent on globe of current page
-        displayFootprintOnGlobe(layerName:string):void;
+        showHideFootprintOnGlobe(layerName:string):void;
 
         // Load all the layers's extents on globe from all pages
         displayAllFootprints(status:boolean):void;
@@ -342,5 +496,7 @@ module rasdaman {
         initCheckboxesForLayerNames():void;
         displayAllFootprintsOnGlobe(status:boolean):void;
         pageChanged(newPage: any):void;
+
+        cleanAfterDeletingLayer(layerNameToDelete: string):void;
     }
 }

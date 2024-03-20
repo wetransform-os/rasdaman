@@ -26,6 +26,7 @@ set(TEST_SOURCES
         grpc/grpcutilstest.cc
         grpc/healthserviceimpltest.cc
         grpc/healthserviceservertest.cc
+        string/stringutiltest.cc
         )
 
 add_executable(common_test EXCLUDE_FROM_ALL ${TEST_SOURCES})
@@ -37,9 +38,14 @@ target_link_libraries(common_test
         common_exceptions
         common_network
         common_logging
+        common_string
         ${GMOCK_LIBRARY}
         ${Boost_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT})
+
+if (USE_PRECOMPILED_HEADERS)
+target_precompile_headers(common_test REUSE_FROM common_logging)
+endif()
 
 add_test(common_testrunner common_test)
 

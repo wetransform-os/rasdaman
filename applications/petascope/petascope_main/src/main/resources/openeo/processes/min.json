@@ -1,0 +1,56 @@
+{
+    "id": "min",
+    "summary": "Minimum value",
+    "description": "Computes the minimum value of a datacube `x` (*`min(x)`*).\n\nThe operand must be a datacube.\n\n\nThe result is a scalar number. Operand elements which are null are ignored while computing the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type   | result type   |\n|----------------|---------------|\n| X              | X             |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "A datacube.",
+            "schema": {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        }
+    ],
+    "returns": {
+        "description": "The computed minimum value of `x`; null elements are ignored.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": [
+                    0,
+                    1,
+                    2,
+                    null,
+                    3
+                ]
+            },
+            "returns": 0
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/11_cheatsheets.html#scalar-operations",
+            "title": "Documentation on operations resulting in scalar values in rasdaman"
+        }
+    ],
+    "wcps": "min(<x>)",
+    "categories": [
+        "Aggregation"
+    ]
+}

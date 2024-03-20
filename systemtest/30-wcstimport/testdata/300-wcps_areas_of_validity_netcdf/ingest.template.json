@@ -1,0 +1,83 @@
+{
+    "config": {
+        "service_url": "PETASCOPE_URL",
+        "tmp_directory": "/tmp/",
+        "automated": true,
+        "mock": false,
+        "track_files": false,
+        "subset_correction": false
+    },
+    "input": {
+        "coverage_id": "test_wcps_areas_of_validity_netcdf",
+        "paths": [
+            "*.nc"
+        ]
+    },
+    "recipe": {
+        "name": "general_coverage",
+        "options": {
+            "coverage": {
+                "crs": "OGC/0/AnsiDate@EPSG/0/4326",
+                "metadata": {
+                    "type": "xml",
+                    "global": {}
+                },
+                "slicer": {
+                    "type": "netcdf",
+                    "pixelIsPoint": true,
+                    "bands": [
+                        {
+                            "name": "Red",
+                            "identifier": "Red"
+                        },
+                        {
+                            "name": "Green",
+                            "identifier": "Green"
+                        },
+                        {
+                            "name": "Blue",
+                            "identifier": "Blue"
+                        }                                                
+                    ],
+                    "axes": {
+                        "ansi": {
+                            "statements": "from datetime import datetime, timedelta",
+                            "min": "(datetime(1600,12,31,0,0,0) + timedelta(days=${netcdf:variable:ansi:min})).strftime(\"%Y-%m-%dT%H:%M\")",
+                            "max": "(datetime(1600,12,31,0,0,0) + timedelta(days=${netcdf:variable:ansi:max})).strftime(\"%Y-%m-%dT%H:%M\")",
+                            "directPositions": "[(datetime(1600,12,31,0,0,0) + timedelta(days=x)).strftime(\"%Y-%m-%dT%H:%M\") for x in ${netcdf:variable:ansi}]",
+                            "areasOfValidity": [
+                                {
+                                    "start": "(datetime(1600,12,31,0,0,0) + timedelta(days=${netcdf:variable:ansi:min}) + timedelta(days=-366)).strftime(\"%Y-%m-%dT%H:%M\")",
+                                    "end": "(datetime(1600,12,31,0,0,0) + timedelta(days=${netcdf:variable:ansi:min}) + timedelta(days=365)).strftime(\"%Y-%m-%dT%H:%M\")"
+                                },
+                                {
+                                    "start": "\"2004\"",
+                                    "end": "\"2006\""
+                                },
+                                {
+                                    "start": "\"2009\"",
+                                    "end": "\"2012\""
+                                }                                                                
+                            ],                            
+                            "irregular": true,
+                            "gridOrder": 0
+                        },
+                        "Long": {
+                            "min": "${netcdf:variable:Long:min}",
+                            "max": "${netcdf:variable:Long:max}",
+                            "resolution": "${netcdf:variable:Long:resolution}",
+                            "gridOrder": 1
+                        },
+                        "Lat": {
+                            "min": "${netcdf:variable:Lat:min}",
+                            "max": "${netcdf:variable:Lat:max}",
+                            "resolution": "${netcdf:variable:Lat:resolution}",
+                            "gridOrder": 2                            
+                        }
+                    }
+                }
+            },
+            "tiling": "ALIGNED [0:0, 0:1023, 0:1023]"
+        }
+    }
+}

@@ -27,8 +27,6 @@ rasdaman GmbH.
 #include "accesscontrol.hh"
 #include "rpcif.h"
 
-#include "raslib/rmdebug.hh"
-#include "raslib/rminit.hh"
 #include "raslib/error.hh"
 #include "raslib/minterval.hh"
 #include "raslib/parseparams.hh"
@@ -44,7 +42,6 @@ rasdaman GmbH.
 #include "tilemgr/tile.hh"
 #include "storagemgr/sstoragelayout.hh"
 #include "lockmgr/lockmanager.hh"
-#include "mymalloc/mymalloc.h"
 
 #include "qlparser/qtmdd.hh"
 #include "qlparser/qtatomicdata.hh"
@@ -56,6 +53,7 @@ rasdaman GmbH.
 #include "qlparser/qtnode.hh"
 #include "qlparser/qtdata.hh"
 #include "qlparser/querytree.hh"
+#include "mymalloc/mymalloc.h"
 
 #include "server/rasserver_config.hh"
 #include "reladminif/adminif.hh"
@@ -69,7 +67,7 @@ rasdaman GmbH.
 #include "relcatalogif/structtype.hh"
 
 #include "common/util/timer.hh"
-
+#include "rasserver/src/rasmgrcomm.hh"
 #include <logging.hh>
 
 #include <iostream>
@@ -78,16 +76,17 @@ rasdaman GmbH.
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
-#include <ctime>      // for time()
+#include <ctime>  // for time()
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <errno.h>
-#include <signal.h>    // for sigaction()
-#include <unistd.h>    // for alarm(), gethostname()
+#include <signal.h>  // for sigaction()
+#include <unistd.h>  // for alarm(), gethostname()
 #include <byteswap.h>
-#include <cassert>     // for assert()
+#include <cassert>  // for assert()
+#include <mutex>
 
 #ifdef ENABLE_PROFILING
 #include <google/profiler.h>
@@ -96,9 +95,6 @@ rasdaman GmbH.
 #endif
 
 using namespace std;
-
-// init globals for server initialization
-// RMINITGLOBALS('S')
 
 // --------------------------------------------------------------------------------
 //                          constants
@@ -121,6 +117,7 @@ const int ServerComm::ENDIAN_LITTLE = 1;
 
 ServerComm *ServerComm::serverCommInstance = 0;
 ClientTblElt *ServerComm::clientTbl = 0;
+std::mutex ServerComm::clientTblMutex;
 
 // --------------------------------------------------------------------------------
 //                          global variables
@@ -133,10 +130,6 @@ ClientTblElt *currentClientTblElt = 0;  // used in QtMDDAccess and oql.yy
 
 // Defined elsewhere
 
-// defined in server/rasserver_main.cc, configurable as a rasserver parameter:
-//       --transbuffer <nnnn>   (default: 4194304)
-//              maximal size of the transfer buffer in bytes
-extern unsigned long maxTransferBufferSize;
 // defined in oql.yy
 extern int yyparse(void *);
 extern void yyreset();
@@ -170,7 +163,6 @@ void startProfiler(std::string fileNameTemplate, bool cpuProfiler)
                 HeapProfilerStart(tmpFileName);
                 LINFO << "Heap profiler file: " << tmpFile << ".????.heap";
             }
-
         }
         else
         {
@@ -184,20 +176,39 @@ void startProfiler(std::string fileNameTemplate, bool cpuProfiler)
 // handle logging requests
 
 #ifdef RASDEBUG
-#define DBGREQUEST(msg)   NNLINFO << "Request: " << msg << "... ";
-#define DBGOK             BLINFO  << "ok\n";
-#define DBGINFO(msg)      BLINFO  << msg << "\n";
-#define DBGINFONNL(msg)   BLINFO  << msg;
-#define DBGERROR(msg)     BLERROR << "Error: " << msg << "\n";
-#define DBGWARN(msg)      BLWARNING << "Warning: " << msg << "\n";
+#define DBGREQUEST(msg) NNLINFO << "Request: " << msg << "... ";
+#define DBGOK BLINFO << "ok\n";
+#define DBGINFO(msg) BLINFO << msg << "\n";
+#define DBGINFONNL(msg) BLINFO << msg;
+#define DBGERROR(msg) BLERROR << "Error: " << msg << "\n";
+#define DBGWARN(msg) BLWARNING << "Warning: " << msg << "\n";
 #else
 std::stringstream requestStream;
-#define DBGREQUEST(msg) { requestStream.str(""); requestStream.clear(); requestStream << "Request: " << msg << "... "; }
-#define DBGOK           ; // nothing to log if release mode and all is ok
-#define DBGINFO(msg)    ; // nothing to log if release mode and all is ok
-#define DBGINFONNL(msg) ; // nothing to log if release mode and all is ok
-#define DBGERROR(msg)   { NNLINFO << requestStream.str(); BLERROR << "Error: " << msg << "\n"; BLFLUSH; requestStream.str(""); requestStream.clear(); }
-#define DBGWARN(msg)    { NNLINFO << requestStream.str(); BLWARNING << "Warning: " << msg << "\n"; BLFLUSH; requestStream.str(""); requestStream.clear(); }
+#define DBGREQUEST(msg)                                \
+    {                                                  \
+        requestStream.str("");                         \
+        requestStream.clear();                         \
+        requestStream << "Request: " << msg << "... "; \
+    }
+#define DBGOK ;            // nothing to log if release mode and all is ok
+#define DBGINFO(msg) ;     // nothing to log if release mode and all is ok
+#define DBGINFONNL(msg) ;  // nothing to log if release mode and all is ok
+#define DBGERROR(msg)                        \
+    {                                        \
+        NNLINFO << requestStream.str();      \
+        BLERROR << "Error: " << msg << "\n"; \
+        BLFLUSH;                             \
+        requestStream.str("");               \
+        requestStream.clear();               \
+    }
+#define DBGWARN(msg)                             \
+    {                                            \
+        NNLINFO << requestStream.str();          \
+        BLWARNING << "Warning: " << msg << "\n"; \
+        BLFLUSH;                                 \
+        requestStream.str("");                   \
+        requestStream.clear();                   \
+    }
 #endif
 
 // -----------------------------------------------------------------------------------------
@@ -215,8 +226,7 @@ ServerComm::~ServerComm()
 }
 
 // quick hack function used when stopping server to abort transaction and close db
-void
-ServerComm::abortEveryThingNow()
+void ServerComm::abortEveryThingNow()
 {
     if (serverCommInstance && serverCommInstance->clientTbl)
     {
@@ -226,28 +236,54 @@ ServerComm::abortEveryThingNow()
 }
 
 ClientTblElt *
-ServerComm::getClientContext(unsigned long clientId)
+ServerComm::getClientContext(std::uint32_t clientId, bool printErrors)
 {
-    if (clientTbl && clientId == clientTbl->clientId)
-        return clientTbl;
+    const std::lock_guard<std::mutex> lock(clientTblMutex);
+    if (clientTbl)
+    {
+        if (clientId == clientTbl->clientId)
+        {
+            return clientTbl;
+        }
+        else
+        {
+            if (printErrors)
+            {
+                DBGERROR("the request client id " << clientId
+                                                  << " does not match the session client id "
+                                                  << clientTbl->clientId)
+            }
+            return NULL;
+        }
+    }
     else
+    {
+        if (printErrors)
+        {
+            DBGERROR("client table is not initialized, i.e. no session client "
+                     "id has been registered.");
+        }
         return NULL;
+    }
 }
 
-void
-ServerComm::addClientTblEntry(ClientTblElt *context)
+void ServerComm::addClientTblEntry(ClientTblElt *context)
 {
+    const std::lock_guard<std::mutex> lock(clientTblMutex);
     assert(context && "Cannot register client: client context is NULL.");
-    DBGREQUEST("'register client' " << context->clientId << ", type = "
+    DBGREQUEST("'register client' "
+               << context->clientId << ", type = "
                << (context->clientType == ClientType::Http ? "http" : "non-http"))
     clientTbl = context;
     DBGOK
-    ServerComm::printServerStatus();   // quite verbose
+    ServerComm::printServerStatus();  // quite verbose
 }
 
 unsigned short
-ServerComm::deleteClientTblEntry(unsigned long clientId)
+ServerComm::deleteClientTblEntry(std::uint32_t clientId)
 {
+    const std::lock_guard<std::mutex> lock(clientTblMutex);
+
     DBGREQUEST("unregister client " << clientId)
 
     unsigned short returnValue = RC_OK;
@@ -256,9 +292,9 @@ ServerComm::deleteClientTblEntry(unsigned long clientId)
     {
         // The transaction contained in the client table element is aborted here.
         // This is reasonable because at this point, the transaction is either
-        // already committed (This is the case if an rpcCloseDB call arrives.
+        // already committed (This is the case if an closeDB call arrives.
         // In this case, abort doesn't do anything harmful.) or the communication
-        // has broken down before a rpcCommitTA or a rpcAbortTA (In this case this
+        // has broken down before a commitTA or a abortTA (In this case this
         // function is called by the garbage collection and aborting the transaction
         // is advisable.).
         clientTbl->releaseTransferStructures();
@@ -284,27 +320,30 @@ ServerComm::deleteClientTblEntry(unsigned long clientId)
         if (strcmp(clientTbl->baseName, "none") != 0)
         {
             DBGINFONNL("close database... ")
-#ifndef BASEDB_SQLITE
             try
             {
                 clientTbl->database.close();
             }
             catch (r_Error &err)
             {
-                DBGERROR(err.what())
+                if (err.get_kind() != r_Error::r_Error_DatabaseClosed)
+                {
+                    returnValue = RC_ERROR;
+                    DBGERROR(err.what())
+                }
             }
             catch (...)
             {
                 DBGERROR("unspecific exception.")
             }
-#endif
             // reset database name
             delete[] clientTbl->baseName;
             clientTbl->baseName = new char[5];
             strcpy(clientTbl->baseName, "none");
         }
 
-        delete clientTbl, clientTbl = NULL;
+        delete clientTbl;
+        clientTbl = NULL;
         DBGOK
     }
     else
@@ -312,12 +351,10 @@ ServerComm::deleteClientTblEntry(unsigned long clientId)
         DBGERROR("client not found.")
         returnValue = RC_CLIENT_NOT_FOUND;
     }
-    ServerComm::printServerStatus();
     return returnValue;
 }
 
-void
-ServerComm::printServerStatus()
+void ServerComm::printServerStatus()
 {
 #ifdef RASDEBUG
     stringstream ct;
@@ -329,7 +366,7 @@ ServerComm::printServerStatus()
            << "\n    User name      : " << clientTbl->userName
            << "\n    Database in use: " << clientTbl->baseName
            << "\n    Creation time  : " << ctime((time_t *)&clientTbl->creationTime)
-           <<   "    MDD collection : " << clientTbl->transferColl
+           << "    MDD collection : " << clientTbl->transferColl
            << "\n    MDD iterator   : " << clientTbl->transferCollIter
            << "\n    Current PersMDD: " << clientTbl->assembleMDD
            << "\n    Current MDD    : " << clientTbl->transferMDD
@@ -342,7 +379,7 @@ ServerComm::printServerStatus()
     LDEBUG << "\n-----------------------------------------------------------------------------"
            << "\nServer state information at " << ctime(&currentTime)
            << "\n  Transaction active.............: " << (transactionActive ? "yes" : "no")
-           << "\n  Max. transfer buffer size......: " << maxTransferBufferSize << " bytes"
+           << "\n  Max. transfer buffer size......: " << configuration.getMaxTransferBufferSize() << " bytes"
            << ct.str()
            << "\n-----------------------------------------------------------------------------";
 #else
@@ -359,7 +396,7 @@ ServerComm::openDB(unsigned long callingClientId, const char *dbName, const char
 {
     unsigned short returnValue = RC_OK;
 
-    DBGREQUEST("'open DB', name = " << dbName);
+    DBGREQUEST("'open DB', name = " << dbName << ", client " << callingClientId);
 
     ClientTblElt *context = getClientContext(callingClientId);
     if (context)
@@ -382,6 +419,7 @@ ServerComm::openDB(unsigned long callingClientId, const char *dbName, const char
             if (err.get_kind() == r_Error::r_Error_DatabaseOpen)
             {
                 DBGWARN("database already open for user '" << userName << "', ignoring command.");
+                throw r_Error(r_Error::r_Error_DatabaseOpen);
             }
             else
             {
@@ -392,7 +430,7 @@ ServerComm::openDB(unsigned long callingClientId, const char *dbName, const char
     }
     else
     {
-        DBGERROR("client not registered.");
+        DBGWARN("client not registered " << callingClientId);
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -403,9 +441,9 @@ ServerComm::closeDB(unsigned long callingClientId)
 {
     unsigned short returnValue = RC_OK;
 
-    DBGREQUEST("'close DB'");
+    DBGREQUEST("'close DB', client " << callingClientId);
 
-    ClientTblElt *context = getClientContext(callingClientId);
+    ClientTblElt *context = getClientContext(callingClientId, false);
     if (context)
     {
         context->releaseTransferStructures();
@@ -438,6 +476,11 @@ ServerComm::closeDB(unsigned long callingClientId)
                 DBGERROR(err.what())
             }
         }
+        catch (...)
+        {
+            returnValue = RC_ERROR;
+            DBGERROR("unspecific exception.")
+        }
     }
     else
     {
@@ -445,7 +488,7 @@ ServerComm::closeDB(unsigned long callingClientId)
         // a final closeDB, but not to the original rasserver, so it is not registered.
         // So it's best to keep this error silent.
         //
-        //DBGERROR("client not registered.");
+        DBGWARN("client not registered " << callingClientId);
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -509,7 +552,7 @@ ServerComm::beginTA(unsigned long callingClientId, unsigned short readOnly)
 {
     unsigned short returnValue = RC_OK;
 
-    DBGREQUEST("'begin TA', mode = " << (readOnly ? "read" : "write"))
+    DBGREQUEST("'begin TA', mode = " << (readOnly ? "read" : "write") << ", client " << callingClientId)
 
     ClientTblElt *context = getClientContext(callingClientId);
     if (context)
@@ -524,25 +567,27 @@ ServerComm::beginTA(unsigned long callingClientId, unsigned short readOnly)
             context->releaseTransferStructures();
             try
             {
-                context->transaction.begin(&context->database, readOnly);
                 transactionActive = callingClientId;
+                context->transaction.begin(&context->database, readOnly);
                 DBGOK
             }
             catch (r_Error &err)
             {
                 DBGERROR(err.what())
+                transactionActive = 0;
                 throw;
             }
             catch (...)
             {
                 DBGERROR("unspecific exception.")
+                transactionActive = 0;
                 throw;
             }
         }
     }
     else
     {
-        DBGERROR("client not registered.")
+        DBGWARN("client not found " << callingClientId)
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -553,7 +598,7 @@ ServerComm::commitTA(unsigned long callingClientId)
 {
     unsigned short returnValue = RC_OK;
 
-    DBGREQUEST("'commit TA'");
+    DBGREQUEST("'commit TA', client " << callingClientId);
 
     ClientTblElt *context = getClientContext(callingClientId);
     if (context)
@@ -561,10 +606,6 @@ ServerComm::commitTA(unsigned long callingClientId)
         context->releaseTransferStructures();
         try
         {
-            if (configuration.isLockMgrOn())
-            {
-                LockManager::Instance()->unlockAllTiles();
-            }
             context->transaction.commit();
             transactionActive = 0;
             reportExecutionTimes(context);
@@ -583,7 +624,7 @@ ServerComm::commitTA(unsigned long callingClientId)
     }
     else
     {
-        DBGERROR("client not registered.");
+        DBGWARN("client not found " << callingClientId)
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -594,7 +635,7 @@ ServerComm::abortTA(unsigned long callingClientId)
 {
     unsigned short returnValue = RC_OK;
 
-    DBGREQUEST("'abort TA'");
+    DBGREQUEST("'abort TA', client " << callingClientId);
 
     ClientTblElt *context = getClientContext(callingClientId);
     if (context)
@@ -603,10 +644,6 @@ ServerComm::abortTA(unsigned long callingClientId)
         try
         {
             context->transaction.abort();
-            if (configuration.isLockMgrOn())
-            {
-                LockManager::Instance()->unlockAllTiles();
-            }
             transactionActive = 0;
             reportExecutionTimes(context);
             DBGOK
@@ -624,15 +661,14 @@ ServerComm::abortTA(unsigned long callingClientId)
     }
     else
     {
-        DBGERROR("client not registered.");
+        DBGWARN("client not found " << callingClientId)
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
 }
 
 // only one transaction can be active per server, so just need to check the transactionActive
-bool
-ServerComm::isTAOpen(unsigned long)
+bool ServerComm::isTAOpen(unsigned long)
 {
     DBGREQUEST("'is TA open'");
     bool returnValue = transactionActive;
@@ -644,50 +680,59 @@ ServerComm::isTAOpen(unsigned long)
 // Execute rasql queries (select, update, insert)
 // -----------------------------------------------------------------------------------------
 
-#define HANDLE_PARSE_INFO(info) \
-    ostringstream os; (info).printStatus(os); \
-    BLERROR << os.str(); \
-    context->releaseTransferStructures(); \
-    returnStructure.errorNo = (info).getErrorNo(); \
-    returnStructure.lineNo = (info).getLineNo(); \
+#define HANDLE_PARSE_INFO(info)                      \
+    ostringstream os;                                \
+    (info).printStatus(os);                          \
+    BLERROR << os.str();                             \
+    context->releaseTransferStructures();            \
+    returnStructure.errorNo = (info).getErrorNo();   \
+    returnStructure.lineNo = (info).getLineNo();     \
     returnStructure.columnNo = (info).getColumnNo(); \
     returnStructure.token = strdup((info).getToken().c_str());
 
-#define HANDLE_PARSING_ERROR { \
-        if (!parseError) { \
-            parseError = new ParseInfo(); \
+#define HANDLE_PARSING_ERROR                             \
+    {                                                    \
+        if (!parseError)                                 \
+        {                                                \
+            parseError = new ParseInfo();                \
             parseError->setErrorNo(PARSER_UNKNOWNERROR); \
-        } \
-        HANDLE_PARSE_INFO(*parseError) \
-        delete parseError, parseError = NULL; \
-        yyreset(); \
-        returnValue = RC_PARSING_ERROR; }
+        }                                                \
+        HANDLE_PARSE_INFO(*parseError)                   \
+        delete parseError, parseError = NULL;            \
+        yyreset();                                       \
+        returnValue = RC_PARSING_ERROR;                  \
+    }
 
-#define RELEASE_DATA { \
-        mddConstants = NULL; \
-        parseQueryTree = 0; currentClientTblElt = 0; delete qtree; qtree = NULL; }
+#define RELEASE_DATA             \
+    {                            \
+        mddConstants = NULL;     \
+        parseQueryTree = 0;      \
+        currentClientTblElt = 0; \
+        delete qtree;            \
+        qtree = NULL;            \
+    }
 
-#define RELEASE_ALL_DATA { \
+#define RELEASE_ALL_DATA                      \
+    {                                         \
         context->releaseTransferStructures(); \
-        RELEASE_DATA }
+        RELEASE_DATA                          \
+    }
 
-std::pair<char *, char *> ServerComm::getTypeNameStructure(ClientTblElt *context) const
+std::pair<std::string, std::string> ServerComm::getTypeNameStructure(ClientTblElt *context) const
 {
     assert(context && context->transferData && !context->transferData->empty());
     assert(context->transferDataIter);
-
-    std::pair<char *, char *> ret{NULL, NULL};
-
     QtData *data = **context->transferDataIter;
     assert(data);
+
     if (data->getDataType() == QT_MDD)
     {
         QtMDD *mddObj = static_cast<QtMDD *>(data);
         MDDType *mddType = NULL;
         if (context->transferData->size() > 1)
+        {
             // if there are more than one MDD object then they possibly have different domains,
             // so create a dimension result type in this case which will fit for all of them
-        {
             mddType = new MDDDimensionType("tmp", mddObj->getCellType(), mddObj->getLoadDomain().dimension());
         }
         else
@@ -697,17 +742,21 @@ std::pair<char *, char *> ServerComm::getTypeNameStructure(ClientTblElt *context
         TypeFactory::addTempType(mddType);
         SetType *setType = new SetType("tmp", mddType);
         TypeFactory::addTempType(setType);
-        ret = {strdup(setType->getTypeName()), setType->getTypeStructure()};
+        return {setType->getTypeName(), setType->getTypeStructure()};
     }
     else
     {
         char *dataTypeStructure = data->getTypeStructure();
-        char *retTypeStructure = static_cast<char *>(mymalloc(strlen(dataTypeStructure) + 6));
-        sprintf(retTypeStructure, "set<%s>", dataTypeStructure);
+
+        std::string retTypeStructure;
+        retTypeStructure.reserve(strlen(dataTypeStructure) + 6);
+        retTypeStructure += "set<";
+        retTypeStructure += dataTypeStructure;
+        retTypeStructure += ">";
         free(dataTypeStructure);
-        ret = {strdup(""), retTypeStructure};
+
+        return {"", retTypeStructure};
     }
-    return ret;
 }
 
 unsigned short ServerComm::handleExecuteQueryResult(ClientTblElt *context, unsigned short returnValue,
@@ -717,7 +766,7 @@ unsigned short ServerComm::handleExecuteQueryResult(ClientTblElt *context, unsig
     static constexpr unsigned short RC_OK_MDD_ELEMENTS = 0;
     static constexpr unsigned short RC_OK_SCALAR_ELEMENTS = 1;
     static constexpr unsigned short RC_OK_NO_ELEMENTS = 2;
-    
+
     context->evaluationTime = context->timer.elapsedMs();
     if (returnValue == RC_OK)
     {
@@ -736,14 +785,14 @@ unsigned short ServerComm::handleExecuteQueryResult(ClientTblElt *context, unsig
                 if (!firstElement)
                 {
                     BLERROR << "Internal error: result object is null.\n";
-                    throw r_Error(INTERNALSERVERERROR); // Unexpected internal server error.
+                    throw r_Error(INTERNALSERVERERROR);  // Unexpected internal server error.
                 }
 
                 try
                 {
                     auto typeNameStructure = getTypeNameStructure(context);
-                    returnStructure.typeName = typeNameStructure.first;
-                    returnStructure.typeStructure = typeNameStructure.second;
+                    returnStructure.typeName = strdup(typeNameStructure.first.c_str());
+                    returnStructure.typeStructure = strdup(typeNameStructure.second.c_str());
                 }
                 catch (...)
                 {
@@ -752,17 +801,20 @@ unsigned short ServerComm::handleExecuteQueryResult(ClientTblElt *context, unsig
                 }
 
                 // print result feedback; note it's not finalized here, but in endTransfer()
-                BLINFO << "result type '" << returnStructure.typeStructure << "', "
-                       << context->transferData->size() << " element(s)... ";
+                {
+                    BLINFO << "result type '" << returnStructure.typeStructure << "', "
+                           << context->transferData->size() << " element(s)... ";
 #ifdef RASDEBUG
-                BLINFO << "\n"; // more requests will be logged in this case, so add a newline
+                    BLINFO << "\n";  // more requests will be logged in this case, so add a newline
 #endif
-                // checked in endTransfer() to finalize the print stmt above with transfer size
-                context->reportTransferedSize = true;
+                    // checked in endTransfer() to finalize the print stmt above with transfer size
+                    context->reportTransferedSize = true;
+                }
                 returnValue = firstElement->getDataType() == QT_MDD
-                              ? RC_OK_MDD_ELEMENTS : RC_OK_SCALAR_ELEMENTS;
+                                  ? RC_OK_MDD_ELEMENTS
+                                  : RC_OK_SCALAR_ELEMENTS;
             }
-            else // context->transferData.empty()
+            else  // context->transferData.empty()
             {
                 BLINFO << "ok, result is empty.\n";
                 returnValue = RC_OK_NO_ELEMENTS;
@@ -770,7 +822,7 @@ unsigned short ServerComm::handleExecuteQueryResult(ClientTblElt *context, unsig
                 returnStructure.typeStructure = strdup("");
             }
         }
-        else // context->transferData == NULL
+        else  // context->transferData == NULL
         {
             BLINFO << "ok, result is empty.\n";
             returnValue = RC_OK_NO_ELEMENTS;
@@ -809,20 +861,20 @@ ServerComm::executeQuery(unsigned long callingClientId,
     NNLINFO << "Request: '" << query << "'... ";
 
     resetExecuteQueryRes(returnStructure);
-    ClientTblElt *context = getClientContext(callingClientId);
+    ClientTblElt *context = getClientContext(callingClientId, false);
     if (context)
     {
         context->totalTransferedSize = 0;
         context->totalRawSize = 0;
         context->timer.restart();
-        mddConstants = context->transferColl; // assign the mdd constants collection to the global pointer (temporary)
+        mddConstants = context->transferColl;  // assign the mdd constants collection to the global pointer (temporary)
         context->transferColl = NULL;
-        currentClientTblElt = context;        // assign current client table element (temporary)
+        currentClientTblElt = context;  // assign current client table element (temporary)
 
         context->releaseTransferStructures();
 
-        QueryTree *qtree = new QueryTree();   // create a query tree object...
-        parseQueryTree = qtree;               // ...and assign it to the global parse query tree pointer;
+        QueryTree *qtree = new QueryTree();  // create a query tree object...
+        parseQueryTree = qtree;              // ...and assign it to the global parse query tree pointer;
 
         if (parseQuery(query))
         {
@@ -830,12 +882,14 @@ ServerComm::executeQuery(unsigned long callingClientId,
             try
             {
 #ifdef RASDEBUG
-                LDEBUG << "\n" << *qtree;
+                LDEBUG << "\n"
+                       << *qtree;
 #endif
                 BLINFO << "checking semantics... ";
                 qtree->checkSemantics();
 #ifdef RASDEBUG
-                BLDEBUG << "query tree after semantic check:\n" << *qtree;
+                BLDEBUG << "query tree after semantic check:\n"
+                        << *qtree;
 #endif
                 BLINFO << "evaluating... ";
                 if (!insert)
@@ -866,7 +920,7 @@ ServerComm::executeQuery(unsigned long callingClientId,
                 RELEASE_ALL_DATA
                 throw;
             }
-            
+
             try
             {
                 returnValue = handleExecuteQueryResult(context, returnValue, returnStructure);
@@ -891,7 +945,17 @@ ServerComm::executeQuery(unsigned long callingClientId,
     }
     else
     {
-        BLERROR << "Error: client not registered.\n";
+        if (clientTbl)
+        {
+            BLERROR << "the request client id " << callingClientId
+                    << " does not match the session client id "
+                    << clientTbl->clientId << "\n";
+        }
+        else
+        {
+            BLERROR << "client table is not initialized, i.e. no session client "
+                       "id has been registered.\n";
+        }
         returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
 
@@ -902,7 +966,6 @@ ServerComm::executeQuery(unsigned long callingClientId,
 
     return returnValue;
 }
-
 
 unsigned short
 ServerComm::initExecuteUpdate(unsigned long callingClientId)
@@ -940,12 +1003,10 @@ ServerComm::initExecuteUpdate(unsigned long callingClientId)
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
 }
-
 
 unsigned short
 ServerComm::executeUpdate(unsigned long callingClientId,
@@ -958,6 +1019,7 @@ ServerComm::executeUpdate(unsigned long callingClientId,
     static constexpr unsigned short RC_OK_NO_ELEMENTS = RC_OK;
     static constexpr unsigned short RC_PARSING_ERROR = 2;
     static constexpr unsigned short RC_EXECUTION_ERROR = 3;
+    static constexpr unsigned short RC_CLIENT_CONTEXT_NOT_FOUND = 3;
     unsigned short returnValue = RC_OK;
 
     NNLINFO << "Request: '" << query << "'... ";
@@ -971,33 +1033,35 @@ ServerComm::executeUpdate(unsigned long callingClientId,
         context->timer.restart();
         context->evaluationTime = 0;
 
-        mddConstants = context->transferColl; // assign the mdd constants collection to the global pointer (temporary)
-        currentClientTblElt = context;        // assign current client table element (temporary)
+        mddConstants = context->transferColl;  // assign the mdd constants collection to the global pointer (temporary)
+        currentClientTblElt = context;         // assign current client table element (temporary)
 
-        QueryTree *qtree = new QueryTree();   // create a query tree object...
-        parseQueryTree = qtree;               // ...and assign it to the global parse query tree pointer;
+        QueryTree *qtree = new QueryTree();  // create a query tree object...
+        parseQueryTree = qtree;              // ...and assign it to the global parse query tree pointer;
 
         if (parseQuery(query))
         {
             try
             {
 #ifdef RASDEBUG
-                LDEBUG << "\n" << *qtree;
+                LDEBUG << "\n"
+                       << *qtree;
 #endif
                 BLINFO << "checking semantics... ";
                 qtree->checkSemantics();
 #ifdef RASDEBUG
-                BLDEBUG << "query tree after semantic check:\n" << *qtree;
+                BLDEBUG << "query tree after semantic check:\n"
+                        << *qtree;
 #endif
                 BLINFO << "evaluating... ";
                 vector<QtData *> *updateResult = qtree->evaluateUpdate();
                 // release data
-                for (auto *iter : *updateResult)
+                for (auto *iter: *updateResult)
                 {
                     delete iter, iter = NULL;
                 }
                 delete updateResult, updateResult = NULL;
-                
+
                 context->evaluationTime = context->timer.elapsedMs();
                 context->timer.restart();
                 context->reportTransferedSize = true;
@@ -1037,8 +1101,18 @@ ServerComm::executeUpdate(unsigned long callingClientId,
     }
     else
     {
-        BLERROR << "Error: client not registered.\n";
-        returnValue = RC_CLIENT_NOT_FOUND;
+        if (clientTbl)
+        {
+            BLERROR << "the request client id " << callingClientId
+                    << " does not match the session client id "
+                    << clientTbl->clientId << "\n";
+        }
+        else
+        {
+            BLERROR << "client table is not initialized, i.e. no session client "
+                       "id has been registered.\n";
+        }
+        returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
 
 #ifdef ENABLE_PROFILING
@@ -1072,9 +1146,10 @@ ServerComm::startInsertPersMDD(unsigned long callingClientId,
     static constexpr unsigned short RC_GENERAL_ERROR = 6;
     unsigned short returnValue = RC_OK;
 
-    DBGREQUEST("'start inserting persistent MDD type', type = '" << typeName
-               << "', collection = '" << collName << "', domain = " << domain
-               << ", cell size = " << typeLength  << ", size = " << (domain.cell_count() * typeLength));
+    DBGREQUEST("'start inserting persistent MDD type', type = '"
+               << typeName << "', collection = '" << collName << "', domain = "
+               << domain << ", cell size = " << typeLength << ", size = "
+               << (domain.cell_count() * typeLength));
 
     ClientTblElt *context = getClientContext(callingClientId);
     if (context)
@@ -1179,7 +1254,6 @@ ServerComm::startInsertPersMDD(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -1233,7 +1307,6 @@ ServerComm::startInsertTransMDD(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -1280,7 +1353,6 @@ ServerComm::endInsertMDD(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -1301,7 +1373,7 @@ ServerComm::insertTile(unsigned long callingClientId,
     ClientTblElt *context = getClientContext(callingClientId);
     if (context)
     {
-        const BaseType *baseType =
+        const auto *baseType =
             isPersistent ? context->assembleMDD->getCellType() : context->transferMDD->getCellType();
         if (baseType)
         {
@@ -1335,15 +1407,13 @@ ServerComm::insertTile(unsigned long callingClientId,
                 std::unique_ptr<Tile> tile(new Tile(domain, baseType, true, dataPtr, newDataSize, dataFmt));
 
                 // for java clients only: check endianness and swap bytes tile if necessary
-                if (context->clientType == ClientType::Http &&
-                        r_Endian::get_endianness() != r_Endian::r_Endian_Big)
+                if (context->needEndianessSwap())
                 {
                     DBGINFONNL("big-endian client so changing result endianness... ");
                     // we have to swap the endianess
-                    char *tpstruct = baseType->getTypeStructure();
+                    auto tpstruct = baseType->getTypeStructure();
                     auto useType = std::unique_ptr<r_Base_Type>(
-                                       static_cast<r_Base_Type *>(r_Type::get_any_type(tpstruct)));
-                    free(tpstruct);
+                        static_cast<r_Base_Type *>(r_Type::get_any_type(tpstruct)));
                     char *newContents = static_cast<char *>(mymalloc(tile->getSize()));
                     // change the endianness of the entire tile for identical domains for src and dest
                     r_Endian::swap_array(useType.get(), domain, domain, tile->getContents(), newContents);
@@ -1361,8 +1431,8 @@ ServerComm::insertTile(unsigned long callingClientId,
                 }
                 else
                 {
-                    tileSet.reset(new vector<Tile *> {tile.get()});
-                    tile.release(); // don't destroy tile in this case
+                    tileSet.reset(new vector<Tile *>{tile.get()});
+                    tile.release();  // don't destroy tile in this case
                 }
 
                 // insert tile
@@ -1398,7 +1468,6 @@ ServerComm::insertTile(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -1410,7 +1479,7 @@ ServerComm::insertTile(unsigned long callingClientId,
 
 unsigned short
 ServerComm::getNextMDD(unsigned long callingClientId,
-                       r_Minterval &mddDomain, char *&typeName, char *&typeStructure,
+                       r_Minterval &mddDomain, std::string &typeName, std::string &typeStructure,
                        r_OId &oid, unsigned short &currentFormat)
 {
     static constexpr unsigned short RC_COLL_EMPTY = 1;
@@ -1420,14 +1489,13 @@ ServerComm::getNextMDD(unsigned long callingClientId,
     static constexpr unsigned short RC_CLIENT_CONTEXT_NOT_FOUND = 2;
 
     unsigned short returnValue = RC_OK;
-
     DBGREQUEST("'get next MDD'")
 
     ClientTblElt *context = getClientContext(callingClientId);
     if (context)
     {
         if (context->transferData && context->transferDataIter &&
-           *context->transferDataIter != context->transferData->end())
+            *context->transferDataIter != context->transferData->end())
         {
             try
             {
@@ -1485,7 +1553,7 @@ ServerComm::getNextMDD(unsigned long callingClientId,
                 *(context->tileIter) = context->transTiles->begin();
 
                 // set output parameters typeName and typeStructure
-                typeName = strdup(""); // no type name
+                typeName = "";  // no type name
                 MDDType *mddType = new MDDDomainType("tmp", baseType, mddDomain);
                 TypeFactory::addTempType(mddType);
                 typeStructure = mddType->getTypeStructure();
@@ -1524,13 +1592,14 @@ ServerComm::getNextMDD(unsigned long callingClientId,
             {
                 DBGINFO("ok, " << context->transTiles->size() << " more tile(s)");
             }
-            else // context->transTiles->size() == 0
+            else  // context->transTiles->size() == 0
             {
                 returnValue = RC_MDD_EMPTY;
                 DBGWARN("no tiles in MDD object.");
             }
         }
-        else if (context->transferDataIter && *(context->transferDataIter) == context->transferData->end())
+        else if (context->transferDataIter &&
+                 *(context->transferDataIter) == context->transferData->end())
         {
             returnValue = RC_COLL_EMPTY;
             DBGINFO("ok, no more tiles.");
@@ -1544,15 +1613,13 @@ ServerComm::getNextMDD(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
 
     return returnValue;
 }
 
-void
-ServerComm::swapScalarElement(char *buffer, const BaseType *baseType)
+void ServerComm::swapScalarElement(char *buffer, const BaseType *baseType)
 {
     assert(baseType);
     switch (baseType->getType())
@@ -1609,7 +1676,6 @@ ServerComm::swapScalarElement(char *buffer, const BaseType *baseType)
     default:
         break;
     }
-
 }
 
 unsigned short
@@ -1649,7 +1715,7 @@ ServerComm::getNextElement(unsigned long callingClientId,
                 {
                     QtStringData *stringDataObj = static_cast<QtStringData *>(dataObj);
                     bufferSize = stringDataObj->getStringData().length() + 1;
-                    buffer = static_cast<char *>(mymalloc(bufferSize));
+                    buffer = new char[bufferSize];
                     memcpy(buffer, stringDataObj->getStringData().c_str(), bufferSize);
                     DBGINFONNL("string data of size " << bufferSize << "... ")
                     break;
@@ -1657,24 +1723,30 @@ ServerComm::getNextElement(unsigned long callingClientId,
                 case QT_INTERVAL:
                 {
                     QtIntervalData *tmp = static_cast<QtIntervalData *>(dataObj);
-                    buffer = tmp->getIntervalData().get_string_representation();
-                    bufferSize = strlen(buffer) + 1;
+                    auto s = tmp->getIntervalData().to_string();
+                    bufferSize = s.size() + 1;
+                    buffer = new char[bufferSize];
+                    memcpy(buffer, s.c_str(), bufferSize);
                     DBGINFONNL("interval data of size " << bufferSize << "... ")
                     break;
                 }
                 case QT_MINTERVAL:
                 {
                     QtMintervalData *tmp = static_cast<QtMintervalData *>(dataObj);
-                    buffer = tmp->getMintervalData().get_string_representation();
-                    bufferSize = strlen(buffer) + 1;
+                    auto s = tmp->getMintervalData().to_string();
+                    bufferSize = s.size() + 1;
+                    buffer = new char[bufferSize];
+                    memcpy(buffer, s.c_str(), bufferSize);
                     DBGINFONNL("minterval data of size " << bufferSize << "... ")
                     break;
                 }
                 case QT_POINT:
                 {
                     QtPointData *tmp = static_cast<QtPointData *>(dataObj);
-                    buffer = tmp->getPointData().get_string_representation();
-                    bufferSize = strlen(buffer) + 1;
+                    auto s = tmp->getPointData().to_string();
+                    bufferSize = s.size() + 1;
+                    buffer = new char[bufferSize];
+                    memcpy(buffer, s.c_str(), bufferSize);
                     DBGINFONNL("point data of size " << bufferSize << "... ")
                     break;
                 }
@@ -1684,11 +1756,10 @@ ServerComm::getNextElement(unsigned long callingClientId,
                     {
                         QtScalarData *scalarDataObj = static_cast<QtScalarData *>(dataObj);
                         bufferSize = scalarDataObj->getValueType()->getSize();
-                        buffer = static_cast<char *>(mymalloc(bufferSize));
+                        buffer = new char[bufferSize];
                         memcpy(buffer, scalarDataObj->getValueBuffer(), bufferSize);
                         // change endianess if necessary
-                        if (context->clientType == ClientType::Http &&
-                                r_Endian::get_endianness() != r_Endian::r_Endian_Big)
+                        if (context->needEndianessSwap())
                         {
                             swapScalarElement(buffer, scalarDataObj->getValueType());
                         }
@@ -1731,7 +1802,6 @@ ServerComm::getNextElement(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
     return returnValue;
@@ -1741,7 +1811,6 @@ unsigned short
 ServerComm::getNextTile(unsigned long callingClientId,
                         RPCMarray **rpcMarray)
 {
-
     static constexpr unsigned short RC_MDD_TRANSFERRED = 0;
     static constexpr unsigned short RC_MDD_EMPTY = 0;
     static constexpr unsigned short RC_OK_MORE_MDDS = 1;
@@ -1772,7 +1841,7 @@ ServerComm::getNextTile(unsigned long callingClientId,
             {
                 if (context->bytesToTransfer == 0 && context->encodedData != NULL)
                 {
-                    free(context->encodedData);
+                    delete[](char *) context->encodedData;
                     context->encodedData = NULL;
                     context->encodedSize = 0;
                 }
@@ -1780,7 +1849,7 @@ ServerComm::getNextTile(unsigned long callingClientId,
                 Tile *resultTile = **context->tileIter;
 
                 // allocate memory for the output parameter rpcMarray and set fields
-                *rpcMarray = static_cast<RPCMarray *>(mymalloc(sizeof(RPCMarray)));
+                *rpcMarray = new RPCMarray();
                 (*rpcMarray)->currentFormat = resultTile->getDataFormat();
                 (*rpcMarray)->cellTypeLength = resultTile->getType()->getSize();
                 (*rpcMarray)->domain = resultTile->getDomain().get_string_representation();
@@ -1790,6 +1859,7 @@ ServerComm::getNextTile(unsigned long callingClientId,
                 char *useTransData = resultTile->getContents();
                 unsigned long totalSize = resultTile->getSize();
                 auto transferSize = totalSize;
+                const auto maxTransferBufferSize = size_t(configuration.getMaxTransferBufferSize());
                 if (totalSize > maxTransferBufferSize)
                 {
                     // if there is the rest of a tile to transfer, do it!
@@ -1808,18 +1878,18 @@ ServerComm::getNextTile(unsigned long callingClientId,
                         }
                         context->bytesToTransfer -= transferSize;
                     }
-                    else // transfer first block of too large tile
+                    else  // transfer first block of too large tile
                     {
                         transferSize = maxTransferBufferSize;
                         context->bytesToTransfer = totalSize - transferSize;
                         statusValue = ST_MORE_BLOCKS;
                     }
                 }
-                else    // resultTile->getSize() <= maxTransferBufferSize
+                else  // resultTile->getSize() <= maxTransferBufferSize
                 {
                     statusValue = ST_SMALL_TILE;
                 }
-                
+
                 context->totalTransferedSize += transferSize;
 
                 (*rpcMarray)->data.confarray_len = static_cast<unsigned int>(transferSize);
@@ -1833,7 +1903,6 @@ ServerComm::getNextTile(unsigned long callingClientId,
                     context->totalRawSize += resultTile->getSize();
                     (*context->tileIter)++;
                 }
-                // else?
             }
             catch (r_Error &err)
             {
@@ -1902,7 +1971,6 @@ ServerComm::getNextTile(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
     return returnValue;
@@ -1923,7 +1991,6 @@ ServerComm::endTransfer(unsigned long client)
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -1934,16 +2001,16 @@ void ServerComm::reportExecutionTimes(ClientTblElt *context)
     if (context->evaluationTime > 0)
     {
 #ifdef RASDEBUG
-        DBGINFO("ok, evaluation time " << context->evaluationTime 
-                << " ms, transfer time " << context->timer.elapsedMs() 
-                << " ms, transfer size " << context->totalTransferedSize << " bytes.\n");
+        DBGINFO("ok, evaluation time " << context->evaluationTime
+                                       << " ms, transfer time " << context->timer.elapsedMs()
+                                       << " ms, transfer size " << context->totalTransferedSize << " bytes.\n");
         context->evaluationTime = 0;
         context->totalTransferedSize = 0;
 #else
         if (context->reportTransferedSize)
         {
             BLINFO << "ok, evaluation time " << context->evaluationTime
-                   <<" ms, transfer time " << context->timer.elapsedMs() 
+                   << " ms, transfer time " << context->timer.elapsedMs()
                    << " ms, transfer size " << context->totalTransferedSize << " bytes.\n";
             context->evaluationTime = 0;
             context->totalTransferedSize = 0;
@@ -1997,7 +2064,6 @@ ServerComm::insertColl(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -2040,7 +2106,6 @@ ServerComm::deleteCollByName(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -2106,7 +2171,6 @@ ServerComm::deleteObjByOId(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.")
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -2179,7 +2243,6 @@ ServerComm::removeObjFromColl(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.")
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -2190,7 +2253,7 @@ ServerComm::removeObjFromColl(unsigned long callingClientId,
 // -----------------------------------------------------------------------------------------
 
 unsigned short ServerComm::getTransferCollInfo(
-    ClientTblElt *context, r_OId &oid, char *&typeName, char *&typeStructure, MDDColl *coll) const
+    ClientTblElt *context, r_OId &oid, std::string &typeName, std::string &typeStructure, MDDColl *coll) const
 {
     static constexpr unsigned short RC_OK_SOME_ELEMENTS = 0;
     static constexpr unsigned short RC_OK_NO_ELEMENTS = 1;
@@ -2200,7 +2263,7 @@ unsigned short ServerComm::getTransferCollInfo(
     const CollectionType *collectionType = coll->getCollectionType();
     if (collectionType)
     {
-        typeName = strdup(collectionType->getTypeName());
+        typeName = collectionType->getTypeName();
         typeStructure = collectionType->getTypeStructure();  // no copy !!!
         if (coll->isPersistent())
         {
@@ -2234,7 +2297,7 @@ unsigned short ServerComm::getTransferCollInfo(
 
 unsigned short
 ServerComm::getCollByName(unsigned long callingClientId,
-                          const char *collName, char *&typeName, char *&typeStructure, r_OId &oid)
+                          const char *collName, std::string &typeName, std::string &typeStructure, r_OId &oid)
 {
     static constexpr unsigned short RC_OK_SOME_ELEMENTS = 0;
     static constexpr unsigned short RC_COLL_NOT_FOUND = 2;
@@ -2281,11 +2344,9 @@ ServerComm::getCollByName(unsigned long callingClientId,
             DBGERROR("unspecific exception while opening collection.");
             throw;
         }
-
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
     return returnValue;
@@ -2294,7 +2355,7 @@ ServerComm::getCollByName(unsigned long callingClientId,
 // TODO: refactor, essentially same as getCollByName
 unsigned short
 ServerComm::getCollByOId(unsigned long callingClientId,
-                         r_OId &oid, char *&typeName, char *&typeStructure, char *&collName)
+                         r_OId &oid, std::string &typeName, std::string &typeStructure, std::string &collName)
 {
     static constexpr unsigned short RC_OK_SOME_ELEMENTS = 0;
     static constexpr unsigned short RC_COLL_NOT_FOUND = 2;
@@ -2305,7 +2366,7 @@ ServerComm::getCollByOId(unsigned long callingClientId,
 
     unsigned short returnValue = RC_OK_SOME_ELEMENTS;
 
-    collName = NULL;
+    collName = "";
     ClientTblElt *context = getClientContext(callingClientId);
     if (context)
     {
@@ -2325,7 +2386,7 @@ ServerComm::getCollByOId(unsigned long callingClientId,
         {
             context->transferColl = MDDColl::getMDDCollection(oidIf);
 
-            collName = strdup(context->transferColl->getName());
+            collName = context->transferColl->getName();
             context->transferCollIter = context->transferColl->createIterator();
             context->transferCollIter->reset();
             returnValue = getTransferCollInfo(context, oid, typeName, typeStructure, context->transferColl);
@@ -2356,16 +2417,14 @@ ServerComm::getCollByOId(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
     return returnValue;
 }
 
-
 unsigned short
 ServerComm::getCollOIdsByName(unsigned long callingClientId,
-                              const char *collName, char *&typeName, char *&typeStructure,
+                              const char *collName, std::string &typeName, std::string &typeStructure,
                               r_OId &oid, RPCOIdEntry *&oidTable, unsigned int &oidTableSize)
 {
     static constexpr unsigned short RC_OK_SOME_ELEMENTS = 0;
@@ -2399,7 +2458,7 @@ ServerComm::getCollOIdsByName(unsigned long callingClientId,
             if (coll->getCardinality() > 0)
             {
                 oidTableSize = coll->getCardinality();
-                oidTable = static_cast<RPCOIdEntry *>(mymalloc(sizeof(RPCOIdEntry) * oidTableSize));
+                oidTable = new RPCOIdEntry[oidTableSize];
 
                 auto collIter = std::unique_ptr<MDDCollIter>(coll->createIterator());
                 collIter->reset();
@@ -2411,7 +2470,8 @@ ServerComm::getCollOIdsByName(unsigned long callingClientId,
                     if (mddObj->isPersistent() && mddObj->getEOId(&eOId) == 0)
                     {
                         oidTable[i].oid = strdup(r_OId(eOId.getSystemName(), eOId.getBaseName(),
-                                                       eOId.getOId()).get_string_representation());
+                                                       eOId.getOId())
+                                                     .get_string_representation());
                     }
                     if (!oidTable[i].oid)
                     {
@@ -2441,18 +2501,16 @@ ServerComm::getCollOIdsByName(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
 
     return returnValue;
 }
 
-
 unsigned short
 ServerComm::getCollOIdsByOId(unsigned long callingClientId,
-                             r_OId &oid, char *&typeName, char *&typeStructure,
-                             RPCOIdEntry *&oidTable, unsigned int &oidTableSize, char *&)
+                             r_OId &oid, std::string &typeName, std::string &typeStructure,
+                             RPCOIdEntry *&oidTable, unsigned int &oidTableSize, std::string &)
 {
     static constexpr unsigned short RC_OK_SOME_ELEMENTS = 0;
     static constexpr unsigned short RC_COLL_NOT_FOUND = 2;
@@ -2496,7 +2554,7 @@ ServerComm::getCollOIdsByOId(unsigned long callingClientId,
             if (coll->getCardinality() > 0)
             {
                 oidTableSize = coll->getCardinality();
-                oidTable = static_cast<RPCOIdEntry *>(mymalloc(sizeof(RPCOIdEntry) * oidTableSize));
+                oidTable = new RPCOIdEntry[oidTableSize];
 
                 auto collIter = std::unique_ptr<MDDCollIter>(coll->createIterator());
                 collIter->reset();
@@ -2508,7 +2566,8 @@ ServerComm::getCollOIdsByOId(unsigned long callingClientId,
                     if (mddObj->isPersistent() && mddObj->getEOId(&eOId) == 0)
                     {
                         oidTable[i].oid = strdup(r_OId(eOId.getSystemName(), eOId.getBaseName(),
-                                                       eOId.getOId()).get_string_representation());
+                                                       eOId.getOId())
+                                                     .get_string_representation());
                     }
                     if (!oidTable[i].oid)
                     {
@@ -2538,7 +2597,6 @@ ServerComm::getCollOIdsByOId(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_CONTEXT_NOT_FOUND;
     }
     return returnValue;
@@ -2547,7 +2605,7 @@ ServerComm::getCollOIdsByOId(unsigned long callingClientId,
 unsigned short
 ServerComm::getMDDByOId(unsigned long callingClientId,
                         r_OId &oid, r_Minterval &mddDomain,
-                        char *&typeName, char *&typeStructure, unsigned short &currentFormat)
+                        std::string &typeName, std::string &typeStructure, unsigned short &currentFormat)
 {
     static constexpr unsigned short RC_MDD_NOT_FOUND = 2;
     static constexpr unsigned short RC_MDD_HAS_NO_TILES = 3;
@@ -2617,7 +2675,7 @@ ServerComm::getMDDByOId(unsigned long callingClientId,
                 // set typeName and typeStructure
 
                 // old: typeName = strdup( context->transferMDD->getCellTypeName() ); not known for the moment being
-                typeName = strdup("");
+                typeName = "";
                 // create a temporary mdd type for the moment being
                 MDDType *mddType = new MDDDomainType(
                     "tmp", context->transferMDD->getCellType(), context->transferMDD->getCurrentDomain());
@@ -2647,7 +2705,7 @@ ServerComm::getMDDByOId(unsigned long callingClientId,
                 {
                     DBGINFO("ok, got " << context->transTiles->size() << " tile(s).");
                 }
-                else   // context->transTiles->size() == 0
+                else  // context->transTiles->size() == 0
                 {
                     returnValue = RC_MDD_HAS_NO_TILES;
                     DBGERROR("no tiles in MDD object.");
@@ -2656,13 +2714,12 @@ ServerComm::getMDDByOId(unsigned long callingClientId,
         }
         else
         {
-            returnValue = RC_MDD_NOT_FOUND; // oid does not belong to an MDD object
+            returnValue = RC_MDD_NOT_FOUND;  // oid does not belong to an MDD object
             DBGERROR("oid does not belong to an MDD object.");
         }
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     context->totalRawSize = 0;
@@ -2706,7 +2763,6 @@ ServerComm::getNewOId(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -2737,7 +2793,6 @@ ServerComm::getObjectType(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -2745,14 +2800,14 @@ ServerComm::getObjectType(unsigned long callingClientId,
 
 unsigned short
 ServerComm::getTypeStructure(unsigned long callingClientId,
-                             const char *typeName, unsigned short typeType, char *&typeStructure)
+                             const char *typeName, unsigned short typeType, std::string &typeStructure)
 {
     static constexpr unsigned short RC_NO_TA_OPEN = 1;
     static constexpr unsigned short RC_INVALID_TYPE = 2;
 
     // typeType argument can be one of these..
     static constexpr unsigned short TYPE_COLL = 1;
-    static constexpr unsigned short TYPE_MDD  = 2;
+    static constexpr unsigned short TYPE_MDD = 2;
 
     unsigned short returnValue = RC_OK;
 
@@ -2761,7 +2816,6 @@ ServerComm::getTypeStructure(unsigned long callingClientId,
     ClientTblElt *context = getClientContext(callingClientId);
     if (!context)
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     else if (!transactionActive)
@@ -2784,20 +2838,17 @@ ServerComm::getTypeStructure(unsigned long callingClientId,
             returnValue = RC_INVALID_TYPE;
             break;
         }
+
         if (mappedType)
-        {
-            typeStructure = mappedType->getTypeStructure();    // no copy
-        }
+            typeStructure = mappedType->getTypeStructure();
         else
-        {
             returnValue = RC_INVALID_TYPE;
-        }
 
         if (returnValue == RC_INVALID_TYPE)
             DBGERROR("unknown type.")
-            else
-                DBGOK
-            }
+        else
+            DBGOK
+    }
     return returnValue;
 }
 
@@ -2832,7 +2883,6 @@ ServerComm::setTransferMode(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
@@ -2866,22 +2916,20 @@ ServerComm::setStorageMode(unsigned long callingClientId,
     }
     else
     {
-        DBGERROR("client not registered.");
         returnValue = RC_CLIENT_NOT_FOUND;
     }
     return returnValue;
 }
 
-int
-ServerComm::ensureTileFormat(r_Data_Format &,
-                             r_Data_Format,
-                             const r_Minterval &,
-                             const BaseType *,
-                             char *&,
-                             r_Bytes &,
-                             int,
-                             int,
-                             const char *)
+int ServerComm::ensureTileFormat(r_Data_Format &,
+                                 r_Data_Format,
+                                 const r_Minterval &,
+                                 const BaseType *,
+                                 char *&,
+                                 r_Bytes &,
+                                 int,
+                                 int,
+                                 const char *)
 {
     int status = RC_OK;
     return status;
@@ -2892,6 +2940,11 @@ void ServerComm::setAdmin(AdminIf *newAdmin)
     if (admin)
         delete admin;
     admin = newAdmin;
+}
+
+void ServerComm::setRasmgrComm(const std::shared_ptr<rasserver::RasmgrComm> &value)
+{
+    rasmgrComm = value;
 }
 
 void ServerComm::resetExecuteQueryRes(ExecuteQueryRes &res)

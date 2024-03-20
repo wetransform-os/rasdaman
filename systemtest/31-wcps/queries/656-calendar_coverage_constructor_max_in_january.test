@@ -1,0 +1,11 @@
+for $c in (test_365_days_irregular)
+return 
+
+
+max(
+
+coverage x
+over $pt ansi(allyears("2023"))
+values $c[ansi($pt . "-01" : $pt . "-01")]
+
+)

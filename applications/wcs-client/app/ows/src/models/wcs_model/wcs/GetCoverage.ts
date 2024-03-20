@@ -39,6 +39,7 @@ module wcs {
         public interpolation:wcs.Interpolation;
         public crs:wcs.CRS;
         public clipping:wcs.Clipping;
+        public isGeneralGridCoverage:boolean;
 
         public constructor(coverageId:string, dimensionSubset:DimensionSubset[], format?:string, mediaType?:boolean) {
             super();
@@ -89,6 +90,12 @@ module wcs {
 
             if (this.mediaType) {
                 serialization += "&MEDIATYPE=multipart/related";
+            }
+
+            if (this.isGeneralGridCoverage && this.format.includes("gml")) {
+                serialization += "&outputType=GeneralGridCoverage";
+                // NOTE: only WCS 2.1.0 supports GeneralGridCoverage
+                serialization = serialization.replace("2.0.1", "2.1.0");
             }
 
             return serialization;

@@ -39,7 +39,8 @@ module rasdaman {
             "rasdaman.WMSSettingsService",   
             "Notification",
             "rasdaman.ErrorHandlingService",
-            "rasdaman.CredentialService"
+            "rasdaman.CredentialService",
+            "rasdaman.LoginService"
         ];
 
         public constructor(private $http:angular.IHttpService,
@@ -51,61 +52,17 @@ module rasdaman {
                            private wmsSettingsService:rasdaman.WMSSettingsService,
                            private alertService:any,
                            private errorHandlingService:ErrorHandlingService,
-                           private credentialService:rasdaman.CredentialService) {
+                           private credentialService:rasdaman.CredentialService,
+                           private loginService:rasdaman.LoginService) {
 
             $scope.petascopeEndPoint = wcsSettingsService.wcsEndpoint;            
             $scope.credential = new login.Credential("", "");
                 
             // Login with rasdaman user credentials
-            $scope.login = (...args: any[])=> {                                           
-
-                $rootScope.homeLoggedIn = false;
-                $scope.displayError = false;                                
-
-                wcsSettingsService.setWCSEndPoint($scope.petascopeEndPoint);
-                wmsSettingsService.setWMSEndPoint($scope.petascopeEndPoint);                
-                
-                $scope.checkPetascopeEnableAuthentication(wcsSettingsService.contextPath, $scope.credential).then(
-                    (response) => {
-                        // response is a list of role names: e,g: admin,write,...
-                        // Store the credentials to be reused for next requests
-                        var credential = $scope.credential;
-                        credentialService.persitCredential($scope.petascopeEndPoint, credential);                            
-                        
-                        // Change view to WSClient after logging in                            
-                        $rootScope.homeLoggedIn = true;
-                        
-                    }, (error)=> {
-                        errorHandlingService.handleError(error);
-                    }
-                );      
-            }
-
-            /**
-             * Check if login credentials are valid in a Petascope contextPath
-             */
-            $scope.checkPetascopeEnableAuthentication = function(contextPath:string, credential:login.Credential):angular.IPromise<any> {
-                var requestUrl = contextPath + "/login";
-                
-                var result = $q.defer();            
-                
-                $http.get(requestUrl, {
-                        headers: credentialService.createBasicAuthenticationHeader(credential.username, credential.password)
-                    }).then(function (dataObj:any) {
-                        $rootScope.usernameLoggedIn = credential.username;
-  
-                        result.resolve(dataObj.data);                    
-                    }, function (errorObj) {
-                        // Petascope community, no need to login
-                        if (errorObj.status == 404) {
-                            result.resolve("true");
-                        } else {
-                            result.reject(errorObj);
-                        }
-                    });
-                        
-                return result.promise;
-            }
+            $scope.login = (...args: any[]) => {            
+                loginService.authenticateToPetascope($scope.credential.username, $scope.credential.password);                
+            }            
+            
         }      
     }
 

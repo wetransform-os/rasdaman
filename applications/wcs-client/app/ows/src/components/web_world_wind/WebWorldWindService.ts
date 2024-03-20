@@ -28,7 +28,7 @@
 
 module rasdaman {
     //Declare the WorldWind object so that typescript does not complain.
-    declare var WorldWind:any;
+    declare let WorldWind:any;
     // NOTE: remember to register Service, Controller, Directive classes to app/src/app.ts
     // or it will have this error: $injector:unpr
     // https://docs.angularjs.org/error/$injector/unpr?p0=rasdaman.WebWorldWindServiceProvider%20%3C-%20rasdaman.WebWorldWindService
@@ -41,13 +41,18 @@ module rasdaman {
         ];
 
 
-        // Array of object for each WebWorldWind in each canvas (GetCapabilities, DescribeCoverage, GetCoverage)        
+        // Array of object for each WebWorldWind in each canvas (WCS GetCapabilities, DescribeCoverage, GetCoverage, WMS GetCapabilities, WMS DescribeLayer)        
         private webWorldWindModels: WebWorldWindModel[] = [];  
-        // Array of coveragesExtents to be displayed on this webWorldWind object               
-        private coveragesExtentsArray: any = null;
 
         private wmsSetting:WMSSettingsService = null;
         private authorizationToken:string = "";
+
+        private SURFACE_POLYGONS_LAYER = "SURFACE_POLYGONS_LAYER";
+
+        // Collects all WGS84 bboxes from geo-referenced coverages to be used in other WCS controllers
+        public wcsGetCapabilitiesWGS84CoverageExtents:wms.CoverageExtent[] = [];
+        // Collects all WGS84 bboxes from geo-referenced coverages to be used in other WMS controllers
+        public wmsGetCapabilitiesWGS84CoverageExtents:wms.CoverageExtent[] = [];
 
         public constructor($rootScope:angular.IRootScopeService,                           
                            wmsSetting:rasdaman.WMSSettingsService,
@@ -56,40 +61,77 @@ module rasdaman {
             this.authorizationToken = credentialService.getAuthorizationHeader(this.wmsSetting.wmsEndpoint)["Authorization"];            
         }
 
-        public setCoveragesExtentsArray(coveragesExtentsArray: any) {
-            this.coveragesExtentsArray = coveragesExtentsArray;
-        }
-
-        // Return an array of all CoveragesExtents
-        public getCoveragesExtentsArray() {
-            return this.coveragesExtentsArray;
-        }
-
-        // Return an array containing only one CoverageExtent if coverageId exists
-        public getCoveragesExtentsByCoverageId(coverageId: string) {
-            var result = [];
-            for (var i = 0; i < this.coveragesExtentsArray.length; i++) {
-                if (this.coveragesExtentsArray[i].coverageId === coverageId) {
-                    result.push(this.coveragesExtentsArray[i]);
-                    return result;
+        /**
+         Given a list of coverage extents / or layer extents and a coverage Id (layer name) -> return this coverage Id's extent in WGS84 CRS
+         */
+        public getCoveragesExtentByCoverageId(coverageExtents:any[], coverageId:string) {
+            for (let i = 0; i < coverageExtents.length; i++) {
+                let tmp = coverageExtents[i];
+                if (tmp.coverageId === coverageId) {
+                    return tmp;
                 }
             }
 
             // CoverageExtent does not exist which means coverage cannot reproject to EPSG:4326
+            return null;            
+        }
+
+        /**
+         * Return a WebWorldWindModel object based on a canvas Id         
+         */
+        private getWebWorldWindModelByCanvasId(canvasId: string): WebWorldWindModel {            
+            for (let i = 0; i < this.webWorldWindModels.length; i++) {
+                if (this.webWorldWindModels[i].canvasId == canvasId) {
+                    return this.webWorldWindModels[i];
+                }
+            }
             return null;
+        }
+
+        /**
+         * A canvas (wwd) has only 1 surface polygons layer to draw polygons on it.
+         */
+        private getSurfacePolygonsLayer(canvasId:string):any {
+            let webWorldWindModel:WebWorldWindModel = this.getWebWorldWindModelByCanvasId(canvasId);            
+            for (let i = 0; i < webWorldWindModel.wwd.layers.length; i++) {
+                let layer:any = webWorldWindModel.wwd.layers[i];
+                if (layer.displayName == this.SURFACE_POLYGONS_LAYER) {
+                    return layer;
+                }
+            }
+
+            return null;            
+        }
+
+        /**
+         * When a coverage is renamed, then find the polygon in surface image layer if exists with old coverage id, 
+         * then update it to new coverage id         
+         */
+        public updateSurfacePolygonCoverageId(canvasId:string, oldCoverageId:string, newCoverageId:string):void {
+            let polygonsLayer:any = this.getSurfacePolygonsLayer(canvasId);
+            for (let i = 0; i < polygonsLayer.renderables.length; i++) {
+                let polygonObj = polygonsLayer.renderables[i];
+                if (polygonObj.coverageId == oldCoverageId) {
+                    polygonObj.coverageId = newCoverageId;
+                    return;
+                }
+            }
         }
         
         // Init the WebWorldWind on the canvasId HTML element
-        private initWebWorldWind(canvasId: string) {
+        public initWebWorldWind(canvasId: string) {
+            let tmp:WebWorldWindModel = this.getWebWorldWindModelByCanvasId(canvasId);
+            if (tmp != null) {
+                // WebWorldWindModel already initialized, don't add it one more time
+                return null;
+            }
+
             // Create a WorldWindow for the canvas.                
-            var wwd = new WorldWind.WorldWindow(canvasId);
+            let wwd = new WorldWind.WorldWindow(canvasId);
             
-            // Create a layer to hold the polygons.
-            var polygonLayer = new WorldWind.RenderableLayer();         
-            var surfaceImageLayer = new WorldWind.RenderableLayer();
-            var wmsLayer = null;
+            let wmsLayer = null;
             
-            var layers = [
+            let layers = [
                 {layer: new WorldWind.BMNGOneImageLayer(), enabled: true},
                 {layer: new WorldWind.BingAerialWithLabelsLayer(null), enabled: true},
                 {layer: new WorldWind.CompassLayer(), enabled: true},
@@ -98,54 +140,93 @@ module rasdaman {
             ];
 
             // Bing layers
-            for (var i = 0; i < layers.length; i++) {
+            for (let i = 0; i < layers.length; i++) {
                 layers[i].layer.enabled = layers[i].enabled;
                 wwd.addLayer(layers[i].layer);
             }
 
             // Coverage's extent as a text when hovering mouse over
-            var textLayer = new WorldWind.RenderableLayer("Screen Text");
+            let textLayer = new WorldWind.RenderableLayer("Screen Text");
             wwd.addLayer(textLayer);
-            
-            // Callback function on mouse hover event
-            var handlePick = function (o) {
+
+            // Create a layer to hold the polygons.
+            let surfaceImageLayer = new WorldWind.RenderableLayer(this.SURFACE_POLYGONS_LAYER);            
+            // A layer contains a list of polygons (each polygon is a coverage's extent in WGS84 CRS)
+            wwd.addLayer(surfaceImageLayer);
+
+            // Listen for mouse moves and highlight the placemarks that the cursor rolls over.
+            wwd.addEventListener("mousemove", (o) => {
                 // Clear the displayed screen text
                 textLayer.removeAllRenderables();
-                var pickPoint = wwd.canvasCoordinates(o.clientX, o.clientY);                    
-                var pickList = wwd.pick(pickPoint);
+                let pickPoint = wwd.canvasCoordinates(o.clientX, o.clientY);                    
+                let pickList = wwd.pick(pickPoint);
                 if (pickList.objects.length > 0) {
-                    for (var p = 0; p < pickList.objects.length; p++) {
-                        var pickedObject = pickList.objects[p];
-                        if (!pickedObject.isTerrain) {
-                            if (pickedObject.userObject instanceof WorldWind.SurfacePolygon) {
-                                var screenText = new WorldWind.ScreenText(
-            new WorldWind.Offset(WorldWind.OFFSET_FRACTION, 0.5, WorldWind.OFFSET_FRACTION, 0.5), pickedObject.userObject.userProperties);
-                                var textAttributes = new WorldWind.TextAttributes(null);
+
+                    let polygonObjs = this.getSurfacePolygonsLayer(canvasId).renderables;
+
+                    for (let p = 0; p < pickList.objects.length; p++) {
+                        let pickedObject = pickList.objects[p];
+
+                        if (pickedObject.position != null) {
+
+                            let lat = pickedObject.position.latitude;
+                            let lon = pickedObject.position.longitude;
+
+                            let intersectedCoverageIds = "";                           
+
+                            let count = 0;
+                            for (let i = 0; i < polygonObjs.length; i++) {
+                                let coverageExtent = polygonObjs[i].coverageExtent;
+                                let bbox = coverageExtent.bbox;
+                                
+                                
+                                if (lon >= bbox.xmin && lon <= bbox.xmax
+                                    && lat >= bbox.ymin && lat <= bbox.ymax) {
+                                    if (count < 8) {
+                                        let text = "Object: " + coverageExtent.coverageId 
+                                            + " - EPSG:4326 bbox: " 
+                                            + "minLat=" + bbox.ymin.toFixed(2) + ", minLon=" + bbox.xmin.toFixed(2)
+                                            + ", maxLat=" + bbox.ymax.toFixed(2) + ", maxLon=" + bbox.xmax.toFixed(2);
+                                        intersectedCoverageIds += text + " \n";
+                                    }
+
+                                    count += 1;
+                                }
+
+                            }
+
+                            if (count >= 8) {
+                                intersectedCoverageIds = " There are total: " + count + " intersecting objects. \n " 
+                                                    + intersectedCoverageIds 
+                                                    + " and more objects ... \n" ;
+                            }        
+                            
+                            if (intersectedCoverageIds != "") {
+                                let screenText = new WorldWind.ScreenText(
+                                                        new WorldWind.Offset(WorldWind.OFFSET_FRACTION, 0.5, WorldWind.OFFSET_FRACTION, 0.5), 
+                                                                            intersectedCoverageIds);
+                                let textAttributes = new WorldWind.TextAttributes(null);
                                 textAttributes.color = WorldWind.Color.YELLOW;
                                 screenText.attributes = textAttributes;
                                 
                                 textLayer.addRenderable(screenText);
-                                break;
                             }
+
+                            break;
                         }
+                        
                     }
                 }
-            }
-            
-            // Listen for mouse moves and highlight the placemarks that the cursor rolls over.
-            wwd.addEventListener("mousemove", handlePick);
+            });
 
             // Now set up to handle highlighting.
-            var highlightController = new WorldWind.HighlightController(wwd);  
+            let highlightController = new WorldWind.HighlightController(wwd);  
 
             // Create a new WebWorldWindModel and add to the array
-            var webWorldWindModel: WebWorldWindModel = {
+            let webWorldWindModel: WebWorldWindModel = {
                 canvasId: canvasId,
                 wwd: wwd,
-                surfaceImageLayer: surfaceImageLayer,
-                wmsLayer: wmsLayer,
-                polygonLayer: polygonLayer,
-                hidedPolygonObjsArray: []
+                wmsLayer: wmsLayer
             }
 
             this.webWorldWindModels.push(webWorldWindModel);
@@ -154,203 +235,11 @@ module rasdaman {
             return webWorldWindModel;
         }
 
-
-        // To get the coverageIds of other coverages in the current page which have same extents.
-        // As in the Globe, only the upper coverage's polygon can be hovered, so need to add these coverageIds to the text layer
-        // to let user know how many coverages in this polygon.
-        // return: array[string] coverageIds
-        private getCoverageIdsSameExtent(coverageExtent: any, coveragesExtentsArray: any) {
-            var coveragedIds = [];            
-            var xmin = coverageExtent.bbox.xmin;
-            var ymin = coverageExtent.bbox.ymin;
-            var xmax = coverageExtent.bbox.xmax;
-            var ymax = coverageExtent.bbox.ymax;
-
-            for (var i = 0; i < coveragesExtentsArray.length; i++) {
-                // NOTE: only when coverage is showed, then coverageId should be listed
-                if (coveragesExtentsArray[i].show) {
-                    var coverageIdTmp = coveragesExtentsArray[i].coverageId;
-                    var bboxTmp = coveragesExtentsArray[i].bbox;
-                    var xminTmp = bboxTmp.xmin;
-                    var yminTmp = bboxTmp.ymin;
-                    var xmaxTmp = bboxTmp.xmax;
-                    var ymaxTmp = bboxTmp.ymax;
-
-                    if (xmin == xminTmp && ymin == yminTmp && xmax == xmaxTmp && ymax == ymaxTmp) { 
-                        if (coveragesExtentsArray[i].displayFootprint) {
-                            // add the coverages with same extent with input coverage (incldue itself)
-                            coveragedIds.push("Coverage Id: " + coverageIdTmp + "\n");
-                        }                        
-                    }
-                }                
-            }
-
-            return coveragedIds;
-        }
-
-        public showCoverageExtentOnGlobe(canvasId: string, coverageId) {
-            var webWorldWindModel = null;            
-            for (var i = 0; i < this.webWorldWindModels.length; i++) {
-                if (this.webWorldWindModels[i].canvasId === canvasId) {             
-                    webWorldWindModel = this.webWorldWindModels[i];
-                    break;
-                }
-            }
-            
-            var polygonLayer = webWorldWindModel.polygonLayer;
-            var coveragesExtentsArray = polygonLayer.coveragesExtentsArray;
-            var coverageExtent = null;
-            for (var i = 0; i < coveragesExtentsArray.length; i++) {
-                if (coveragesExtentsArray[i].coverageId == coverageId) {
-                    coverageExtent = coveragesExtentsArray[i];
-                    break;
-                }
-            }
-
-            if (coverageExtent != null) {
-                // look at the showed/hided coverage extent's center
-                this.gotoCoverageExtentCenter(canvasId, [coverageExtent]);
-            }
-
-            // Cannot find a polygon to hide, then it must need to show a coverage
-            for (var i = 0; i < webWorldWindModel.hidedPolygonObjsArray.length; i++) {
-                var polygonObj = webWorldWindModel.hidedPolygonObjsArray[i];
-                if (polygonObj.coverageId == coverageId) {
-                    // show the polygon (coverageExtent)
-                    polygonLayer.addRenderable(polygonObj);
-
-                    var polygonObj = polygonLayer.renderables[0];
-                    polygonObj.coverageExtentStr = "Coverage Id: " + coverageId + "\n\n" 
-                                                 + polygonObj.coverageExtentStr + "\n";
-
-                    // then update the text of polygon when hide 
-                    this.updatePolygonUserPropertiesWhenShowHide(polygonLayer);
-
-                    return;
-                }
-            } 
-        }
-
-        // If a coverage is reprojectable, user can show/hide it manually, default it is shown on globe.
-        // Only work for GetCapabilities tab.
-        public showHideCoverageExtentOnGlobe(canvasId: string, coverageId:string) {
-            var webWorldWindModel = null;            
-            for (var i = 0; i < this.webWorldWindModels.length; i++) {
-                if (this.webWorldWindModels[i].canvasId === canvasId) {             
-                    webWorldWindModel = this.webWorldWindModels[i];
-                    break;
-                }
-            }
-           
-            var polygonLayer = webWorldWindModel.polygonLayer;
-            var coveragesExtentsArray = polygonLayer.coveragesExtentsArray;
-            var coverageExtent = null;
-            for (var i = 0; i < coveragesExtentsArray.length; i++) {
-                if (coveragesExtentsArray[i].coverageId == coverageId) {
-                    coverageExtent = coveragesExtentsArray[i];
-                    break;
-                }
-            }
-
-            if (coverageExtent != null) {
-                // look at the showed/hided coverage extent's center
-                this.gotoCoverageExtentCenter(canvasId, [coverageExtent]);
-            }
-
-            // Iterate the current loaded polygons to remove a polygon for input coverageId
-            for (var i = 0; i < polygonLayer.renderables.length; i++) {
-                var polygonObj = polygonLayer.renderables[i];
-                if (polygonObj.coverageId == coverageId) {
-                    // Remove this polygon (hide coverage extent)
-                    polygonLayer.removeRenderable(polygonObj);
-                    // add it to a list of hided polygonObjs
-                    webWorldWindModel.hidedPolygonObjsArray.push(polygonObj);
-                    for (var j = 0; j < coveragesExtentsArray.length; j++) {
-                        if (coveragesExtentsArray[j].coverageId == coverageId) {
-                            coveragesExtentsArray[j].displayFootprint = false;
-                            break;
-                        }
-                    }
-                    // coverage extent is hided
-                    this.updateCoverageExtentShowProperty(coveragesExtentsArray, coverageId, false);
-                    // then update the text of polygon when show 
-                    this.updatePolygonUserPropertiesWhenShowHide(polygonLayer);
-                    return;
-                }
-            }                        
-
-            // Cannot find a polygon to hide, then it must need to show a coverage
-            for (var i = 0; i < webWorldWindModel.hidedPolygonObjsArray.length; i++) {
-                var polygonObj = webWorldWindModel.hidedPolygonObjsArray[i];
-                if (polygonObj.coverageId == coverageId) {
-                    // show the hided polygon (coverageExtent)
-                    polygonLayer.addRenderable(polygonObj);
-                    for (var j = 0; j < coveragesExtentsArray.length; j++) {
-                        if (coveragesExtentsArray[j].coverageId == coverageId) {
-                            coveragesExtentsArray[j].displayFootprint = true;
-                            break;
-                        }
-                    }
-                    // coverage extent is shown
-                    this.updateCoverageExtentShowProperty(coveragesExtentsArray, coverageId, true);
-                    // then update the text of polygon when hide 
-                    this.updatePolygonUserPropertiesWhenShowHide(polygonLayer);
-                    return;
-                }
-            }                       
-        }
-
-        // When a coverage extent is showed/hided from user, update the show property to know coverageExtent is showed/hided
-        private updateCoverageExtentShowProperty(coveragesExtentsArray:any, coverageId:string, value:boolean) {
-            for (var i = 0; i < coveragesExtentsArray.length; i++) {
-                if (coveragesExtentsArray[i].coverageId == coverageId) {
-                    coveragesExtentsArray[i].show = value;
-                    return;
-                }                
-            }
-        }
-
-        // NOTE: as when hide/show coverages extents, some coverages which have same extent will need to update the text (coverageIds) when hovering on them.
-        private updatePolygonUserPropertiesWhenShowHide(polygonLayer:any) {     
-            var coveragesExtentsArray = polygonLayer.coveragesExtentsArray;         
-            for (var i = 0; i < polygonLayer.renderables.length; i++) {
-                var polygonObj = polygonLayer.renderables[i];                
-                var coverageIds = this.getCoverageIdsSameExtent(polygonObj.coverageExtent, coveragesExtentsArray);
-                // update new text to show when hovering
-                var userProperties = this.buildUserPropertiesStr(coverageIds, polygonObj.coverageExtentStr);                
-                polygonObj.userProperties = userProperties;
-            } 
-        }
-
-        // Prepare all the polygon for coverages's extents for a canvas (GetCapabilities, DescribeCoverage, GetCoverage)        
-        public prepareCoveragesExtentsForGlobe(canvasId: string, coveragesExtentsArray: any) {    
-            var exist = false;
-            var webWorldWindModel = null;            
-            for (var i = 0; i < this.webWorldWindModels.length; i++) {
-                if (this.webWorldWindModels[i].canvasId === canvasId) {
-                    exist = true;
-                    webWorldWindModel = this.webWorldWindModels[i];
-                    break;
-                }
-            }
-
-            // Init the WebWorldWindModel for the canvasId if it does not exist
-            if (!exist) {
-                webWorldWindModel = this.initWebWorldWind(canvasId);
-            }                        
-
-            var wwd = webWorldWindModel.wwd;
-            var polygonLayer = webWorldWindModel.polygonLayer;
-
-            // Remove the rendered polygon layer and replace it with new layer
-            wwd.removeLayer(polygonLayer);
-            polygonLayer = new WorldWind.RenderableLayer();
-            wwd.redraw();
-            
-            webWorldWindModel.polygonLayer = polygonLayer;     
-            wwd.addLayer(polygonLayer);                            
-                    
-            var polygonAttributes = new WorldWind.ShapeAttributes(null);
+        /**
+         * Based on a coverageExtent, create a WebWorldWind polygon         
+         */
+        private createPolygonObj(coverageId:string, coverageExtent:any): any {
+            let polygonAttributes = new WorldWind.ShapeAttributes(null);
             polygonAttributes.drawInterior = true;
             polygonAttributes.drawOutline = true;
             polygonAttributes.outlineColor = WorldWind.Color.BLUE;
@@ -358,97 +247,126 @@ module rasdaman {
             polygonAttributes.applyLighting = true;
 
             // Create and assign the polygon's highlight attributes.
-            var highlightAttributes = new WorldWind.ShapeAttributes(polygonAttributes);
+            let highlightAttributes = new WorldWind.ShapeAttributes(polygonAttributes);
             highlightAttributes.outlineColor = WorldWind.Color.RED;
             highlightAttributes.interiorColor = new WorldWind.Color(1, 1, 1, 0.1);        
                       
-            var xcenter = 0, ycenter = 0;
-            for (var i = 0; i < coveragesExtentsArray.length; i++) {                
-                var coverageExtent = coveragesExtentsArray[i];                
-                var coverageId = coverageExtent.coverageId;
-                var bbox = coverageExtent.bbox;
-                // NOTE: by default, coverage extent is shown on globe
-                coverageExtent.show = true;
+            let bbox = coverageExtent.bbox;
+            // NOTE: by default, coverage extent is shown on globe
+            coverageExtent.show = true;
 
-                var xmin = bbox.xmin.toFixed(5);
-                if (xmin < -180) {
-                    xmin = -180;
-                }
-                var ymin = bbox.ymin.toFixed(5);
-                if (ymin < -90) {
-                    ymin = 90;
-                }
-                var xmax = bbox.xmax.toFixed(5);
-                if (xmax > 180) {
-                    xmax = 180;
-                }
-                var ymax = bbox.ymax.toFixed(5);
-                if (ymax > 90) {
-                    ymax = 90;
-                }
+            let xmin = bbox.xmin.toFixed(5);
+            if (xmin < -180) {
+                xmin = -180;
+            }
+            let ymin = bbox.ymin.toFixed(5);
+            if (ymin < -90) {
+                ymin = 90;
+            }
+            let xmax = bbox.xmax.toFixed(5);
+            if (xmax > 180) {
+                xmax = 180;
+            }
+            let ymax = bbox.ymax.toFixed(5);
+            if (ymax > 90) {
+                ymax = 90;
+            }
 
-                var boundaries = [];
-                boundaries[0] = []; // outer boundary
-                boundaries[0].push(new WorldWind.Location(ymin, xmin));
-                boundaries[0].push(new WorldWind.Location(ymin, xmax));
-                boundaries[0].push(new WorldWind.Location(ymax, xmax));
-                boundaries[0].push(new WorldWind.Location(ymax, xmin));                                       
+            let boundaries:any[] = [];
+            boundaries[0] = []; // outer boundary
+            boundaries[0].push(new WorldWind.Location(ymin, xmin));
+            boundaries[0].push(new WorldWind.Location(ymin, xmax));
+            boundaries[0].push(new WorldWind.Location(ymax, xmax));
+            boundaries[0].push(new WorldWind.Location(ymax, xmin));                                       
 
-                var polygon = new WorldWind.SurfacePolygon(boundaries, polygonAttributes);
-                // a made-up property to know this polygon belongs to a coverageId
-                polygon.coverageId = coverageId;
-                polygon.highlightAttributes = highlightAttributes;
+            let polygonObj = new WorldWind.SurfacePolygon(boundaries, polygonAttributes);
+            // a made-up property to know this polygon belongs to a coverageId
+            polygonObj.coverageId = coverageId;
+            polygonObj.highlightAttributes = highlightAttributes;
+            polygonObj.pathType = WorldWind.LINEAR;
 
-                // as it can have multiple coverageIds share same extent
-                var coverageIds = this.getCoverageIdsSameExtent(coverageExtent, coveragesExtentsArray);
-                var coverageExtentStr = "Coverage Extent: lat_min=" + ymin + ", lon_min=" + xmin + ", lat_max=" + ymax + ", lon_max=" + xmax;
-                                
-                // NOTE: the extent will never change, but the coverageIds can be changed when one of coverage extent is hided
-                // add these made-up properties to be used
-                polygon.coverageExtent = coverageExtent;
-                polygon.coverageExtentStr = coverageExtentStr;
+            polygonObj.coverageExtent = coverageExtent;
 
-                // the text to be shown when hovering on coverage extent
-                var userProperties = this.buildUserPropertiesStr(coverageIds, coverageExtentStr);
-                polygon.userProperties = userProperties;
-
-                // Add the polygon to the layer and the layer to the World Window's layer list.
-                polygonLayer.coveragesExtentsArray = coveragesExtentsArray;
-                // Don't load footprint's of this coverage on globe by default
-                webWorldWindModel.hidedPolygonObjsArray.push(polygon);
-            }                                                                                       
+            return polygonObj;
+                      
         }
 
-        // Go to the center of the first coverage extent of the input array on Globe
-        public gotoCoverageExtentCenter(canvasId: string, coverageExtents: any) {
-            var webWorldWindModel = null;            
-            for (var i = 0; i < this.webWorldWindModels.length; i++) {
-                if (this.webWorldWindModels[i].canvasId === canvasId) {                    
-                    webWorldWindModel = this.webWorldWindModels[i];
+        /**
+         * Used for WCS / WMS GetCapabilities and 
+         * WCS DescribeCoverage / GetCoverage and WCS DescribeLayer which only draws one polygon on a separate WebWorldWind
+         */
+        public showCoverageExtentOnGlobe(canvasId: string, coverageId:string, coverageExtent:any, clearPreviousPolygons:boolean) {
+            let webWorldWindModel:WebWorldWindModel = this.getWebWorldWindModelByCanvasId(canvasId);
+            if (webWorldWindModel == null) {
+                this.initWebWorldWind(canvasId);
+            }
+
+            let polygonsLayer = this.getSurfacePolygonsLayer(canvasId);
+
+            if (clearPreviousPolygons == true) {
+                // NOTE: used only for WCS DescribeCoverage / GetCoverage and WMS DescribeLayer as only 1 coverage extent should display
+                // Then, remove all drawn polygons layers when described previous layers
+                polygonsLayer.removeAllRenderables();
+            }
+
+            // create a new polygon object for the polygon layer
+            // Add the polygon to surface layer
+            let polygonObj = this.createPolygonObj(coverageId, coverageExtent);
+            polygonsLayer.addRenderable(polygonObj);   
+
+            this.gotoCoverageExtentCenter(canvasId, coverageExtent);
+        }
+
+        /**
+         * Hide a coverage extent on the WebWorldWind globe.
+         * Used for WCS / WMS GetCapabilities when a coverage / layer is deleted
+         */
+        public hideCoverageExtentOnGlobe(canvasId: string, coverageId:string) {
+            let webWorldWindModel:WebWorldWindModel = this.getWebWorldWindModelByCanvasId(canvasId);
+            if (webWorldWindModel == null) {
+                this.initWebWorldWind(canvasId);
+            }            
+            
+            let polygonsLayer = this.getSurfacePolygonsLayer(canvasId);
+            let foundIndex = -1;
+
+            for (let i = 0; i < polygonsLayer.renderables.length; i++) {
+                let polygonObj = polygonsLayer.renderables[i];
+                if (polygonObj.coverageId == coverageId) {
+                    // polygon already exists -> remove it (hide)
+                    foundIndex = i;
                     break;
                 }
             }
-            var coverageExtent = coverageExtents[0];
-            var xcenter = (coverageExtent.bbox.xmin + coverageExtent.bbox.xmax) / 2;
-            var ycenter = (coverageExtent.bbox.ymin + coverageExtent.bbox.ymax) / 2;
-            var wwd = webWorldWindModel.wwd;            
+
+            if (foundIndex != -1) {
+                // Remove the drawn polygon on surface layer (hide)
+                polygonsLayer.renderables.splice(foundIndex, 1);                
+                // In this case, consider it is used to remove the polygon from surface layers and just redraw WebWorldWind
+                this.getWebWorldWindModelByCanvasId(canvasId).wwd.redraw();
+            }             
+        }       
+
+        // Go to the center of the first coverage extent of the input array on Globe
+        public gotoCoverageExtentCenter(canvasId: string, coverageExtent: any) {
+            let webWorldWindModel = this.getWebWorldWindModelByCanvasId(canvasId);
+            let xcenter = (coverageExtent.bbox.xmin + coverageExtent.bbox.xmax) / 2;
+            let ycenter = (coverageExtent.bbox.ymin + coverageExtent.bbox.ymax) / 2;
+            let wwd = webWorldWindModel.wwd;            
 
             // NOTE: using wwd.goTo() will make the Globe hang up
-            wwd.navigator.lookAtLocation = new WorldWind.Location(ycenter, xcenter);
+            wwd.navigator.lookAtLocation = new WorldWind.Location(ycenter, xcenter);            
             wwd.redraw();                                                                   
-        }
+        }        
 
-        // combine all coveragedIds share same coverage extent as a property to attach to polygon.
-        // then it can show this text when hovering on polygon.
-        private buildUserPropertiesStr(coverageIds:string[], coverageExtentStr:string) {
-            var coverageIdsStr = "";
-            for (var j = 0; j < coverageIds.length; j++) {
-                coverageIdsStr += coverageIds[j];
+        // When a coverage extent is showed/hided from user, update the show property to know coverageExtent is showed/hided
+        private updateCoverageExtentShowProperty(coveragesExtentsArray:any, coverageId:string, value:boolean) {
+            for (let i = 0; i < coveragesExtentsArray.length; i++) {
+                if (coveragesExtentsArray[i].coverageId == coverageId) {
+                    coveragesExtentsArray[i].show = value;
+                    return;
+                }                
             }
-
-            var userProperties = coverageIdsStr + "\n" +  coverageExtentStr + "\n";
-
-            return userProperties;
         }
 
         // ****************** WMS
@@ -466,29 +384,21 @@ module rasdaman {
         public loadGetMapResultOnGlobe(canvasId: string, layerName: string, styleName: string, bbox: any, displayLayer: boolean, timeMoment: any, nonXYAxes: any) {
 
             // It uses the same canvasId for DescribeLayer
-            var webWorldWindModel = null;            
-            var exist = false;
-            for (var i = 0; i < this.webWorldWindModels.length; i++) {
-                if (this.webWorldWindModels[i].canvasId === canvasId) {                    
-                    webWorldWindModel = this.webWorldWindModels[i];
-                    exist = true;
-                    break;
-                }
-            }
+            let webWorldWindModel = this.getWebWorldWindModelByCanvasId(canvasId);
 
              // Init the WebWorldWindModel for the canvasId if it does not exist
-            if (!exist) {
+            if (webWorldWindModel == null) {
                 webWorldWindModel = this.initWebWorldWind(canvasId);
             }                        
 
             // NOTE: max bbox of EPSG:4326 which WebWorldWind supports is [-90,90,-180,180]
-            var ymin = Math.max(-90, bbox.ymin);
-            var ymax = Math.min(90, bbox.ymax);
-            var xmin = Math.max(-180, bbox.xmin);
-            var xmax = Math.min(180, bbox.xmax);
+            let ymin = Math.max(-90, bbox.ymin);
+            let ymax = Math.min(90, bbox.ymax);
+            let xmin = Math.max(-180, bbox.xmin);
+            let xmax = Math.min(180, bbox.xmax);
 
-            var wwd = webWorldWindModel.wwd;
-            var config = {
+            let wwd = webWorldWindModel.wwd;
+            let config = {
                     title: "WMS layer overview",
                     version: WMSSettingsService.version,
                     service: this.wmsSetting.wmsEndpoint,
@@ -502,7 +412,7 @@ module rasdaman {
                 };
             
             // Prepare the property timeString to be passed to the WmsLayer consructor 
-            var timeString;
+            let timeString;
             if(timeMoment != null) {
                 timeString = '"' + timeMoment + '"';
             }
@@ -519,7 +429,7 @@ module rasdaman {
 
             // Remove the rendered surface image layer and replace it with new layer
             wwd.removeLayer(webWorldWindModel.wmsLayer);
-            var wmsLayer = new BAWmsLayer(config, timeString, this.authorizationToken, nonXYAxes);                        
+            let wmsLayer = new BAWmsLayer(config, timeString, this.authorizationToken, nonXYAxes);                        
             webWorldWindModel.wmsLayer = wmsLayer;     
             if (displayLayer) {
                 // Should this Layer be displayed
@@ -536,10 +446,7 @@ module rasdaman {
     interface WebWorldWindModel {
         canvasId: string,
         wwd: any,
-        surfaceImageLayer: any,
         wmsLayer: any,
-        polygonLayer: any,
-        hidedPolygonObjsArray: any
     }
     
     export class BAWmsLayer extends WorldWind.WmsLayer {
@@ -564,7 +471,7 @@ module rasdaman {
                if (this.absentResourceList.isResourceAbsent(tile.imagePath)) {
                    return;
                }
-               var url = this.resourceUrlForTile(tile, this.retrievalImageFormat),
+               let url = this.resourceUrlForTile(tile, this.retrievalImageFormat),
                    image = new Image(),
                    imagePath = tile.imagePath,
                    cache = dc.gpuResourceCache,
@@ -580,7 +487,7 @@ module rasdaman {
                    return;
                }
                image.onload = function () {
-                   var texture = layer.createTexture(dc, tile, image);
+                   let texture = layer.createTexture(dc, tile, image);
                    layer.removeFromCurrentRetrievals(imagePath);
                    if (texture) {
                        cache.putResource(imagePath, texture, texture.size);
@@ -588,7 +495,7 @@ module rasdaman {
                        layer.absentResourceList.unmarkResourceAbsent(imagePath);
                        if (!suppressRedraw) {
                            // Send an event to request a redraw.
-                           var e = document.createEvent('Event');
+                           let e = document.createEvent('Event');
                            e.initEvent(WorldWind.REDRAW_EVENT_TYPE, true, true);
                            canvas.dispatchEvent(e);
                        }
@@ -601,11 +508,11 @@ module rasdaman {
                this.currentRetrievals.push(imagePath);
                image.crossOrigin = this.crossOrigin;
 
-               var xhr = new XMLHttpRequest();
+               let xhr = new XMLHttpRequest();
                xhr.responseType = "arraybuffer";               
                xhr.onload = function () {
-                       var blb = new Blob([xhr.response], { type: 'image/png' });
-                       var url = (window.URL).createObjectURL(blb);
+                       let blb = new Blob([xhr.response], { type: 'image/png' });
+                       let url = (window.URL).createObjectURL(blb);
                        image.src = url;
                };
                xhr.open("GET", url, true);

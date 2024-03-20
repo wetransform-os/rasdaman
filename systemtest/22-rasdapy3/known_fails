@@ -1,0 +1,12 @@
+# Could not retrieve type structure from: set<struct { struct { long 0, long 1, long 2 } 0, bool 1 }>.
+composite_constants_struct.rasql
+
+# rasql.py prints nan, rasql prints -nan
+pow_neg_frac_arg.rasql
+
+# rasdapy does not see added error messages
+polygonize_3d_array.rasql
+polygonize_complex_array.rasql
+polygonize_mime_unlisted.rasql
+polygonize_nocreate.rasql
+polygonize_wrong.rasql

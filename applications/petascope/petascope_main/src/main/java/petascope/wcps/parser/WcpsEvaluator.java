@@ -21,52 +21,10 @@
  */
 package petascope.wcps.parser;
 
+import petascope.util.PetascopeDateTime;
+import petascope.wcps.handler.*;
 import petascope.wcps.metadata.service.CrsUtility;
 import petascope.wcps.metadata.service.AxisIteratorAliasRegistry;
-import petascope.wcps.handler.SubsetExpressionHandler;
-import petascope.wcps.handler.BinaryScalarExpressionHandler;
-import petascope.wcps.handler.CoverageVariableNameHandler;
-import petascope.wcps.handler.ImageCrsDomainExpressionByDimensionExpressionHandler;
-import petascope.wcps.handler.ForClauseHandler;
-import petascope.wcps.handler.ComplexNumberConstantHandler;
-import petascope.wcps.handler.ImageCrsDomainExpressionHandler;
-import petascope.wcps.handler.WcsScaleExpressionByScaleAxesHandler;
-import petascope.wcps.handler.ImageCrsExpressionHandler;
-import petascope.wcps.handler.RootHandler;
-import petascope.wcps.handler.UnaryBooleanExpressionHandler;
-import petascope.wcps.handler.BooleanNumericalComparisonScalarHandler;
-import petascope.wcps.handler.ExtendExpressionHandler;
-import petascope.wcps.handler.CoverageConstructorHandler;
-import petascope.wcps.handler.CoverageCrsSetHandler;
-import petascope.wcps.handler.RangeConstructorHandler;
-import petascope.wcps.handler.UnaryPowerExpressionHandler;
-import petascope.wcps.handler.RangeSubsettingHandler;
-import petascope.wcps.handler.EncodeCoverageHandler;
-import petascope.wcps.handler.ReturnClauseHandler;
-import petascope.wcps.handler.GeneralCondenserHandler;
-import petascope.wcps.handler.WcsScaleExpressionByScaleSizeHandler;
-import petascope.wcps.handler.DomainExpressionHandler;
-import petascope.wcps.handler.ReduceExpressionHandler;
-import petascope.wcps.handler.CrsTransformHandler;
-import petascope.wcps.handler.WcsScaleExpressionByFactorHandler;
-import petascope.wcps.handler.ParenthesesCoverageExpressionHandler;
-import petascope.wcps.handler.ScaleExpressionByDimensionIntervalsHandler;
-import petascope.wcps.handler.StringScalarHandler;
-import petascope.wcps.handler.UnaryArithmeticExpressionHandler;
-import petascope.wcps.handler.CoverageConstantHandler;
-import petascope.wcps.handler.BooleanUnaryScalarExpressionHandler;
-import petascope.wcps.handler.NanScalarHandler;
-import petascope.wcps.handler.ForClauseListHandler;
-import petascope.wcps.handler.CastExpressionHandler;
-import petascope.wcps.handler.SwitchCaseExpressionHandler;
-import petascope.wcps.handler.CoverageIdentifierHandler;
-import petascope.wcps.handler.ScaleExpressionByImageCrsDomainHandler;
-import petascope.wcps.handler.WcsScaleExpressionByScaleExtentHandler;
-import petascope.wcps.handler.RealNumberConstantHandler;
-import petascope.wcps.handler.WhereClauseHandler;
-import petascope.wcps.handler.BooleanConstantHandler;
-import petascope.wcps.handler.BinaryCoverageExpressionHandler;
-import petascope.wcps.handler.ExtendExpressionByImageCrsDomainHandler;
 import petascope.wcps.exception.processing.InvalidAxisNameException;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.apache.commons.lang3.StringUtils;
@@ -78,62 +36,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.ExceptionCode;
-import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCPSException;
 import petascope.util.ListUtil;
 import petascope.util.StringUtil;
-import petascope.wcps.exception.processing.ClipExpressionException;
-import petascope.wcps.exception.processing.Coverage0DMetadataNullException;
-import petascope.wcps.exception.processing.CoverageAxisNotFoundExeption;
-import petascope.wcps.exception.processing.InvalidWKTClippingException;
-import petascope.wcps.handler.AxisIteratorDomainIntervalsHandler;
-import petascope.wcps.handler.AxisIteratorHandler;
-import petascope.wcps.handler.AxisSpecHandler;
-import petascope.wcps.handler.ClipCorridorExpressionHandler;
-import petascope.wcps.handler.ClipCurtainExpressionHandler;
-import petascope.wcps.handler.ClipWKTExpressionHandler;
-import petascope.wcps.handler.CoverageIsNullHandler;
-import petascope.wcps.handler.CrsTransformShorthandHandler;
-import petascope.wcps.handler.DecodeCoverageHandler;
-import petascope.wcps.handler.DescribeCoverageHandler;
-import petascope.wcps.handler.DimensionIntervalListHandler;
-import petascope.wcps.handler.DimensionPointElementHandler;
-import petascope.wcps.handler.DimensionPointListElementHandler;
-import petascope.wcps.handler.DomainIntervalsHandler;
-import petascope.wcps.handler.FlipExpressionHandler;
-import petascope.wcps.handler.Handler;
-import petascope.wcps.handler.IntervalExpressionHandler;
-import petascope.wcps.handler.LetClauseHandler;
-import petascope.wcps.handler.LetClauseListHandler;
-import petascope.wcps.handler.RangeConstructorElementHandler;
-import petascope.wcps.handler.RangeConstructorElementListHandler;
-import petascope.wcps.handler.ScaleDimensionIntervalListHandler;
-import petascope.wcps.handler.ShortHandSubsetWithLetClauseVariableHandler;
-import petascope.wcps.handler.ShorthandSubsetHandler;
-import petascope.wcps.handler.SliceDimensionIntervalElementHandler;
-import petascope.wcps.handler.SliceScaleDimensionIntervalElement;
-import petascope.wcps.handler.UnaryModExpressionHandler;
+
+import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PROPERTY_UPPER_BOUND;
+import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PROPERTY_LOWER_BOUND;
+import static petascope.wcps.handler.DomainIntervalsHandler.DOMAIN_PROPERTY_RESOLUTION;
+
 import petascope.wcps.metadata.service.LetClauseAliasRegistry;
-import petascope.wcps.handler.SortExpressionHandler;
-import petascope.wcps.handler.SwitchCaseDefaultValueHandler;
-import petascope.wcps.handler.SwitchCaseElementHandler;
-import petascope.wcps.handler.SwitchCaseElementListHandler;
-import petascope.wcps.handler.TrimDimensionIntervalElementHandler;
-import petascope.wcps.handler.TrimScaleDimensionIntervalElement;
-import petascope.wcps.handler.WKTCompoundPointHandler;
-import petascope.wcps.handler.WKTCompoundPointsListHandler;
-import petascope.wcps.handler.WKTLineStringHandler;
-import petascope.wcps.handler.WKTMultiPolygonHandler;
-import petascope.wcps.handler.WKTPolygonHandler;
 import petascope.wcps.metadata.service.SortedAxisIteratorAliasRegistry;
 import petascope.wcps.metadata.service.UsingCondenseRegistry;
-import petascope.wcps.result.VisitorResult;
-import petascope.wcps.result.WcpsResult;
-import petascope.wcps.subset_axis.model.AbstractWKTShape;
-import petascope.wcps.subset_axis.model.WKTCompoundPoints;
-import petascope.wcps.subset_axis.model.WKTLineString;
-import petascope.wcps.subset_axis.model.WKTMultipolygon;
-import petascope.wcps.subset_axis.model.WKTPolygon;
 
 
 /**
@@ -189,6 +102,13 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     CrsTransformHandler crsTransformHandler;
     @Autowired private
     CrsTransformShorthandHandler crsTransformShorthandHandler;
+    @Autowired private
+    CrsTransformTargetGeoXYResolutionsHandler crsTransformTargetGeoXYResolutionsHandler;
+    @Autowired private
+    CrsTransformTargetGeoXYBoundingBoxHandler crsTransformTargetGeoXYBoundingBoxHandler;
+
+    @Autowired private
+    PolygonizeHandler polygonizeHandler;
     
     @Autowired private
     CoverageVariableNameHandler coverageVariableNameHandler;
@@ -240,15 +160,13 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     ComplexNumberConstantHandler complexNumberConstantHandler;
     
     @Autowired private
-    GeneralCondenserHandler generalCondenserHandler;    
+    CoverageGeneralCondenserHandler coverageGeneralCondenserHandler;
     @Autowired private
     SubsetExpressionHandler subsetExpressionHandler;
     @Autowired private
     CoverageConstantHandler coverageConstantHandler;
     @Autowired private
     ExtendExpressionHandler extendExpressionHandler;
-    @Autowired private
-    ExtendExpressionByImageCrsDomainHandler extendExpressionByDomainIntervalsHandler;
     @Autowired private
     RangeConstructorHandler rangeConstructorHandler;
     @Autowired private
@@ -260,6 +178,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     StringScalarHandler stringScalarHandler;
     @Autowired private
     CoverageIdentifierHandler coverageIdentifierHandler;
+    @Autowired private
+    CellCountHandler cellCountHandler;
     
     @Autowired private
     CoverageCrsSetHandler coverageCrsSetHandler;
@@ -267,20 +187,9 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     // WCPS standard
     @Autowired private
     ScaleExpressionByDimensionIntervalsHandler scaleExpressionByDimensionIntervalsHandler;
+
     @Autowired private
-    ScaleExpressionByImageCrsDomainHandler scaleExpressionByImageCrsDomainHandler;
-    // Made up to handle WCS -> WCPS scale
-    @Autowired private
-    WcsScaleExpressionByFactorHandler scaleExpressionByFactorHandler;
-    @Autowired private
-    WcsScaleExpressionByScaleAxesHandler scaleExpressionByScaleAxesHandler;
-    @Autowired private
-    WcsScaleExpressionByScaleSizeHandler scaleExpressionByScaleSizeHandler;
-    @Autowired private
-    WcsScaleExpressionByScaleExtentHandler scaleExpressionByScaleExtentHandler;
-    
-    @Autowired private
-    SliceScaleDimensionIntervalElement sliceScaleDimensionIntervalElement;
+    SliceScaleDimensionPointElement sliceScaleDimensionPointElement;
     @Autowired private
     TrimScaleDimensionIntervalElement trimScaleDimensionIntervalElement;
     @Autowired private
@@ -326,11 +235,16 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     TrimDimensionIntervalElementHandler trimDimensionIntervalElementHandler;
     
     @Autowired private
+    TrimDimensionIntervalByImageCrsDomainElementHandler trimDimensionIntervalByImageCrsDomainElementHandler;
+    
+    @Autowired private
     AxisSpecHandler axisSpecHandler;
     @Autowired private
     AxisIteratorHandler axisIteratorHandler;
     @Autowired private
     AxisIteratorDomainIntervalsHandler axisIteratorDomainIntervalsHandler;
+    @Autowired private
+    AxisIteratorEnumerationListHandler axisIteratorEnumerationListHandler;
     
     @Autowired private
     WKTCompoundPointHandler wktCompoundPointHandler;
@@ -343,6 +257,15 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     WKTPolygonHandler wktPolygonHandler;
     @Autowired private
     WKTMultiPolygonHandler wktMultiPolygonHandler;
+
+    @Autowired private
+    DimensionBoundConcatenationHandler dimensionBoundConcatenationHandler;
+    @Autowired private
+    TimeIntervalHandler timeIntervalHandler;
+    @Autowired private
+    TimeExtractorHandler timeExtractorHandler;
+    @Autowired private
+    TimeTruncatorHandler timeTruncatorHandler;
     
     /**
      * Class constructor. This object is created for each incoming Wcps query.
@@ -429,7 +352,15 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     public Handler visitLetClauseCoverageExpressionLabel(@NotNull wcpsParser.LetClauseCoverageExpressionLabelContext ctx) {
         // coverageVariableName EQUAL coverageExpression
         // e.g: $a := $c[Lat(20:30), Long(40:50)]
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
+        
+        Handler coverageExpressionHandler = null;
+        
+        if (ctx.wktExpression() != null) {
+            coverageExpressionHandler = (Handler) visit(ctx.wktExpression());
+        } else {
+            coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
+        }
+        
         String coverageVariableName = ctx.coverageVariableName().getText();
         Handler result = this.letClauseHandler.create(this.stringScalarHandler.create(coverageVariableName), coverageExpressionHandler);
         return result;
@@ -600,8 +531,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
 //            RIGHT_PARENTHESIS
         // e.g: clip( c, corridor( projection(Lat, Lon), LineString("1950-01-01" 1 1, "1950-01-02" 5 5), Polygon((0 10, 20 20, 20 10, 0 10)), discrete ) )
         Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
-        Handler wktLineStringHandler = visit(ctx.wktLineString());
-        Handler wktShapeHandler = visit(ctx.wktExpression());
+        Handler wktLineStringHandler = visit(ctx.corridorWKTLabel1());
+        Handler wktShapeHandler = visit(ctx.corridorWKTLabel2());
         
         String corridorProjectionAxisLabel1 = ctx.corridorProjectionAxisLabel1().getText().trim();
         String corridorProjectionAxisLabel2 = ctx.corridorProjectionAxisLabel2().getText().trim();
@@ -676,18 +607,18 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
 
     @Override
     public Handler visitCrsTransformExpressionLabel(@NotNull wcpsParser.CrsTransformExpressionLabelContext ctx) {
-        // Handle crsTransform($COVERAGE_EXPRESSION, {$DOMAIN_CRS_2D}, {$INTERPOLATION})
-        // e.g: crsTransform(c, {Lat:"www.opengis.net/def/crs/EPSG/0/4327", Long:"www.opengis.net/def/crs/EPSG/0/4327"}, {}
+        // Handle crsTransform($COVERAGE_EXPRESSION, {$DOMAIN_CRS_2D}, {$INTERPOLATION}, {dimensionGeoXYResolutionsList})
+        // e.g: crsTransform(c, {Lat:"www.opengis.net/def/crs/EPSG/0/4327", Long:"www.opengis.net/def/crs/EPSG/0/4327"}, {}, {Lat:30.5, Lon:30/6})
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         
         // { Axis_CRS_1 , Axis_CRS_2 } (e.g: Lat:"http://localhost:8080/def/crs/EPSG/0/4326")
-        wcpsParser.DimensionCrsElementLabelContext ctxAxisX = (wcpsParser.DimensionCrsElementLabelContext) ctx.dimensionCrsList().getChild(1);
-        String axisNameX = ctxAxisX.axisName().getText();
-        String crsX = StringUtil.stripFirstAndLastQuotes(ctxAxisX.crsName().getText());
+        wcpsParser.DimensionCrsElementLabelContext ctxCRSAxisX = (wcpsParser.DimensionCrsElementLabelContext) ctx.dimensionCrsList().getChild(1);
+        String axisNameX = ctxCRSAxisX.axisName().getText();
+        String crsX = StringUtil.stripFirstAndLastQuotes(ctxCRSAxisX.crsName().getText());
         
-        wcpsParser.DimensionCrsElementLabelContext ctxAxisY = (wcpsParser.DimensionCrsElementLabelContext) ctx.dimensionCrsList().getChild(3);
-        String axisNameY = ctxAxisY.axisName().getText();
-        String crsY = StringUtil.stripFirstAndLastQuotes(ctxAxisY.crsName().getText());
+        wcpsParser.DimensionCrsElementLabelContext ctxCRSAxisY = (wcpsParser.DimensionCrsElementLabelContext) ctx.dimensionCrsList().getChild(3);
+        String axisNameY = ctxCRSAxisY.axisName().getText();
+        String crsY = StringUtil.stripFirstAndLastQuotes(ctxCRSAxisY.crsName().getText());
         
         String interpolationType = null;
 
@@ -695,18 +626,36 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
             interpolationType = ctx.interpolationType().getText();
         }
         
+        CrsTransformTargetGeoXYResolutionsHandler targetGeoXYResolutionsHandler = null;
+        
+        CrsTransformTargetGeoXYBoundingBoxHandler targetGeoXYBBoxHandler = null;
+        if (ctx.dimensionIntervalList() != null || ctx.domainExpression() != null) {
+            targetGeoXYBBoxHandler = this.createCrsTransformTargetGeoXYBoundingBoxHandler(ctx.dimensionIntervalList(),
+                                                                                        ctx.domainExpression());
+        }
+        
+        if (ctx.dimensionGeoXYResolutionsList() != null) {
+            if (ctx.dimensionGeoXYResolutionsList().getChildCount() > 1) {
+                targetGeoXYResolutionsHandler = this.createCrsTransformTargetGeoXYResolutionsHandler(ctx.dimensionGeoXYResolutionsList());
+            } else {
+                targetGeoXYBBoxHandler = this.createCrsTransformTargetGeoXYBoundingBoxHandler((wcpsParser.DimensionGeoXYResolutionContext) ctx.dimensionGeoXYResolutionsList().getChild(0));
+            }
+        }
+        
         Handler result = this.crsTransformHandler.create(coverageExpressionHandler,
                                                         this.stringScalarHandler.create(axisNameX), this.stringScalarHandler.create(crsX),
                                                         this.stringScalarHandler.create(axisNameY), this.stringScalarHandler.create(crsY),
-                                                        this.stringScalarHandler.create(interpolationType));
+                                                        this.stringScalarHandler.create(interpolationType),
+                                                        targetGeoXYResolutionsHandler,
+                                                        targetGeoXYBBoxHandler);
         return result;
     }
     
   
     @Override 
     public Handler visitCrsTransformShorthandExpressionLabel(@NotNull wcpsParser.CrsTransformShorthandExpressionLabelContext ctx) { 
-        // Handle crsTransform($COVERAGE_EXPRESSION, "CRS", {$INTERPOLATION})
-        // e.g: crsTransform(c, "EPSG:4326", { near })
+        // Handle crsTransform($COVERAGE_EXPRESSION, "CRS", {$INTERPOLATION}, {dimensionGeoXYResolutionsList})
+        // e.g: crsTransform(c, "EPSG:4326", { near }, {Lat:30.5, Lon:30/6})
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
         
         String outputCRSAuthorityCode = StringUtil.stripFirstAndLastQuotes(ctx.crsName().getText());
@@ -716,12 +665,126 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
             interpolationType = ctx.interpolationType().getText();
         }
         
+        CrsTransformTargetGeoXYResolutionsHandler targetGeoXYResolutionsHandler = null;
+        
+        CrsTransformTargetGeoXYBoundingBoxHandler targetGeoXYBBoxHandler = null;
+        if (ctx.dimensionIntervalList() != null || ctx.domainExpression() != null) {
+            targetGeoXYBBoxHandler = this.createCrsTransformTargetGeoXYBoundingBoxHandler(ctx.dimensionIntervalList(),
+                                                                                        ctx.domainExpression());
+        }
+        
+        if (ctx.dimensionGeoXYResolutionsList() != null) {
+            if (ctx.dimensionGeoXYResolutionsList().getChildCount() > 1) {
+                targetGeoXYResolutionsHandler = this.createCrsTransformTargetGeoXYResolutionsHandler(ctx.dimensionGeoXYResolutionsList());
+            } else {
+                targetGeoXYBBoxHandler = this.createCrsTransformTargetGeoXYBoundingBoxHandler((wcpsParser.DimensionGeoXYResolutionContext) ctx.dimensionGeoXYResolutionsList().getChild(0));
+            }
+        }
+        
         Handler result = this.crsTransformShorthandHandler.create(coverageExpressionHandler,
                                         this.stringScalarHandler.create(outputCRSAuthorityCode),
-                                        this.stringScalarHandler.create(interpolationType));
+                                        this.stringScalarHandler.create(interpolationType),
+                                        targetGeoXYResolutionsHandler,
+                                        targetGeoXYBBoxHandler);
         return result;
 
     }
+    
+
+    /**
+     * Create a handler for CrsTransform target geo XY resolutions, e.g. {Lat:30, Lat:domain($c, Lat).resolution}
+     * 
+     */
+    private CrsTransformTargetGeoXYResolutionsHandler createCrsTransformTargetGeoXYResolutionsHandler(wcpsParser.DimensionGeoXYResolutionsListContext listContext) {        
+        CrsTransformTargetGeoXYResolutionsHandler targetGeoXYResolutionsHandler = null;
+        
+        if (listContext != null) {
+            StringScalarHandler geoResolutionAxisLabelX = null, geoResolutionAxisLabelY = null;
+            Handler scalarExpressionHandlerX = null, scalarExpressionHandlerY = null;                
+            wcpsParser.DimensionGeoXYResolutionContext ctxAxisX = (wcpsParser.DimensionGeoXYResolutionContext) listContext.getChild(0);
+            if (ctxAxisX.COVERAGE_VARIABLE_NAME() == null) {
+                scalarExpressionHandlerX = visit(ctxAxisX.coverageExpression());
+                // NOTE: in this case, it has e.g. Lat:domain($c, Lat).resolution - 1
+                String axisLabelX = ctxAxisX.getText().split(":")[0].trim();
+                geoResolutionAxisLabelX = this.stringScalarHandler.create(axisLabelX);
+            } else {
+                scalarExpressionHandlerX = visit(ctxAxisX.coverageExpression());
+                geoResolutionAxisLabelX = this.stringScalarHandler.create(ctxAxisX.COVERAGE_VARIABLE_NAME().getText());
+            }
+            
+            wcpsParser.DimensionGeoXYResolutionContext ctxAxisY = (wcpsParser.DimensionGeoXYResolutionContext) listContext.getChild(2);
+            if (ctxAxisY.COVERAGE_VARIABLE_NAME() == null) {
+                scalarExpressionHandlerY = visit(ctxAxisY.coverageExpression());
+                // NOTE: in this case, it has e.g. Lon:domain($c, Lon).resolution
+                String axisLabelY = ctxAxisX.getText().split(":")[0].trim();
+                geoResolutionAxisLabelY = this.stringScalarHandler.create(axisLabelY);
+            } else {
+                scalarExpressionHandlerY = visit(ctxAxisY.coverageExpression());
+                geoResolutionAxisLabelY = this.stringScalarHandler.create(ctxAxisY.COVERAGE_VARIABLE_NAME().getText());
+            }            
+            
+            targetGeoXYResolutionsHandler =  this.crsTransformTargetGeoXYResolutionsHandler.create(geoResolutionAxisLabelX, scalarExpressionHandlerX, 
+                                                                                                    geoResolutionAxisLabelY, scalarExpressionHandlerY);
+            
+        }
+        
+        return targetGeoXYResolutionsHandler;
+    }      
+    
+
+    /**
+     * Create a handler for CrsTransform target geo XY bounding box, e.g. {Lat(30:50), Lon(60:70)}  or {domain($c)}
+     */
+    private CrsTransformTargetGeoXYBoundingBoxHandler createCrsTransformTargetGeoXYBoundingBoxHandler(wcpsParser.DimensionIntervalListContext listContext,
+                                                                                                      wcpsParser.DomainExpressionContext domainExpressionContext) {
+        
+        Handler dimensionIntervalListHandlerTmp = null, domainExpressionHandlerTmp = null;
+                
+        
+        if (listContext != null) {
+            dimensionIntervalListHandlerTmp = visit(listContext);
+        } else if (domainExpressionContext != null) {
+            domainExpressionHandlerTmp = visit(domainExpressionContext);
+        }
+        
+        // Handler for crsTransform's target geo XY BBOX {Lat(0:5), Lon(0.5)}
+        CrsTransformTargetGeoXYBoundingBoxHandler result = this.crsTransformTargetGeoXYBoundingBoxHandler.create(dimensionIntervalListHandlerTmp, 
+                                                                                                                domainExpressionHandlerTmp);
+        
+        return result;
+    }     
+    
+    
+    /**
+     * Handler for crsTransform's target geo XY BBOX {domain($c)} without target geoXY resolutions
+     * encode(crsTransform($c, "EPSG:4326", { bilinear }, { domain($d) })
+     */
+    private CrsTransformTargetGeoXYBoundingBoxHandler createCrsTransformTargetGeoXYBoundingBoxHandler(wcpsParser.DimensionGeoXYResolutionContext ctx) {
+        Handler domainExpressionHandler = visit(ctx);
+        CrsTransformTargetGeoXYBoundingBoxHandler result = this.crsTransformTargetGeoXYBoundingBoxHandler.create(null,
+                                                                                                                domainExpressionHandler);
+        return result;
+    }
+
+    /**
+     *
+     * Handler for polygonize(coverageExpression, "encodingFormat", connectedness)
+     */
+    @Override
+    public Handler visitPolygonizeExpressionLabel(wcpsParser.PolygonizeExpressionLabelContext ctx) {
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        StringScalarHandler encodingFormatHandler = this.stringScalarHandler.create(ctx.STRING_LITERAL().getText());
+        StringScalarHandler connectednessHandler = null;
+        if (ctx.INTEGER() != null) {
+            connectednessHandler = this.stringScalarHandler.create(ctx.INTEGER().getText());
+        }
+
+        PolygonizeHandler result = this.polygonizeHandler.create(coverageExpressionHandler,
+                                                                encodingFormatHandler, connectednessHandler);
+        return result; 
+    }
+    
+    
     
     @Override
     public Handler visitCoverageVariableNameLabel(@NotNull wcpsParser.CoverageVariableNameLabelContext ctx) {
@@ -764,10 +827,10 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     @Override
     public Handler visitCoverageExpressionOverlayLabel(@NotNull wcpsParser.CoverageExpressionOverlayLabelContext ctx) {
         // coverageExpression OVERLAY coverageExpression (e.g: c overlay d)
-        // invert the order of the operators since WCPS overlay order is the opposite of the one in rasql
-        Handler leftCoverageExpression = (Handler) visit(ctx.coverageExpression(1));
+        // in this case d is on top of c (this behavior is as same as in rasql / WMS GetMap layers parameter)
+        Handler leftCoverageExpression = visit(ctx.coverageExpression(0));
         String overlay = ctx.OVERLAY().getText();
-        Handler rightCoverageExpression = (Handler) visit(ctx.coverageExpression(0));
+        Handler rightCoverageExpression = visit(ctx.coverageExpression(1));
 
         Handler result = this.binaryCoverageExpressionHandler.create(leftCoverageExpression,
                                                                      this.stringScalarHandler.create(overlay),
@@ -803,8 +866,19 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: sqrt(c)
         String operator = ctx.unaryArithmeticExpressionOperator().getText();
         Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
+        
+        StringScalarHandler leftParenthesis = null;
+        if (ctx.LEFT_PARENTHESIS() != null) {
+            leftParenthesis = this.stringScalarHandler.create(ctx.LEFT_PARENTHESIS().getText());
+        }
+        StringScalarHandler rightParenthesis = null;
+        if (ctx.RIGHT_PARENTHESIS() != null) {
+            rightParenthesis = this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText());
+        }        
 
-        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpressionHandler);
+        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpressionHandler,
+                                                                leftParenthesis,
+                                                                rightParenthesis);
         return result;
     }
 
@@ -815,7 +889,9 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         String operator = ctx.trigonometricOperator().getText();
         Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
 
-        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpressionHandler);
+        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpressionHandler,
+                                                                this.stringScalarHandler.create(ctx.LEFT_PARENTHESIS().getText()),
+                                                                this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText()));
         return result;
     }
 
@@ -826,7 +902,9 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         String operator = ctx.exponentialExpressionOperator().getText();
         Handler coverageExpr = (Handler) visit(ctx.coverageExpression());
 
-        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpr);
+        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpr,
+                                                                this.stringScalarHandler.create(ctx.LEFT_PARENTHESIS().getText()),
+                                                                this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText()));
         return result;
     }
     
@@ -861,8 +939,13 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     public Handler visitUnaryPowerExpressionLabel(@NotNull wcpsParser.UnaryPowerExpressionLabelContext ctx) {
         // POWER LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
         // e.g: pow(c, -0.5) or pow(c, avg(c))
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
-        Handler scalarExpressionHandler = (Handler) visit(ctx.numericalScalarExpression());
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        Handler scalarExpressionHandler = null;
+        if (ctx.numericalScalarExpression() != null) {
+            scalarExpressionHandler = visit(ctx.numericalScalarExpression());
+        } else {
+            scalarExpressionHandler = visit(ctx.coverageVariableName());
+        }
 
         Handler result = unaryPowerExpressionHandler.create(coverageExpressionHandler, scalarExpressionHandler);
         return result;
@@ -872,10 +955,15 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     public Handler visitUnaryModExpressionLabel(@NotNull wcpsParser.UnaryModExpressionLabelContext ctx) {
         // MOD LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
         // e.g: pow(c, -0.5) or pow(c, avg(c))
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
-        Handler scalarExpr = (Handler) visit(ctx.numericalScalarExpression());
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        Handler scalarExpressionHandler = null;
+        if (ctx.numericalScalarExpression() != null) {
+            scalarExpressionHandler = visit(ctx.numericalScalarExpression());
+        } else {
+            scalarExpressionHandler = visit(ctx.coverageVariableName());
+        }
 
-        Handler result = unaryModPowerExpressionHandler.create(coverageExpressionHandler, scalarExpr);
+        Handler result = unaryModPowerExpressionHandler.create(coverageExpressionHandler, scalarExpressionHandler);
         return result;
     }
 
@@ -883,7 +971,7 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     public Handler visitNotUnaryBooleanExpressionLabel(@NotNull wcpsParser.NotUnaryBooleanExpressionLabelContext ctx) {
         // NOT LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
         // e.g: not(c)
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
 
         Handler result = unaryBooleanExpressionHandler.create(coverageExpressionHandler, null);
         return result;
@@ -892,11 +980,16 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     @Override
     public Handler visitBitUnaryBooleanExpressionLabel(@NotNull wcpsParser.BitUnaryBooleanExpressionLabelContext ctx) {
         // BIT LEFT_PARENTHESIS coverageExpression COMMA numericalScalarExpression RIGHT_PARENTHESIS
-        // e.g: big(c, 2)
-        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
-        Handler scalarExpression = (Handler) visit(ctx.numericalScalarExpression());
+        // e.g: bit(c, 2)
+        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        Handler scalarExpressionHandler = null;
+        if (ctx.numericalScalarExpression() != null) {
+            scalarExpressionHandler = visit(ctx.numericalScalarExpression());
+        } else {
+            scalarExpressionHandler = visit(ctx.coverageVariableName());
+        }
 
-        Handler result = unaryBooleanExpressionHandler.create(coverageExpressionHandler, scalarExpression);
+        Handler result = unaryBooleanExpressionHandler.create(coverageExpressionHandler, scalarExpressionHandler);
         return result;
     }
 
@@ -1062,7 +1155,10 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         String operator = ctx.numericalUnaryOperation().getText();
         Handler coverageExpressionHandler = (Handler) visit(ctx.numericalScalarExpression());
 
-        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpressionHandler);
+        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator),
+                                                                coverageExpressionHandler,
+                                                                this.stringScalarHandler.create(ctx.LEFT_PARENTHESIS().getText()),
+                                                                this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText()));
         return result;
     }
 
@@ -1073,7 +1169,10 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         String operator = ctx.trigonometricOperator().getText();
         Handler coverageExpressionHandler = (Handler) visit(ctx.numericalScalarExpression());
 
-        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), coverageExpressionHandler);
+        Handler result = unaryArithmeticExpressionHandler.create(this.stringScalarHandler.create(operator), 
+                                                                coverageExpressionHandler,
+                                                                this.stringScalarHandler.create(ctx.LEFT_PARENTHESIS().getText()),
+                                                                this.stringScalarHandler.create(ctx.RIGHT_PARENTHESIS().getText()));
         return result;
     }
 
@@ -1207,7 +1306,7 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
 
         Handler usingExpressionHandler = visit(ctx.coverageExpression());
 
-        Handler result = this.generalCondenserHandler.create(this.stringScalarHandler.create(operator),
+        Handler result = this.coverageGeneralCondenserHandler.create(this.stringScalarHandler.create(operator),
                                     axisIteratorHandlers,
                                     whereClauseHandler,
                                     usingExpressionHandler);            
@@ -1266,7 +1365,12 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // extend($c, {intervalList})
         // e.g: extend(c[t(0)], {Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)}
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
+        Handler dimensionIntervalListHandler = null;
+        if (ctx.dimensionIntervalList() != null) {
+            dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
+        } else {
+            dimensionIntervalListHandler = visit(ctx.coverageVariableName());
+        }
 
         Handler result = this.extendExpressionHandler.create(coverageExpressionHandler, dimensionIntervalListHandler);
         return result;
@@ -1280,9 +1384,14 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: extend(c[t(0)], { imageCrsdomain(Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)) })
         // NOTE: imageCrsdomain() or domain() will return metadata value not Rasql
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler wcpsMetadataResult = visit(ctx.domainIntervals());
+        Handler wcpsMetadataResult = null;
+        if (ctx.domainIntervals() != null) {
+            wcpsMetadataResult = visit(ctx.domainIntervals());
+        } else {
+            wcpsMetadataResult = visit(ctx.coverageVariableName());
+        }
 
-        Handler result = this.extendExpressionByDomainIntervalsHandler.create(coverageExpressionHandler, wcpsMetadataResult);
+        Handler result = this.extendExpressionHandler.create(coverageExpressionHandler, wcpsMetadataResult);
         return result;
     }
     
@@ -1306,8 +1415,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
             childHandlers.add(childHandler);
         }
         
-        Handler resutl = this.rangeConstructorElementListHandler.create(childHandlers);
-        return resutl;
+        Handler result = this.rangeConstructorElementListHandler.create(childHandlers);
+        return result;
     }
 
     
@@ -1332,8 +1441,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
     @Override
     public Handler visitStringScalarExpressionLabel(@NotNull wcpsParser.StringScalarExpressionLabelContext ctx) {
         // STRING_LITERAL
-        // e.g: 1, c, x, y
-        String value = ctx.STRING_LITERAL().getText();
+        // or "2015-" . $y . "-01" for timestring
+        String value = ctx.getText();
 
         Handler result = this.stringScalarHandler.create(value);
         return result;
@@ -1348,6 +1457,17 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler result = this.coverageIdentifierHandler.create(coverageExpressionChildHandler);
         return result;
     }
+    
+    @Override
+    public Handler visitCellCountExpressionLabel(@NotNull wcpsParser.CellCountExpressionLabelContext ctx) {
+        // CELLCOUNT LEFT_PARENTHESIS coverageExpression RIGHT_PARENTHESIS
+        // cellCount($c) -> 200 pixels
+        Handler coverageExpressionChildHandler = (Handler) visit(ctx.coverageExpression());
+
+        Handler result = this.cellCountHandler.create(coverageExpressionChildHandler);
+        return result;
+    }    
+    
 
     @Override
     public Handler visitCoverageCrsSetExpressionLabel(@NotNull wcpsParser.CoverageCrsSetExpressionLabelContext ctx) {
@@ -1374,60 +1494,54 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
 
     @Override
     public Handler visitCoverageExpressionScaleByFactorLabel(@NotNull wcpsParser.CoverageExpressionScaleByFactorLabelContext ctx) {
+        // WCS - scaleFactor (all axes will be scaled up / down)
         // SCALE LEFT_PARENTHESIS
-        //        coverageExpression COMMA number
+        //        coverageExpression LEFT_BRACE? scalarExpression RIGHT_BRACE?
         // RIGHT_PARENTHESIS
         // e.g: scale(c[t(0)], 2.5) with c is 3D coverage which means 2D output will be 
-        // downscaled to 2.5 by each dimension (e.g: grid pixel is: 100 then the result is 100 / 2.5)
+        // upscaled to 2.5 by each dimension (e.g: grid pixel is: 100 x 100 then the result is 100 * 100 * 2.5)
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        String factorNumber = ctx.number().getText();        
+        Handler factorNumberHandler = null;
+
+        if (ctx.scalarExpression() != null) {
+            factorNumberHandler = visit(ctx.scalarExpression());
+        } else {
+            factorNumberHandler = visit(ctx.coverageVariableName());
+        }
         
-        Handler result = scaleExpressionByFactorHandler.create(coverageExpressionHandler, this.stringScalarHandler.create(factorNumber));        
+        Handler result = this.scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, factorNumberHandler,
+                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_FACTORS);
         return result;
     }
     
-    @Override
-    public Handler visitCoverageExpressionScaleByAxesLabel(@NotNull wcpsParser.CoverageExpressionScaleByAxesLabelContext ctx) {
-        // SCALE_AXES LEFT_PARENTHESIS
-        //        coverageExpression COMMA scaleDimensionIntervalList
-        // RIGHT_PARENTHESIS
-        // e.g: scaleaxes(c[t(0)], [Lat(2.5), Long(2.5)]) with c is 3D coverage which means 2D output will be 
-        // downscaled to 2.5 by each dimension (e.g: grid pixel is: 100 then the result is 100 / 2.5)
+    @Override 
+    public Handler visitCoverageExpressionScaleByFactorListLabel(@NotNull wcpsParser.CoverageExpressionScaleByFactorListLabelContext ctx) {
+        // WCS - scaleAxes (listed Axes will be scaled up / down accordingly)
+        // NOTE: in WCPS it doesn't support scaleSize as it is ambiguous to scaleAxes (!)
+        // In WCS scaleSize (e.g. scaleSize=Lat(300)) means after scaling axis Lat has size 300
+        // In WCPS it has this syntax already for scaleAxes, e.g. scale(c, {Lat(300)}) which means the size of Lat axis is 300 times bigger
+        // To have Lat with grid 300 in WCPS, it is used with scaleExtent: scale(c, {Lat:"CRS:1"(0, 299)})
+//      SCALE LEFT_PARENTHESIS
+//                coverageExpression COMMA LEFT_BRACE scaleDimensionByFactorList RIGHT_BRACE
+//            RIGHT_PARENTHESIS
+        // e.g. scale(c, {Lat(0.5), Long(3)})
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler scaleAxesDimensionListHandler = visit(ctx.scaleDimensionIntervalList());
+        Handler scaleFactorsListHandler = null;
+
+        if (ctx.scaleDimensionPointList() != null) {
+            scaleFactorsListHandler = visit(ctx.scaleDimensionPointList());
+        } else {
+            scaleFactorsListHandler = visit(ctx.coverageVariableName());
+        }
         
-        Handler result = scaleExpressionByScaleAxesHandler.create(coverageExpressionHandler, scaleAxesDimensionListHandler);        
+        Handler result = this.scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, scaleFactorsListHandler,
+                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.SCALE_BY_FACTORS);
         return result;
-    }
-    
-    @Override
-    public Handler visitCoverageExpressionScaleBySizeLabel(@NotNull wcpsParser.CoverageExpressionScaleBySizeLabelContext ctx) {
-        // SCALE_SIZE LEFT_PARENTHESIS
-        //        coverageExpression COMMA scaleDimensionIntervalList
-        // RIGHT_PARENTHESIS
-        // e.g: scalesize(c[t(0)], [Lat(25), Long(25)]) with c is 3D coverage which means 2D output will have grid domain: 0:24, 0:24 (25 pixesl for each dimension)
-        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler scaleDimensionIntervalListHandler = visit(ctx.scaleDimensionIntervalList());
-        
-        Handler result = scaleExpressionByScaleSizeHandler.create(coverageExpressionHandler, scaleDimensionIntervalListHandler);        
-        return result;
-    }
-  
-    @Override
-    public Handler visitCoverageExpressionScaleByExtentLabel(@NotNull wcpsParser.CoverageExpressionScaleByExtentLabelContext ctx) {
-        // SCALE_EXTENT LEFT_PARENTHESIS
-        //        coverageExpression COMMA scaleDimensionIntervalList
-        // RIGHT_PARENTHESIS
-        // e.g: scaleextent(c[t(0)], [Lat(25:30), Long(25:30)]) with c is 3D coverage which means 2D output will have grid domain: 25:30, 25:30 (6 pixesl for each dimension)
-        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler scaleAxesDimensionListHandler = visit(ctx.scaleDimensionIntervalList());
-        
-        Handler result = scaleExpressionByScaleExtentHandler.create(coverageExpressionHandler, scaleAxesDimensionListHandler);
-        return result;
-    }
+    }    
 
     @Override
     public Handler visitCoverageExpressionScaleByDimensionIntervalsLabel(@NotNull wcpsParser.CoverageExpressionScaleByDimensionIntervalsLabelContext ctx) {
+        // WCS - scaleExtent
         // SCALE LEFT_PARENTHESIS
         //          coverageExpression COMMA LEFT_BRACE dimensionIntervalList RIGHT_BRACE (COMMA fieldInterpolationList)*
         //       RIGHT_PARENTHESIS
@@ -1435,9 +1549,16 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: scale(c[t(0)], {Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)}
 
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
+        Handler dimensionIntervalListHandler = null;
 
-        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, dimensionIntervalListHandler);
+        if (ctx.dimensionIntervalList() != null) {
+            dimensionIntervalListHandler = visit(ctx.dimensionIntervalList());
+        } else {
+            dimensionIntervalListHandler = visit(ctx.coverageVariableName());
+        }
+
+        Handler result = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, dimensionIntervalListHandler,
+                                                                            ScaleExpressionByDimensionIntervalsHandler.ScaleType.DEFAULT_TYPE);
         return result;
     }
     
@@ -1450,9 +1571,17 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: scale(c[t(0)], { imageCrsdomain(Lat:"CRS:1"(0:200), Long:"CRS:1"(0:300)) })
         // NOTE: imageCrsdomain() or domain() will return metadata value not Rasql
         Handler coverageExpressionHandler = visit(ctx.coverageExpression());
-        Handler domainIntervalsHandler = visit(ctx.domainIntervals());
 
-        Handler handler = scaleExpressionByImageCrsDomainHandler.create(coverageExpressionHandler, domainIntervalsHandler);
+        Handler domainIntervalsHandler = null;
+
+        if (ctx.domainIntervals() != null) {
+            domainIntervalsHandler = visit(ctx.domainIntervals());
+        } else {
+            domainIntervalsHandler = visit(ctx.coverageVariableName());
+        }
+
+        Handler handler = scaleExpressionByDimensionIntervalsHandler.create(coverageExpressionHandler, domainIntervalsHandler,
+                                                                           ScaleExpressionByDimensionIntervalsHandler.ScaleType.DEFAULT_TYPE);
         return handler;
     }
 
@@ -1516,17 +1645,38 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         return result;
     }
     
+    
+    @Override 
+    public Handler visitGeoXYAxisLabelAndDomainResolutionLabel(@NotNull wcpsParser.GeoXYAxisLabelAndDomainResolutionLabelContext ctx) { 
+        Handler coverageExpressionHandler = (Handler) visit(ctx.coverageExpression());
+        if (ctx.axisName() == null) {
+            throw new WCPSException(ExceptionCode.InvalidAxisLabel, "axisLabel in domain(coverageExpression, axisLabel).resolution must not be null.");
+        } 
+        
+        String axisName = ctx.axisName().getText();
+        
+        String crsName = null;
+        
+        Handler childHandler = domainExpressionHandler.create(coverageExpressionHandler, 
+                                                    this.stringScalarHandler.create(axisName),
+                                                    this.stringScalarHandler.create(crsName));
+        Handler result = this.domainIntervalsHandler.create(childHandler, this.stringScalarHandler.create(DomainIntervalsHandler.DOMAIN_PROPERTY_RESOLUTION));
+        return result;
+    } 
+    
     @Override 
     public Handler visitDomainIntervals(@NotNull wcpsParser.DomainIntervalsContext ctx) {
         // (domainExpression | imageCrsDomainExpression | imageCrsDomainByDimensionExpression) (sdomExtraction)?
         // e.g: imageCrsdomain(c, Lat).lo or imageCrsdomain(c, Lat).hi
-        String sdomLowerBound = null;
+        String propertyValue = null;
         
-        if (ctx.sdomExtraction() != null) {
-            if (ctx.sdomExtraction().LOWER_BOUND() != null) {
-                sdomLowerBound = Boolean.TRUE.toString();
-            } else if (ctx.sdomExtraction().UPPER_BOUND() != null) {
-                sdomLowerBound = Boolean.FALSE.toString();
+        if (ctx.domainPropertyValueExtraction()!= null) {
+            if (ctx.domainPropertyValueExtraction().LOWER_BOUND() != null) {
+                propertyValue = DOMAIN_PROPERTY_LOWER_BOUND;
+            } else if (ctx.domainPropertyValueExtraction().UPPER_BOUND() != null) {
+                propertyValue = DOMAIN_PROPERTY_UPPER_BOUND;
+            } else if (ctx.domainPropertyValueExtraction().RESOLUTION() != null) {
+                propertyValue = DOMAIN_PROPERTY_RESOLUTION;
             }
         }
         
@@ -1538,13 +1688,88 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         } else if (ctx.imageCrsDomainByDimensionExpression()!= null) {
             childHandler = visit(ctx.imageCrsDomainByDimensionExpression());
         }
-        
-        Handler result = this.domainIntervalsHandler.create(childHandler, this.stringScalarHandler.create(sdomLowerBound));
+
+        Handler result = this.domainIntervalsHandler.create(childHandler, this.stringScalarHandler.create(propertyValue));
         return result;
     }
-    
-    
-    // -- switch case    
+
+    // -- calendar datetime
+
+
+    @Override
+    public Handler visitTimeIntervalElement(wcpsParser.TimeIntervalElementContext ctx) {
+        // Handler for "2015-01-01":"2015-02-03" or domain($c, "ansi")
+        // which is child handler of years() or alldays()
+        List<Handler> childHandlers = new ArrayList<>();
+        if (ctx.domainExpression() != null) {
+            // e.g. domain($c, "ansi") -> return "2015-01-01":"2016-01-03"
+            Handler domainExpressionHandler = visit(ctx.domainExpression());
+            childHandlers.add(domainExpressionHandler);
+        } else {
+            // time interval, e.g. "2015-01-01":"2016-01-03"
+            Handler lowerBoundHandler = visit(ctx.dimensionBoundConcatenationElement().get(0));
+            Handler upperBoundHandler = null;
+            if (ctx.dimensionBoundConcatenationElement().size() > 1) {
+                upperBoundHandler = visit(ctx.dimensionBoundConcatenationElement().get(1));
+            }
+
+            childHandlers.add(lowerBoundHandler);
+            childHandlers.add(upperBoundHandler);
+        }
+
+        Handler result = this.timeIntervalHandler.create(childHandlers);
+        return result;
+    }
+
+    @Override
+    public Handler visitTimeExtractorElement(wcpsParser.TimeExtractorElementContext ctx) {
+        // e.g. years(domain($c, ansi)) or years("2015-01-01":"2018-06-07")
+        // which returns a SET of numbers {2015, 2016, 2017, 2018}
+        // or days( "2022-01" : "2023-12" ) returns {0,...31} (without duplicate values)
+        PetascopeDateTime.Granularity granularity = PetascopeDateTime.Granularity.YEAR;
+        if (ctx.MONTHS() != null) {
+            granularity = PetascopeDateTime.Granularity.MONTH;
+        } else if (ctx.DAYS() != null) {
+            granularity = PetascopeDateTime.Granularity.DAY;
+        } else if (ctx.HOURS() != null) {
+            granularity = PetascopeDateTime.Granularity.HOUR;
+        } else if (ctx.MINUTES() != null) {
+            granularity = PetascopeDateTime.Granularity.MINUTE;
+        } else if (ctx.SECONDS() != null) {
+            granularity = PetascopeDateTime.Granularity.SECOND;
+        }
+
+        Handler timeDimensionIntervalHandler = visit(ctx.timeIntervalElement());
+
+        Handler result = this.timeExtractorHandler.create(timeDimensionIntervalHandler, granularity);
+        return result;
+    }
+
+    @Override
+    public Handler visitTimeTruncatorElement(wcpsParser.TimeTruncatorElementContext ctx) {
+        // e.g. allyears(domain($c, ansi)) or years("2015-01-01":"2018-06-07")
+        // which returns a LIST of datetime values with their granularity
+        // allmonths("2022-03-05":"2022-05-03") evaluates to { ("2022-03",month), ("2022-04",month), ("2022-05",month) }
+        PetascopeDateTime.Granularity granularity = PetascopeDateTime.Granularity.YEAR;
+        if (ctx.ALL_MONTHS() != null) {
+            granularity = PetascopeDateTime.Granularity.MONTH;
+        } else if (ctx.ALL_DAYS() != null) {
+            granularity = PetascopeDateTime.Granularity.DAY;
+        } else if (ctx.ALL_HOURS() != null) {
+            granularity = PetascopeDateTime.Granularity.HOUR;
+        } else if (ctx.ALL_MINUTES() != null) {
+            granularity = PetascopeDateTime.Granularity.MINUTE;
+        } else if (ctx.ALL_SECONDS() != null) {
+            granularity = PetascopeDateTime.Granularity.SECOND;
+        }
+
+        Handler timeDimensionIntervalHandler = visit(ctx.timeIntervalElement());
+
+        Handler result = this.timeTruncatorHandler.create(timeDimensionIntervalHandler, granularity);
+        return result;
+    }
+
+    // -- switch case
     
     @Override
     public Handler visitBooleanSwitchCaseCombinedExpression(@NotNull wcpsParser.BooleanSwitchCaseCombinedExpressionContext ctx) {
@@ -1666,7 +1891,18 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler result = this.dimensionPointListElementHandler.create(childHandlers);
         return result;
     }
-    
+
+    @Override
+    public Handler visitDimensionBoundConcatenationElementLabel(wcpsParser.DimensionBoundConcatenationElementLabelContext ctx) {
+        List<Handler> childHandlers = new ArrayList<>(ctx.coverageExpression().size());
+        for (wcpsParser.CoverageExpressionContext element : ctx.coverageExpression()) {
+            childHandlers.add((Handler) visit(element));
+        }
+
+        Handler result = this.dimensionBoundConcatenationHandler.create(childHandlers);
+        return result;
+    }
+
     @Override
     public Handler visitSliceDimensionIntervalElementLabel(@NotNull wcpsParser.SliceDimensionIntervalElementLabelContext ctx) {
         // axisName (COLON crsName)?  LEFT_PARENTHESIS   coverageExpression   RIGHT_PARENTHESIS
@@ -1678,14 +1914,15 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         String axisName = ctx.axisName().getText();
         
         String crs = ctx.crsName() == null ? "" : StringUtil.stripFirstAndLastQuotes(ctx.crsName().getText());
-        Handler coverageExpressionHandler = visit(ctx.coverageExpression());
+        Handler coverageExpressionHandler = visit(ctx.dimensionBoundConcatenationElement());
         
         Handler result = this.sliceDimensionIntervalElementHandler.create(this.stringScalarHandler.create(axisName),
                                                                         this.stringScalarHandler.create(crs),
                                                                         coverageExpressionHandler);
         return result;
     }
-
+    
+    
     @Override
     public Handler visitTrimDimensionIntervalElementLabel(@NotNull wcpsParser.TrimDimensionIntervalElementLabelContext ctx) {
         // axisName (COLON crsName)? LEFT_PARENTHESIS  coverageExpression   COLON coverageExpression    RIGHT_PARENTHESIS
@@ -1700,12 +1937,37 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
             crs = StringUtil.stripFirstAndLastQuotes(ctx.crsName().getText());
         }
         
-        Handler lowerBoundCoveragExpression = ((Handler)visit(ctx.coverageExpression(0)));
-        Handler upperBoundCoveragExpression = ((Handler)visit(ctx.coverageExpression(1)));
+        Handler lowerBoundCoverageExpression = ((Handler)visit(ctx.dimensionBoundConcatenationElement(0)));
+        Handler upperBoundCoverageExpression = ((Handler)visit(ctx.dimensionBoundConcatenationElement(1)));
         
         Handler result = this.trimDimensionIntervalElementHandler.create(this.stringScalarHandler.create(axisName),
                                                                     this.stringScalarHandler.create(crs),
-                                                                    lowerBoundCoveragExpression, upperBoundCoveragExpression);
+                                                                    lowerBoundCoverageExpression, upperBoundCoverageExpression);
+        return result;
+        
+        
+    }    
+
+    @Override
+    public Handler visitTrimDimensionIntervalByImageCrsDomainElementLabel(@NotNull wcpsParser.TrimDimensionIntervalByImageCrsDomainElementLabelContext ctx) {
+        // axisName (COLON crsName)? LEFT_PARENTHESIS  imageCrsDomainByDimensionExpression  RIGHT_PARENTHESIS
+        // e.g: i:"CRS:1"( imageCrsdomain(c[i(30:50)], i) )
+        if (ctx.axisName() == null) {
+            throw new InvalidAxisNameException("No axis given");
+        }
+        String axisName = ctx.axisName().getText();
+        
+        String crs = null;
+        if (ctx.crsName() != null) {
+            crs = StringUtil.stripFirstAndLastQuotes(ctx.crsName().getText());
+        }
+        
+        Handler gridBoundCoveragExpression = ((Handler)visit(ctx.imageCrsDomainByDimensionExpression()));
+        
+        Handler result = this.trimDimensionIntervalByImageCrsDomainElementHandler.create(
+                                                                    this.stringScalarHandler.create(axisName),
+                                                                    this.stringScalarHandler.create(crs),
+                                                                    gridBoundCoveragExpression);
         return result;
         
         
@@ -1734,18 +1996,18 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
                                                                this.stringScalarHandler.create(highIntervalStr));
         return result;
     }
-    
+
     // -- scale
   
     @Override
-    public Handler visitSliceScaleDimensionIntervalElementLabel(@NotNull wcpsParser.SliceScaleDimensionIntervalElementLabelContext ctx) {
+    public Handler visitSliceScaleDimensionPointElementLabel(@NotNull wcpsParser.SliceScaleDimensionPointElementLabelContext ctx) {
         // axisName LEFT_PARENTHESIS   number   RIGHT_PARENTHESIS
         // e.g: i(0.5) and is used for scaleaxes, scalesize expression, e.g: scale(c, [i(0.5)])
         String axisLabel = ctx.axisName().getText();
-        String scaleFactor = ctx.number().getText();
+        Handler scaleFactorHandler = visit(ctx.scalarExpression());
         
-        Handler result = this.sliceScaleDimensionIntervalElement.create(this.stringScalarHandler.create(axisLabel),
-                                                                        this.stringScalarHandler.create(scaleFactor));
+        Handler result = this.sliceScaleDimensionPointElement.create(this.stringScalarHandler.create(axisLabel),
+                                                                        scaleFactorHandler);
         return result;
     }
     
@@ -1755,23 +2017,28 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: i(20:30) and is used for scaleextent expression, e.g: scale(c, [i(20:30)])
         String axisLabel = ctx.axisName().getText();
         
-        String lowerBound = "";
-        String upperBound = "";
-        
-        if (ctx.number().size() > 0) {
-            lowerBound = ctx.number().get(0).getText();
-            upperBound = ctx.number().get(1).getText();
-        } else {
-            lowerBound = ctx.STRING_LITERAL().get(0).getText();
-            upperBound = ctx.STRING_LITERAL().get(1).getText();
-        }
+        Handler lowerBoundHandler = visit(ctx.scalarExpression().get(0));
+        Handler upperBoundHandler = visit(ctx.scalarExpression().get(1));
         
         Handler result = this.trimScaleDimensionIntervalElement.create(
                                                         this.stringScalarHandler.create(axisLabel),
-                                                        this.stringScalarHandler.create(lowerBound),
-                                                        this.stringScalarHandler.create(upperBound));
+                                                        lowerBoundHandler,
+                                                        upperBoundHandler);
         return result;
     }
+    
+    @Override
+    public Handler visitScaleDimensionPointListLabel(@NotNull wcpsParser.ScaleDimensionPointListLabelContext ctx) {
+        // scaleDimensionPointElement (COMMA scaleDimensionPointElement)* 
+        // e.g: i(0.5),j(0.5)
+        List<Handler> handlers = new ArrayList<>();
+        for (wcpsParser.ScaleDimensionPointElementContext element : ctx.scaleDimensionPointElement()) {
+            handlers.add(visit(element));
+        }
+        
+        Handler result = this.scaleDimensionIntervalListHandler.create(handlers);
+        return result;
+    }        
     
     @Override
     public Handler visitScaleDimensionIntervalListLabel(@NotNull wcpsParser.ScaleDimensionIntervalListLabelContext ctx) {
@@ -1796,11 +2063,46 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
 
     @Override
     public Handler visitAxisIteratorLabel(@NotNull wcpsParser.AxisIteratorLabelContext ctx) {
-        // coverageVariableName dimensionIntervalElement (e.g: $px x(Lat(0:20)) )
-        String coverageVariableName = ctx.coverageVariableName().getText();
-        Handler subsetDimensionHandler = visit(ctx.dimensionIntervalElement());
+        // coverageVariableName axisName LEFT_PARENTHESIS coverageExpression COLON coverageExpression RIGHT_PARENTHESIS
+        // e.g: $px x(Lat(0:20)) 
+        String axisIteratorName = ctx.coverageVariableName().getText();
+        // e.g. x
+        String axisName = ctx.axisName().getText();
+        Handler coverageExpressionLowerBoundHandler = visit(ctx.dimensionBoundConcatenationElement().get(0));
+        Handler coverageExpressionUpperBoundHandler = visit(ctx.dimensionBoundConcatenationElement().get(1));
+        // e.g. P3Y = periodicity 3 years
+        String regularTimeStep = null;
+        if (ctx.regularTimeStep() != null) {
+            regularTimeStep = ctx.regularTimeStep().getText();
+        }
 
-        Handler result = this.axisIteratorHandler.create(this.stringScalarHandler.create(coverageVariableName), subsetDimensionHandler);
+        Handler result = this.axisIteratorHandler.create(this.stringScalarHandler.create(axisIteratorName), 
+                                                        this.stringScalarHandler.create(axisName), 
+                                                        coverageExpressionLowerBoundHandler,
+                                                        coverageExpressionUpperBoundHandler,
+                                                        this.stringScalarHandler.create(regularTimeStep));
+        return result;
+    }
+
+    @Override
+    public Handler visitAxisIteratorEnumerationListLabel(@NotNull wcpsParser.AxisIteratorEnumerationListLabelContext ctx) {
+        // coverageVariableName axisName LEFT_PARENTHESIS coverageExpression (COMMA coverageExpression)* RIGHT_PARENTHESIS
+        // e.g: $px date(1, 2, 3) - used only for irregular axis
+        String axisIteratorName = ctx.coverageVariableName().getText();
+        // e.g. date
+        String axisName = ctx.axisName().getText();
+
+        List<Handler> coverageExpressionHandlers = new ArrayList<>();
+        for (wcpsParser.DimensionBoundConcatenationElementContext dimensionBoundConcatenationElementContext : ctx.dimensionBoundConcatenationElement()) {
+            Handler coverageExpressionHandler = visit(dimensionBoundConcatenationElementContext);
+            coverageExpressionHandlers.add(coverageExpressionHandler);
+        }
+
+        Handler result = this.axisIteratorEnumerationListHandler.create(
+                                        this.stringScalarHandler.create(axisIteratorName),
+                                        this.stringScalarHandler.create(axisName),
+                                        coverageExpressionHandlers
+                                    );
         return result;
     }
 
@@ -1812,10 +2114,15 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         // e.g: $px x (domain(c[Lat(0:20)], Lat, "http://.../4326"))
         // return x in (50:80)
 
-        String coverageVariableName = ctx.coverageVariableName().getText();
+        // e.g $px
+        String axisIteratorName = ctx.coverageVariableName().getText();
+        // e.g. x
+        String axisName = ctx.axisName().getText();
         Handler domainIntervalsHandler = visit(ctx.domainIntervals());
         
-        Handler result = this.axisIteratorDomainIntervalsHandler.create(this.stringScalarHandler.create(coverageVariableName), domainIntervalsHandler);
+        Handler result = this.axisIteratorDomainIntervalsHandler.create(this.stringScalarHandler.create(axisIteratorName),
+                                                                        this.stringScalarHandler.create(axisName),
+                                                                        domainIntervalsHandler);
         return result;
     }
     
@@ -1897,6 +2204,13 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
         Handler result = this.wktMultiPolygonHandler.create(wktCompoundPointsHandlers);        
         return result;
     }
+    
+    @Override
+    public Handler visitWKTCoverageExpressionLabel(@NotNull wcpsParser.WKTCoverageExpressionLabelContext ctx) { 
+        // Handle LET clause expression
+        // Used only for LET clause, e.g. let $wkt := POLYGON((...))), then here clip($c, $wkt)
+        return visitChildren(ctx);
+    }
   
     @Override
     public Handler visitWKTExpressionLabel(@NotNull wcpsParser.WKTExpressionLabelContext ctx) {
@@ -1908,6 +2222,8 @@ public class WcpsEvaluator extends wcpsBaseVisitor<Handler> {
             result = visit(ctx.wktPolygon());
         } else if (ctx.wktMultipolygon() != null) {
             result = visit(ctx.wktMultipolygon());
+        } else if (ctx.coverageExpression() != null) {
+            result = visit(ctx.coverageExpression());
         }
         
         return result;

@@ -23,8 +23,8 @@ rasdaman GmbH.
 
 #include "clientmanager.hh"
 
-#include "common/uuid/uuid.hh"
 #include "server/rasserver_entry.hh"
+#include "common/macros/compilerdefs.hh"
 #include "common/exceptions/missingresourceexception.hh"
 #include <logging.hh>
 #include <boost/thread.hpp>
@@ -32,179 +32,161 @@ rasdaman GmbH.
 namespace rasserver
 {
 
-using std::string;
-using std::pair;
-using std::make_pair;
-using std::map;
-using std::set;
-using std::unique_lock;
-using std::shared_ptr;
-using std::thread;
-using boost::shared_mutex;
 using boost::shared_lock;
-using common::Timer;
-using common::UUID;
+using boost::shared_mutex;
+using std::shared_ptr;
+using std::string;
+using std::chrono::milliseconds;
 
-const int ClientManager::ALIVE_PERIOD = 30000;
+const int ClientManager::CLIENT_ALIVE_PING_TIMEOUT_MS = 30000;  // 30 seconds
 
 ClientManager::ClientManager()
+    : timeSinceLastPing(CLIENT_ALIVE_PING_TIMEOUT_MS),
+      evaluateClientStatusExecutor{[this]()
+                     {
+                         this->evaluateClientStatus();
+                     },
+                     milliseconds(CLIENT_ALIVE_PING_TIMEOUT_MS)}
 {
-    this->isThreadRunning = true;
-    this->managementThread.reset(new thread(&ClientManager::evaluateClientStatus, this));
 }
 
 ClientManager::~ClientManager()
 {
-    try
+    this->evaluateClientStatusExecutor.stop();
+}
+
+bool ClientManager::allocateClient(std::uint32_t clientUUID, UNUSED std::uint32_t sessionId)
+{
+    boost::lock_guard<boost::shared_mutex> lock(clientMutex);
+    if (clientConnected)
     {
-        {
-            std::lock_guard<std::mutex> lock(this->threadMutex);
-            this->isThreadRunning = false;
-        }
-        this->isThreadRunningCondition.notify_one();
-        this->managementThread->join();
+        LWARNING << "Current client " << clientId << " has not been deallocated"
+                 << ", but a new client is to be allocated: " << clientUUID;
     }
-    catch (std::exception& ex)
+    timeSinceLastPing.reset();
+    clientId = clientUUID;
+    clientConnected = true;
+    return true;
+}
+
+void ClientManager::deallocateClient(std::uint32_t clientUUID, UNUSED std::uint32_t sessionId)
+{
+    boost::lock_guard<boost::shared_mutex> lock(clientMutex);
+    if (clientId == clientUUID)
     {
-        LERROR << ex.what();
+        clientConnected = false;
     }
-    catch (...)
+}
+
+bool ClientManager::isAlive(std::uint32_t clientUUID)
+{
+    boost::shared_lock<boost::shared_mutex> lock(clientMutex);
+    return clientId == clientUUID && !timeSinceLastPing.hasExpired();
+}
+
+void ClientManager::resetLiveliness(std::uint32_t clientUUID)
+{
+    boost::lock_guard<boost::shared_mutex> lock(clientMutex);
+    if (clientId == clientUUID)
     {
-        LERROR << "ClientManager destructor has failed";
+        timeSinceLastPing.reset();
     }
+}
+
+void ClientManager::addQueryStreamedResult(std::uint32_t requestUUID,
+                                           const shared_ptr<ClientQueryStreamedResult> &streamedResult)
+{
+    boost::lock_guard<boost::shared_mutex> lock(requestMutex);
+    if (streamingRequest)
+    {
+        LWARNING << "Previous request " << requestId << " has not been deallocated"
+                 << ", but a new one is being added: " << requestUUID;
+    }
+    requestId = requestUUID;
+    requestResult = streamedResult;
+    streamingRequest = true;
+}
+
+shared_ptr<ClientQueryStreamedResult>
+ClientManager::getQueryStreamedResult(std::uint32_t requestUUID)
+{
+    boost::shared_lock<boost::shared_mutex> lock(requestMutex);
+    if (!streamingRequest || requestId != requestUUID)
+    {
+        throw common::MissingResourceException(
+            "No request result found for request uuid " + std::to_string(requestUUID));
+    }
+    return requestResult;
 }
 
 void ClientManager::removeAllQueryStreamedResults()
 {
-    this->queryStreamedResultList.clear();
+    boost::lock_guard<boost::shared_mutex> lock(requestMutex);
+    requestId = 0;
+    requestResult.reset();
+    streamingRequest = false;
 }
 
-bool ClientManager::allocateClient(std::string clientUUID, __attribute__ ((unused)) std::string sessionId)
+void ClientManager::cleanQueryStreamedResult(std::uint32_t requestUUID)
 {
-    Timer timer(ALIVE_PERIOD);
-    auto result = this->clientList.insert(make_pair(clientUUID, timer));
-    return result.second;
-}
-
-void ClientManager::deallocateClient(std::string clientUUID, __attribute__ ((unused)) std::string sessionId)
-{
-    this->clientList.erase(clientUUID);
-}
-
-bool ClientManager::isAlive(std::string clientUUID)
-{
-    auto clientIt = this->clientList.find(clientUUID);
-    if (clientIt == this->clientList.end())
+    boost::lock_guard<boost::shared_mutex> lock(requestMutex);
+    if (requestId == requestUUID)
     {
-        return false;
-    }
-    return !clientIt->second.hasExpired();
-}
-
-void ClientManager::resetLiveliness(std::string clientUUID)
-{
-    auto clientIt = this->clientList.find(clientUUID);
-    if (clientIt != this->clientList.end())
-    {
-        clientIt->second.reset();
+        requestId = 0;
+        requestResult.reset();
+        streamingRequest = false;
     }
 }
 
-void ClientManager::cleanQueryStreamedResult(const std::string& requestUUID)
+bool ClientManager::hasClients()
 {
-    this->queryStreamedResultList.erase(requestUUID);
-}
-
-void ClientManager::addQueryStreamedResult(const std::string& requestUUID, const shared_ptr<ClientQueryStreamedResult>& streamedResult)
-{
-    this->queryStreamedResultList.insert(std::make_pair(requestUUID, streamedResult));
-}
-
-shared_ptr<ClientQueryStreamedResult> ClientManager::getQueryStreamedResult(const std::string& requestUUID)
-{
-    auto queryResult = this->queryStreamedResultList.find(requestUUID);
-    if (queryResult == this->queryStreamedResultList.end())
-    {
-        throw common::MissingResourceException("Invalid request uuid: " + requestUUID);
-    }
-    return queryResult->second;
-}
-
-size_t ClientManager::getClientQueueSize()
-{
-    return this->clientList.size();
+    boost::shared_lock<boost::shared_mutex> lock(requestMutex);
+    return clientConnected;
 }
 
 void ClientManager::evaluateClientStatus()
 {
-    std::chrono::milliseconds timeToSleepFor{ALIVE_PERIOD};
-
-    std::unique_lock<std::mutex> threadLock(this->threadMutex);
-    while (this->isThreadRunning)
+    // will contain the clients from which no keep alive message
+    // was received after ALIVE_PERIOD milliseconds
+    boost::upgrade_lock<boost::shared_mutex> sharedLock(clientMutex);
+    if (clientConnected && timeSinceLastPing.hasExpired())
     {
+        // client Keep Alive timer has expired, so the client is considered dead
+
+        // clean up
+        RasServerEntry &rasServerEntry = RasServerEntry::getInstance();
         try
         {
-            // Wait on the condition variable to be notified from the
-            // destructor when it is time to stop the worker thread
-            if (this->isThreadRunningCondition.wait_for(threadLock, timeToSleepFor) == std::cv_status::timeout)
-            {
-                set<string> deadClients;
-
-                boost::upgrade_lock<boost::shared_mutex> clientsLock(this->clientMutex);
-                auto it = this->clientList.begin();
-
-                while (it != this->clientList.end())
-                {
-                    auto toErase = it;
-                    ++it;
-                    if (toErase->second.hasExpired())
-                    {
-                        boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(clientsLock);
-                        this->clientList.erase(toErase);
-                        deadClients.insert(toErase->first);
-
-                        // If the client dies, clean up
-                        RasServerEntry& rasServerEntry = RasServerEntry::getInstance();
-                        try {
-                            rasServerEntry.abortTA();
-                        } catch (...) {
-                            LERROR << "Failed aborting transaction.";
-                        }
-                        try {
-                            rasServerEntry.closeDB();
-                        } catch (...) {
-                            LERROR << "Failed closing database connection.";
-                        }
-                        try {
-                            rasServerEntry.disconnectClient();
-                        } catch (...) {
-                            LERROR << "Failed disconnecting client.";
-                        }
-                    }
-                }
-
-                auto resultIt = this->queryStreamedResultList.begin();
-                while (resultIt != this->queryStreamedResultList.end())
-                {
-                    auto toEraseResult = resultIt;
-                    resultIt++;
-
-                    if (deadClients.find(toEraseResult->second->getClientUUID()) != deadClients.end())
-                    {
-                        this->cleanQueryStreamedResult(resultIt->first);
-                    }
-                }
-            }
-        }
-        catch (std::exception& ex)
-        {
-            LERROR << "Client management thread has failed, reason: " << ex.what();
+            rasServerEntry.abortTA();
         }
         catch (...)
         {
-            LERROR << "Client management thread failed for unknown reason.";
+            LERROR << "Failed aborting transaction.";
         }
+        try
+        {
+            rasServerEntry.closeDB();
+        }
+        catch (...)
+        {
+            LERROR << "Failed closing database connection.";
+        }
+        try
+        {
+            rasServerEntry.disconnectClient();
+        }
+        catch (...)
+        {
+            LERROR << "Failed disconnecting client.";
+        }
+
+        // remove client results
+        removeAllQueryStreamedResults();
+
+        // disconnect client here
+        boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(sharedLock);
+        clientConnected = false;
     }
 }
 
-}
+}  // namespace rasserver

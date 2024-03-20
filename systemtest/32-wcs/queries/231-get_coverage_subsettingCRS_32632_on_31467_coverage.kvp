@@ -1,0 +1,2 @@
+SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&
+COVERAGEID=test_epsg_31467_xy_north_east_orientation&FORMAT=text/csv&SUBSET=Y(5784876)&SUBSET=X(595342)&subsettingCrs=http://localhost:8080/def/crs/EPSG/0/32632

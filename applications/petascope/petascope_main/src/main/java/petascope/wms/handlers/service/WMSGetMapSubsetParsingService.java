@@ -27,15 +27,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.KVPSymbols;
 import static petascope.core.KVPSymbols.VALUE_WMS_DIMENSION_MIN_MAX_SEPARATE_CHARACTER;
 import petascope.core.service.CrsComputerService;
+import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.util.CrsUtil;
 import petascope.util.ListUtil;
 import petascope.util.StringUtil;
+import petascope.util.TimeUtil;
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.ParsedSubset;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
@@ -51,6 +55,8 @@ import petascope.wcs2.parsers.subsets.TrimmingSubsetDimension;
  * @author Bang Pham Huu <b.phamhuu@jacobs-university.de>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapSubsetParsingService {
     
     @Autowired
@@ -77,9 +83,34 @@ public class WMSGetMapSubsetParsingService {
                     String geoLowerBound = parsedSubset.getLowerLimit().toPlainString();
                     String geoUpperBound = parsedSubset.getUpperLimit().toPlainString();
 
-                    WcpsSubsetDimension subsetDimension = new WcpsTrimSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(), 
+                    WcpsSubsetDimension subsetDimension = null;
+
+                    if (!geoLowerBound.equalsIgnoreCase(geoUpperBound)) {
+                        if (parsedSubset.getLowerLimit().compareTo(axis.getOriginalGeoBounds().getLowerLimit()) < 0
+                            || parsedSubset.getLowerLimit().compareTo(axis.getOriginalGeoBounds().getUpperLimit()) > 0) {
+                            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                                "Trimming lower bound: " + dimSubset + " for axis: " + axis.getLabel() + " is out of axis's extent: " + axis.getGeoBoundsRepresentation());
+                        }
+
+                        if (parsedSubset.getUpperLimit().compareTo(axis.getOriginalGeoBounds().getLowerLimit()) < 0
+                            || parsedSubset.getUpperLimit().compareTo(axis.getOriginalGeoBounds().getUpperLimit()) > 0) {
+                            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                                "Trimming upper bound: " + dimSubset + " for axis: " + axis.getLabel() + " is out of axis's extent: " + axis.getGeoBoundsRepresentation());
+                        }
+
+                        subsetDimension = new WcpsTrimSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(),
                                                                     geoLowerBound,
                                                                     geoUpperBound);
+                    } else {
+                        if (parsedSubset.getLowerLimit().compareTo(axis.getOriginalGeoBounds().getLowerLimit()) < 0
+                            || parsedSubset.getLowerLimit().compareTo(axis.getOriginalGeoBounds().getUpperLimit()) > 0) {
+                            throw new PetascopeException(ExceptionCode.InvalidRequest,
+                                "Slicing bound: " + dimSubset + " for axis: " + axis.getLabel() + " is out of axis's extent: " + axis.getGeoBoundsRepresentation());
+                        }
+
+                        subsetDimension = new WcpsSliceSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(),
+                                                                        geoLowerBound);
+                    }
 
                     results.add(subsetDimension);
                 }
@@ -106,8 +137,6 @@ public class WMSGetMapSubsetParsingService {
         // e.g: time="2015-02-05"
         for (Axis axis : wcpsCoverageMetadata.getSortedAxesByGridOrder()) {
             if (axis.isNonXYAxis()) {
-                
-                List<ParsedSubset<Long>> translatedGridSubsets = new ArrayList<>();
 
                 // Parse the requested dimension subset values from GetMap request
                 List<ParsedSubset<BigDecimal>> parsedGeoSubsets = new ArrayList<>();
@@ -128,20 +157,16 @@ public class WMSGetMapSubsetParsingService {
                 } else {
                     // NOTE: if coverage contains a non XY, time dimension (e.g: temperature) axis but there is no dim_temperature parameter from GetMap request
                     // it will be the upper Bound grid coordinate in this axis (the latest slice of this dimension according to WMS 1.3 document).
-                    Long gridUpperBound = axis.getGridBounds().getUpperLimit().longValue();
-                    translatedGridSubsets.add(new ParsedSubset<>(gridUpperBound, gridUpperBound));
+                    parsedGeoSubsets.add(new ParsedSubset<>(axis.getGeoBounds().getLowerLimit(), axis.getGeoBounds().getUpperLimit()));
                 }
 
-                // Then, translate all these parsed subsets to grid domains
-                for (ParsedSubset<BigDecimal> parsedGeoSubset : parsedGeoSubsets) {
-                    WcpsSubsetDimension subsetDimension = new WcpsTrimSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(),
-                                                                                      parsedGeoSubset.getLowerLimit().toPlainString(), parsedGeoSubset.getUpperLimit().toPlainString());
-                    ParsedSubset<Long> parsedGridSubset = coordinateTranslationService.geoToGridSpatialDomain(axis, subsetDimension, parsedGeoSubset);
-                    translatedGridSubsets.add(parsedGridSubset);
+
+                List<WcpsSliceSubsetDimension> geoSlicings = new ArrayList<>();
+                for (ParsedSubset<BigDecimal> subset : parsedGeoSubsets) {
+                    geoSlicings.add(new WcpsSliceSubsetDimension(axis.getLabel(), axis.getNativeCrsUri(), subset.getLowerLimit().toPlainString()));
                 }
-                
-                List<WcpsSliceSubsetDimension> gridSlicings = this.createGridBounds(axis.getLabel(), translatedGridSubsets);
-                parsedNonXYAxesGridSlicings.add(gridSlicings);
+
+                parsedNonXYAxesGridSlicings.add(geoSlicings);
             }
         }
 
@@ -153,32 +178,64 @@ public class WMSGetMapSubsetParsingService {
         }
     }
     
-    /**
-     * Create a list of grid bounds which needs to regard nonXY axes properly.
-     * Trimming needs to be separated to multiple slicing values (e.g: [0:3] -> 0,1,2,3
-     */
-    private List<WcpsSliceSubsetDimension> createGridBounds(String axisLabel, List<ParsedSubset<Long>> inputGridBounds) {
-        List<WcpsSliceSubsetDimension> results = new ArrayList<>();
-        
-        for (ParsedSubset<Long> parsedSubset : inputGridBounds) {
-            String value;
-            // e.g: time, dim_pressure axis...
-            if (parsedSubset.getLowerLimit().equals(parsedSubset.getUpperLimit())) {
-                // slicing
-                value = parsedSubset.getLowerLimit().toString();
-                results.add(new WcpsSliceSubsetDimension(axisLabel, CrsUtil.GRID_CRS, value));
-            } else {
-                for (Long i = parsedSubset.getLowerLimit(); i <= parsedSubset.getUpperLimit(); i++) {
-                    // also slicing
-                    value = i.toString();
-                    results.add(new WcpsSliceSubsetDimension(axisLabel, CrsUtil.GRID_CRS, value));
+    
+ public List<List<WcpsSliceSubsetDimension>> translateGeoDimensionsSubsetsLayers(WcpsCoverageMetadata wcpsCoverageMetadata,
+                                                                                Map<String, String> dimSubsetsMap) throws PetascopeException {
+        // Each nested list is the translated grids for an non-XY axis (e.g: ansi -> [0, 3, 5])
+        List<List<WcpsSliceSubsetDimension>> parsedNonXYAxesGeoSlicings = new ArrayList<>();
+        // First, parse all the dimension subsets (e.g: time=...,dim_pressure=....) as one parsed dimension subset is one of layer's overlay operator's operand.
+
+        // First, convert all the input dimensions subsets to BigDecimal to be translated to grid subsets
+        // e.g: time="2015-02-05"
+        for (Axis axis : wcpsCoverageMetadata.getSortedAxesByGridOrder()) {
+            if (axis.isNonXYAxis()) {
+                
+                // Parse the requested dimension subset values from GetMap request
+                List<ParsedSubset<BigDecimal>> parsedGeoSubsets = new ArrayList<>();
+
+                // e.g: time=...&dim_pressure=...
+                String dimSubset = dimSubsetsMap.get(axis.getLabel());
+                if (axis.isTimeAxis()) {
+                    // In case axis is time axis, it has a specific key.
+                    dimSubset = dimSubsetsMap.get(KVPSymbols.KEY_WMS_TIME);
+                } else if (axis.isElevationAxis()) {
+                    // In case axis is elevation axis, it has a specific key.
+                    dimSubset = dimSubsetsMap.get(KVPSymbols.KEY_WMS_ELEVATION);
                 }
+
+                if (dimSubset != null) {
+                    // Coverage contains a non XY, time dimension axis and there is a dim_axisLabel in GetMap request.
+                    parsedGeoSubsets = this.parseDimensionSubset(axis, dimSubset);
+                } else {
+                    // NOTE: if coverage contains a non XY, time dimension (e.g: temperature) axis but there is no dim_temperature parameter from GetMap request
+                    // it will be the upper Bound grid coordinate in this axis (the latest slice of this dimension according to WMS 1.3 document).
+                    BigDecimal geoUpperBound = axis.getGeoBounds().getUpperLimit();
+                    parsedGeoSubsets.add(new ParsedSubset<>(geoUpperBound, geoUpperBound));
+                }
+
+                List<WcpsSliceSubsetDimension> nonXYGeoSlicings = new ArrayList<>();
+                for (ParsedSubset<BigDecimal> parsedGeoSubset : parsedGeoSubsets) {
+                    String geoLowerBound = parsedGeoSubset.getLowerLimit().toPlainString();
+                    if (axis.isTimeAxis()) {
+                        geoLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, parsedGeoSubset.getLowerLimit(), axis.getCrsDefinition());
+                    }
+                    
+                    WcpsSliceSubsetDimension wcpsSliceSubsetDimension = new WcpsSliceSubsetDimension(axis.getLabel(), 
+                                                                                                    axis.getNativeCrsUri(), geoLowerBound);
+                    nonXYGeoSlicings.add(wcpsSliceSubsetDimension);
+                } 
+                parsedNonXYAxesGeoSlicings.add(nonXYGeoSlicings);
             }
         }
-        
-        return results;
-    }
-    
+
+        if (parsedNonXYAxesGeoSlicings.size() > 0) {
+            List<List<WcpsSliceSubsetDimension>> results = ListUtil.cartesianProduct(parsedNonXYAxesGeoSlicings);
+            return results;
+        } else {
+            return null;
+        }
+    }    
+
     /**
      * Parse the dimension subsets (if exist) from GetMap request, e.g: time=...&dim_pressure=...
      * NOTE: WMS subset can be:

@@ -25,10 +25,13 @@ import java.util.Arrays;
 import petascope.wcps.result.WcpsResult;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.core.Pair;
 import petascope.exceptions.PetascopeException;
 
 /**
@@ -56,20 +59,25 @@ public class ReduceExpressionHandler extends Handler {
     public ReduceExpressionHandler create(StringScalarHandler operatorHandler, Handler reduceExpressionHandler) {
         ReduceExpressionHandler result = new ReduceExpressionHandler();
         result.setChildren(Arrays.asList(operatorHandler, reduceExpressionHandler));
+        
         return result;
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        String operator = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        WcpsResult reduceExpression = (WcpsResult)this.getSecondChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String operator = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        WcpsResult reduceExpression = (WcpsResult)this.getSecondChild().handle(serviceRegistries);
         
         WcpsResult result = this.handle(operator, reduceExpression);
         return result;
     }
 
-    private WcpsResult handle(String operator, WcpsResult reduceExpression) {
-        return new WcpsResult(null, 
+    private WcpsResult handle(String operator, WcpsResult reduceExpression) throws PetascopeException {
+
+        
+
+        reduceExpression.getMetadata().setChangedToNullByReductionExpression(true);
+        return new WcpsResult(reduceExpression.getMetadata(),
                         TEMPLATE.replace("$reduceOperation", operationTranslator.get(operator.toLowerCase()))
                                 .replace("$reduceParameter", reduceExpression.getRasql()));
     }
@@ -82,6 +90,7 @@ public class ReduceExpressionHandler extends Handler {
         operationTranslator.put("all", "all_cells");
         operationTranslator.put("avg", "avg_cells");
         operationTranslator.put("add", "add_cells");
+        operationTranslator.put("sum", "add_cells");
         operationTranslator.put("min", "min_cells");
         operationTranslator.put("max", "max_cells");
         operationTranslator.put("count", "count_cells");

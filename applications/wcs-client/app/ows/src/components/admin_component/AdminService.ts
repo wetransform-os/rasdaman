@@ -63,85 +63,6 @@ module rasdaman {
                            private credentialService:rasdaman.CredentialService) {
 
         }
-     
-        // After login succesfully, persist petauser admin credentials to local storage to reuse
-        public persitAdminUserCredentials = (credentials:login.Credential) => {            
-            window.localStorage.setItem("petascopeAdminUserCredentials", credentials.toString());
-        }
-
-        // Mark as petascope admin user logged out
-        public persitLoggedOut = () => {    
-            window.localStorage.removeItem("petascopeAdminUserCredentials");
-        }
-
-        // Check if petascope admin user logged in
-        public getPersistedAdminUserCredentials = ():login.Credential => {            
-            let persistedCredentialsString = window.localStorage.getItem("petascopeAdminUserCredentials");
-
-            if (persistedCredentialsString != null) {
-                var credentials:login.Credential = login.Credential.fromString(persistedCredentialsString);
-                // NOTE: petauser was petascope admin user and since v10+, 
-                // it has no use anymore in petascope (user doesn't exist in rasdaman)
-                //  and user must login with different user in admin's tab
-                if (credentials["username"] == "petauser") {
-                    this.persitLoggedOut();
-                    return null;
-                }
-
-                return credentials;
-            }
-
-            // petascope admin user didn't login yet
-            return null;
-        }
-
-        // Fetch the stored petascope admin user credentials from local storage
-        // and create a basic authentication headers for them
-        public getAuthenticationHeaders = ():{} => {
-            var credentials:login.Credential = this.getPersistedAdminUserCredentials();
-            var headers = {};
-            if (credentials != null) {
-                headers = this.credentialService.createBasicAuthenticationHeader(credentials.username, credentials.password);
-            }
-
-            return headers;
-        }
-
-        // Login
-
-        public login(inputCredentials:login.Credential):angular.IPromise<any> {
-            var result = this.$q.defer();                                               
-            var requestUrl = this.settings.contextPath + "/login";            
-            var success = false;
-
-            let adminRolesObj = AdminService.adminRoles;
-            
-            // send request to Petascope and get response (headers and contents)
-            this.$http.get(requestUrl, {
-                headers: this.credentialService.createBasicAuthenticationHeader(inputCredentials.username, inputCredentials.password)
-            }).then(function (response:any) {
-                let roles = response.data.split(",");
-                let hasAdminRole = false;
-
-                for (let i = 0; i < adminRolesObj.length; i++){
-                    let adminRole = adminRolesObj[i];
-                    if (roles.includes(adminRole)) {
-                        hasAdminRole = true;
-                        break;
-                    }
-                }
-
-                if (hasAdminRole) {                    
-                    result.resolve(roles);
-                } else {
-                    result.reject("Given credentials are not valid for an admin user with granted adequate roles.");
-                }
-            }, function (error) {
-                result.reject(error);
-            });
-
-            return result.promise;
-        }
 
         /**
             Check from the list of granted roles of an admin user, if a given role exists
@@ -157,8 +78,7 @@ module rasdaman {
             var result = this.$q.defer();                                               
             var requestUrl = this.settings.adminEndpoint + "/ows/serviceinfo";
 
-            var credentials = this.getPersistedAdminUserCredentials();
-            var requestHeaders = this.credentialService.createBasicAuthenticationHeader(credentials.username, credentials.password);
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.settings.wcsEndpoint);
 
             var request:angular.IRequestConfig = {
                 method: 'POST',
@@ -183,8 +103,7 @@ module rasdaman {
             var result = this.$q.defer();                                               
             var requestUrl = this.settings.adminEndpoint + "/ows/serviceinfo";
 
-            var credentials = this.getPersistedAdminUserCredentials();
-            var requestHeaders = this.credentialService.createBasicAuthenticationHeader(credentials.username, credentials.password);
+            var requestHeaders = this.credentialService.getAuthorizationHeader(this.settings.wcsEndpoint);
 
             var request:angular.IRequestConfig = {
                 method: 'POST',

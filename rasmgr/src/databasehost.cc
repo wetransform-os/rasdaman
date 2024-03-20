@@ -20,37 +20,30 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-#include <stdexcept>
-
-#include "common/exceptions/logicexception.hh"
-
-#include "exceptions/rasmgrexceptions.hh"
 #include "database.hh"
-
 #include "databasehost.hh"
+#include "exceptions/inexistentdatabaseexception.hh"
+#include "exceptions/databasealreadyexistsexception.hh"
+#include "exceptions/dbbusyexception.hh"
+#include "common/exceptions/logicexception.hh"
 
 #include <boost/thread/shared_lock_guard.hpp>
 
 namespace rasmgr
 {
-using std::runtime_error;
-using std::mutex;
-using std::unique_lock;
 
-DatabaseHost::DatabaseHost(std::string hostName, std::string connectString,
-                           std::string userName, std::string passwdString) :
-    hostName(hostName), connectString(connectString),
-    userName(userName), passwdString(passwdString)
+DatabaseHost::DatabaseHost(const std::string &hostName, const std::string &connectString)
+    : hostName(hostName), connectString(connectString)
 {
     this->sessionCount = 0;
     this->serverCount = 0;
 }
 
-void DatabaseHost::addClientSessionOnDB(const std::string &databaseName, const std::string &clientId, const std::string &sessionId)
+void DatabaseHost::addClientSessionOnDB(const std::string &databaseName, std::uint32_t clientId, std::uint32_t sessionId)
 {
     boost::upgrade_lock<boost::shared_mutex> lock(databaseListMutex);
     bool foundDb = false;
-    for (auto it = this->databaseList.begin(); !foundDb &&  it != this->databaseList.end(); it++)
+    for (auto it = this->databaseList.begin(); !foundDb && it != this->databaseList.end(); it++)
     {
         if ((*it)->getDbName() == databaseName)
         {
@@ -59,7 +52,7 @@ void DatabaseHost::addClientSessionOnDB(const std::string &databaseName, const s
             //on this db, the next line will throw an exception
             //and the counter will not be incremented
             (*it)->addClientSession(clientId, sessionId);
-            
+
             boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(lock);
             this->sessionCount++;
         }
@@ -71,7 +64,7 @@ void DatabaseHost::addClientSessionOnDB(const std::string &databaseName, const s
     }
 }
 
-void DatabaseHost::removeClientSessionFromDB(const std::string &clientId, const std::string &sessionId)
+void DatabaseHost::removeClientSessionFromDB(std::uint32_t clientId, std::uint32_t sessionId)
 {
     boost::lock_guard<boost::shared_mutex> lock(this->databaseListMutex);
     for (auto it = this->databaseList.begin(); it != this->databaseList.end(); it++)
@@ -161,8 +154,6 @@ DatabaseHostProto DatabaseHost::serializeToProto(const DatabaseHost &dbHost)
 
     result.set_host_name(dbHost.hostName);
     result.set_connect_string(dbHost.connectString);
-    result.set_user_name(dbHost.userName);
-    result.set_password(dbHost.passwdString);
 
     result.set_session_count(dbHost.sessionCount);
     result.set_server_count(dbHost.serverCount);
@@ -200,30 +191,6 @@ void DatabaseHost::setConnectString(const std::string &connectString)
     this->connectString = connectString;
 }
 
-const std::string &DatabaseHost::getUserName() const
-{
-    return this->userName;
-}
-
-void DatabaseHost::setUserName(const std::string &userName)
-{
-    if (userName.empty())
-    {
-        throw common::LogicException("Cannot set empty username for database host.");
-    }
-    this->userName = userName;
-}
-
-const std::string &DatabaseHost::getPasswdString() const
-{
-    return this->passwdString;
-}
-
-void DatabaseHost::setPasswdString(const std::string &passwdString)
-{
-    this->passwdString = passwdString;
-}
-
 bool DatabaseHost::containsDatabase(const std::string &dbName)
 {
     boost::shared_lock<boost::shared_mutex> lock(databaseListMutex);
@@ -236,4 +203,4 @@ bool DatabaseHost::containsDatabase(const std::string &dbName)
     }
     return false;
 }
-}
+}  // namespace rasmgr

@@ -62,26 +62,26 @@ RC_OK=0       # everything went fine
 RC_ERROR=1    # something went wrong
 RC_HELP=2
 
-RASMGR_PORT=7001
-
 # binaries
 rasmgr_bin="@bindir@rasmgr"
-rasserver_bin="@bindir@rasserver"
 rascontrol_bin="@bindir@rascontrol"
 
 petascope_props="@sysconfdir@petascope.properties"
-secore_props="@sysconfdir@secore.properties"
 
 log_path="@logdir@"
 war_path="@pkgdatadir@war"
 
 # base DBMS used by petascope
-PETASCOPEDB=@petascopedb@
 ENABLE_JAVA=@ENABLE_JAVA@
+
+# rasmgr port
+DEFAULT_RASMGR_PORT=7001
+[ -z "$RASMGR_PORT" ] && RASMGR_PORT="$DEFAULT_RASMGR_PORT"
 
 # rasadmin/rasadmin
 DEFAULT_RASCONTROL_LOGIN=rasadmin:d293a15562d3e70b6fdc5ee452eaed40
-[ -z "$RASLOGIN" ] && export RASLOGIN=$DEFAULT_RASCONTROL_LOGIN
+[ -z "$RASLOGIN" ] && RASLOGIN=$DEFAULT_RASCONTROL_LOGIN
+export RASLOGIN
 
 # set default memory limit of 4GB for embedded petascope
 [ -z "$JAVA_OPTS" ] && JAVA_OPTS="-Xmx4000m"
@@ -101,8 +101,8 @@ get_sleep_value() { [ $GNU_SLEEP ] && echo "$1" || echo "$2"; }
 check_process()
 {
     # get exit code and pid of the last executed command
-    local exit_code=$?
-    local pid=$!
+    exit_code=$?
+    pid=$!
     # wait 1 second for the process to establish
     sleep 1
 
@@ -122,8 +122,8 @@ get_property_value()
 {
     # $1 is path to input properties file (e.g: /opt/rasdaman/etc/petascope.properties).
     # $2 is the key of a property in this file which needs to get the value of this key.
-    local properties_file="$1"
-    local key="$2"
+    properties_file="$1"
+    key="$2"
     # only grep key=value line not commented line (e.g: #key=value)
     grep "^$key=" "$properties_file" | sed -e 's/.*=//' -e 's/^[ \t]*//'
 }
@@ -132,7 +132,7 @@ get_property_value()
 # $1: the port to check
 check_port_available()
 {
-    local port="$1"
+    port="$1"
     if type fuser > /dev/null 2>&1; then
         fuser -s -n tcp "$port" > /dev/null 2>&1
     elif type lsof > /dev/null 2>&1; then
@@ -152,12 +152,15 @@ set_rasmgr_port()
       ''|*[!0-9]*)  error "Invalid port specified: $1; expected a positive number <= 65535.";;
       *)            RASMGR_PORT="$1";;
     esac
-    [ "$RASMGR_PORT" -gt 0 -a "$RASMGR_PORT" -lt 65535 ] || \
-        error "Invalid port specified: $1; expected a positive number <= 65535."
+    if [ "$RASMGR_PORT" -gt 0 ] && [ "$RASMGR_PORT" -lt 65535 ]; then
+      : # all good
+    else
+      error "Invalid port specified: $1; expected a positive number <= 65535."
+    fi
 }
 
 get_rasmgr_process() {
-    local prefix="^$USER"
+    prefix="^$USER"
     [ -z "$USER" ] && prefix="" # USER is empty in docker, so above would fail
     ps -Ao user,pid,args | grep -E "$prefix +[[:digit:]]+ +$rasmgr_bin --port $RASMGR_PORT"
 }
@@ -166,26 +169,47 @@ get_rasmgr_process() {
 
 # Start embedded tomcat from values in properties file
 # $1: the path to properties file (e.g: /opt/rasdaman/etc/petascope.properties).
-# $2: the web application name (e.g: petascope, secore).
-# $3: the war file of application (e.g: rasdaman.war, def.war).
+# $2: the web application name (e.g: petascope).
+# $3: the war file of application (e.g: rasdaman.war).
 start_embedded()
 {
-    local props_path="$1"
-    local app_name="$2"
-    local war_file_name="$3"
-    local war_file="$war_path/$war_file_name"
+    props_path="$1"
+    app_name="$2"
+    war_file_name="$3"
+    war_file="$war_path/$war_file_name"
 
     if [ -f "$props_path" ]; then
         # check if java-server is embedded/external
         java_server=$(get_property_value "$props_path" "java_server")
         # if java-server is embedded and the war file exists then attempt starting it
-        if [ "$java_server" = "embedded" -a -f "$war_file" ]; then
+        if [ "$java_server" = "embedded" ] && [ -f "$war_file" ]; then
             # Get the embedded port for server
             server_port=$(get_property_value "$props_path" "server.port")
             logn "  starting $app_name on port $server_port... "
             check_port_available "$server_port"
             if [ $? -ne 0 ]; then
-                nohup java $JAVA_OPTS -jar "$war_file" >> "$app_name.log" 2>&1 &
+                log_file="$(get_property_value "$props_path" "log4j.appender.rollingFile.rollingPolicy.ActiveFileName")"
+                if [ -z "$log_file" ]; then
+                    log_file="$(get_property_value "$props_path" "log4j.appender.rollingFile.File")"
+                fi
+                nohup java $JAVA_OPTS -jar "$war_file" >> "$log_file" 2>&1 &
+                if [ -n "$log_file" ]; then
+                    if type timeout > /dev/null 2>&1; then
+                        printf "initializing... "
+                        # wait until a string appears in the petascope.log;
+                        # main solution is from https://superuser.com/a/900134,
+                        # plus we added the timeout of 100 seconds in case of error,
+                        # this way it is not necessary to also grep for error strings
+                        sleep 10 # wait first for petascope to start writing to the petascope.log file
+                        ( tail -F -n0 --quiet "$log_file" 2> /dev/null & ) | timeout 100 grep -q "Started ApplicationMain"
+                        if [ $? -eq 124 ]; then
+                            # the grep timed out
+                            printf "warning: initialization may have failed, check %s... " "$log_file"
+                        fi
+                    fi
+                else
+                    printf "warning: could not determine petascope.log path from %s... " "$props_path"
+                fi
                 check_process "$app_name"
             else
                 echo "failed, port $server_port is occupied."
@@ -204,16 +228,18 @@ usage()
     cat <<EOF
 Start the rasdaman server if it is not already running.
 
-Usage:
-  start_rasdaman.sh [OPTION]...
+Usage
+  $PROG [OPTION]...
 
-Options:
+
+Options
+
   --service <svc>       start a particular service <svc> only; allowed values 
-                        for <svc> are: core, petascope. By default all
-                        services are started.
+                        for <svc> are: core (rasmgr + rasservers), petascope.
+                        By default all services are started.
 
   -p, --port <port>     specify the port on which rasmgr will listen. By default
-                        this is 7001, it is recommended to avoid changing this
+                        this is 7001. It is recommended to avoid changing this
                         value unless really necessary.
   
   --allow-root          allow starting rasdaman (i.e. running this script) with
@@ -225,6 +251,27 @@ Options:
                         are started.
 
   -h, --help            show this message and exit.
+
+
+Environment variables
+
+  This script will use various environment variables, if they are set before it
+  is executed:
+
+  - RASMGR_PORT - the port on which rasmgr will listen when started, and to
+    which client applications will connect in order to send queries to rasdaman.
+    This variable will be overrided by the value of option --port, if 
+    specified. By default if none are specified, the port is set to 7001.
+
+  - RASLOGIN - rasdaman admin credentials which will be used for 
+    starting rasmgr non-interactively. See the rascontrol docs for details on 
+    the format  and how is this setting used. If not set, the script defaults to  
+    using rasadmin/rasadmin credentials; the documentation provides guidelines 
+    on how to change these defaults.
+
+  - JAVA_OPTS - options passed on to the java command when used to start
+    the OGC frontend of rasdaman (petascope) if it is configured for
+    embedded deployment. If not set, it defaults to "-Xmx4000m"
 EOF
     exit $RC_HELP
 }

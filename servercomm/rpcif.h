@@ -10,10 +10,12 @@ using u_long = unsigned long int;
 using u_int = unsigned int;
 using u_short = unsigned short int;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+// clang-format off
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 typedef struct {
 	u_int confarray_len;
@@ -26,6 +28,8 @@ struct RPCMarray {
 	u_short currentFormat;
 	u_short storageFormat;
 	confarray data;
+	u_short bandLinearization{0};
+	u_short cellLinearization{0};
 };
 typedef struct RPCMarray RPCMarray;
 
@@ -283,5 +287,7 @@ typedef struct GetExtendedErrorInfo GetExtendedErrorInfo;
 #ifdef __cplusplus
 }
 #endif
+
+// clang-format on
 
 #endif /* !_RPCIF_H_H_RPCGEN */

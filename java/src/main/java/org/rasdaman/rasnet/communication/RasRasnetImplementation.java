@@ -42,7 +42,7 @@ import rasj.global.RasGlobalDefs;
 import rasj.odmg.*;
 
 import java.io.*;
-import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
 
@@ -74,8 +74,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
     private boolean readWrite = false;
     private int dbIsOpen = 0;
     private int clientID = 0;
-    private String clientUUID;
-    private String sessionId;
+    private int sessionId;
 
     private String errorStatus = "";
 
@@ -106,6 +105,10 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
             Debug.talkCritical("RasNetImplementation.RasNetImplementation: " + e.getMessage());
             Debug.leaveVerbose("RasNetImplementation.RasNetImplementation done: " + e.getMessage());
             throw new RasConnectionFailedException(RasGlobalDefs.URL_FORMAT_ERROR, server);
+        } catch (Exception e) {
+            String errorMessage = "Failed parsing rasmgr host and port from connection URL: " + server + ". Reason: " + e.getMessage();
+            Debug.talkCritical("RasNetImplementation.RasNetImplementation: " + errorMessage);
+            throw new RasConnectionFailedException(RasGlobalDefs.URL_FORMAT_ERROR, errorMessage);
         }
         Debug.leaveVerbose("RasNetImplementation.RasNetImplementation done.");
     }
@@ -211,15 +214,15 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
 
     @Override
     public void openDB(String name, int accessMode) throws ODMGException {
-        Debug.enterVerbose("RasNetImplementation.openDB start. db=" + name + ", accessMode=" + accessMode);
+        Debug.enterVerbose("RasNetImplementation.openDB start. db=" + name + 
+                ", accessMode=" + accessMode + ", clientId=" + this.clientID);
         this.databaseName = name;
         this.accessMode = accessMode;
-        this.readWrite = (accessMode != Database.OPEN_READ_ONLY) ? true : false;
+        this.readWrite = accessMode != Database.OPEN_READ_ONLY;
 
         try {
             OpenDbReq openDbReq = OpenDbReq.newBuilder()
                                   .setClientId(this.clientID)
-                                  .setClientUUID(this.clientUUID)
                                   .setDatabaseName(this.databaseName)
                                   .build();
 
@@ -242,14 +245,16 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
             startRasserverKeepAlive();
 
         } catch (StatusRuntimeException ex) {
+            Debug.leaveVerbose("RasNetImplementation.openDB done with error, clientId=" + this.clientID);
             throw GrpcUtils.convertStatusToRuntimeException(ex.getStatus());
         } catch (Exception ex) {
             //Rethrow the exception
+            Debug.leaveVerbose("RasNetImplementation.openDB done with error, clientId=" + this.clientID);
             throw new ODMGException(ex.getMessage());
         }
 
         this.dbIsOpen = 1;
-        Debug.leaveVerbose("RasNetImplementation.openDB done.");
+        Debug.leaveVerbose("RasNetImplementation.openDB done, clientId=" + this.clientID);
     }
 
     @Override
@@ -262,19 +267,20 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
 
             CloseDbReq closeDbReq = CloseDbReq.newBuilder()
                                     .setClientId(this.clientID)
-                                    .setClientUUID(this.clientUUID)
                                     .setDbSessionId(this.sessionId)
                                     .build();
 
             // First close the database on the server
+            Debug.talkVerbose("RasNetImplementation.closeDB close rasserver database " + this.clientID);
             this.getRasServerService().closeServerDatabase(closeServerDatabaseReq);
 
             this.stopRasserverKeepAlive();
 
             //Close the database on rasmbr
+            Debug.talkVerbose("RasNetImplementation.closeDB close rasmgr database " + this.clientID);
             this.getRasmgService().closeDb(closeDbReq);
 
-            Debug.talkVerbose("RasNetImplementation.closeDB.");
+            Debug.talkVerbose("RasNetImplementation.closeDB done " + this.clientID);
 
             dbIsOpen = 0;
             disconnectClient();
@@ -288,6 +294,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
     @Override
     public void beginTA() {
         try {
+            Debug.talkVerbose("RasNetImplementation.beginTA " + this.clientID);
             BeginTransactionReq transactionReq = BeginTransactionReq.newBuilder()
                                                  .setClientId(this.clientID)
                                                  .setRw(readWrite)
@@ -305,6 +312,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
     public boolean isOpenTA() {
         boolean isTransactionOpen = false;
         try {
+            Debug.talkVerbose("RasNetImplementation.isOpenTA " + this.clientID);
             IsTransactionOpenReq isTransactionOpenReq = IsTransactionOpenReq.newBuilder()
                     .setClientId(clientID)
                     .build();
@@ -322,6 +330,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
     @Override
     public void commitTA() {
         try {
+            Debug.talkVerbose("RasNetImplementation.commitTA " + this.clientID);
             CommitTransactionReq commitTransactionReq = CommitTransactionReq.newBuilder()
                     .setClientId(clientID)
                     .build();
@@ -337,6 +346,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
     @Override
     public void abortTA() {
         try {
+            Debug.talkVerbose("RasNetImplementation.abortTA " + this.clientID);
             AbortTransactionReq abortTransactionReq = AbortTransactionReq.newBuilder()
                     .setClientId(clientID)
                     .build();
@@ -366,6 +376,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
 
     public void connectClient(String userName, String passwordHash) {
         try {
+            Debug.talkVerbose("RasNetImplementation.connectClient username=" + userName);
             ConnectReq connectReq = ConnectReq.newBuilder()
                                     .setUserName(userName)
                                     .setPasswordHash(passwordHash)
@@ -374,8 +385,8 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
             ConnectRepl connectRepl = this.getRasmgService().connect(connectReq);
 
             this.clientID = connectRepl.getClientId();
-            this.clientUUID = connectRepl.getClientUUID();
             this.keepAliveTimeout = connectRepl.getKeepAliveTimeout();
+            Debug.talkVerbose("RasNetImplementation.connectClient done " + this.clientID);
 
             startRasmgrKeepAlive();
 
@@ -392,7 +403,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
             byte[] bytes = parameters.getBytes("8859_1");
 
             BeginStreamedHttpQueryReq beginStreamedHttpQueryReq = BeginStreamedHttpQueryReq.newBuilder()
-                    .setClientUuid(this.clientUUID)
+                    .setClientUuid(this.clientID)
                     .setData(ByteString.copyFrom(bytes))
                     .build();
 
@@ -400,7 +411,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
                     this.getRasServerService().beginStreamedHttpQuery(
                             beginStreamedHttpQueryReq);
             long bytesLeft = streamedHttpQueryRepl.getBytesLeft();
-            String requestUUID = streamedHttpQueryRepl.getUuid();
+            int requestUUID = streamedHttpQueryRepl.getUuid();
 
             Debug.enterVerbose("RasNetImplementation.getResponse: start.");
 
@@ -650,7 +661,8 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
                             throw new RasTypeNotSupportedException(rt + " as RasCollectionType");
                         }
                         if (rt.getTypeID() != RasGlobalDefs.RAS_COLLECTION) {
-                            Debug.leaveCritical("RasNetImplementation.getResponse: done. type not supported: " + rt);
+                            Debug.talkCritical("RasNetImplementation.getResponse: done. type not supported: " + rt);
+                            Debug.leaveVerbose("RasNetImplementation.getResponse: done, unsupported type");
                             throw new RasTypeNotSupportedException(rt + " as RasCollectionType");
                         }
 
@@ -753,10 +765,12 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
 
         } catch (IOException e) {
             Debug.talkCritical("RasNetImplementation.executeQueryRequest: " + e.getMessage());
-            Debug.leaveVerbose("RasNetImplementation.executeQueryRequest: done, " + e.getMessage());
+            Debug.leaveVerbose("RasNetImplementation.executeQueryRequest: done");
             throw new RasClientInternalException("RasNetImplementation", "executeQueryRequest()", e.getMessage());
-        } catch (StatusRuntimeException ex) {
-            throw GrpcUtils.convertStatusToRuntimeException(ex.getStatus());
+        } catch (StatusRuntimeException e) {
+            Debug.talkCritical("RasNetImplementation.executeQueryRequest: " + e.getMessage());
+            Debug.leaveVerbose("RasNetImplementation.executeQueryRequest: done");
+            throw GrpcUtils.convertStatusToRuntimeException(e.getStatus());
         }
     }
 
@@ -819,10 +833,13 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
     public void disconnectClient() {
         try {
             DisconnectReq disconnectReq = DisconnectReq.newBuilder()
-                                          .setClientUUID(clientUUID)
+                                          .setClientId(clientID)
                                           .build();
 
+            Debug.talkVerbose("RasNetImplementation.disconnectClient start " + this.clientID);
             this.getRasmgService().disconnect(disconnectReq);
+            this.stopRasmgrKeepAlive();
+            Debug.talkVerbose("RasNetImplementation.disconnectClient done " + this.clientID);
         } catch (StatusRuntimeException ex) {
             throw GrpcUtils.convertStatusToRuntimeException(ex.getStatus());
         } catch (Exception ex) {
@@ -835,9 +852,7 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
 
     private synchronized void closeRasMgrService() {
         if (this.rasmgService != null) {
-
             this.rasmgService = null;
-
             try {
                 this.rasmgrServiceChannel.shutdown();
             } catch (Exception e) {
@@ -851,7 +866,6 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
             this.rasServerService = null;
             this.rasServerHost = null;
             this.rasServerPort = -1;
-
             try {
                 this.rasServerServiceChannel.shutdown();
             } catch (Exception e) {
@@ -893,6 +907,22 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
             break;
         case RasGlobalDefs.RAS_OID:
             ret = new RasOID(new String(binData));
+            break;
+        case RasGlobalDefs.RAS_STRING:
+            RasMInterval dom = new RasMInterval(1);
+            int length = binData.length; 
+            if (binData.length > 1)
+                --length; // remove the '\0' from C++
+            try {
+              dom.stream(new RasSInterval(0, length - 1));
+            } catch (RasStreamInputOverflowException ex) {
+              // ignore, cannot happen
+            }
+            RasGMArray res = new RasGMArray(dom, 1);
+            byte[] newBinData = new byte[length];
+            System.arraycopy(binData, 0, newBinData, 0, length);
+            res.setArray(newBinData);
+            ret = res;
             break;
         case RAS_BOOLEAN:
             if (dis.readUnsignedByte() == 1) {
@@ -948,7 +978,6 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
             break;
         default:
             Debug.talkCritical("RasNetImplementation.getResponse: type not supported: " + et);
-            Debug.leaveVerbose("RasNetImplementation.getResponse: done, unsupported type.");
             throw new RasTypeNotSupportedException(et + " as ElementType ");
         }
         return ret;
@@ -956,23 +985,28 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
 
     private synchronized void startRasmgrKeepAlive() {
         if (this.rasmgrKeepAlive == null) {
-            this.rasmgrKeepAlive = new RasmgrKeepAlive(this.getRasmgService(), this.clientUUID, keepAliveTimeout);
+            Debug.talkVerbose("Starting rasmgr keep alive thread...");
+            this.rasmgrKeepAlive = new RasmgrKeepAlive(this.getRasmgService(), this.clientID, keepAliveTimeout);
             this.rasmgrKeepAlive.start();
+//            Debug.talkVerbose(Arrays.toString(Thread.currentThread().getStackTrace()).replace( ',', '\n' ));
         } else {
             throw new AssertionError("Cannot call the startRasmgrKeepAlive method twice without calling stopRasmgrKeepAlive in between.");
         }
     }
 
     private synchronized void stopRasmgrKeepAlive() {
-        this.rasmgrKeepAlive.stop();
-        this.rasmgrKeepAlive = null;
+        if (this.rasmgrKeepAlive != null) {
+            Debug.talkVerbose("Stopping rasmgr keep alive thread...");
+            this.rasmgrKeepAlive.stop();
+            this.rasmgrKeepAlive = null;
+        }
     }
 
 
     private synchronized void startRasserverKeepAlive() {
         if (this.rasserverKeepAlive == null) {
             this.rasserverKeepAlive = new RasserverKeepAlive(this.getRasServerService(),
-                    this.clientUUID,
+                    this.clientID,
                     this.sessionId,
                     this.keepAliveTimeout);
             this.rasserverKeepAlive.start();
@@ -982,8 +1016,10 @@ public class RasRasnetImplementation implements RasImplementationInterface, RasC
     }
 
     private synchronized void stopRasserverKeepAlive() {
-        this.rasserverKeepAlive.stop();
-        this.rasserverKeepAlive = null;
+        if (this.rasserverKeepAlive != null) {
+            this.rasserverKeepAlive.stop();
+            this.rasserverKeepAlive = null;
+        }
     }
 
 }

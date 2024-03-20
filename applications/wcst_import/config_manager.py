@@ -30,9 +30,12 @@ class ConfigManager:
      The values below will be overridden as soon as the application is initialized, the values
      below serve only as documentation
     """
+    ingredients_file_path = ""
+
     wcs_service = "http://localhost:8080/rasdaman/ows"
     service_is_local = True
 
+    blocking = True
     admin_service = "http://localhost:8080/rasdaman/admin"
     crs_resolver = ""
     default_crs = "http://localhost:8080/def/OGC/0/Index2D"
@@ -68,3 +71,4 @@ class ConfigManager:
     mime_type = None
 
     has_resume_file = False
+

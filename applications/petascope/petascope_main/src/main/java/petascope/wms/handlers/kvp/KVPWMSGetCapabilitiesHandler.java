@@ -21,10 +21,11 @@
  */
 package petascope.wms.handlers.kvp;
 
-import java.util.ArrayList;
+import org.rasdaman.domain.cis.Axis;
+import org.rasdaman.domain.cis.AxisExtent;
+import org.rasdaman.domain.wms.*;
 import petascope.core.response.Response;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,12 +44,6 @@ import org.rasdaman.domain.owsmetadata.OwsServiceMetadata;
 import org.rasdaman.domain.owsmetadata.Phone;
 import org.rasdaman.domain.owsmetadata.ServiceIdentification;
 import org.rasdaman.domain.owsmetadata.ServiceProvider;
-import org.rasdaman.domain.wms.Dimension;
-import org.rasdaman.domain.wms.EXGeographicBoundingBox;
-import org.rasdaman.domain.wms.Layer;
-import org.rasdaman.domain.wms.LayerAttribute;
-import org.rasdaman.domain.wms.LegendURL;
-import org.rasdaman.domain.wms.Style;
 import org.rasdaman.domain.wms.Style.ColorTableType;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.rasdaman.repository.service.OWSMetadataRepostioryService;
@@ -59,12 +54,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.controller.PetascopeController;
 import petascope.core.KVPSymbols;
-import petascope.core.Templates;
 import petascope.core.XMLSymbols;
+
+import static petascope.core.KVPSymbols.KEY_WMS_HEIGHT;
+import static petascope.core.KVPSymbols.KEY_WMS_TIME;
 import static petascope.core.XMLSymbols.ATT_HREF;
 import static petascope.core.XMLSymbols.ATT_TYPE;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER_NAME;
-import static petascope.core.XMLSymbols.LABEL_ADDITIONAL_PARAMETER_VALUE;
+import static petascope.core.XMLSymbols.ATT_WMS_TYPE_VALUE;
 import static petascope.core.XMLSymbols.LABEL_VERSION;
 import static petascope.core.XMLSymbols.NAMESPACE_WMS;
 import static petascope.core.XMLSymbols.NAMESPACE_XLINK;
@@ -78,10 +74,10 @@ import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.util.MIMEUtil;
 import petascope.exceptions.WMSException;
-import petascope.util.CrsProjectionUtil;
 import petascope.util.ListUtil;
 import petascope.util.XMLUtil;
 import petascope.wms.exception.WMSLayerNotExistException;
+import petascope.util.CrsUtil;
 import petascope.util.StringUtil;
 
 /**
@@ -119,11 +115,6 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
 
     // Xml output. (The default format)
     public static final String EXCEPTION_XML = "XML";
-    // INIMAGE: Generates an image
-    public static final String EXCEPTION_INIMAGE = "INIMAGE";
-    // BLANK: Generates a blank image
-    public static final String EXCEPTION_BLANK = "BLANK";
-    public static final List<String> supportedExceptions = ListUtil.valuesToList(EXCEPTION_XML, EXCEPTION_INIMAGE, EXCEPTION_BLANK);
 
     @Override
     public void validate(Map<String, String[]> kvpParameters) throws WMSException {
@@ -148,7 +139,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         return new Response(Arrays.asList(result.getBytes()), MIMEUtil.MIME_GML);
     }
     
-    private Element buildWMSGetCapabilitiesElement() throws PetascopeException {
+    private Element buildWMSGetCapabilitiesElement() throws PetascopeException, SecoreException {
         
         Set<String> schemaLocations = new LinkedHashSet<>();
         schemaLocations.add(SCHEMA_LOCATION_WMS);
@@ -156,10 +147,6 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         Element wmsCapabilitiesElement = new Element(XMLSymbols.LABEL_WMS_WMS_CAPABILITIES, NAMESPACE_WMS);
         Attribute versionAttribute = new Attribute(LABEL_VERSION, VersionManager.WMS_VERSION_13);
         wmsCapabilitiesElement.addAttribute(versionAttribute);
-        
-        Attribute updateSequenceAttribute = new Attribute(XMLSymbols.ATT_WMS_UPDATE_SEQUENCE, "3");
-        wmsCapabilitiesElement.addAttribute(updateSequenceAttribute);
-        
         
         Element serviceElement = this.buildServiceElement();
         Element capabilityElement = this.buildCapabilityElement();
@@ -257,6 +244,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         Element contactPersonElement = new Element(XMLSymbols.LABEL_WMS_CONTACT_PERSON, NAMESPACE_WMS);
         contactPersonElement.appendChild(serviceProvider.getServiceContact().getIndividualName());
         contactPersonPrimaryElement.appendChild(contactPersonElement);
+
         // ContactOrganization
         Element contactOrganizationElement = new Element(XMLSymbols.LABEL_WMS_CONTACT_ORGANIZATION, NAMESPACE_WMS);
         contactOrganizationElement.appendChild(serviceProvider.getProviderName());
@@ -326,7 +314,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         return contactInformationElement;
     }
     
-    private Element buildCapabilityElement() throws PetascopeException {
+    private Element buildCapabilityElement() throws PetascopeException, SecoreException {
         Element capabilityElement = new Element(XMLSymbols.LABEL_WMS_CAPABILITY, NAMESPACE_WMS);
         
         Element requestElement = new Element(XMLSymbols.LABEL_WMS_REQUEST, NAMESPACE_WMS);
@@ -338,6 +326,8 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         Element formatElement = new Element(XMLSymbols.LABEL_WMS_FORMAT, NAMESPACE_WMS);
         formatElement.appendChild("text/xml");
         getCapabilitiesElement.appendChild(formatElement);
+        
+        String endpoint = ConfigManager.PETASCOPE_ENDPOINT_URL + "?";
         
         // --- dcpType1 ----
         
@@ -353,15 +343,15 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         httpElement1.appendChild(postElement1);
         
         Element onlineResourceElement1 = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE, NAMESPACE_WMS);        
-        Attribute xlinkHrefAttribute1 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_HREF, ConfigManager.PETASCOPE_ENDPOINT_URL);
-        Attribute xlinkTypeAttribute1 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_TYPE, "simple");
+        Attribute xlinkHrefAttribute1 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_HREF, endpoint);
+        Attribute xlinkTypeAttribute1 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_TYPE, ATT_WMS_TYPE_VALUE);
         onlineResourceElement1.addAttribute(xlinkHrefAttribute1);
         onlineResourceElement1.addAttribute(xlinkTypeAttribute1);
         getElement1.appendChild(onlineResourceElement1);
         
         Element onlineResourceElement2 = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE, NAMESPACE_WMS);        
-        Attribute xlinkHrefAttribute2 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_HREF, ConfigManager.PETASCOPE_ENDPOINT_URL);
-        Attribute xlinkTypeAttribute2 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_TYPE, "simple");
+        Attribute xlinkHrefAttribute2 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_HREF, endpoint);
+        Attribute xlinkTypeAttribute2 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_TYPE, ATT_WMS_TYPE_VALUE);
         onlineResourceElement2.addAttribute(xlinkHrefAttribute2);
         onlineResourceElement2.addAttribute(xlinkTypeAttribute2);
         postElement1.appendChild(onlineResourceElement2);
@@ -370,7 +360,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         Element getMapElement = new Element(XMLSymbols.LABEL_WMS_GET_MAP, NAMESPACE_WMS);
         requestElement.appendChild(getMapElement);
         
-        List<String> formats = Arrays.asList("image/jpeg", "image/png", "image/tiff");
+        List<String> formats = Arrays.asList(MIMEUtil.MIME_PNG, MIMEUtil.MIME_TIFF, MIMEUtil.MIME_JPEG);
         for (String format : formats) {
             Element formatElementTmp = new Element(XMLSymbols.LABEL_WMS_FORMAT, NAMESPACE_WMS);
             formatElementTmp.appendChild(format);
@@ -392,35 +382,44 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         httpElement2.appendChild(postElement2);
         
         Element onlineResourceElement3 = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE, NAMESPACE_WMS);        
-        Attribute xlinkHrefAttribute3 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_HREF, ConfigManager.PETASCOPE_ENDPOINT_URL);
-        Attribute xlinkTypeAttribute3 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_TYPE, "simple");
+        Attribute xlinkHrefAttribute3 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_HREF, endpoint);
+        Attribute xlinkTypeAttribute3 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_TYPE, ATT_WMS_TYPE_VALUE);
         onlineResourceElement3.addAttribute(xlinkTypeAttribute3);
         onlineResourceElement3.addAttribute(xlinkHrefAttribute3);
         getElement2.appendChild(onlineResourceElement3);
         
         Element onlineResourceElement4 = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE, NAMESPACE_WMS);        
-        Attribute xlinkHrefAttribute4 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_HREF, ConfigManager.PETASCOPE_ENDPOINT_URL);
-        Attribute xlinkTypeAttribute4 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_TYPE, "simple");
+        Attribute xlinkHrefAttribute4 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_HREF, endpoint);
+        Attribute xlinkTypeAttribute4 = XMLUtil.createXMLAttribute(NAMESPACE_XLINK, PREFIX_XLINK, ATT_TYPE, ATT_WMS_TYPE_VALUE);
         onlineResourceElement4.addAttribute(xlinkHrefAttribute4);
         onlineResourceElement4.addAttribute(xlinkTypeAttribute4);
         postElement2.appendChild(onlineResourceElement4);
         
         Element exceptionElement = new Element(XMLSymbols.LABEL_WMS_EXCEPTION, NAMESPACE_WMS);
-        formats = Arrays.asList("XML", "INIMAGE", "BLANK");
+        formats = Arrays.asList("XML");
         for (String format : formats) {
-            exceptionElement.appendChild(format);
+            Element formatElementTmp = new Element(XMLSymbols.LABEL_WMS_FORMAT, NAMESPACE_WMS);
+            formatElementTmp.appendChild(format);
+            exceptionElement.appendChild(formatElementTmp);
         }
+        
+        capabilityElement.appendChild(exceptionElement);
         
         Element layerElement = new Element(XMLSymbols.LABEL_WMS_LAYER, NAMESPACE_WMS);
         capabilityElement.appendChild(layerElement);
         
         Element titleElement = new Element(XMLSymbols.LABEL_WMS_TITLE, NAMESPACE_WMS);
-        titleElement.appendChild("asdaman Web Map Service");
+        titleElement.appendChild("rasdaman Web Map Service");
         Element abstractElement = new Element(XMLSymbols.LABEL_WMS_ABSTRACT, NAMESPACE_WMS);
         abstractElement.appendChild("A compliant implementation of WMS 1.3.0 for raster data");
         
         layerElement.appendChild(titleElement);
         layerElement.appendChild(abstractElement);
+
+        // <!-- all layers are available in at least this CRS -->
+        Element wgs84CrsElement = new Element(XMLSymbols.LABEL_WMS_CRS, NAMESPACE_WMS);
+        wgs84CrsElement.appendChild(CrsUtil.WMS_WGS84_CRS);
+        layerElement.appendChild(wgs84CrsElement);
         
         this.buildLayerElements(layerElement);
         
@@ -435,7 +434,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
      *
      * @return
      */
-    private void buildLayerElements(Element layerElement) throws WMSLayerNotExistException, PetascopeException {
+    private void buildLayerElements(Element layerElement) throws WMSLayerNotExistException, PetascopeException, SecoreException {
         // All WMS layers
         List<Layer> layers = this.wmsRepostioryService.readAllLayersFromCaches();
         
@@ -452,7 +451,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
     /**
      * Build a layer element
      */
-    private Element buildLayerElement(Layer layer) throws PetascopeException {
+    public Element buildLayerElement(Layer layer) throws PetascopeException, SecoreException {
         Element layerElement = new Element(XMLSymbols.LABEL_WMS_LAYER, NAMESPACE_WMS);
 
         // All the attributes for one layer element
@@ -479,32 +478,46 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
 
         // Title        
         Element titleElement = new Element(XMLSymbols.LABEL_WMS_TITLE, NAMESPACE_WMS);
-        titleElement.appendChild(layer.getTitle());
+        String title = layer.getTitle();
+        // For now, title is as same as layer name
+        title = layerName;
+
+        if (ConfigManager.OGC_CITE_OUTPUT_OPTIMIZATION) {
+            // NOTE: if testing WMS 1.3.0 with OGC CITE -> title needs this prefix, e.g. cite:Lakes
+            title = "cite:" + title;
+        }
+
+        titleElement.appendChild(title);
         layerElement.appendChild(titleElement);
 
         // Abstract
         Element abstractElement = new Element(XMLSymbols.LABEL_WMS_ABSTRACT, NAMESPACE_WMS);
-        String layerAbstract = layer.getLayerAbstract();        
-        abstractElement.appendChild(layerAbstract);
-        layerElement.appendChild(abstractElement);
+        String layerAbstract = layer.getLayerAbstract();
+        if (layerAbstract == null) {
+            layerAbstract = "";
+        }
         
         Coverage coverage = this.coverageRepositoryService.readCoverageFromLocalCache(layer.getName());
         try {
             coverage = this.coverageRepositoryService.readCoverageBasicMetadataByIdFromCache(layer.getName());
-            // The WMS capabilities schema does not allow a customized metadata element here or anywhere else
+            // Disable addition of custom metadata to the <Abstract> element
             // if (coverage != null) {
             //     Element customizedMetadataElement = this.wcsGMLGetCapabilitiesBuild.createCustomizedCoverageMetadataElement(coverage);
             //     if (customizedMetadataElement != null) {
-            //         layerElement.appendChild(customizedMetadataElement);
+            //         // Add these rasdaman proprietary extra metadata is not valid in XML schema -> add it under <Abstract> element of <Layer> element
+            //         layerAbstract += "\n" + XMLUtil.enquoteCDATA(customizedMetadataElement.toXML());
             //     }
             // }
         } catch (PetascopeException ex) {
             if (ex.getExceptionCode().equals(ExceptionCode.NoSuchCoverage)) {
                 // The associated coverage with the layer was changed, log an warning instead of throwing exception
-                log.warn("Coverage associated with the layer: " + layer.getName() + " doees not exist.");
+                log.warn("Coverage associated with the layer: " + layer.getName() + " does not exist.");
                 return null;
             }
         }
+
+        abstractElement.appendChild(layerAbstract);
+        layerElement.appendChild(abstractElement);
 
         // KeywordList
         if (layer.getKeywordList().size() > 0) {
@@ -514,7 +527,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
 
         // CRSs (Current only contain one native CRS of coverage for geo XY axes)
         Element crsElement = new Element(XMLSymbols.LABEL_WMS_CRS, NAMESPACE_WMS);
-        crsElement.appendChild(layer.getCrss().get(0));
+        crsElement.appendChild(CrsUtil.getAuthorityCode(layer.getCrss().get(0)));
         layerElement.appendChild(crsElement);
 
         // EX_GeographicBoundingBox 
@@ -527,12 +540,27 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
         // BoundingBox (Current only contain one bounding box for geo XY axes)
         // NOTE: WMS 1.3 use the order from CRS (e.g: CRS:4326, order is Lat, Long, CRS:3857, order is E, N)
         // @TODO: If layer has multiple bboxes (!)
+        BoundingBox crs84BBox = new BoundingBox(CrsUtil.WMS_WGS84_CRS,
+                                            wgs84BBox.getMinLong().toPlainString(), wgs84BBox.getMinLat().toPlainString(),
+                                            wgs84BBox.getMaxLong().toPlainString(), wgs84BBox.getMaxLat().toPlainString());
+        layerElement.appendChild(crs84BBox.getElement());
         layerElement.appendChild(layer.getBoundingBoxes().get(0).getElement());
 
         // Dimension (Current not support yet)
         if (layer.getDimensions().size() > 0) {
             for (Dimension dimension : layer.getDimensions()) {
-                layerElement.appendChild(dimension.getElement());
+                Element dimensionElement = dimension.getElement();
+                layerElement.appendChild(dimensionElement);
+
+                String units = dimension.getUnits();
+                if (units == null) {
+                    Coverage basicCoverage = this.coverageRepositoryService.readCoverageBasicMetadataByIdFromCache(layer.getName());
+                    List<AxisExtent> axisExtents = basicCoverage.getEnvelope().getEnvelopeByAxis().getAxisExtents();
+                    units = Dimension.getUnits(dimension.getName(), axisExtents);
+                }
+
+                Attribute unitsAttribute = new Attribute(XMLSymbols.ATT_WMS_UNITS, units);
+                dimensionElement.addAttribute(unitsAttribute);
             }
         }
 
@@ -551,7 +579,7 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
     private void buildStyleElements(Element layerElement, Layer layer, List<Style> styles) throws PetascopeException {
         for (Style style : styles) {
             try {
-                Element styleElement = this.getStyleElement(layer, style);
+                Element styleElement = this.getStyleElement(layer, style, NAMESPACE_WMS, null, NAMESPACE_WMS);
                 // NOTE: styleElement can contain SLD which is a big nested XML, hence, it must keep string format to avoid problem with XML parser
                 layerElement.appendChild(styleElement.toXML());
             } catch (PetascopeException ex) {
@@ -566,25 +594,25 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
      * Return the Style XML element
      *
      */
-    public Element getStyleElement(Layer layer, Style style) throws PetascopeException {
-        Element styleElement = new Element(XMLSymbols.LABEL_WMS_STYLE, NAMESPACE_WMS);
+    public Element getStyleElement(Layer layer, Style style, String styleNamepsace, String prefix, String namespace) throws PetascopeException {
+        Element styleElement = new Element(XMLSymbols.LABEL_WMS_STYLE, styleNamepsace);
 
         // Name
-        Element nameElement = new Element(XMLSymbols.LABEL_WMS_NAME, NAMESPACE_WMS);
+        Element nameElement = new Element(XMLSymbols.LABEL_WMS_NAME, namespace);
         nameElement.appendChild(style.getName());
         styleElement.appendChild(nameElement);
 
         // Title
-        Element titleElement = new Element(XMLSymbols.LABEL_WMS_TITLE, NAMESPACE_WMS);
+        Element titleElement = new Element(XMLUtil.createXMLLabel(prefix, XMLSymbols.LABEL_WMS_TITLE), namespace);
         titleElement.appendChild(style.getTitle());
         styleElement.appendChild(titleElement);
 
         // Abstract
-        Element abstractElement = this.buildStyleAbstractElement(layer, style);
+        Element abstractElement = this.buildStyleAbstractElement(layer, style, prefix, namespace);
         styleElement.appendChild(abstractElement);
 
         if (style.getLegendURL() != null) {
-            styleElement.appendChild(this.buildLegendURLElement(style));
+            styleElement.appendChild(this.buildLegendURLElement(style, styleNamepsace));
         }
 
         return styleElement;
@@ -594,8 +622,8 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
      *
      * Build XML element for a style's abstract.
      */
-    private Element buildStyleAbstractElement(Layer layer, Style style) throws PetascopeException {
-        Element abstractElement = new Element(XMLSymbols.LABEL_WMS_ABSTRACT, NAMESPACE_WMS);
+    private Element buildStyleAbstractElement(Layer layer, Style style, String prefix, String namespace) throws PetascopeException {
+        Element abstractElement = new Element(XMLUtil.createXMLLabel(prefix, XMLSymbols.LABEL_WMS_ABSTRACT), namespace);
         
         // User's abstract for the style
         String styleAbstractStr = style.getStyleAbstract();
@@ -684,18 +712,18 @@ public class KVPWMSGetCapabilitiesHandler extends KVPWMSAbstractHandler {
      /**
      * If a style has legendURL then it shows in WMS GetCapabilities
      */
-    private Element buildLegendURLElement(Style style) {
+    private Element buildLegendURLElement(Style style, String styleNamepsace) {
         LegendURL legendURL = style.getLegendURL();
         
-        Element legendURLElement = new Element(XMLSymbols.LABEL_WMS_LEGEND_URL);
+        Element legendURLElement = new Element(XMLSymbols.LABEL_WMS_LEGEND_URL, styleNamepsace);
         
         // Format (required)
-        Element formatElement = new Element(XMLSymbols.LABEL_WMS_FORMAT);
+        Element formatElement = new Element(XMLSymbols.LABEL_WMS_FORMAT, styleNamepsace);
         formatElement.appendChild(legendURL.getFormat());
         legendURLElement.appendChild(formatElement);
         
         // OnlineResource (required)
-        Element onlineResourceElement = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE);
+        Element onlineResourceElement = new Element(XMLSymbols.LABEL_WMS_ONLINE_RESOURCE, styleNamepsace);
         
         // e.g. https://localhost:8080/rasdaman/ows?service=WMS&request=GetLegendGraphic&format=image%2Fpng&width=20&height=20&layer=ne%3Ane
         String getLegendGraphicURL = StringUtil.escapeAmpersands(legendURL.getOnlineResourceURL());

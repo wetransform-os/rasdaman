@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import nu.xom.Element;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -29,6 +31,8 @@ import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import static petascope.core.XMLSymbols.LABEL_GENERAL_GRID_COVERAGE;
 import static petascope.core.gml.GMLDescribeCoverageBuilder.isCIS11;
+
+import petascope.core.gml.GMLDescribeCoverageBuilder;
 import petascope.core.gml.GMLWCSRequestResultBuilder;
 import petascope.core.json.JSONWCSRequestResultBuilder;
 import petascope.exceptions.ExceptionCode;
@@ -51,7 +55,7 @@ import petascope.wcps.result.WcpsResult;
 public class DescribeCoverageHandler extends Handler {
     
     @Autowired
-    private GMLWCSRequestResultBuilder gmlWCSRequestResultBuilder;
+    private GMLDescribeCoverageBuilder gmlDescribeCoverageBuilder;
     @Autowired
     private JSONWCSRequestResultBuilder jsonWCSRequestResultBuilder;
     
@@ -65,7 +69,7 @@ public class DescribeCoverageHandler extends Handler {
     public DescribeCoverageHandler create(Handler coverageExpressionHandler, 
                                         StringScalarHandler outputFormatHandler, StringScalarHandler extraParamsHandler) {
         DescribeCoverageHandler result = new DescribeCoverageHandler();
-        result.gmlWCSRequestResultBuilder = this.gmlWCSRequestResultBuilder;
+        result.gmlDescribeCoverageBuilder = this.gmlDescribeCoverageBuilder;
         result.jsonWCSRequestResultBuilder = this.jsonWCSRequestResultBuilder;
         result.setChildren(Arrays.asList(coverageExpressionHandler, outputFormatHandler, extraParamsHandler));
         
@@ -73,10 +77,10 @@ public class DescribeCoverageHandler extends Handler {
     }
     
     @Override
-    public WcpsMetadataResult handle() throws PetascopeException {
-        WcpsResult coverageExpressionVisitorResult = (WcpsResult) this.getFirstChild().handle();
-        String outputFormat = ((WcpsResult) this.getSecondChild().handle()).getRasql();
-        String extraParams = ((WcpsResult) this.getThirdChild().handle()).getRasql();
+    public WcpsMetadataResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpressionVisitorResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        String outputFormat = ((WcpsResult) this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String extraParams = ((WcpsResult) this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         WcpsMetadataResult result = this.handle(coverageExpressionVisitorResult, outputFormat, extraParams);
         return result;
@@ -112,12 +116,7 @@ public class DescribeCoverageHandler extends Handler {
         String output = "";
         WcpsCoverageMetadata wcpsCoverageMetadata = coverageExpression.getMetadata();
         if (MIMEUtil.isGML(outputFormat)) {
-            if (isCIS11(coverageOutputType)) {
-                // CIS 1.1 GML
-                wcpsCoverageMetadata.setCoverageType(LABEL_GENERAL_GRID_COVERAGE);
-            }
-            
-            Element element = this.gmlWCSRequestResultBuilder.buildGetCoverageResult(wcpsCoverageMetadata, null);
+            Element element = this.gmlDescribeCoverageBuilder.buildWCSDescribeCoverageResult(coverageOutputType, wcpsCoverageMetadata);
             output = XMLUtil.formatXML(element);
             
             outputFormat = MIMEUtil.MIME_GML;

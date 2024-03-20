@@ -21,11 +21,9 @@
  */
 package petascope.oapi.handlers.service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.math.BigDecimal;
+import java.util.*;
+
 import static org.rasdaman.config.VersionManager.WCS_VERSION_21;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.Wgs84BoundingBox;
@@ -33,16 +31,10 @@ import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import static petascope.core.KVPSymbols.KEY_COVERAGEID;
-import static petascope.core.KVPSymbols.KEY_FORMAT;
-import static petascope.core.KVPSymbols.KEY_OUTPUT_TYPE;
-import static petascope.core.KVPSymbols.KEY_REQUEST;
-import static petascope.core.KVPSymbols.KEY_SERVICE;
-import static petascope.core.KVPSymbols.KEY_SUBSET;
-import static petascope.core.KVPSymbols.KEY_VERSION;
-import static petascope.core.KVPSymbols.VALUE_GENERAL_GRID_COVERAGE;
-import static petascope.core.KVPSymbols.VALUE_GET_COVERAGE;
-import static petascope.core.KVPSymbols.WCS_SERVICE;
+
+import petascope.core.KVPSymbols;
+import petascope.core.Pair;
+import petascope.core.gml.GMLGetCapabilitiesBuilder;
 import petascope.core.json.cis11.JSONCoreCIS11;
 import petascope.core.json.cis11.JSONCoreCIS11Builder;
 import petascope.core.json.cis11.model.rangeset.DataBlock;
@@ -53,15 +45,20 @@ import petascope.oapi.handlers.model.Collection;
 import petascope.oapi.handlers.model.Collections;
 import petascope.oapi.handlers.model.LandingPage;
 import petascope.oapi.handlers.model.Link;
-import petascope.util.MIMEUtil;
+import petascope.util.*;
+
+import static petascope.controller.AbstractController.getValueByKeyAllowNull;
+import static petascope.core.KVPSymbols.*;
 import static petascope.util.MIMEUtil.MIME_JSON;
-import petascope.util.TimeUtil;
+
 import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.WcpsCoverageMetadataTranslator;
 import petascope.wcps.result.executor.WcpsRasqlExecutor;
 import petascope.wcs2.handlers.kvp.KVPWCSGetCoverageHandler;
 import petascope.wcs2.handlers.kvp.KVPWCSProcessCoverageHandler;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * Class to return the objects for OAPI requests
@@ -88,6 +85,13 @@ public class OapiHandlersService {
     private CoverageRepositoryService coverageRepositoryService;
     @Autowired
     private WcpsRasqlExecutor wcpsRasqlExecutor;
+
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+
+    @Autowired
+    private GMLGetCapabilitiesBuilder gmlGetCapabilitiesBuilder;
+
     
     /**
      *  https://oapi.rasdaman.org/rasdaman/oapi (7.3.1. API landing page), see: Landing Page Response Schema
@@ -99,8 +103,9 @@ public class OapiHandlersService {
         Link selfLink = Link.getSelfLink(urlPrefix);
         Link dataLink = Link.getDataLink(urlPrefix);
         Link wcpsLink = Link.getProcessLink(urlPrefix);
+        Link conformanceLink = Link.getConformanceLink(urlPrefix);
         
-        List<Link> links = Arrays.asList(selfLink, dataLink, wcpsLink);
+        List<Link> links = Arrays.asList(selfLink, dataLink, wcpsLink, conformanceLink);
         
         return new LandingPage(title, description, links);
     }
@@ -137,6 +142,7 @@ public class OapiHandlersService {
 
         return new Collections(collections, Arrays.asList(dataLink));
     }
+
     
     /**
      * NOTE: it also allows to filter the coverages by temporal (datetime parameter) and spatial (bbox parameter) 
@@ -208,7 +214,8 @@ public class OapiHandlersService {
      * 
      * e.g: https://oapi.rasdaman.org/rasdaman/oapi/collections/S2_FALSE_COLOR_84/coverage?subset=Lat(51.9:52.1),Long(-4.1:-3.9),ansi("2018-11-14")&f=gml
      */
-    public Response getCoverageSubsetResult(String coverageId, String[] subsets, String outputFormat) throws Exception {
+    public Response getCoverageSubsetResult(String coverageId, String[] subsets, String outputFormat, Map<String, String[]> inputKVPMap,
+                                            boolean outputGeneralGridCoverageInJSON) throws Exception {
         Map<String, String[]> kvpParams = new HashMap<>();
         
         String[] service = {WCS_SERVICE};
@@ -217,28 +224,110 @@ public class OapiHandlersService {
         String[] format = {outputFormat};
         String[] coverageIds = {coverageId};
 
+        kvpParams.put(KEY_COVERAGEID, coverageIds);
+
         kvpParams.put(KEY_SERVICE, service);
         kvpParams.put(KEY_VERSION, version);
         kvpParams.put(KEY_REQUEST, request);
+
+        // -- Subsetting section
         
         if (subsets != null) {
             kvpParams.put(KEY_SUBSET, subsets);
         }
+
+        // -- output format section
+
         if (outputFormat != null) {
             kvpParams.put(KEY_FORMAT, format);
         } else {
             // NOTE: default is JSON in CIS 1.1 if output format is not specified
-            kvpParams.put(KEY_FORMAT, new String[] { MIME_JSON });
+            outputFormat= MIME_JSON;
+            kvpParams.put(KEY_FORMAT, new String[] { outputFormat });
+        }
+
+        // NOTE: depend on which endpoint and if user provided the output format (f parameter) or not
+        // then, if the output is JSON -> CIS 1.1 output format
+        if (outputGeneralGridCoverageInJSON && outputFormat.equals(MIME_JSON)) {
             kvpParams.put(KEY_OUTPUT_TYPE, new String[] { VALUE_GENERAL_GRID_COVERAGE });
         }
-        
-        kvpParams.put(KEY_COVERAGEID, coverageIds);
 
-        return getCoverageHandler.handle(kvpParams);
+        // -- CRS section
+
+        String subsettingCrs = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_GET_COVERAGE_SUBSET_CRS);
+        if (subsettingCrs == null) {
+            // Then, try if bbox-crs exists (in this case bbox parameter (spatial subsets) is specified with this input CRS)
+            subsettingCrs = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_BBOX_CRS);
+        }
+        if (subsettingCrs != null) {
+            kvpParams.put(KEY_SUBSETTING_CRS, new String[] {subsettingCrs});
+        }
+        String outputCrs = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_GET_COVERAGE_OUTPUT_CRS);
+        if (outputCrs != null) {
+            kvpParams.put(KEY_OUTPUT_CRS, new String[] {outputCrs});
+        }
+
+        // -- Range subsetting section
+
+        // e.g. properties=Red:* so it returns bands Red,Green,Blue with coverages has 3 bands RGB
+        // or properties=0,2,* with coverage has 3 bands, then it returns bands:0,2,3,4
+        String rangeSubset = getValueByKeyAllowNull(inputKVPMap, KEY_GDC_OAPI_GET_COVERAGE_RANGE_SUBSET);
+        if (rangeSubset == null) {
+            rangeSubset = getValueByKeyAllowNull(inputKVPMap, KEY_OAPI_GET_COVERAGE_RANGE_SUBSET);
+        }
+        if (rangeSubset != null) {
+            kvpParams.put(KEY_RANGESUBSET, new String[] {rangeSubset});
+        }
+
+
+        // -- Scaling section
+
+        String scaleAxesValue = getValueByKeyAllowNull(inputKVPMap, KVPSymbols.KEY_OAPI_GET_COVERAGE_SCALE_AXES);
+        String scaleFactorValue = getValueByKeyAllowNull(inputKVPMap, KVPSymbols.KEY_OAPI_GET_COVERAGE_SCALE_FACTOR);
+        String scaleSizeValue = getValueByKeyAllowNull(inputKVPMap, KVPSymbols.KEY_OAPI_GET_COVERAGE_SCALE_SIZE);
+
+        if (scaleAxesValue != null) {
+            scaleAxesValue = this.revertScaleAxes(scaleAxesValue);
+            kvpParams.put(KEY_SCALEAXES, new String[]{scaleAxesValue});
+        }
+
+        if (scaleFactorValue != null) {
+            scaleFactorValue = this.revertScaleFactor(scaleFactorValue);
+            kvpParams.put(KEY_SCALEFACTOR, new String[]{scaleFactorValue});
+        }
+
+        if (scaleSizeValue != null) {
+            List<String> scaleSizeAxes = new ArrayList<>();
+            List<String> inputAxisLabels = new ArrayList<>();
+            String[] parts = scaleSizeValue.split(",");
+            for (String part : parts) {
+                scaleSizeAxes.add(part);
+                inputAxisLabels.add(part.substring(0, part.indexOf("(")));
+            }
+
+            WcpsCoverageMetadata metadata = wcpsCoverageMetadataTranslator.translate(coverageId);
+            for (Axis axis : metadata.getAxes()) {
+                for (String axisLabel : inputAxisLabels) {
+                    if (CrsUtil.axisLabelsMatch(axis.getLabel(), axisLabel)) {
+                        break;
+                    }
+                }
+            }
+
+            kvpParams.put(KEY_SCALESIZE, new String[] {ListUtil.join(scaleSizeAxes, ",")});
+        }
+
+        // All Key parameters must be lowercase for getting values in WCS handlers (!)
+        Map<String, String[]> lowercaseKVPMap = new LinkedHashMap<>();
+        for (Map.Entry<String, String[]> entry : kvpParams.entrySet()) {
+            lowercaseKVPMap.put(entry.getKey().toLowerCase(), entry.getValue());
+        }
+
+        return getCoverageHandler.handle(lowercaseKVPMap);
     }
 
-    public RangeSet getCoverageRangeSetResult(String coverageId, String[] subsets) throws Exception {
-        Response response = getCoverageSubsetResult(coverageId, subsets, MIMEUtil.MIME_JSON);
+    public RangeSet getCoverageRangeSetResult(String coverageId, String[] subsets, Map<String, String[]> inputKVPMap) throws Exception {
+        Response response = getCoverageSubsetResult(coverageId, subsets, MIMEUtil.MIME_JSON, inputKVPMap, false);
         byte[] bytes = null;
         if (!response.getDatas().isEmpty()) {
             bytes = response.getDatas().get(0);
@@ -249,4 +338,40 @@ public class OapiHandlersService {
         return new RangeSet(new DataBlock(pixelValues)); 
     }
 
+    // -- Utility methods
+
+    /**
+     * e.g. scale-factor=3 -> return scaleFactor=1/3 for WCS GetCoverage so it will be DOWNSCALED
+     *
+     */
+    private String revertScaleFactor(String scaleFactorValue) {
+        String result = BigDecimalUtil.divide(BigDecimal.ONE, new BigDecimal(scaleFactorValue)).toPlainString();
+        return result;
+    }
+
+    /**
+     *
+     * e.g. scale-axes=Lat(3),Long(2) -> return scaleAxes=Lat(1/3),Long(1/2) for WCS GetCoverage so it will be DOWNSCALED
+     */
+    private String revertScaleAxes(String scaleAxesValue) {
+        String[] tmps = scaleAxesValue.split(",");
+        List<String> fixedTmps = new ArrayList<>();
+
+        for (String tmp : tmps) {
+            // e.g. Lat(3)
+            tmp = tmp.trim();
+            int openParenthesisIndex = tmp.indexOf("(");
+            int closeParenthesisIndex = tmp.indexOf(")");
+            String axisLabel = tmp.substring(0, openParenthesisIndex);
+            String number = tmp.substring(openParenthesisIndex + 1, closeParenthesisIndex);
+            String fixedNumber = this.revertScaleFactor(number);
+
+            String fixedTmp = axisLabel + "(" + fixedNumber + ")";
+            fixedTmps.add(fixedTmp);
+        }
+
+        String result = ListUtil.join(fixedTmps, ",");
+        return result;
+    }
 }
+

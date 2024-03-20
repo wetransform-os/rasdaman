@@ -20,212 +20,173 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
+#include "clientmanager.hh"
+#include "client.hh"
+#include "clientcredentials.hh"
+#include "clientservermatcher.hh"
+#include "user.hh"
+#include "usermanager.hh"
+#include "servermanager.hh"
+#include "peermanager.hh"
+
+#include "exceptions/invalidtokenexception.hh"
+#include "exceptions/inexistentuserexception.hh"
+#include "exceptions/inexistentclientexception.hh"
+
+#include <logging.hh>
+
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <chrono>
 
-#include <logging.hh>
-#include "common/uuid/uuid.hh"
-#include "common/string/stringutil.hh"
-
-#include "exceptions/rasmgrexceptions.hh"
-
-#include "constants.hh"
-#include "client.hh"
-#include "clientcredentials.hh"
-#include "user.hh"
-#include "usermanager.hh"
-#include "servermanager.hh"
-#include "server.hh"
-#include "clientmanager.hh"
-#include "peermanager.hh"
-
 namespace rasmgr
 {
-using common::UUID;
-using common::Timer;
-using std::map;
-using std::pair;
-using std::runtime_error;
-using std::string;
 
-ClientManager::ClientManager(const ClientManagerConfig &config,
-                             std::shared_ptr<UserManager> userManager,
-                             std::shared_ptr<ServerManager> serverManager,
-                             std::shared_ptr<PeerManager> peerManager):
-    config(config),
-    userManager(userManager),
-    serverManager(serverManager),
-    peerManager(peerManager)
+ClientManager::ClientManager(const ClientManagerConfig &c,
+                             const std::shared_ptr<UserManager> &um,
+                             const std::shared_ptr<PeerManager> &pm,
+                             const std::shared_ptr<ClientServerMatcher> &csm)
+    : config(c), userManager(um), peerManager(pm), clientServerMatcher{csm},
+      checkAssignedClients{[this]() { this->evaluateAssignedClients(); },
+                           std::chrono::milliseconds(config.getCleanupInterval())}
 {
-    this->isThreadRunning = true;
-    this->managementThread.reset(
-        new std::thread(&ClientManager::evaluateClientsStatus, this));
 }
 
-ClientManager::~ClientManager()
-{
-    try
-    {
-        {
-            std::lock_guard<std::mutex> lock(this->threadMutex);
-            this->isThreadRunning = false;
-        }
-        this->isThreadRunningCondition.notify_one();
-        this->managementThread->join();
-    }
-    catch (std::exception &ex)
-    {
-        LERROR << "ClientManager destructor has failed: " << ex.what();
-    }
-    catch (...)
-    {
-        LERROR << "ClientManager destructor has failed";
-    }
-}
-
-void ClientManager::connectClient(const ClientCredentials &clientCredentials, string &out_clientUUID)
+std::uint32_t ClientManager::connectClient(const ClientCredentials &clientCredentials,
+                                           const std::string &rasmgrHost)
 {
     /**
-     * 1. Check if there is a user with the given credentials
-     * 2. Generate a unique ID for the client
-     * 3. Add the client to the list of managed clients
+     * 1. Check if the user is a token, if yes verify its validity.
+     * 2. If not, check if there is a user with the given credentials
+     * 3. Generate a unique ID for the client
+     * 4. Add the client to the list of managed clients
      */
+    LDEBUG << "Connecting client username: " << clientCredentials.getUserName()
+           << ", token: " << clientCredentials.getToken();
 
     std::shared_ptr<User> out_user;
-
-    bool isUserValid = this->userManager->tryGetUser(clientCredentials.getUserName(), 
-                                                  clientCredentials.getPasswordHash(),
-                                                  out_user);
+    bool isUserValid = false;
+    {
+        LDEBUG << "Authenticating username and password client";
+        isUserValid = this->userManager->tryGetUser(clientCredentials.getUserName(),
+                                                    clientCredentials.getPasswordHash(),
+                                                    out_user);
+    }
 
     if (isUserValid)
     {
         LDEBUG << "Successfully authenticated user " << out_user->getName();
-        
-        //Lock access to this area.
-        boost::unique_lock<boost::shared_mutex> lock(this->clientsMutex);
+
         // Generate a UID for the client
-        do
-        {
-            out_clientUUID = UUID::generateUUID();
-        }
-        while (this->clients.find(out_clientUUID) != this->clients.end());
-        
-        out_user->setPassword(clientCredentials.getPasswordHash());
+        const auto ret = ++nextClientId;
+        const auto clientLifeTime = this->config.getClientLifeTime();
+        auto client = std::make_shared<Client>(ret, out_user, clientLifeTime, rasmgrHost);
 
-        auto client = std::make_shared<Client>(out_clientUUID, out_user, 
-                                               this->config.getClientLifeTime());
-
-        this->clients.insert(std::make_pair(out_clientUUID, client));
+        LDEBUG << "Inserting client object " << ret << " into clients list...";
+        this->clients.emplace(ret, client);
+        LDEBUG << "Inserted client object " << ret << " into clients list.";
+        return ret;
     }
     else
     {
-        throw InexistentUserException(clientCredentials.getUserName());
+        {
+            throw InexistentUserException(clientCredentials.getUserName());
+        }
     }
 }
 
-void ClientManager::disconnectClient(const std::string &clientId)
+void ClientManager::disconnectClient(std::uint32_t clientId)
 {
-    /**
-     * 1. Find the client with the given id. If the client is not in our list, just log a message.
-     * 2. Remove the client from all the servers it might still be in. This ensures a clean exit
-     * 3. Remove the client data from our registry.
+    /*
+     * 1. Remove client with the given id from clients map. If not found just log a message.
+     * 2. Remove the client from all the servers it might still be in. This ensures a clean exit.
      */
+    std::shared_ptr<Client> client;
 
-    boost::upgrade_lock<boost::shared_mutex> lock(this->clientsMutex);
-
-    auto it = this->clients.find(clientId);
-    if (it != clients.end())
+    // try to remove client from map; client above will be non-null if client found.
     {
-        //Remove the client from all the servers where it had opened sessions
-        it->second->removeClientFromServers();
+        auto it = this->clients.find(clientId);
+        if (it != clients.end())
+        {
+            client = it->second;
+            this->clients.erase(it);
+        }
+    }
 
-        boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(lock);
-        this->clients.erase(it);
-
+    if (client)
+    {
+        // Remove the client from all the servers where it had opened sessions
+        client->removeClientFromServer();
         LDEBUG << "Client " << clientId << " has been removed from the active clients list";
     }
     else
     {
-        LWARNING << "Client " << clientId << " was not found in the active clients list";
+        LDEBUG << "Client " << clientId << " was not found in the active "
+               << "clients list while trying to disconnect it, nothing to do.";
     }
 }
 
-void ClientManager::openClientDbSession(std::string clientId, const std::string &dbName,
+void ClientManager::openClientDbSession(std::uint32_t clientId,
+                                        const std::string &dbName,
                                         ClientServerSession &out_serverSession)
 {
-    boost::shared_lock<boost::shared_mutex> lock(this->clientsMutex);
-
+    std::shared_ptr<Client> client;
     auto it = this->clients.find(clientId);
-    if (it != this->clients.end())
-    {
-        auto client = it->second;
-        
-        const char* serverType; // used only for debugging
-        if (tryGetFreeLocalServer(client, dbName, out_serverSession))
-        {
-            serverType = "local";
-        }
-        else
-        {
-            // Try to get a remote server for the client.
-            ClientServerRequest request(client->getUser()->getName(),
-                                        client->getUser()->getPassword(),
-                                        dbName);
-
-            if (this->tryGetFreeRemoteServer(request, out_serverSession))
-            {
-                serverType = "remote";
-            }
-            else
-            {
-                throw NoAvailableServerException();
-            }
-        }
-        
-        LDEBUG << "Allocated " << serverType << " server running on " 
-               << out_serverSession.serverHostName << ":" << out_serverSession.serverPort
-               << " to client " << out_serverSession.clientSessionId;
-    }
-    else
+    if (it != clients.end())
+        client = it->second;
+    if (!client)
     {
         throw InexistentClientException(
             clientId, "cannot assign a rasserver to it, possibly the client "
                       "failed to successfully connect first?");
     }
+
+    this->clientServerMatcher->assignServer(client, dbName, out_serverSession);
 }
 
-void ClientManager::closeClientDbSession(const std::string &clientId, const std::string &sessionId)
+void ClientManager::closeClientDbSession(std::uint32_t clientId, std::uint32_t sessionId)
 {
-    boost::shared_lock<boost::shared_mutex> lock(this->clientsMutex);
-
-    RemoteClientSession clientSession(clientId, sessionId);
-
-    auto it = this->clients.find(clientId);
-    if (it != this->clients.end())
+    std::shared_ptr<Client> client;
     {
-        it->second->removeDbSession(sessionId);
+        auto it = this->clients.find(clientId);
+        if (it != clients.end())
+            client = it->second;
     }
-    else if (this->peerManager->isRemoteClientSession(clientSession))
+
+    if (client)
     {
-        this->peerManager->releaseServer(clientSession);
+        client->removeDbSession(sessionId);
     }
     else
     {
-        throw InexistentClientException(
-            clientId, "cannot close the client connection to rasserver.");
+        RemoteClientSession clientSession(clientId, sessionId);
+        if (this->peerManager->isRemoteClientSession(clientSession))
+        {
+            this->peerManager->releaseServer(clientSession);
+        }
+        else
+        {
+            throw InexistentClientException(
+                clientId, "cannot close the client connection to rasserver.");
+        }
     }
+
+    // wake up waiting clients thread as one client has finished evaluation
+    LDEBUG << "closeClientDbSession - notifyWaitingClientsThread() " << clientId;
+    this->clientServerMatcher->releaseServer();
 }
 
-void ClientManager::keepClientAlive(const std::string &clientId)
+void ClientManager::keepClientAlive(std::uint32_t clientId)
 {
-    boost::shared_lock<boost::shared_mutex> lock(this->clientsMutex);
-
+    std::shared_ptr<Client> client;
     auto it = this->clients.find(clientId);
-    if (it != this->clients.end())
+    if (it != clients.end())
+        client = it->second;
+
+    if (client)
     {
-        it->second->resetLiveliness();
+        client->resetLiveliness();
     }
     else
     {
@@ -239,115 +200,47 @@ const ClientManagerConfig &ClientManager::getConfig()
     return this->config;
 }
 
-
-void ClientManager::evaluateClientsStatus()
+void ClientManager::evaluateAssignedClients()
 {
-    std::chrono::milliseconds timeToSleepFor(this->config.getCleanupInterval());
-
-    std::unique_lock<std::mutex> threadLock(this->threadMutex);
-    while (this->isThreadRunning)
+    LTRACE << "Evaluating assigned clients.";
+    auto it = this->clients.begin();
+    while (it != this->clients.end())
     {
+        auto client = it->second;
+        const auto &clientId = client->getClientId();
         try
         {
-            // Wait on the condition variable to be notified from the
-            // destructor when it is time to stop the worker thread
-            if (this->isThreadRunningCondition.wait_for(threadLock, timeToSleepFor) == std::cv_status::timeout)
+            if (!client->isAlive())
             {
-                boost::upgrade_lock<boost::shared_mutex> clientsLock(this->clientsMutex);
-                auto it = this->clients.begin();
-                while (it != this->clients.end())
+                LDEBUG << "Removing client from assigned client list as it seems to be dead: " << clientId;
                 {
-                    const auto &clientId = it->second->getClientId();
-                    try
-                    {
-                        if (!it->second->isAlive())
-                        {
-                            LDEBUG << "Removing client from client list as it seems to be dead: " << clientId;
-                            it->second->removeClientFromServers();
-                            boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueClientsLock(clientsLock);
-                            it = this->clients.erase(it);
-                        }
-                        else
-                        {
-                            ++it;
-                        }
-                    }
-                    catch (std::exception &ex)
-                    {
-                        LERROR << "Failed evaluating status of client " << clientId
-                               << ": " << ex.what();
-                    }
-                    catch (...)
-                    {
-                        LERROR << "Failed evaluating status of client " << clientId;
-                    }
+                    it = this->clients.erase(it);
                 }
+                client->removeClientFromServer();
+
+                // wake up waiting clients thread as a client has been removed,
+                // potentially releasing space for a new client to be assigned a server
+                LDEBUG << "evaluateAssignedClients() - notifyWaitingClientsThread() " << clientId;
+                this->clientServerMatcher->releaseServer();
             }
+            else
+            {
+                ++it;
+            }
+        }
+        catch (common::Exception &ex)
+        {
+            LERROR << "Failed evaluating status of assigned client " << clientId << ": " << ex.what();
         }
         catch (std::exception &ex)
         {
-            LERROR << "Failed evaluating status of clients: " << ex.what();
+            LERROR << "Failed evaluating status of assigned client " << clientId << ": " << ex.what();
         }
         catch (...)
         {
-            LERROR << "Failed evaluating status of clients.";
+            LERROR << "Failed evaluating status of assigned client " << clientId;
         }
     }
-}
-
-bool ClientManager::tryGetFreeLocalServer(std::shared_ptr<Client> client,
-                                          const std::string &dbName,
-                                          ClientServerSession &out_serverSession)
-{
-    std::uint32_t attemptsLeft = MAX_GET_SERVER_RETRIES;
-    auto intervalBetweenAttempts = boost::posix_time::milliseconds(INTERVAL_BETWEEN_GET_SERVER);
-    bool foundServer = false;
-    /**
-     * 1. Try for a fixed number of times to acquire a server.
-     *    If there is no server available, unlock access to this section and
-     *    sleep for a given timeout.
-     * 2. Add the session to the client manager.
-     * 3. Fill the response to the client with the server's identity
-     */
-    while (attemptsLeft >= 1)
-    {
-        std::unique_lock<std::mutex> lock(this->serverManagerMutex);
-
-        std::shared_ptr<Server> assignedServer;
-
-        //Try to get a free server that contains the requested database
-        if (this->serverManager->tryGetFreeServer(dbName, assignedServer))
-        {
-            std::string dbSessionId;
-
-            // A value will be assigned to dbSessionId by the ID
-            client->addDbSession(dbName, assignedServer, dbSessionId);
-
-            out_serverSession.clientSessionId = client->getClientId();
-            out_serverSession.dbSessionId = dbSessionId;
-            out_serverSession.serverHostName = assignedServer->getHostName();
-            out_serverSession.serverPort = static_cast<std::uint32_t>(assignedServer->getPort());
-
-            foundServer = true;
-            break;
-        }
-        else if (attemptsLeft > 1)
-        {
-            // If there are still attempts left, unlock access to this region and sleep
-            lock.unlock();
-            boost::this_thread::sleep(intervalBetweenAttempts);
-            lock.lock();
-        }
-
-        --attemptsLeft;
-    }
-
-    return foundServer;
-}
-
-bool ClientManager::tryGetFreeRemoteServer(const ClientServerRequest &request, ClientServerSession &out_reply)
-{
-    return this->peerManager->tryGetRemoteServer(request, out_reply);
 }
 
 } /* namespace rasmgr */

@@ -23,16 +23,20 @@ package org.rasdaman;
 
 import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
+import liquibase.pro.packaged.f;
 import static org.rasdaman.InitAllConfigurationsApplicationService.addJDBCDriverToClassPath;
 import org.rasdaman.config.ConfigManager;
+import static org.rasdaman.config.ConfigManager.PETASCOPE_APPLICATION_CONTEXT_PATH;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceBuilder;
+import org.springframework.boot.jdbc.DataSourceBuilder;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import petascope.util.DatabaseUtil;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
@@ -129,7 +133,6 @@ public class BeanApplicationConfiguration implements Condition {
         }
 
         // Default run Liquibase
-        
         // NOTE: In case of changing petascopedb for a new feature (Liquibase should be set to *false* or they will have conflict), then,
         // in petascope.properties set spring.jpa.hibernate.ddl-auto=create
         // to allow Hibernate to create a newly petascopedb with all changes.
@@ -139,7 +142,7 @@ public class BeanApplicationConfiguration implements Condition {
         // NOTE: Do not initialize/update petascopedb if petascope failed to start properly.
         if (AbstractController.startException != null) {
             runLiquibase = false;
-            log.error("Error occured when starting petascope, liquibase will not run. Reason: " + AbstractController.startException.getMessage());
+            log.error("Error occurred when starting petascope, liquibase will not run. Reason: " + AbstractController.startException.getMessage());
             liquibase.setShouldRun(runLiquibase);
             return liquibase;
         }
@@ -180,4 +183,12 @@ public class BeanApplicationConfiguration implements Condition {
             return true;
         }
     }
+
+    @Bean
+    public WebServerFactoryCustomizer<ConfigurableServletWebServerFactory>
+            webServerFactoryCustomizer() {
+        // NOTE: this is used to avoid setting server.servlet.context-path for Spring Boot 2 in petascope.properties
+        return factory -> factory.setContextPath(ConfigManager.PETASCOPE_APPLICATION_CONTEXT_PATH);
+    }
+
 }

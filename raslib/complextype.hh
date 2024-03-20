@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: complextype.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Complex_Type
- *
- * COMMENTS:
- *      None
-*/
 
 #ifndef _D_COMPLEXTYPE_TYPE_
 #define _D_COMPLEXTYPE_TYPE_
@@ -37,7 +28,10 @@ rasdaman GmbH.
 #include "raslib/odmgtypes.hh"
 #include "raslib/mddtypes.hh"
 
-class r_Complex_Type :  public r_Primitive_Type
+/**
+  * \ingroup raslib
+  */
+class r_Complex_Type : public r_Primitive_Type
 {
 public:
     r_Complex_Type();
@@ -63,7 +57,7 @@ public:
 
     virtual void convertToLittleEndian(char *cells, r_Area noCells) const;
     virtual void convertToBigEndian(char *cells, r_Area noCells) const;
-    
+
     virtual bool isComplexType() const;
 
 private:
@@ -71,7 +65,7 @@ private:
     void swapEndianessDouble(char *cells, r_Area noCells) const;
     template <typename T>
     void swapEndianessLong(char *cells, r_Area noCells) const;
-    
+
     r_Bytes imOff{};
 };
 

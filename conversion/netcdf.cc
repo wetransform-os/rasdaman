@@ -61,8 +61,14 @@ rasdaman GmbH.
 #include <boost/algorithm/string.hpp>
 #include <boost/optional/optional.hpp>
 
-using namespace std;
+#ifdef HAVE_NETCDF
+#include <netcdf.h>
+#endif
+#ifdef HAVE_GDAL
+#include "conversion/gdalincludes.hh"
+#endif
 
+using namespace std;
 
 #ifdef HAVE_NETCDF
 
@@ -75,29 +81,32 @@ const string r_Conv_NETCDF::VALID_MIN{"valid_min"};
 const string r_Conv_NETCDF::VALID_MAX{"valid_max"};
 const string r_Conv_NETCDF::MISSING_VALUE{"missing_value"};
 const string r_Conv_NETCDF::FILL_VALUE{"_FillValue"};
+const string r_Conv_NETCDF::GRID_MAPPING{"grid_mapping"};
 
 int status{NC_NOERR};
 
-#define throwOnError(errcode, msg) \
-    if ((errcode) != NC_NOERR) { \
-        std::stringstream s; s << msg << ", " << nc_strerror(errcode); \
+#define throwOnError(errcode, msg)                           \
+    if ((errcode) != NC_NOERR)                               \
+    {                                                        \
+        std::stringstream s;                                 \
+        s << msg << ", " << nc_strerror(errcode);            \
         throw r_Error(r_Error::r_Error_Conversion, s.str()); \
     }
 
 #define warnOnError(errcode, msg) \
-    if ((errcode) != NC_NOERR) \
+    if ((errcode) != NC_NOERR)    \
         LWARNING << msg << ", reason: " << nc_strerror(errcode);
 
 #endif
 
 /// constructor using an r_Type object.
-r_Conv_NETCDF::r_Conv_NETCDF(const char* src, const r_Minterval& interv, const r_Type* tp)
+r_Conv_NETCDF::r_Conv_NETCDF(const char *src, const r_Minterval &interv, const r_Type *tp)
     : r_Convert_Memory(src, interv, tp, true)
 {
 }
 
 /// constructor using convert_type_e shortcut
-r_Conv_NETCDF::r_Conv_NETCDF(const char* src, const r_Minterval& interv, int tp)
+r_Conv_NETCDF::r_Conv_NETCDF(const char *src, const r_Minterval &interv, int tp)
     : r_Convert_Memory(src, interv, tp)
 {
 }
@@ -107,12 +116,12 @@ r_Conv_NETCDF::~r_Conv_NETCDF(void)
 {
 }
 
-r_Convertor* r_Conv_NETCDF::clone(void) const
+r_Convertor *r_Conv_NETCDF::clone(void) const
 {
     return new r_Conv_NETCDF(desc.src, desc.srcInterv, desc.baseType);
 }
 
-const char* r_Conv_NETCDF::get_name(void) const
+const char *r_Conv_NETCDF::get_name(void) const
 {
     return format_name_netcdf;
 }
@@ -123,7 +132,7 @@ r_Data_Format r_Conv_NETCDF::get_data_format(void) const
 }
 
 /// convert to NETCDF
-r_Conv_Desc& r_Conv_NETCDF::convertTo(const char* options, const r_Range* nullValue)
+r_Conv_Desc &r_Conv_NETCDF::convertTo(const char *options, const r_Range *nullValue)
 {
 #ifdef HAVE_NETCDF
     LDEBUG << "converting array with sdom " << desc.srcInterv << " to netCDF...";
@@ -137,7 +146,7 @@ r_Conv_Desc& r_Conv_NETCDF::convertTo(const char* options, const r_Range* nullVa
     if (formatParams.isTranspose())
     {
         LDEBUG << "transposing array before encoding to netCDF...";
-        transpose(const_cast<char*>(desc.src), desc.srcInterv, desc.srcType,
+        transpose(const_cast<char *>(desc.src), desc.srcInterv, desc.srcType,
                   formatParams.getTranspose());
     }
 
@@ -161,8 +170,10 @@ r_Conv_Desc& r_Conv_NETCDF::convertTo(const char* options, const r_Range* nullVa
         auto dimName = getDimName(i);
         status = nc_def_dim(dataFile, dimName.c_str(), dimSizes[i], &dimids[i]);
         throwOnError(status, "failed creating dimension " << i << " with name " << dimName
-                     << " and length " << dimSizes[i] << " in netCDF file");
+                                                          << " and length " << dimSizes[i] << " in netCDF file");
     }
+
+    addCrsVariable();
 
     // write rasdaman data to netcdf variables in the dataFile
     if (desc.baseType == ctype_struct || desc.baseType == ctype_rgb)
@@ -177,7 +188,7 @@ r_Conv_Desc& r_Conv_NETCDF::convertTo(const char* options, const r_Range* nullVa
     // read data from temp file and return result
     long fileSize = 0;
     desc.dest = tmpFileObj.readData(fileSize);
-    desc.destInterv = r_Minterval(1) << r_Sinterval(0ll, static_cast<r_Range>(fileSize - 1));
+    desc.destInterv = r_Minterval(1) << r_Sinterval(0l, static_cast<r_Range>(fileSize - 1));
     desc.destType = r_Type::get_any_type("char");
     return desc;
 
@@ -188,7 +199,7 @@ r_Conv_Desc& r_Conv_NETCDF::convertTo(const char* options, const r_Range* nullVa
 }
 
 /// convert from NETCDF
-r_Conv_Desc& r_Conv_NETCDF::convertFrom(const char* options)
+r_Conv_Desc &r_Conv_NETCDF::convertFrom(const char *options)
 {
 #ifdef HAVE_NETCDF
     if (options)
@@ -200,7 +211,7 @@ r_Conv_Desc& r_Conv_NETCDF::convertFrom(const char* options)
 #endif
 }
 
-r_Conv_Desc& r_Conv_NETCDF::convertFrom(r_Format_Params options)
+r_Conv_Desc &r_Conv_NETCDF::convertFrom(r_Format_Params options)
 {
 #ifdef HAVE_NETCDF
     formatParams = options;
@@ -214,7 +225,7 @@ r_Conv_Desc& r_Conv_NETCDF::convertFrom(r_Format_Params options)
     r_TmpFile tmpFileObj;
     if (formatParams.getFilePaths().empty())
     {
-        tmpFileObj.writeData(desc.src, (size_t) desc.srcInterv.cell_count());
+        tmpFileObj.writeData(desc.src, (size_t)desc.srcInterv.cell_count());
         tmpFilePath = tmpFileObj.getFileName();
     }
     else
@@ -234,7 +245,7 @@ r_Conv_Desc& r_Conv_NETCDF::convertFrom(r_Format_Params options)
     if (formatParams.isTranspose())
     {
         LDEBUG << "transposing decoded data of sdom: " << desc.destInterv;
-        transpose(desc.dest, desc.destInterv, (const r_Type*) desc.destType,
+        transpose(desc.dest, desc.destInterv, (const r_Type *)desc.destType,
                   formatParams.getTranspose());
     }
 
@@ -260,12 +271,11 @@ void r_Conv_NETCDF::readDimSizes()
     throwOnError(status, "failed reading variable information from netCDF file");
     numDims = static_cast<size_t>(ndims);
 
-    const auto& subsetDomain = formatParams.getSubsetDomain();
+    const auto &subsetDomain = formatParams.getSubsetDomain();
     if (subsetDomain.dimension() != 0 && subsetDomain.dimension() != static_cast<r_Dimension>(ndims))
     {
         std::stringstream s;
-        s << "invalid 'subsetDomain' parameter '" << subsetDomain << "' of dimension " <<
-             subsetDomain.dimension() << " given, but netCDF variable is of dimension " << numDims;
+        s << "invalid 'subsetDomain' parameter '" << subsetDomain << "' of dimension " << subsetDomain.dimension() << " given, but netCDF variable is of dimension " << numDims;
         throw r_Error(r_Error::r_Error_Conversion, s.str());
     }
 
@@ -292,7 +302,7 @@ void r_Conv_NETCDF::readDimSizes()
     }
 }
 
-void r_Conv_NETCDF::parseDecodeOptions(const string& options)
+void r_Conv_NETCDF::parseDecodeOptions(const string &options)
 {
     if (formatParams.parse(options))
     {
@@ -304,7 +314,7 @@ void r_Conv_NETCDF::parseDecodeOptions(const string& options)
         {
             params = new r_Parse_Params();
         }
-        char* varNamesParam = NULL;
+        char *varNamesParam = NULL;
         params->add(VARS_KEY, &varNamesParam, r_Parse_Params::param_type_string);
 
         int paramNo = params->process(options.c_str());
@@ -317,12 +327,12 @@ void r_Conv_NETCDF::parseDecodeOptions(const string& options)
         if (paramNo == -1)
         {
             throw r_Error(r_Error::r_Error_Conversion,
-                          "failed processing format options '" + std::string(options) + 
-                          "'; make sure options are of the format 'vars=var1;var2;..'");
+                          "failed processing format options '" + std::string(options) +
+                              "'; make sure options are of the format 'vars=var1;var2;..'");
         }
 
         string varNamesStr(varNamesParam);
-        delete [] varNamesParam;
+        delete[] varNamesParam;
         boost::split(varNames, varNamesStr, boost::is_any_of(VAR_SEPARATOR_STR));
     }
 }
@@ -334,7 +344,7 @@ void r_Conv_NETCDF::validateDecodeOptions()
         throw r_Error(r_Error::r_Error_Conversion,
                       "no netCDF variables variables specified to decode");
     }
-    for (const auto& varName : varNames)
+    for (const auto &varName: varNames)
     {
         int tmpvarid{};
         status = nc_inq_varid(dataFile, varName.c_str(), &tmpvarid);
@@ -342,7 +352,7 @@ void r_Conv_NETCDF::validateDecodeOptions()
     }
 }
 
-void r_Conv_NETCDF::parseEncodeOptions(const string& options)
+void r_Conv_NETCDF::parseEncodeOptions(const string &options)
 {
     if (!formatParams.parse(options))
     {
@@ -361,20 +371,20 @@ void r_Conv_NETCDF::validateJsonEncodeOptions()
     if (!encodeOptions.isMember(FormatParamKeys::Encode::NetCDF::DIMENSIONS))
     {
         throw r_Error(r_Error::r_Error_Conversion,
-                      "mandatory format options field missing " + 
-                      std::string{FormatParamKeys::Encode::NetCDF::DIMENSIONS});
+                      "mandatory format options field missing " +
+                          std::string{FormatParamKeys::Encode::NetCDF::DIMENSIONS});
     }
     if (!encodeOptions.isMember(FormatParamKeys::General::VARIABLES))
     {
         throw r_Error(r_Error::r_Error_Conversion,
-                      "mandatory format options field missing " + 
-                      std::string{FormatParamKeys::General::VARIABLES});
+                      "mandatory format options field missing " +
+                          std::string{FormatParamKeys::General::VARIABLES});
     }
-    
+
     Json::Value dims = encodeOptions[FormatParamKeys::Encode::NetCDF::DIMENSIONS];
     auto dim = dims.size();
     dimNames.resize(dim);
-    for (decltype(dim) i = 0; i < dim; i++)
+    for (decltype(dim) i = 0; i < dim; ++i)
     {
         //create the vector of dimension metadata names and swap the last two in case transposition is selected as an option
         if (formatParams.isTranspose() && i == dim - 2)
@@ -384,22 +394,74 @@ void r_Conv_NETCDF::validateJsonEncodeOptions()
         else
             dimNames[i] = dims[i].asString();
     }
-    
+
     Json::Value vars = encodeOptions[FormatParamKeys::General::VARIABLES];
-    for (const auto& varName : vars.getMemberNames())
+    if (vars.isObject())
     {
-        bool isDimName = find(dimNames.begin(), dimNames.end(), varName) != dimNames.end();
-        bool hasDataAttribute = vars[varName].isMember(FormatParamKeys::Encode::NetCDF::DATA);
-        if (hasDataAttribute)
+        for (const auto &varName: vars.getMemberNames())
         {
-            if (isDimName)
-                dimVarNames.push_back(varName);
+            bool isDimName = find(dimNames.begin(), dimNames.end(), varName) != dimNames.end();
+            bool hasDataAttribute = vars[varName].isMember(FormatParamKeys::Encode::NetCDF::DATA);
+            if (hasDataAttribute)
+            {
+                if (isDimName)
+                    dimVarNames.push_back(varName);
+                else
+                    nondataVarNames.push_back(varName);
+            }
             else
-                nondataVarNames.push_back(varName);
+            {
+                varNames.push_back(varName);
+            }
         }
-        else
+    }
+    else
+    {
+        // array
+        auto varsSize = vars.size();
+        for (decltype(varsSize) i = 0; i < varsSize; ++i)
         {
-            varNames.push_back(varName);
+            const auto &var = vars[i];
+            if (var.isObject())
+            {
+                if (var.isMember(FormatParamKeys::Encode::NetCDF::NAME))
+                {
+                    auto varName = var[FormatParamKeys::Encode::NetCDF::NAME].asString();
+                    bool isDimName = find(dimNames.begin(), dimNames.end(), varName) != dimNames.end();
+                    bool hasDataAttribute = var.isMember(FormatParamKeys::Encode::NetCDF::DATA);
+                    if (hasDataAttribute)
+                    {
+                        if (isDimName)
+                            dimVarNames.push_back(varName);
+                        else
+                            nondataVarNames.push_back(varName);
+                    }
+                    else
+                    {
+                        varNames.push_back(varName);
+                    }
+                }
+                else
+                {
+                    throw r_Error(r_Error::r_Error_Conversion,
+                                  "object in \"variables\" array is missing a \"" +
+                                      FormatParamKeys::Encode::NetCDF::NAME + "\" key.");
+                }
+            }
+            else
+            {
+                auto varName = var.asString();
+                bool isDimName = find(dimNames.begin(), dimNames.end(), varName) != dimNames.end();
+                if (isDimName)
+                {
+                    throw r_Error(r_Error::r_Error_Conversion,
+                                  "unexpected dimension variable in \"variables\" array: " + varName);
+                }
+                else
+                {
+                    varNames.push_back(varName);
+                }
+            }
         }
     }
 }
@@ -410,13 +472,13 @@ void r_Conv_NETCDF::readVars()
 
     size_t cellSize = buildCellType();
 
-    desc.dest = static_cast<char*>(mymalloc(dataSize * cellSize));
+    desc.dest = static_cast<char *>(mymalloc(dataSize * cellSize));
 
     // offset of the attribute within the struct type; it is updated by the readVarData
     size_t offset{};
     for (size_t i = 0; i < varNames.size(); i++)
     {
-        const auto& varName = varNames[i];
+        const auto &varName = varNames[i];
 
         int varid{};
         status = nc_inq_varid(dataFile, varName.c_str(), &varid);
@@ -467,10 +529,10 @@ size_t r_Conv_NETCDF::buildCellType()
 {
     auto isStruct = varNames.size() > 1;
 
-    size_t cellSize = 0; // size of the struct type, used for offset computations in memcpy
+    size_t cellSize = 0;   // size of the struct type, used for offset computations in memcpy
     size_t alignSize = 1;  // alignment of size (taken from StructType::calcSize())
 
-    stringstream destType; // build the type string
+    stringstream destType;  // build the type string
     if (isStruct)
     {
         destType << "struct { ";
@@ -498,7 +560,7 @@ size_t r_Conv_NETCDF::buildCellType()
         {
             std::stringstream s;
             s << "variable " << varNames[i] << " has different dimension from the first variable "
-                   << varNames[0] << ".";
+              << varNames[0] << ".";
             throw r_Error(r_Error::r_Error_Conversion, s.str());
         }
         if (i > 0)
@@ -539,8 +601,8 @@ size_t r_Conv_NETCDF::buildCellType()
                 {
                     std::stringstream s;
                     s << "variable " << varNames[i] << " has different dimension lengths from the first variable "
-                           << varNames[0] << ": dimension " << j << " expected length " << var0dimlen
-                           << ", got " << vardimlen << ".";
+                      << varNames[0] << ": dimension " << j << " expected length " << var0dimlen
+                      << ", got " << vardimlen << ".";
                     throw r_Error(r_Error::r_Error_Conversion, s.str());
                 }
             }
@@ -601,36 +663,570 @@ r_Conv_NETCDF::RasType r_Conv_NETCDF::getRasType(int var)
     }
 }
 
-template<class T>
-void r_Conv_NETCDF::readVarData(int var, size_t cellSize, size_t& bandOffset, bool isStruct)
+#ifdef HAVE_GDAL
+/* Write any needed projection attributes *
+ * poPROJCS: ptr to proj crd system
+ * pszProjection: name of projection system in GDAL WKT
+ *
+ * The function first looks for the oNetcdfSRS_PP mapping object
+ * that corresponds to the input projection name. If none is found
+ * the generic mapping is used.  In the case of specific mappings,
+ * the driver looks for each attribute listed in the mapping object
+ * and then looks up the value within the OGR_SRSNode. In the case
+ * of the generic mapping, the lookup is reversed (projection params,
+ * then mapping).  For more generic code, GDAL->NETCDF
+ * mappings and the associated value are saved in std::map objects.
+ */
+static std::vector<std::pair<std::string, double>>
+NCDFGetProjAttribs(const OGR_SRSNode *poPROJCS, const char *pszProjection);
+
+static std::vector<std::pair<std::string, double>>
+NCDFGetProjAttribs(const OGR_SRSNode *poPROJCS, const char *pszProjection)
+{
+    const oNetcdfSRS_PP *poMap = nullptr;
+    int nMapIndex = -1;
+
+    // Find the appropriate mapping.
+    for (int iMap = 0; poNetcdfSRS_PT[iMap].WKT_SRS != nullptr; iMap++)
+    {
+        if (EQUAL(pszProjection, poNetcdfSRS_PT[iMap].WKT_SRS))
+        {
+            nMapIndex = iMap;
+            poMap = poNetcdfSRS_PT[iMap].mappings;
+            break;
+        }
+    }
+
+    // ET TODO if projection name is not found, should we do something special?
+    if (nMapIndex == -1)
+    {
+        CPLError(CE_Warning, CPLE_AppDefined,
+                 "projection name %s not found in the lookup tables!",
+                 pszProjection);
+    }
+    // If no mapping was found or assigned, set the generic one.
+    if (!poMap)
+    {
+        CPLError(CE_Warning, CPLE_AppDefined,
+                 "projection name %s in not part of the CF standard, "
+                 "will not be supported by CF!",
+                 pszProjection);
+        poMap = poGenericMappings;
+    }
+
+    // Initialize local map objects.
+
+    // Attribute <GDAL,NCDF> and Value <NCDF,value> mappings
+    std::map<std::string, std::string> oAttMap;
+    for (int iMap = 0; poMap[iMap].WKT_ATT != nullptr; iMap++)
+    {
+        oAttMap[poMap[iMap].WKT_ATT] = poMap[iMap].CF_ATT;
+    }
+
+    const char *pszParamVal = nullptr;
+    std::map<std::string, double> oValMap;
+    for (int iChild = 0; iChild < poPROJCS->GetChildCount(); iChild++)
+    {
+        const OGR_SRSNode *poNode = poPROJCS->GetChild(iChild);
+        if (!EQUAL(poNode->GetValue(), "PARAMETER") ||
+            poNode->GetChildCount() != 2)
+            continue;
+        const char *pszParamStr = poNode->GetChild(0)->GetValue();
+        pszParamVal = poNode->GetChild(1)->GetValue();
+
+        oValMap[pszParamStr] = CPLAtof(pszParamVal);
+    }
+
+    const std::string *posGDALAtt;
+    std::map<std::string, std::string>::iterator oAttIter;
+    std::map<std::string, double>::iterator oValIter, oValIter2;
+
+    // Results to write.
+    std::vector<std::pair<std::string, double>> oOutList;
+
+    // Lookup mappings and fill output vector.
+    if (poMap != poGenericMappings)
+    {
+        // special case for PS (Polar Stereographic) grid.
+        if (EQUAL(pszProjection, SRS_PT_POLAR_STEREOGRAPHIC))
+        {
+            const double dfLat = oValMap[SRS_PP_LATITUDE_OF_ORIGIN];
+
+            auto oScaleFactorIter = oValMap.find(SRS_PP_SCALE_FACTOR);
+            if (oScaleFactorIter != oValMap.end())
+            {
+                // Polar Stereographic (variant A)
+                const double dfScaleFactor = oScaleFactorIter->second;
+                // dfLat should be +/- 90
+                oOutList.push_back(
+                    std::make_pair(std::string(CF_PP_LAT_PROJ_ORIGIN), dfLat));
+                oOutList.push_back(std::make_pair(
+                    std::string(CF_PP_SCALE_FACTOR_ORIGIN), dfScaleFactor));
+            }
+            else
+            {
+                // Polar Stereographic (variant B)
+                const double dfLatPole = (dfLat > 0) ? 90.0 : -90.0;
+                oOutList.push_back(std::make_pair(
+                    std::string(CF_PP_LAT_PROJ_ORIGIN), dfLatPole));
+                oOutList.push_back(
+                    std::make_pair(std::string(CF_PP_STD_PARALLEL), dfLat));
+            }
+        }
+
+        // Specific mapping, loop over mapping values.
+        for (oAttIter = oAttMap.begin(); oAttIter != oAttMap.end(); ++oAttIter)
+        {
+            posGDALAtt = &(oAttIter->first);
+            const std::string *posNCDFAtt = &(oAttIter->second);
+            oValIter = oValMap.find(*posGDALAtt);
+
+            if (oValIter != oValMap.end())
+            {
+                double dfValue = oValIter->second;
+                bool bWriteVal = true;
+
+                // special case for LCC-1SP
+                //   See comments in netcdfdataset.h for this projection.
+                if (EQUAL(SRS_PP_SCALE_FACTOR, posGDALAtt->c_str()) &&
+                    EQUAL(pszProjection, SRS_PT_LAMBERT_CONFORMAL_CONIC_1SP))
+                {
+                    // Default is to not write as it is not CF-1.
+                    bWriteVal = false;
+                    // Test if there is no standard_parallel1.
+                    if (oValMap.find(std::string(CF_PP_STD_PARALLEL_1)) ==
+                        oValMap.end())
+                    {
+                        // If scale factor != 1.0, write value for GDAL, but
+                        // this is not supported by CF-1.
+                        if (!CPLIsEqual(dfValue, 1.0))
+                        {
+                            CPLError(
+                                CE_Failure, CPLE_NotSupported,
+                                "NetCDF driver export of LCC-1SP with scale "
+                                "factor != 1.0 and no standard_parallel1 is "
+                                "not CF-1 (bug #3324).  Use the 2SP variant "
+                                "which is supported by CF.");
+                            bWriteVal = true;
+                        }
+                        // Else copy standard_parallel1 from
+                        // latitude_of_origin, because scale_factor=1.0.
+                        else
+                        {
+                            oValIter2 = oValMap.find(
+                                std::string(SRS_PP_LATITUDE_OF_ORIGIN));
+                            if (oValIter2 != oValMap.end())
+                            {
+                                oOutList.push_back(std::make_pair(
+                                    std::string(CF_PP_STD_PARALLEL_1),
+                                    oValIter2->second));
+                            }
+                            else
+                            {
+                                CPLError(CE_Failure, CPLE_NotSupported,
+                                         "NetCDF driver export of LCC-1SP with "
+                                         "no standard_parallel1 "
+                                         "and no latitude_of_origin is not "
+                                         "supported (bug #3324).");
+                            }
+                        }
+                    }
+                }
+                if (bWriteVal)
+                    oOutList.push_back(std::make_pair(*posNCDFAtt, dfValue));
+            }
+#ifdef NCDF_DEBUG
+            else
+            {
+                CPLDebug("GDAL_netCDF", "NOT FOUND!");
+            }
+#endif
+        }
+    }
+    else
+    {
+        // Generic mapping, loop over projected values.
+        for (oValIter = oValMap.begin(); oValIter != oValMap.end(); ++oValIter)
+        {
+            posGDALAtt = &(oValIter->first);
+            double dfValue = oValIter->second;
+
+            oAttIter = oAttMap.find(*posGDALAtt);
+
+            if (oAttIter != oAttMap.end())
+            {
+                oOutList.push_back(std::make_pair(oAttIter->second, dfValue));
+            }
+            /* for SRS_PP_SCALE_FACTOR write 2 mappings */
+            else if (EQUAL(posGDALAtt->c_str(), SRS_PP_SCALE_FACTOR))
+            {
+                oOutList.push_back(std::make_pair(
+                    std::string(CF_PP_SCALE_FACTOR_MERIDIAN), dfValue));
+                oOutList.push_back(std::make_pair(
+                    std::string(CF_PP_SCALE_FACTOR_ORIGIN), dfValue));
+            }
+            /* if not found insert the GDAL name */
+            else
+            {
+                oOutList.push_back(std::make_pair(*posGDALAtt, dfValue));
+            }
+        }
+    }
+
+    return oOutList;
+}
+#endif
+
+void r_Conv_NETCDF::addCrsVariable()
+{
+    /*
+      If the format parameters contain a geoReference, e.g.
+      
+          "geoReference":{"crs":"EPSG:4326","bbox":{"xmin":111.975,
+          "ymin":-44.474999999999987,"xmax":156.475,"ymax":-8.974999999999987}}
+      
+      then this method will try to add a `crs` variable in the netcdf output:
+      
+           char crs ;
+            crs:grid_mapping_name = "latitude_longitude" ;
+            crs:longitude_of_prime_meridian = 0. ;
+            crs:semi_major_axis = 6378137. ;
+            crs:inverse_flattening = 298.257223563 ;
+            crs:spatial_ref = "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[...
+            crs:GeoTransform = "111.975 0.5 0 -8.974999999999987 0 -0.5 " ;
+     */
+    auto crs = formatParams.getCrs();
+    if (crs.empty())
+        return;
+
+#ifdef HAVE_GDAL
+    OGRSpatialReference poSRS;
+
+    // setup input coordinate system. Try to import from EPSG, Proj.4, ESRI and last, from a WKT string
+    if (poSRS.SetFromUserInput(formatParams.getCrs().c_str()) != OGRERR_NONE)
+    {
+        LWARNING << "GDAL could not understand coordinate reference system: '" << crs << "'.";
+        return;
+    }
+
+    // the following code is largely taken from GDAL netcdfdataset.cpp
+    // (NCDFWriteSRSVariable method)
+
+    struct Value
+    {
+        std::string key{};
+        std::string valueStr{};
+        size_t doubleCount = 0;
+        double doubles[2] = {0, 0};
+    };
+
+    std::vector<Value> oParams;
+
+    const auto addParamString = [&oParams](const char *key, const char *value)
+    {
+        Value v;
+        v.key = key;
+        v.valueStr = value;
+        oParams.push_back(v);
+    };
+    const auto addParamDouble = [&oParams](const char *key, double value)
+    {
+        Value v;
+        v.key = key;
+        v.doubleCount = 1;
+        v.doubles[0] = value;
+        oParams.push_back(v);
+    };
+    const auto addParam2Double = [&oParams](const char *key, double value1, double value2)
+    {
+        Value v;
+        v.key = key;
+        v.doubleCount = 2;
+        v.doubles[0] = value1;
+        v.doubles[1] = value2;
+        oParams.push_back(v);
+    };
+
+    char *pszCFProjection = nullptr;
+    bool bWriteWkt = true;
+
+    if (poSRS.IsProjected())
+    {
+        // Write CF-1.5 compliant Projected attributes.
+
+        const OGR_SRSNode *poPROJCS = poSRS.GetAttrNode("PROJCS");
+        if (poPROJCS == nullptr)
+            return;
+        const char *pszProjName = poSRS.GetAttrValue("PROJECTION");
+        if (pszProjName == nullptr)
+            return;
+
+        // Basic Projection info (grid_mapping and datum).
+        for (int i = 0; poNetcdfSRS_PT[i].WKT_SRS != nullptr; i++)
+        {
+            if (EQUAL(poNetcdfSRS_PT[i].WKT_SRS, pszProjName))
+            {
+                LDEBUG << "GDAL PROJECTION = " << poNetcdfSRS_PT[i].WKT_SRS
+                       << " , NCDF PROJECTION = " << poNetcdfSRS_PT[i].CF_SRS;
+                pszCFProjection = CPLStrdup(poNetcdfSRS_PT[i].CF_SRS);
+                break;
+            }
+        }
+        if (pszCFProjection == nullptr)
+            return;
+
+        addParamString(CF_GRD_MAPPING_NAME, pszCFProjection);
+
+        // Various projection attributes.
+        // PDS: keep in sync with SetProjection function
+        auto oOutList = NCDFGetProjAttribs(poPROJCS, pszProjName);
+
+        /* Write all the values that were found */
+        double dfStdP[2] = {0, 0};
+        bool bFoundStdP1 = false;
+        bool bFoundStdP2 = false;
+        for (const auto &it: oOutList)
+        {
+            const char *pszParamVal = it.first.c_str();
+            double dfValue = it.second;
+            /* Handle the STD_PARALLEL attrib */
+            if (EQUAL(pszParamVal, CF_PP_STD_PARALLEL_1))
+            {
+                bFoundStdP1 = true;
+                dfStdP[0] = dfValue;
+            }
+            else if (EQUAL(pszParamVal, CF_PP_STD_PARALLEL_2))
+            {
+                bFoundStdP2 = true;
+                dfStdP[1] = dfValue;
+            }
+            else
+            {
+                addParamDouble(pszParamVal, dfValue);
+            }
+        }
+        /* Now write the STD_PARALLEL attrib */
+        if (bFoundStdP1)
+        {
+            /* one value  */
+            if (!bFoundStdP2)
+            {
+                addParamDouble(CF_PP_STD_PARALLEL, dfStdP[0]);
+            }
+            else
+            {
+                // Two values.
+                addParam2Double(CF_PP_STD_PARALLEL, dfStdP[0], dfStdP[1]);
+            }
+        }
+
+        if (EQUAL(pszProjName, SRS_PT_GEOSTATIONARY_SATELLITE))
+        {
+            const char *pszPredefProj4 = poSRS.GetExtension(
+                poSRS.GetRoot()->GetValue(), "PROJ4", nullptr);
+            const char *pszSweepAxisAngle = (pszPredefProj4 != nullptr &&
+                                             strstr(pszPredefProj4, "+sweep=x"))
+                                                ? "x"
+                                                : "y";
+            addParamString(CF_PP_SWEEP_ANGLE_AXIS, pszSweepAxisAngle);
+        }
+    }
+#if GDAL_VERSION_MAJOR >= 3 && GDAL_VERSION_MINOR >= 1
+    // IsDerivedGeographic() is available since GDAL 3.1.0:
+    // https://gdal.org/doxygen/classOGRSpatialReference.html#a5fc34d49c10ad9bdf71d8c7372f29f26
+    else if (poSRS.IsDerivedGeographic())
+    {
+        const OGR_SRSNode *poConversion =
+            poSRS.GetAttrNode("DERIVINGCONVERSION");
+        if (poConversion == nullptr)
+            return;
+        const char *pszMethod = poSRS.GetAttrValue("METHOD");
+        if (pszMethod == nullptr)
+            return;
+
+        std::map<std::string, double> oValMap;
+        for (int iChild = 0; iChild < poConversion->GetChildCount(); iChild++)
+        {
+            const OGR_SRSNode *poNode = poConversion->GetChild(iChild);
+            if (!EQUAL(poNode->GetValue(), "PARAMETER") ||
+                poNode->GetChildCount() <= 2)
+                continue;
+            const char *pszParamStr = poNode->GetChild(0)->GetValue();
+            const char *pszParamVal = poNode->GetChild(1)->GetValue();
+            oValMap[pszParamStr] = CPLAtof(pszParamVal);
+        }
+
+        if (EQUAL(pszMethod, "PROJ ob_tran o_proj=longlat"))
+        {
+            // Not enough interoperable to be written as WKT
+            bWriteWkt = false;
+
+            const double dfLon0 = oValMap["lon_0"];
+            const double dfLonp = oValMap["o_lon_p"];
+            const double dfLatp = oValMap["o_lat_p"];
+
+            pszCFProjection = CPLStrdup(ROTATED_POLE_VAR_NAME);
+            addParamString(CF_GRD_MAPPING_NAME,
+                           CF_PT_ROTATED_LATITUDE_LONGITUDE);
+            addParamDouble(CF_PP_GRID_NORTH_POLE_LONGITUDE, dfLon0 - 180);
+            addParamDouble(CF_PP_GRID_NORTH_POLE_LATITUDE, dfLatp);
+            addParamDouble(CF_PP_NORTH_POLE_GRID_LONGITUDE, dfLonp);
+        }
+        else if (EQUAL(pszMethod, "Pole rotation (netCDF CF convention)"))
+        {
+            // Not enough interoperable to be written as WKT
+            bWriteWkt = false;
+
+            const double dfGridNorthPoleLat =
+                oValMap["Grid north pole latitude (netCDF CF convention)"];
+            const double dfGridNorthPoleLong =
+                oValMap["Grid north pole longitude (netCDF CF convention)"];
+            const double dfNorthPoleGridLong =
+                oValMap["North pole grid longitude (netCDF CF convention)"];
+
+            pszCFProjection = CPLStrdup(ROTATED_POLE_VAR_NAME);
+            addParamString(CF_GRD_MAPPING_NAME,
+                           CF_PT_ROTATED_LATITUDE_LONGITUDE);
+            addParamDouble(CF_PP_GRID_NORTH_POLE_LONGITUDE,
+                           dfGridNorthPoleLong);
+            addParamDouble(CF_PP_GRID_NORTH_POLE_LATITUDE, dfGridNorthPoleLat);
+            addParamDouble(CF_PP_NORTH_POLE_GRID_LONGITUDE,
+                           dfNorthPoleGridLong);
+        }
+        else if (EQUAL(pszMethod, "Pole rotation (GRIB convention)"))
+        {
+            // Not enough interoperable to be written as WKT
+            bWriteWkt = false;
+
+            const double dfLatSouthernPole =
+                oValMap["Latitude of the southern pole (GRIB convention)"];
+            const double dfLonSouthernPole =
+                oValMap["Longitude of the southern pole (GRIB convention)"];
+            const double dfAxisRotation =
+                oValMap["Axis rotation (GRIB convention)"];
+
+            const double dfLon0 = dfLonSouthernPole;
+            const double dfLonp = dfAxisRotation == 0 ? 0 : -dfAxisRotation;
+            const double dfLatp =
+                dfLatSouthernPole == 0 ? 0 : -dfLatSouthernPole;
+
+            pszCFProjection = CPLStrdup(ROTATED_POLE_VAR_NAME);
+            addParamString(CF_GRD_MAPPING_NAME,
+                           CF_PT_ROTATED_LATITUDE_LONGITUDE);
+            addParamDouble(CF_PP_GRID_NORTH_POLE_LONGITUDE, dfLon0 - 180);
+            addParamDouble(CF_PP_GRID_NORTH_POLE_LATITUDE, dfLatp);
+            addParamDouble(CF_PP_NORTH_POLE_GRID_LONGITUDE, dfLonp);
+        }
+        else
+        {
+            CPLError(CE_Failure, CPLE_NotSupported,
+                     "Unsupported method for DerivedGeographicCRS: %s",
+                     pszMethod);
+            return;
+        }
+    }
+#endif
+    else
+    {
+        // Write CF-1.5 compliant Geographics attributes.
+        // Note: WKT information will not be preserved (e.g. WGS84).
+        pszCFProjection = CPLStrdup("crs");
+        addParamString(CF_GRD_MAPPING_NAME, CF_PT_LATITUDE_LONGITUDE);
+    }
+
+    // if a variable with the same name was provided in the format parameters
+    // we skip generating one
+    std::string pszVarName = pszCFProjection;
+    for (const auto &varName: nondataVarNames)
+    {
+        if (varName == pszVarName)
+        {
+            LDEBUG << "non-data variable " << varName << " already specified in the "
+                   << "format parameters, will not generate a crs variable in "
+                   << "the result netcdf file.";
+            return;
+        }
+    }
+
+    addParamString(CF_LNG_NAME, "CRS definition");
+
+    // Write CF-1.5 compliant common attributes.
+
+    // DATUM information.
+    addParamDouble(CF_PP_LONG_PRIME_MERIDIAN, poSRS.GetPrimeMeridian());
+    addParamDouble(CF_PP_SEMI_MAJOR_AXIS, poSRS.GetSemiMajor());
+    addParamDouble(CF_PP_INVERSE_FLATTENING, poSRS.GetInvFlattening());
+
+    if (bWriteWkt)
+    {
+        char *pszSpatialRef = nullptr;
+        poSRS.exportToWkt(&pszSpatialRef);
+        if (pszSpatialRef && pszSpatialRef[0])
+        {
+            addParamString(NCDF_CRS_WKT, pszSpatialRef);
+        }
+        CPLFree(pszSpatialRef);
+    }
+
+    int NCDFVarID{};
+
+    status = nc_def_var(dataFile, pszVarName.c_str(), NC_CHAR, 0, nullptr, &NCDFVarID);
+    auto setCrsVar = status;
+    warnOnError(status, "failed defining netcdf variable crs");
+    for (const auto &it: oParams)
+    {
+        if (it.doubleCount == 0)
+        {
+            status = nc_put_att_text(dataFile, NCDFVarID, it.key.c_str(),
+                                     it.valueStr.size(), it.valueStr.c_str());
+        }
+        else
+        {
+            status = nc_put_att_double(dataFile, NCDFVarID, it.key.c_str(),
+                                       NC_DOUBLE, it.doubleCount, it.doubles);
+        }
+        warnOnError(status, "failed adding attribute " + it.key + " to netcdf variable crs");
+    }
+
+    if (setCrsVar == NC_NOERR)
+    {
+        crsVarId = NCDFVarID;
+        crsVarName = pszVarName;
+    }
+
+#else
+    return -1;
+#endif
+}
+
+template <class T>
+void r_Conv_NETCDF::readVarData(int var, size_t cellSize, size_t &bandOffset, bool isStruct)
 {
     // needs to be freed later if isStruct == true
     std::unique_ptr<T[]> src;
     if (isStruct)
     {
         src.reset(new T[dataSize]);
-        status = nc_get_vara(dataFile, var, dimOffsets.data(), dimSizes.data(), (void*) src.get());
+        status = nc_get_vara(dataFile, var, dimOffsets.data(), dimSizes.data(), (void *)src.get());
     }
     else
     {
-        status = nc_get_vara(dataFile, var, dimOffsets.data(), dimSizes.data(), (void*) desc.dest);
+        status = nc_get_vara(dataFile, var, dimOffsets.data(), dimSizes.data(), (void *)desc.dest);
     }
     throwOnError(status, "failed reading variable data from netCDF file");
 
     if (isStruct)
     {
-        char* dst = desc.dest + bandOffset;
+        char *dst = desc.dest + bandOffset;
         for (size_t j = 0; j < dataSize; ++j, dst += cellSize)
-        {
-            *(reinterpret_cast<T*>(dst)) = src[j];
-        }
+            *reinterpret_cast<T *>(dst) = src[j];
 
         bandOffset += sizeof(T);
     }
 }
 
 /// write single variable data
-void r_Conv_NETCDF::writeSingleVar(const std::vector<int>& dims)
+void r_Conv_NETCDF::writeSingleVar(const std::vector<int> &dims)
 {
     string varName = getVariableName();
     LDEBUG << "writing data for variable " << varName;
@@ -667,14 +1263,14 @@ void r_Conv_NETCDF::writeSingleVar(const std::vector<int>& dims)
     {
         std::stringstream s;
         s << "failed writing data for variable " << varName << " to netCDF file, "
-               << "unsupported rasdaman base type: " << desc.baseType;
+          << "unsupported rasdaman base type: " << desc.baseType;
         throw r_Error(r_Error::r_Error_Conversion, s.str());
     }
     }
 }
 
 /// write multiple variables
-void r_Conv_NETCDF::writeMultipleVars(const std::vector<int>& dims)
+void r_Conv_NETCDF::writeMultipleVars(const std::vector<int> &dims)
 {
     LDEBUG << "writing data for " << varNames.size() << " variables";
     if (!desc.srcType->isStructType())
@@ -682,11 +1278,12 @@ void r_Conv_NETCDF::writeMultipleVars(const std::vector<int>& dims)
         throw r_Error(r_Error::r_Error_Conversion,
                       "MDD object type is not a struct type");
     }
-    const r_Structure_Type* st = dynamic_cast<const r_Structure_Type*>(desc.srcType);
+    const r_Structure_Type *st = dynamic_cast<const r_Structure_Type *>(desc.srcType);
     if (varNames.size() != st->count_elements())
     {
         throw r_Error(r_Error::r_Error_Conversion,
-                      "mismatch in variable count between query and MDD object type");
+                      "mismatch in variable count between format parameters (" + std::to_string(varNames.size()) +
+                          ") and MDD object type (" + std::to_string(st->count_elements()) + ")");
     }
 
     // size of the struct type, used for offset computation in memcpy
@@ -697,7 +1294,7 @@ void r_Conv_NETCDF::writeMultipleVars(const std::vector<int>& dims)
     auto it = st->getAttributes().begin();
     for (size_t i = 0; i < varNames.size(); i++, it++)
     {
-        const string& varName = varNames[i];
+        const string &varName = varNames[i];
         LDEBUG << "writing data for variable " << varName;
         switch ((*it).type_of().type_id())
         {
@@ -746,22 +1343,22 @@ void r_Conv_NETCDF::addMetadata()
     // add global
     if (encodeOptions.isMember(FormatParamKeys::Encode::METADATA))
     {
-        const Json::Value& globalMetadata = encodeOptions[FormatParamKeys::Encode::METADATA];
+        const Json::Value &globalMetadata = encodeOptions[FormatParamKeys::Encode::METADATA];
         addJsonAttributes(globalMetadata);
     }
 
     if (encodeOptions.isMember(FormatParamKeys::General::VARIABLES))
     {
-        const Json::Value& jvars = encodeOptions[FormatParamKeys::General::VARIABLES];
+        const Json::Value &jvars = encodeOptions[FormatParamKeys::General::VARIABLES];
 
         // add missing dimension variables
-        for (const auto& dimVarName : dimVarNames)
+        for (const auto &dimVarName: dimVarNames)
         {
             int dimid{};
             status = nc_inq_dimid(dataFile, dimVarName.c_str(), &dimid);
             throwOnError(status, "failed reading dimension " << dimVarName << " from netCDF file");
 
-            Json::Value jsonVar = jvars[dimVarName];
+            Json::Value jsonVar = getVariableObject(dimVarName);
             if (!jsonVar.isMember(FormatParamKeys::Encode::NetCDF::TYPE))
             {
                 LWARNING << "variable " << dimVarName << " has no type, it will not be added to the exported netCDF file.";
@@ -777,8 +1374,7 @@ void r_Conv_NETCDF::addMetadata()
             nc_type nctype = stringToNcType(jsonVar[FormatParamKeys::Encode::NetCDF::TYPE].asCString());
             if (nctype == NC_NAT)
             {
-                LWARNING << "unknown netCDF variable type '" << jsonVar[FormatParamKeys::Encode::NetCDF::TYPE] <<
-                         "' in variable " << dimVarName
+                LWARNING << "unknown netCDF variable type '" << jsonVar[FormatParamKeys::Encode::NetCDF::TYPE] << "' in variable " << dimVarName
                          << ", expected one of: byte/char, short/ushort, int/uint, float, double.";
                 continue;
             }
@@ -794,15 +1390,14 @@ void r_Conv_NETCDF::addMetadata()
             }
             else
             {
-                LWARNING << "invalid value of field '" << FormatParamKeys::Encode::NetCDF::DATA <<
-                         "' of variable " << dimVarName << ", expected an array.";
+                LWARNING << "invalid value of field '" << FormatParamKeys::Encode::NetCDF::DATA << "' of variable " << dimVarName << ", expected an array.";
             }
         }
-        
+
         // add non-data variables
-        for (const auto& varName : nondataVarNames)
+        for (const auto &varName: nondataVarNames)
         {
-            Json::Value jsonVar = jvars[varName];
+            Json::Value jsonVar = getVariableObject(varName);
             if (!jsonVar.isMember(FormatParamKeys::Encode::NetCDF::TYPE))
             {
                 LWARNING << "variable " << varName << " has no type, it will not be added to the exported netCDF file.";
@@ -812,8 +1407,7 @@ void r_Conv_NETCDF::addMetadata()
             nc_type nctype = stringToNcType(jsonVar[FormatParamKeys::Encode::NetCDF::TYPE].asCString());
             if (nctype == NC_NAT)
             {
-                LWARNING << "unknown netCDF variable type '" << jsonVar[FormatParamKeys::Encode::NetCDF::TYPE] <<
-                         "' in variable " << varName
+                LWARNING << "unknown netCDF variable type '" << jsonVar[FormatParamKeys::Encode::NetCDF::TYPE] << "' in variable " << varName
                          << ", expected one of: byte/char, short/ushort, int/uint, float, double.";
                 continue;
             }
@@ -821,7 +1415,7 @@ void r_Conv_NETCDF::addMetadata()
             int newVar{};
             status = nc_def_var(dataFile, varName.c_str(), nctype, 0, NULL, &newVar);
             throwOnError(status, "failed creating non-data variable " << varName << " in netCDF file");
-            
+
             if (jsonVar.isMember(FormatParamKeys::Encode::METADATA))
             {
                 Json::Value jsonVarMetadata = jsonVar[FormatParamKeys::Encode::METADATA];
@@ -840,28 +1434,32 @@ void r_Conv_NETCDF::addMetadata()
             status = nc_inq_varname(dataFile, vars[i], varName);
             throwOnError(status, "failed reading variable name from netCDF file");
 
-            if (jvars.isMember(varName))
+            try
             {
-                Json::Value jsonVar = jvars[varName];
+                Json::Value jsonVar = getVariableObject(varName);
                 if (jsonVar.isMember(FormatParamKeys::Encode::METADATA))
                 {
                     Json::Value jsonVarMetadata = jsonVar[FormatParamKeys::Encode::METADATA];
                     addJsonAttributes(jsonVarMetadata, vars[i]);
                 }
             }
+            catch (...)
+            {
+                LDEBUG << "Variable " << varName << " not found in encode variables option?";
+            }
         }
     }
 }
 
-void r_Conv_NETCDF::addJsonAttributes(const Json::Value& metadata, int var)
+void r_Conv_NETCDF::addJsonAttributes(const Json::Value &metadata, int var)
 {
     vector<string> m = metadata.getMemberNames();
-    for (const string& keyStr : m)
+    for (const string &keyStr: m)
     {
         status = NC_NOERR;
 
-        const char* key = keyStr.c_str();
-        const Json::Value& value = metadata[keyStr];
+        const char *key = keyStr.c_str();
+        const Json::Value &value = metadata[keyStr];
         LDEBUG << "variable " << var << ", adding json attribute " << key << ": " << value;
         if (attExists(var, key))
         {
@@ -902,7 +1500,7 @@ void r_Conv_NETCDF::addJsonAttributes(const Json::Value& metadata, int var)
         else if (value.isString() || value.isConvertibleTo(Json::ValueType::stringValue))
         {
             const string valStr = value.asString();
-            const char* val = valStr.c_str();
+            const char *val = valStr.c_str();
             status = nc_put_att_text(dataFile, var, key, strlen(val), val);
         }
         else
@@ -918,7 +1516,7 @@ void r_Conv_NETCDF::addJsonAttributes(const Json::Value& metadata, int var)
     }
 }
 
-bool r_Conv_NETCDF::attExists(int var, const char* att) const
+bool r_Conv_NETCDF::attExists(int var, const char *att) const
 {
     int attid;
     return nc_inq_attid(dataFile, var, att, &attid) == NC_NOERR;
@@ -946,17 +1544,18 @@ nc_type r_Conv_NETCDF::stringToNcType(string type)
         return NC_NAT;
 }
 
-#define PUT_VAR(method) \
-    unique_ptr<T[]> data(new T[varDataSize]{}); \
-    for (int i = 0; i < static_cast<int>(varDataSize); i++) { \
-        if (jsonArray[i].is##method()) \
-            data[static_cast<size_t>(i)] = static_cast<T>(jsonArray[i].as##method()); \
-        else \
-            LWARNING << FormatParamKeys::General::VARIABLES << "." << varname << "." \
+#define PUT_VAR(method)                                                                                     \
+    unique_ptr<T[]> data(new T[varDataSize]{});                                                             \
+    for (int i = 0; i < static_cast<int>(varDataSize); i++)                                                 \
+    {                                                                                                       \
+        if (jsonArray[i].is##method())                                                                      \
+            data[static_cast<size_t>(i)] = static_cast<T>(jsonArray[i].as##method());                       \
+        else                                                                                                \
+            LWARNING << FormatParamKeys::General::VARIABLES << "." << varname << "."                        \
                      << FormatParamKeys::Encode::NetCDF::DATA << "[" << i << "] has an invalid data type."; \
-    } \
-    size_t offset{}; \
-    status = nc_put_vara(dataFile, var, &offset, &varDataSize, data.get()); \
+    }                                                                                                       \
+    size_t offset{};                                                                                        \
+    status = nc_put_vara(dataFile, var, &offset, &varDataSize, data.get());                                 \
     throwOnError(status, "failed writing data for variable " << varname << " to netCDF file");
 
 void r_Conv_NETCDF::jsonArrayToNcVar(int var, int dimid, Json::Value jsonArray)
@@ -1057,6 +1656,12 @@ void r_Conv_NETCDF::addVarAttributes(int var, nc_type nctype, T validMin, T vali
         status = nc_put_att(dataFile, var, VALID_MAX.c_str(), nctype, 1, &validMax);
         warnOnError(status, "failed adding valid_max attribute for variable to netCDF file");
     }
+    if (crsVarId != -1)
+    {
+        LDEBUG << "adding " << GRID_MAPPING << ": " << crsVarName;
+        status = nc_put_att_text(dataFile, var, GRID_MAPPING.c_str(), crsVarName.size(), crsVarName.c_str());
+        warnOnError(status, "failed adding grid_mapping attribute to netCDF file");
+    }
     if (encodeOptions.isMember(FormatParamKeys::Encode::NODATA) || formatParams.getNodata().size() > 0)
     {
         boost::optional<T> nodataVal;
@@ -1085,7 +1690,7 @@ void r_Conv_NETCDF::addVarAttributes(int var, nc_type nctype, T validMin, T vali
 }
 
 template <class T>
-void r_Conv_NETCDF::writeData(const string& varName, const std::vector<int>& dims, const char* src,
+void r_Conv_NETCDF::writeData(const string &varName, const std::vector<int> &dims, const char *src,
                               nc_type nctype, T validMin, T validMax, size_t dimNum)
 {
     int var{};
@@ -1099,29 +1704,29 @@ void r_Conv_NETCDF::writeData(const string& varName, const std::vector<int>& dim
 }
 
 template <class T>
-void r_Conv_NETCDF::writeDataStruct(const string& varName, const std::vector<int>& dims,
+void r_Conv_NETCDF::writeDataStruct(const string &varName, const std::vector<int> &dims,
                                     size_t structSize, size_t bandOffset,
                                     nc_type nctype, T validMin, T validMax, size_t dimNum)
 {
     unique_ptr<T[]> dst(new T[dataSize]);
-    const char* src = desc.src + bandOffset;
+    const char *src = desc.src + bandOffset;
     for (size_t i = 0; i < dataSize; ++i, src += structSize)
     {
-        dst[i] = *const_cast<T*>(reinterpret_cast<const T*>(src));
+        dst[i] = *const_cast<T *>(reinterpret_cast<const T *>(src));
     }
 
-    writeData<T>(varName, dims, reinterpret_cast<const char*>(dst.get()),
+    writeData<T>(varName, dims, reinterpret_cast<const char *>(dst.get()),
                  nctype, validMin, validMax, dimNum);
 }
 
 string r_Conv_NETCDF::getDimName(unsigned int dimId)
 {
     return dimId < dimNames.size()
-           ? dimNames[dimId]
-           : DEFAULT_DIM_NAME_PREFIX + std::to_string(dimId);
+               ? dimNames[dimId]
+               : DEFAULT_DIM_NAME_PREFIX + std::to_string(dimId);
 }
 
-const string& r_Conv_NETCDF::getVariableName()
+const string &r_Conv_NETCDF::getVariableName()
 {
     if (desc.baseType != ctype_struct && desc.baseType != ctype_rgb && varNames.size() > 1)
     {
@@ -1131,6 +1736,53 @@ const string& r_Conv_NETCDF::getVariableName()
     }
 
     return varNames.size() >= 1 ? varNames[0] : DEFAULT_VAR;
+}
+
+Json::Value r_Conv_NETCDF::getVariableObject(const std::string &varName) const
+{
+    const Json::Value &vars = encodeOptions[FormatParamKeys::General::VARIABLES];
+    if (vars.isObject())
+    {
+        return vars[varName];
+    }
+    else if (vars.isArray())
+    {
+        auto varsSize = vars.size();
+        for (decltype(varsSize) i = 0; i < varsSize; ++i)
+        {
+            const auto &var = vars[i];
+            if (var.isObject())
+            {
+                if (var.isMember(FormatParamKeys::Encode::NetCDF::NAME))
+                {
+                    auto currVarName = var[FormatParamKeys::Encode::NetCDF::NAME].asString();
+                    if (currVarName == varName)
+                    {
+                        return var;
+                    }
+                }
+                else
+                {
+                    LWARNING << "object in \"variables\" array is missing a \""
+                             << FormatParamKeys::Encode::NetCDF::NAME << "\" key.";
+                }
+            }
+            else
+            {
+                throw r_Error(r_Error::r_Error_Conversion,
+                              "\"variables\" option is an array of strings rather than"
+                              " objects, cannot retreive object for variable " +
+                                  varName);
+            }
+        }
+        throw r_Error(r_Error::r_Error_Conversion,
+                      "\"variables\" array does not contain variable " + varName);
+    }
+    else
+    {
+        throw r_Error(r_Error::r_Error_Conversion,
+                      "invalid json value for \"variables\" option, expected an array or object.");
+    }
 }
 
 void r_Conv_NETCDF::closeDataFile()

@@ -48,7 +48,7 @@ public class DataMigration5Handler extends AbstractDataMigrationHandler {
     @Override
     public void migrate() throws PetascopeException, SecoreException {
         
-        List<Layer> layers = this.wmsRepostioryService.readAllLocalLayers();
+        List<Layer> layers = this.wmsRepostioryService.readAllLocalLayersFromCache();
         for (Layer layer : layers) {
             if (layer.getStyles().size() > 0) {
                 // NOTE: v10, if a layer has at least one style, then this style is set as default style

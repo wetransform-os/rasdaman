@@ -76,7 +76,7 @@ public class LocalMetadata {
         
         if (this.localMetadataChildList.size() > 0) {
             Envelope firstEnvelope = this.localMetadataChildList.get(0).getBoundedBy().getEnvelope();
-            if (firstEnvelope.getNumerOfAxes() != axes.size()) {
+            if (firstEnvelope != null && firstEnvelope.getNumberOfAxes() != axes.size()) {
                 return;
             }
         }

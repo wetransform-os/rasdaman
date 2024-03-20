@@ -1,6 +1,6 @@
 <div class="row top15 row-centered" style="padding-bottom: 20px;">
     <div class="col-sm-11 col-centered">
-        <div class="row row-centered">
+        <div class="row">
             <div class="col-sm-12 input-group input-group-lg">
                 <span class="input-group-addon">
                                 <span class="glyphicon glyphicon-globe"></span>
@@ -13,12 +13,38 @@
                         Describe Coverage
                     </button>
                 </span>
+
+            </div>
+
+            <div class="col-sm-12 input-group input-group-lg" style="margin-top: 20px;" ng-show="generatedGETURL != null">
+                <div style="float:left">
+                    <span>Generated GET URL: </span> <a href="{{generatedGETURL}}" target="_blank" class="long-link-wrap-text">{{generatedGETURL}}</a>
+                </div>
+
+                <div style="background-color: white; margin-top: 60px;" class="row row-centered">
+        
+                    <b>Coverage type:</b>
+
+                    <!-- (!) NOTE: because this dropdown IS NOT under the uib-accordion, 
+                        hence, the ng-model MUST NOT BE stored in an object interface and it can get the value changed when a new option is selected.
+                        It doesn't work like that in the case of GetCoverageController when the <select> is under uib-accordion (!)-->
+                    <select                         
+                        style="height: 30px;" ng-selected="avaiableCisTypes[0]" ng-options="cisType.value as cisType.text for cisType in avaiableCisTypes" 
+                        ng-model="selectedCisType" id="selectedCisType" ng-change="updateGeneratedUrlForSelectedCisType()"
+
+                        onmouseout="$(this).tooltip('hide')" onmouseover="$(this).tooltip('show')" 
+                        data-placement="right" title="After a CIS type is chosen, click on Describe Coverage button to view the new GML output format in the bottom of the page.">
+                    </select>
+                    
+        
+                </div>
+
             </div>
 
             <br/>
 
             <!-- Only when admin user logged in -->
-            <div class="col-sm-12 input-group input-group-lg" ng-show="adminUserLoggedIn && coverageDescription && hasRole">                
+            <div class="col-sm-12 input-group input-group-lg" ng-show="hasRoleUpdateCoverage && coverageDescription">                
                 <span class="input-group-addon">
                     <span class="glyphicon glyphicon-globe"></span>
                 </span>
@@ -98,7 +124,9 @@
                         <i class="pull-right glyphicon" ng-class="{'glyphicon-chevron-down': isCoverageDescriptionsDocumentOpen, 
                                     'glyphicon-chevron-right': !isCoverageDescriptionsDocumentOpen}"></i>
                     </uib-accordion-heading>
-                    <div>                        
+                    <div>       
+                        <div>Coverage's bounding box in EPSG:4326 CRS is: <b>{{coverageBBox}}</b></div>
+                        <br/> <br/>
                         <!-- Create a canvas for Web WorldWind. -->
                         <canvas id="wcsCanvasDescribeCoverage" style="width:100%;height:500px;">
                             Your browser does not support HTML5 Canvas.
@@ -108,7 +136,7 @@
             </uib-accordion>
         </div>
        
-        <div class="row" ng-show="coverageDescription" style="margin-top: 20px; margin-bottom: -20px;">
+        <div class="row" ng-show="coverageDescription || coverageDescription === null" style="margin-top: 20px; margin-bottom: -20px;">
             <uib-accordion close-others="false">
                 <uib-accordion-group is-open="isCoverageDescriptionsDocumentOpen">
                     <uib-accordion-heading>
@@ -122,7 +150,7 @@
 
 
                     <!-- Select text file to update coverage's metadata, only show when one logged in with petascope admin user (!) -->
-                    <div class="row top15" ng-show="adminUserLoggedIn && coverageDescription && hasRole">
+                    <div class="row top15" ng-show="hasRoleUpdateCoverage && (coverageDescription || coverageDescription === null)">
                         <div>
                             <button type="button" class="btn btn-danger" style="float: right; margin-left: 3vw; display: none;" id="btnUpdateCoverageMetadata"
                                 ng-click="updateCoverageMetadata()">
@@ -164,10 +192,6 @@
                 </uib-accordion-group>
 
             </uib-accordion>
-        </div>
-
-        <div class="row top5" ng-show="requestUrl" style="background-color: white; padding: 10px; margin-top: -10px; border-radius: 5px;">
-            The constructed GET KVP request is: <a href="{{requestUrl}}" target="_blank">{{requestUrl}}</a>
         </div>
 
     </div>

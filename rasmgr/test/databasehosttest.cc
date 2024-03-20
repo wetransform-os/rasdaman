@@ -33,21 +33,20 @@ namespace rasmgr
 {
 namespace test
 {
-using rasmgr::DatabaseHost;
 using rasmgr::Database;
+using rasmgr::DatabaseHost;
 
-class DatabaseHostTest: public ::testing::Test
+class DatabaseHostTest : public ::testing::Test
 {
 protected:
-    DatabaseHostTest(): hostName("hostName"), connectString("connectString"),
-        userName("userName"), passwdString("passwdString"), dbName("dbName"),
-        dbh(hostName, connectString, userName, passwdString), db(new Database(dbName))
-    {}
+    DatabaseHostTest()
+        : hostName("hostName"), connectString("connectString"), dbName("dbName"),
+          dbh(hostName, connectString), db(new Database(dbName))
+    {
+    }
 
     std::string hostName;
-    std::string connectString ;
-    std::string userName;
-    std::string passwdString;
+    std::string connectString;
     std::string dbName;
     DatabaseHost dbh;
     std::shared_ptr<Database> db;
@@ -57,16 +56,14 @@ TEST_F(DatabaseHostTest, preconditions)
 {
     ASSERT_EQ(hostName, dbh.getHostName());
     ASSERT_EQ(connectString, dbh.getConnectString());
-    ASSERT_EQ(userName, dbh.getUserName());
-    ASSERT_EQ(passwdString, dbh.getPasswdString());
 
     ASSERT_FALSE(dbh.isBusy());
 }
 
 TEST_F(DatabaseHostTest, addClientSessionOnDbNoDatabase)
 {
-    std::string clientId = "clientId";
-    std::string sessionId = "sessionId";
+    std::uint32_t clientId = 1;
+    std::uint32_t sessionId = 2;
 
     ASSERT_FALSE(dbh.isBusy());
 
@@ -78,8 +75,8 @@ TEST_F(DatabaseHostTest, addClientSessionOnDbNoDatabase)
 
 TEST_F(DatabaseHostTest, addClientSessionOnDbSuccess)
 {
-    std::string clientId = "clientId";
-    std::string sessionId = "sessionId";
+    std::uint32_t clientId = 1;
+    std::uint32_t sessionId = 2;
 
     ASSERT_FALSE(dbh.isBusy());
 
@@ -92,8 +89,8 @@ TEST_F(DatabaseHostTest, addClientSessionOnDbSuccess)
 
 TEST_F(DatabaseHostTest, addClientSessionOnDbFailBecauseOfDuplicateSession)
 {
-    std::string clientId = "clientId";
-    std::string sessionId = "sessionId";
+    std::uint32_t clientId = 1;
+    std::uint32_t sessionId = 2;
 
     //Add the db
     ASSERT_NO_THROW(dbh.addDbToHost(db));
@@ -105,8 +102,8 @@ TEST_F(DatabaseHostTest, addClientSessionOnDbFailBecauseOfDuplicateSession)
 
 TEST_F(DatabaseHostTest, removeClientSessionFromDB)
 {
-    std::string clientId = "clientId";
-    std::string sessionId = "sessionId";
+    std::uint32_t clientId = 1;
+    std::uint32_t sessionId = 2;
 
     //Setup
     ASSERT_NO_THROW(dbh.addDbToHost(db));
@@ -183,8 +180,8 @@ TEST_F(DatabaseHostTest, removeDbFromHostInexistentDatabase)
 
 TEST_F(DatabaseHostTest, removeDbFromHost)
 {
-    std::string clientId = "clientId";
-    std::string sessionId = "sessionId";
+    std::uint32_t clientId = 1;
+    std::uint32_t sessionId = 2;
 
     // Setup
     ASSERT_NO_THROW(dbh.addDbToHost(db));
@@ -202,5 +199,5 @@ TEST_F(DatabaseHostTest, removeDbFromHost)
     //The database will now be removed
     ASSERT_FALSE(dbh.ownsDatabase(db->getDbName()));
 }
-}
-}
+}  // namespace test
+}  // namespace rasmgr

@@ -26,3 +26,4 @@
 /// <reference path="autocomplete/Autocomplete.ts"/>
 /// <reference path="scroll-to-bottom/ScrollToBottom.ts"/>
 /// <reference path="smart-table-get-filtered-rows/SmartTableGetFilteredRows.ts"/>
+/// <reference path="DecomposeQualifiedCoverageIdFilter.ts"/>

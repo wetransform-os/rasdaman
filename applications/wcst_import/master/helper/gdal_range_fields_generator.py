@@ -25,6 +25,8 @@
 from master.generator.model.range_type_field import RangeTypeField
 from master.generator.model.range_type_nill_value import RangeTypeNilValue
 from util.gdal_util import GDALGmlUtil
+from util.import_util import import_gdal
+gdal = import_gdal()
 
 
 class GdalRangeFieldsGenerator:
@@ -45,14 +47,16 @@ class GdalRangeFieldsGenerator:
         fields = []
         field_id = 0
         for range_field in self.gdal_dataset.get_fields_range_type():
-            nill_values = []
-            for nill_value in range_field.nill_values:
-                nill_values.append(RangeTypeNilValue("", nill_value))
+            nil_value_objs = []
+            for nil_value_obj in range_field.nill_values:
+                nil_value_objs.append(nil_value_obj)
             field_name = range_field.field_name
             if self.field_names is not None and len(self.field_names) > field_id:
                 field_name = self.field_names[field_id]
             field_id += 1
+
+            band_data_type = gdal.GetDataTypeName(self.gdal_dataset.gdal_dataset.GetRasterBand(1).DataType)
             # Old recipes don't support nilReason option
-            fields.append(RangeTypeField(field_name, "", "", "", nill_values, range_field.uom_code))
+            fields.append(RangeTypeField(field_name, "", "", nil_value_objs, range_field.uom_code, None, None, band_data_type))
 
         return fields

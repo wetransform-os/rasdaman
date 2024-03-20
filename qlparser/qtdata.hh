@@ -26,7 +26,6 @@ rasdaman GmbH.
 #include <iostream>
 
 #include "qlparser/parseinfo.hh"
-#include "raslib/rminit.hh"
 #include "catalogmgr/nullvalues.hh"
 
 #include <string>
@@ -69,9 +68,6 @@ enum QtDataType
     QT_GEOMETRY,
     QT_NULLVALUES
 };
-
-
-
 
 //@ManMemo: Module: {\bf qlparser}
 
@@ -161,7 +157,7 @@ public:
     /// increases the reference counter by one
     inline void incRef();
     /// deletes one reference and the object if it was the last one
-    inline int  deleteRef();
+    inline int deleteRef();
     /**
        In case the object is deleted, 1 is returned, 0 otherwise.
     */
@@ -169,7 +165,7 @@ public:
     ///
     inline ParseInfo getParseInfo();
     ///
-    inline void      setParseInfo(const ParseInfo &info);
+    inline void setParseInfo(const ParseInfo &info);
 
     ///
     //@}
@@ -202,4 +198,3 @@ private:
 #include "qlparser/qtdata.icc"
 
 #endif
-

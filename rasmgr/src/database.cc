@@ -20,44 +20,42 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-#include <stdexcept>
-
-#include <logging.hh>
-#include <boost/thread/shared_lock_guard.hpp>
-
-#include "common/exceptions/logicexception.hh"
-
-#include "exceptions/rasmgrexceptions.hh"
-
 #include "database.hh"
+#include "exceptions/dbbusyexception.hh"
+#include "exceptions/duplicatedbsessionexception.hh"
+#include "common/exceptions/logicexception.hh"
+#include <logging.hh>
+
+#include <boost/thread/shared_lock_guard.hpp>
 
 namespace rasmgr
 {
-using std::set;
 using std::pair;
-using std::string;
 using std::runtime_error;
+using std::set;
+using std::string;
 
-Database::Database(const std::string &dbName):
-    dbName(dbName)
-{}
+Database::Database(const std::string &db)
+    : dbName(db)
+{
+}
 
-void Database::addClientSession(const std::string &clientId, const std::string &sessionId)
+void Database::addClientSession(std::uint32_t clientId, std::uint32_t sessionId)
 {
     boost::lock_guard<boost::shared_mutex> lock(sessionListMutex);
-    
+
     auto insertResult = this->sessionList.emplace(clientId, sessionId);
     if (!insertResult.second)
     {
-        std::string sessionUID = "<" + clientId + ", " + sessionId + ">";
-        throw DuplicateDbSessionException(this->getDbName(), sessionUID);
+        std::string sessionUID = "<" + std::to_string(clientId) + ", " + std::to_string(sessionId) + ">";
+        throw DuplicateDbSessionException(this->getDbName(), clientId, sessionId);
     }
 }
 
-int Database::removeClientSession(const std::string &clientId, const std::string &sessionId)
+int Database::removeClientSession(std::uint32_t clientId, std::uint32_t sessionId)
 {
-    pair<string, string> toRemove(clientId, sessionId);
-    
+    pair<std::uint32_t, std::uint32_t> toRemove(clientId, sessionId);
+
     boost::lock_guard<boost::shared_mutex> lock(sessionListMutex);
     return this->sessionList.erase(toRemove);
 }
@@ -72,13 +70,13 @@ DatabaseProto Database::serializeToProto(const Database &db)
 {
     DatabaseProto result;
     result.set_name(db.getDbName());
-    
+
     boost::shared_lock<boost::shared_mutex> lock(db.sessionListMutex);
     for (auto it = db.sessionList.begin(); it != db.sessionList.end(); ++it)
     {
         StringPair *session = result.add_sessions();
-        session->set_first(it->first);
-        session->set_second(it->second);
+        session->set_first(std::to_string(it->first));
+        session->set_second(std::to_string(it->second));
     }
 
     return result;
@@ -101,6 +99,5 @@ void Database::setDbName(const std::string &value)
     }
     dbName = value;
 }
-
 
 } /* namespace rasmgr */

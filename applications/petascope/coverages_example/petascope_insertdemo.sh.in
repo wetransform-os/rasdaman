@@ -54,6 +54,20 @@ RESULT=$RC_OK
 # functions
 # ------------------------------------------------------------------------------
 
+# return the value of key=value from properties file ($1: the key, $2: the file)
+get_key_value()
+{    
+    key_value=$(grep -E "^$1=" "$2") && echo ${key_value#*=} || echo ""
+}
+
+RASADMIN_USER="$(get_key_value "rasdaman_admin_user" "$SETTINGS")"
+RASADMIN_PASS="$(get_key_value "rasdaman_admin_pass" "$SETTINGS")"
+
+# credentials files for wcst_import to authenticate to petascope
+RASADMIN_CREDENTIALS_FILE="/tmp/rasadmin_credentials.txt"
+echo "$RASADMIN_USER:$RASADMIN_PASS" > "$RASADMIN_CREDENTIALS_FILE"
+chmod 400 "$RASADMIN_CREDENTIALS_FILE"
+
 #
 # logging
 #
@@ -95,6 +109,12 @@ import_all_coverages()
   done
 }
 
+
+# return the value of key=value from properties file ($1: the key, $2: the file)
+get_value(){    
+    key_value=$(grep -E "^$1=" "$2") && echo "${key_value#*=}" || echo "$NULL_VALUE"
+}
+
 #
 # import
 #
@@ -110,14 +130,37 @@ import_coverage()
       -e "s|SECORE_URL|$SECORE_URL|g" \
       "$RECIPE_TEMPLATE_FILE" > "$RECIPE_FILE"
 
+  RASADMIN_USER=$(get_value "rasdaman_admin_user" "$SETTINGS")
+  RASADMIN_PASS=$(get_value "rasdaman_admin_pass" "$SETTINGS")
+  
+  # credentials files for wcst_import to authenticate to petascope
+  RASADMIN_CREDENTIALS_FILE="/tmp/rasadmin_credentials.txt"
+  echo "$RASADMIN_USER:$RASADMIN_PASS" > "$RASADMIN_CREDENTIALS_FILE"
+  chmod 600 "$RASADMIN_CREDENTIALS_FILE"
+  
+
   log_file="/tmp/$COVERAGE_ID.log"
-  logn "  importing coverage $COVERAGE_ID (detail output in $log_file)... "
+  logn "importing coverage $COVERAGE_ID (detail output in $log_file)... "
   rm -f "$log_file"
-  "$WCST_IMPORT" "$RECIPE_FILE" > "$log_file" 2>&1
+
+
+  if [ -f "$log_file" ]; then
+    # cannot redirect to this log file
+    $WCST_IMPORT -i "$RASADMIN_CREDENTIALS_FILE" "$RECIPE_FILE"
+  else
+    $WCST_IMPORT -i "$RASADMIN_CREDENTIALS_FILE" "$RECIPE_FILE" > "$log_file" 2>&1
+  fi
   check $?
 
   rm -f "$RECIPE_FILE"
 }
+
+# Called when the script finishes
+cleanup() {
+  rm -f "$RASADMIN_CREDENTIALS_FILE"
+}
+
+trap cleanup EXIT
 
 # ------------------------------------------------------------------------------
 # work

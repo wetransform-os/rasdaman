@@ -5,6 +5,13 @@
 
 namespace rasmgr
 {
+
+// exit codes
+const int RASMGR_RESULT_OK = 0;
+const int RASMGR_RESULT_NO_MD5 = 1;
+const int RASMGR_RESULT_ILL_ARGS = 2;
+const int RASMGR_RESULT_FAILED = 3;
+
 /**
  * @brief MIN_ALIVE_SERVER_NO Minimum number of alive(running) servers each server group
  * should keep by default while respecting the maximum number
@@ -48,6 +55,12 @@ const std::int32_t STARTING_SERVER_LIFETIME = 10000;
 const std::int32_t SERVER_MANAGER_CLEANUP_INTERVAL = 3000;
 
 /**
+ * @brief SERVER_MANAGER_RESTART_DELAY Number of seconds to delay before restarting
+ * rasservers, in order to aggregate multiple restart requests within this period.
+ */
+const std::int32_t SERVER_MANAGER_RESTART_DELAY = 1;
+
+/**
  * @brief CLIENT_MANAGER_CLEANUP_INTERVAL Number of milliseconds between consecutive cleanup runs
  * of the client manager. This value should be smaller or equal that CLIENT_LIFETIME
  */
@@ -58,6 +71,12 @@ const std::int32_t CLIENT_MANAGER_CLEANUP_INTERVAL = 3000;
  * a KeepAlive request is removed from the list of active clients.
  */
 const std::int32_t CLIENT_LIFETIME = CLIENT_MANAGER_CLEANUP_INTERVAL * 10;
+
+/**
+ * @brief MAX_CLIENT_QUEUE_SIZE Maximum number of clients to allow in a waiting queue
+ * until a server can be assigned to them.
+ */
+const std::uint32_t MAX_CLIENT_QUEUE_SIZE = 1000;
 
 /**
  * @brief MAX_CONTROL_COMMAND_LENGTH Maximum length of a command from rascontrol.
@@ -80,6 +99,6 @@ const std::uint32_t MAX_GET_SERVER_RETRIES = 3;
  * A server is always running on the same machine as the rasmgr so it should be able to reply to a request immediately.
  */
 const std::int32_t SERVER_CALL_TIMEOUT = 3000;
-}
+}  // namespace rasmgr
 
-#endif // RASMGR_X_SRC_CONSTANTS_HH
+#endif  // RASMGR_X_SRC_CONSTANTS_HH

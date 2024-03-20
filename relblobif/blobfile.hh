@@ -27,7 +27,6 @@
 #include <string>       // for string
 #include <sys/types.h>  // for off_t
 
-
 /**
  * Contents of a blob identified with a blobId.
  */
@@ -38,12 +37,10 @@ public:
     r_Bytes size;
     char *data;
 
-    inline
-    explicit BlobData(long long blobIdArg)
+    inline explicit BlobData(long long blobIdArg)
         : blobId(blobIdArg), size(0), data(NULL) {}
 
-    inline
-    BlobData(long long blobIdArg, r_Bytes sizeArg, char *dataArg)
+    inline BlobData(long long blobIdArg, r_Bytes sizeArg, char *dataArg)
         : blobId(blobIdArg), size(sizeArg), data(dataArg) {}
 };
 
@@ -101,9 +98,9 @@ private:
     /// helper to read size bytes from fd into dst. The file is decompressed if
     /// needed.
     void readFile(char *dst, size_t size);
+    void readFileAtOffset(char *dst, size_t size, off_t offset);
     void writeFile(char *data, size_t size);
 
     const std::string &filePath;
     int fd{-1};
 };
-

@@ -20,16 +20,6 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
-/**
- * INCLUDE: structuretype.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Structure_Type
- *
- * COMMENTS:
- *
-*/
-
 #ifndef _D_STRUCTURE_TYPE_
 #define _D_STRUCTURE_TYPE_
 
@@ -38,8 +28,11 @@
 #include <vector>
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
   This class represents all user defined structured types in the
   ODMG conformant representation of the RasDaMan type system.
 */
@@ -69,21 +62,21 @@ public:
 
     /// check, if this type is compatible with myType (e.g. check the structure ignoring then names of atributtes)
     virtual bool compatibleWith(const r_Structure_Type *myType) const;
-    
+
     /// return attribute specified by name.
     r_Attribute &resolve_attribute(const char *name);
     /// return attribute specified by number starting with zero.
     r_Attribute &resolve_attribute(unsigned int number);
     /// subscript operator to access attributes by index
     r_Attribute &operator[](unsigned int number);
-    
+
     /// return attribute specified by name.
     const r_Attribute &resolve_attribute(const char *name) const;
     /// return attribute specified by number starting with zero.
     const r_Attribute &resolve_attribute(unsigned int number) const;
     /// subscript operator to access attributes by index
     const r_Attribute &operator[](unsigned int number) const;
-    
+
     const std::vector<r_Attribute> &getAttributes() const;
 
     /// get number of attributes
@@ -99,7 +92,7 @@ public:
     void print_status(std::ostream &s) const override;
 
     /// prints values of a structured type
-    void print_value(const char *storage,  std::ostream &s) const override;
+    void print_value(const char *storage, std::ostream &s) const override;
 
 protected:
     std::vector<r_Attribute> myAttributes;

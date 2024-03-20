@@ -1,0 +1,5 @@
+for $c in (test_eobstest)
+return encode(
+coverage x
+over $month t("1950-01-01T00", "1950-01-02T00", "1950-01-03T00" )
+values $c[ t( $month ) ] , "csv")

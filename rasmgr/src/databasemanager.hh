@@ -23,12 +23,12 @@
 #ifndef RASMGR_X_SRC_DATABASEMANAGER_HH_
 #define RASMGR_X_SRC_DATABASEMANAGER_HH_
 
+#include "rasmgr/src/messages/rasmgrmess.pb.h"
+
 #include <string>
 #include <list>
 #include <memory>
 #include <mutex>
-
-#include "rasmgr/src/messages/rasmgrmess.pb.h"
 
 namespace rasmgr
 {
@@ -37,17 +37,17 @@ class DatabaseHostManager;
 class Database;
 
 /**
- * @brief The DatabaseManager class Keeps track of the databases available on
- * this rasmgr instance. There can be exactly one database with a given name at any moment.
+ * Keeps track of the databases available on this rasmgr instance. There can be
+ * exactly one database with a given name at any moment.
  */
 class DatabaseManager
 {
 public:
     /**
-     * Initialize a new instance of the DatabaseManager class.
-     * @param dbHostManager Reference to the database host manager with which this object is associated.
+     * @param dbHostManager Reference to the database host manager with which
+     * this object is associated.
      */
-    DatabaseManager(std::shared_ptr<DatabaseHostManager> dbHostManager);
+    explicit DatabaseManager(std::shared_ptr<DatabaseHostManager> dbHostManager);
 
     virtual ~DatabaseManager() = default;
 
@@ -63,6 +63,7 @@ public:
      * Change the name of a database if there is no database with the same name.
      * @param oldDbName The old name of the database
      * @param newDbProp new database properties
+     * @throws InexistentDatabaseException
      */
     void changeDatabase(const std::string &oldDbName, const DatabasePropertiesProto &newDbProp);
 
@@ -70,24 +71,25 @@ public:
      * Remove the database with the given name from the list.
      * If no database with the given name exists, nothing will happen.
      * @param databaseHostName name of the database host from which to remove this database
-     * @param databaseName
+     * @param databaseName name of the database to be removed
+     * @throws InexistentDatabaseException
      */
     void removeDatabase(const std::string &databaseHostName, const std::string &databaseName);
-    
+
     const std::list<std::shared_ptr<Database>> &getDatabases() const;
-    
+
     const std::shared_ptr<DatabaseHostManager> &getDbHostManager() const;
 
     /**
-     * @brief serializeToProto Serialize the information this object holds in a snapshot.
-     * @return
+     * Serialize the information this object holds in a snapshot.
      */
     DatabaseMgrProto serializeToProto();
+
 private:
     std::shared_ptr<DatabaseHostManager> dbHostManager; /*!< Reference to the database host manager*/
     std::list<std::shared_ptr<Database>> databases;
 
-    std::mutex mut;  /*!< Mutex used to synchronize access to this object.*/
+    std::mutex mut; /*!< Mutex used to synchronize access to this object.*/
 };
 
 } /* namespace rasmgr */

@@ -1,0 +1,1 @@
+service=WCS&VERSION=2.0.1&request=ProcessCoverages&query=for

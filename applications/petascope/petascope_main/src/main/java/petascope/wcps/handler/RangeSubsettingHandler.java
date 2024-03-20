@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -67,9 +69,9 @@ public class RangeSubsettingHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = (WcpsResult)this.getFirstChild().handle();
-        String fieldName = ((WcpsResult)this.getSecondChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = (WcpsResult)this.getFirstChild().handle(serviceRegistries);
+        String fieldName = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
         
         WcpsResult result = this.handle(fieldName, coverageExpression);
         return result;
@@ -103,8 +105,15 @@ public class RangeSubsettingHandler extends Handler {
         int rangeFieldIndex = wcpsCoverageMetadataService.getRangeFieldIndex(metadata, rangeField);
 
         String coverageExprStr = coverageExpression.getRasql().trim();
-        String rasql = TEMPLATE.replace("$coverageExp", coverageExprStr)
-                .replace("$rangeFieldIndex", String.valueOf(rangeFieldIndex));
+        String rasql = "";
+
+        if (metadata.getRangeFields().size() == 1) {
+            // e.g. coverage has 1 band and user has $c.red -> c.0 will have error in rasdaman as collection is not composite
+            rasql = TEMPLATE_WITH_NO_BAND.replace("$coverageExp", coverageExprStr);
+        } else {
+            rasql = TEMPLATE.replace("$coverageExp", coverageExprStr)
+                            .replace("$rangeFieldIndex", String.valueOf(rangeFieldIndex));
+        }
 
         wcpsCoverageMetadataService.removeUnusedRangeFields(metadata, rangeFieldIndex);
 
@@ -114,4 +123,5 @@ public class RangeSubsettingHandler extends Handler {
     }
 
     private final String TEMPLATE = "$coverageExp.$rangeFieldIndex";
+    private final String TEMPLATE_WITH_NO_BAND = "$coverageExp";
 }

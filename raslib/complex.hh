@@ -20,16 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: complex.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Complex
- *
- * COMMENTS:
- *      The class represents a complex type value.
- *
-*/
 
 #ifndef R_COMPLEX_HH
 #define R_COMPLEX_HH
@@ -40,19 +30,21 @@ rasdaman GmbH.
 class r_Complex_Type;
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
 
- Class \Ref{r_Complex} represents a complex type value.
+ Class r_Complex represents a complex type value.
 
 */
-class r_Complex: public r_Primitive
+class r_Complex : public r_Primitive
 {
 public:
-
     explicit
-    /// constructs a scalar type value
-    r_Complex(const char *newBuffer, const r_Complex_Type *newType);
+        /// constructs a scalar type value
+        r_Complex(const char *newBuffer, const r_Complex_Type *newType);
 
     /// copy constructor
     r_Complex(const r_Complex &obj);

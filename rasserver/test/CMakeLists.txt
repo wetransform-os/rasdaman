@@ -30,7 +30,7 @@ target_link_libraries(rasnetserver_test
         ${GMOCK_LIBRARY} ${PROTOBUF_LIBRARY}
         ${CMAKE_THREAD_LIBS_INIT})
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rasnetserver_test REUSE_FROM common_logging)
 endif()
 

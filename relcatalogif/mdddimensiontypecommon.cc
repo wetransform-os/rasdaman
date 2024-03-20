@@ -21,17 +21,16 @@ rasdaman GmbH.
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
-#include "basetype.hh"                           // for BaseType
-#include "mdddomaintype.hh"                      // for MDDDomainType
-#include "mdddimensiontype.hh"                   // for MDDDimensionType
-#include "mddbasetype.hh"                        // for MDDBaseType
-#include "mddtype.hh"                            // for MDDType, MDDType::MD...
-#include "type.hh"                               // for Type (ptr only), ost...
-#include "raslib/mddtypes.hh"                    // for r_Dimension, r_Bytes
-#include "raslib/minterval.hh"                   // for r_Minterval
-#include "mymalloc/mymalloc.h"
-#include "relcatalogif/typefactory.hh"             // for TypeFactory
-#include <logging.hh>                            // for Writer, CTRACE, LTRACE
+#include "basetype.hh"                  // for BaseType
+#include "mdddomaintype.hh"             // for MDDDomainType
+#include "mdddimensiontype.hh"          // for MDDDimensionType
+#include "mddbasetype.hh"               // for MDDBaseType
+#include "mddtype.hh"                   // for MDDType, MDDType::MD...
+#include "type.hh"                      // for Type (ptr only), ost...
+#include "raslib/mddtypes.hh"           // for r_Dimension, r_Bytes
+#include "raslib/minterval.hh"          // for r_Minterval
+#include "relcatalogif/typefactory.hh"  // for TypeFactory
+#include <logging.hh>                   // for Writer, CTRACE, LTRACE
 
 #include <boost/algorithm/string/predicate.hpp>  // for starts_with
 #include <stdio.h>                               // for sprintf
@@ -64,43 +63,45 @@ MDDDimensionType::MDDDimensionType()
     mySubclass = MDDDIMENSIONTYPE;
 }
 
-char *MDDDimensionType::getTypeStructure() const
+std::string MDDDimensionType::getTypeStructure() const
 {
     auto dimStr = std::to_string(myDimension);
-    char *baseType = myBaseType->getTypeStructure();
-    char *result = static_cast<char *>(mymalloc(12 + strlen(baseType) + dimStr.size()));
+    auto baseType = myBaseType->getTypeStructure();
+    auto resultLen = 12 + baseType.size() + dimStr.size();
 
-    sprintf(result, "marray <%s, %s>", baseType, dimStr.c_str());
-    
-    free(baseType);
-    return result;
+    std::string ret;
+    ret.reserve(resultLen);
+    ret += "marray <";
+    ret += baseType;
+    ret += ",";
+    ret += dimStr;
+    ret += ">";
+
+    return ret;
 }
 
-char *MDDDimensionType::getNewTypeStructure() const
+std::string MDDDimensionType::getNewTypeStructure() const
 {
-    std::ostringstream ss;
+    std::string baseType;
     if (boost::starts_with(myBaseType->getTypeName(), TypeFactory::ANONYMOUS_CELL_TYPE_PREFIX))
-    {
-        char *typeStructure = myBaseType->getNewTypeStructure();
-        ss << typeStructure;
-        free(typeStructure);
-    }
+        baseType = myBaseType->getNewTypeStructure();
     else
-    {
-        ss << TypeFactory::getSyntaxTypeFromInternalType(std::string(myBaseType->getTypeName()));
-    }
+        baseType = TypeFactory::getSyntaxTypeFromInternalType(myBaseType->getTypeName());
 
-    ss << " MDARRAY [";
-    for (r_Dimension i = 0; i < myDimension; ++i)
-    {
-        if (i > 0)
-            ss << ",";
-        ss << "a" << i;
-    }
-    ss << "]";
+    std::string ret;
+    ret.reserve(baseType.size() + 11 + (myDimension * 3));
 
-    std::string result = ss.str();
-    return strdup(result.c_str());
+    ret += baseType;
+    ret += " MDARRAY [";
+    for (r_Dimension i = 1; i <= myDimension; ++i)
+    {
+        if (i > 1)
+            ret += ",";
+        ret += "D";
+        ret += std::to_string(i);
+    }
+    ret += "]";
+    return ret;
 }
 
 void MDDDimensionType::print_status(std::ostream &s) const
@@ -150,4 +151,3 @@ r_Bytes MDDDimensionType::getMemorySize() const
 {
     return MDDBaseType::getMemorySize() + sizeof(r_Dimension);
 }
-

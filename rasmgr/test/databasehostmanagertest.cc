@@ -40,21 +40,20 @@ namespace test
 using rasmgr::Database;
 using rasmgr::DatabaseHost;
 using rasmgr::DatabaseHostManager;
-using rasmgr::DatabaseHostPropertiesProto;
 using rasmgr::DatabaseHostMgrProto;
+using rasmgr::DatabaseHostPropertiesProto;
 
-class DatabaseHostManagerTest: public ::testing::Test
+class DatabaseHostManagerTest : public ::testing::Test
 {
 protected:
-    DatabaseHostManagerTest(): hostName("hostName"), connectString("connectString"),
-        userName("userName"), passwdString("passwdString"), dbName("dbName"),
-        dbh(hostName, connectString, userName, passwdString), db(dbName)
-    {}
+    DatabaseHostManagerTest()
+        : hostName("hostName"), connectString("connectString"), dbName("dbName"),
+          dbh(hostName, connectString), db(dbName)
+    {
+    }
 
     std::string hostName;
-    std::string connectString ;
-    std::string userName;
-    std::string passwdString;
+    std::string connectString;
     std::string dbName;
     DatabaseHost dbh;
     Database db;
@@ -74,8 +73,6 @@ TEST_F(DatabaseHostManagerTest, defineDatabaseHost)
     ASSERT_ANY_THROW(dbhManager.defineDatabaseHost(properties));
 
     properties.set_host_name(hostName);
-    properties.set_user_name(userName);
-    properties.set_password(passwdString);
     properties.set_connect_string(connectString);
 
     ASSERT_NO_THROW(dbhManager.defineDatabaseHost(properties));
@@ -87,8 +84,6 @@ TEST_F(DatabaseHostManagerTest, defineDatabaseHost)
 
     ASSERT_EQ(hostName, dbhResult->getHostName());
     ASSERT_EQ(connectString, dbhResult->getConnectString());
-    ASSERT_EQ(passwdString, dbhResult->getPasswdString());
-    ASSERT_EQ(userName, dbhResult->getUserName());
 
     //Will fail because there already is a database host with the given host name
     ASSERT_ANY_THROW(dbhManager.defineDatabaseHost(properties));
@@ -108,23 +103,11 @@ TEST_F(DatabaseHostManagerTest, changeDbHostProperties)
         properties.set_host_name("newHostName");
     }
 
-    if (rasmgr::test::TestUtil::randomBool())
-    {
-        properties.set_password("newPass");
-    }
-
-    if (rasmgr::test::TestUtil::randomBool())
-    {
-        properties.set_user_name("newUserName");
-    }
-
     //no database with the given name
     ASSERT_ANY_THROW(dbhManager.changeDatabaseHost(hostName, properties));
 
     DatabaseHostPropertiesProto originalDBH;
     originalDBH.set_host_name(hostName);
-    originalDBH.set_user_name(userName);
-    originalDBH.set_password(passwdString);
     originalDBH.set_connect_string(connectString);
 
     //Add a dbh
@@ -151,24 +134,6 @@ TEST_F(DatabaseHostManagerTest, changeDbHostProperties)
     {
         ASSERT_EQ(originalDBH.host_name(), dbhResult->getHostName());
     }
-
-    if (properties.has_password())
-    {
-        ASSERT_EQ(properties.password(), dbhResult->getPasswdString());
-    }
-    else
-    {
-        ASSERT_EQ(originalDBH.password(), dbhResult->getPasswdString());
-    }
-
-    if (properties.has_user_name())
-    {
-        ASSERT_EQ(properties.user_name(), dbhResult->getUserName());
-    }
-    else
-    {
-        ASSERT_EQ(originalDBH.user_name(), dbhResult->getUserName());
-    }
 }
 
 TEST_F(DatabaseHostManagerTest, removeDatabaseHostFailWhenInexistendDbHost)
@@ -181,8 +146,6 @@ TEST_F(DatabaseHostManagerTest, removeDatabaseHost)
 {
     DatabaseHostPropertiesProto properties;
     properties.set_host_name(hostName);
-    properties.set_user_name(userName);
-    properties.set_password(passwdString);
     properties.set_connect_string(connectString);
     //Add a dbh
     ASSERT_NO_THROW(dbhManager.defineDatabaseHost(properties));
@@ -209,8 +172,6 @@ TEST_F(DatabaseHostManagerTest, getAndLockDH)
 
     DatabaseHostPropertiesProto originalDBH;
     originalDBH.set_host_name(hostName);
-    originalDBH.set_user_name(userName);
-    originalDBH.set_password(passwdString);
     originalDBH.set_connect_string(connectString);
 
     //Setup
@@ -230,8 +191,6 @@ TEST_F(DatabaseHostManagerTest, getDatabaseHostList)
 
     DatabaseHostPropertiesProto originalDBH;
     originalDBH.set_host_name(hostName);
-    originalDBH.set_user_name(userName);
-    originalDBH.set_password(passwdString);
     originalDBH.set_connect_string(connectString);
 
     //Add a dbh
@@ -247,20 +206,16 @@ TEST_F(DatabaseHostManagerTest, serializeToProto)
 
     DatabaseHostPropertiesProto originalDBH;
     originalDBH.set_host_name(hostName);
-    originalDBH.set_user_name(userName);
-    originalDBH.set_password(passwdString);
     originalDBH.set_connect_string(connectString);
 
     dbhManager.defineDatabaseHost(originalDBH);
 
-    result =  dbhManager.serializeToProto();
+    result = dbhManager.serializeToProto();
     ASSERT_EQ(1, result.database_hosts_size());
 
     ASSERT_EQ(hostName, result.database_hosts(0).host_name());
-    ASSERT_EQ(userName, result.database_hosts(0).user_name());
-    ASSERT_EQ(passwdString, result.database_hosts(0).password());
     ASSERT_EQ(connectString, result.database_hosts(0).connect_string());
 }
 
-}
-}
+}  // namespace test
+}  // namespace rasmgr

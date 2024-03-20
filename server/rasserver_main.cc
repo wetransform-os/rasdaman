@@ -27,19 +27,18 @@ rasdaman GmbH.
 #error "Please specify RMANVERSION variable!"
 #endif
 
+#include "rasserver_directql.hh"
+#include "rasserver_rasdl.hh"
 #include "globals.hh"
-#include "servercomm/httpserver.hh"
 #include "storagemgr/sstoragelayout.hh"
 #include "common/logging/signalhandler.hh"
-#include "rasserver_entry.hh"
+#include "common/exceptions/exception.hh"
 #include "rasserver/src/rasnetserver.hh"
 #include "rasserver_config.hh"
 #include "servercomm/accesscontrol.hh"
+#include "applications/rasql/rasql_error.hh"
 
-#include "rasserver_directql.hh"
-#include "rasserver_rasdl.hh"
-
-#include <logging.hh>
+#include "logging.hh"
 #include "loggingutils.hh"
 
 #include <iostream>
@@ -50,22 +49,14 @@ rasdaman GmbH.
 #include <signal.h>
 #include <vector>
 
-RMINITGLOBALS('S')
 INITIALIZE_EASYLOGGINGPP
 
 using namespace std;
 
-#define RC_OK       (0)
-#define RC_ERROR    (-1)
+static const int RC_OK = 0;
+static const int RC_ERROR = -1;
 
 extern AccessControl accessControl;
-#ifdef RMANDEBUG
-extern int RManDebug;
-#endif
-
-// TODO remove these global variables at some point, used in servercomm.cc
-unsigned long maxTransferBufferSize = 4000000;
-int           noTimeOut = 0;
 
 // here the id string for connecting to the RDBMS is stored (used by rel* modules).
 // FIXME: bad hack -- PB 2003-oct-12
@@ -85,47 +76,40 @@ bool initialize();
  * Invoked on SIGUSR1 signal, this handler prints the stack trace and then kills
  * the server process with SIGKILL. This is used in crash testing of rasserver.
  */
-void testHandler(int sig, siginfo_t* info, void* ucontext);
-void shutdownHandler(int sig, siginfo_t* info, void* ucontext);
-void crashHandler(int sig, siginfo_t* info, void* ucontext);
+void testHandler(int sig, siginfo_t *info, void *ucontext);
+void shutdownHandler(int sig, siginfo_t *info, void *ucontext);
+void crashHandler(int sig, siginfo_t *info, void *ucontext);
 
-void testHandler(int /*sig*/, siginfo_t* /*info*/, void* /*ucontext*/)
+void testHandler(int /*sig*/, siginfo_t *info, void * /*ucontext*/)
 {
-    LINFO << "test handler caught signal SIGUSR1, stacktrace: \n" 
-          << common::SignalHandler::getStackTrace();
-    LINFO << "killing rasserver with SIGKILL.";
+    const char *logFile = configuration.getLogFileName();
+    common::SignalHandler::printCrashDetailsASSafe(info, logFile);
+    common::SignalHandler::printASSafe("killing rasserver with SIGKILL.\n", logFile);
     raise(SIGKILL);
 }
-void shutdownHandler(int /*sig*/, siginfo_t* info, void* /*ucontext*/)
+void shutdownHandler(int /*sig*/, siginfo_t *info, void * /*ucontext*/)
 {
     static bool alreadyExecuting{false};
     if (!alreadyExecuting)
     {
         alreadyExecuting = true;
-        LINFO << "Interrupted by signal " << common::SignalHandler::toString(info);
-        NNLINFO << "Shutting down... ";
-        BLINFO << "rasserver terminated.";
+        const char *logFile = configuration.getLogFileName();
+        common::SignalHandler::printCrashDetailsASSafe(info, logFile);
+        // TODO: notify rasmgr of shutdown?
         exit(EXIT_SUCCESS);
     }
 }
-void crashHandler(int sig, siginfo_t* info, void* /*ucontext*/)
+void crashHandler(int sig, siginfo_t *info, void * /*ucontext*/)
 {
     static bool alreadyExecuting{false};
     if (!alreadyExecuting)
     {
         alreadyExecuting = true;
-        NNLERROR << "Interrupted by signal " << common::SignalHandler::toString(info);
-        BLERROR << "... stacktrace:\n" << common::SignalHandler::getStackTrace() << "\n";
-        BLFLUSH;
-        NNLERROR << "Shutting down... ";
-        BLERROR << "rasserver terminated." << endl;
-    } else {
-        // if a signal comes while the handler has already been invoked,
-        // wait here for max 3 seconds, so that the handler above has some time
-        // (hopefully) finish
-        sleep(3);
+        const char *logFile = configuration.getLogFileName();
+        common::SignalHandler::printCrashDetailsASSafe(info, logFile);
+        // TODO: notify rasmgr of crash?
+        exit(sig);
     }
-    exit(sig);
 }
 void installSignalHandlers()
 {
@@ -141,7 +125,7 @@ void installSignalHandlers()
 //                                   main                                     //
 // -------------------------------------------------------------------------- //
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     if (configuration.parseCommandLine(argc, argv) == false)
     {
@@ -176,7 +160,7 @@ int main(int argc, char** argv)
     //
     // run server
     //
-    
+
     int returnCode = RC_OK;
     try
     {
@@ -184,20 +168,21 @@ int main(int argc, char** argv)
         {
             LDEBUG << "starting daemon server...";
             rasserver::RasnetServer rasnetServer(
-                        static_cast<std::uint32_t>(configuration.getListenPort()),
-                        configuration.getRasmgrHost(),
-                        static_cast<std::uint32_t>(configuration.getRasmgrPort()), 
-                        configuration.getNewServerId());
+                static_cast<std::uint32_t>(configuration.getListenPort()),
+                configuration.getRasmgrHost(),
+                static_cast<std::uint32_t>(configuration.getRasmgrPort()),
+                configuration.getNewServerId());
             rasnetServer.startRasnetServer();
-            LDEBUG << "daemon server started.";
+            // the above function is blocking, when it returns it means the
+            // server has shutdown
+            LDEBUG << "daemon server stopped.";
         }
-        else // client mode: directql or rasdl
+        else  // client mode: directql or rasdl
         {
             LDEBUG << "run direct server...";
             common::LogConfiguration logConf(CONFDIR, CLIENT_LOG_CONF);
             logConf.configClientLogging(configuration.isQuietLogOn());
-            LINFO << "directql: rasdaman direct query tool " << RMANVERSION
-                  << " on base DBMS " << BASEDBSTRING << ".";
+            LINFO << "directql: rasdaman direct query tool " << RMANVERSION;
             if (configuration.hasQueryString())
             {
                 rasserver::directql::openDatabase();
@@ -210,12 +195,17 @@ int main(int argc, char** argv)
             }
         }
     }
-    catch (r_Error& errorObj)
+    catch (common::Exception &errorObj)
+    {
+        LERROR << "rasdaman server error: " << errorObj.what();
+        returnCode = RC_ERROR;
+    }
+    catch (r_Error &errorObj)
     {
         LERROR << "rasdaman server error " << errorObj.get_errorno() << ": " << errorObj.what();
         returnCode = RC_ERROR;
     }
-    catch (std::exception& ex)
+    catch (std::exception &ex)
     {
         LERROR << "rasdaman server exception: " << ex.what();
         returnCode = RC_ERROR;
@@ -238,15 +228,24 @@ bool initialize()
     if (configuration.isRasserver())
         BLINFO << " listening on port " << configuration.getListenPort();
 
-    strcpy(globalConnectId, configuration.getDbConnectionID());
-    BLINFO << ", connecting to " << BASEDBSTRING << " with '" << globalConnectId <<  "'";
+    std::string connectString;
+    if (configuration.getDbConnectionID() == nullptr)
+    {
+        if (configuration.isRasserver())
+            throw r_Error(NOCONNECTSTRING);
+        else
+            connectString = rasserver::directql::getDefaultDb();
+    }
+    else
+    {
+        connectString = configuration.getDbConnectionID();
+    }
+    strcpy(globalConnectId, connectString.c_str());
+    const char *basedbString = globalConnectId[0] == '/' ? "sqlite" : "postgres";
+    BLINFO << ", connecting to " << basedbString << " with '" << globalConnectId << "'\n";
 
-    strcpy(globalDbUser, configuration.getDbUser());
-    if (strlen(configuration.getDbUser()) > 0)
-        BLINFO << ", user " << globalDbUser;
-    
-    strcpy(globalDbPasswd, configuration.getDbPasswd());
-    BLINFO << "\n";
+    strcpy(globalDbUser, configuration.getUser());
+    strcpy(globalDbPasswd, configuration.getPasswd());
 
     NNLINFO << "Verifying rasmgr host name: " << configuration.getRasmgrHost() << "... ";
     if (!gethostbyname(configuration.getRasmgrHost()))
@@ -256,10 +255,6 @@ bool initialize()
     }
     BLINFO << "ok\n";
 
-    maxTransferBufferSize = static_cast<unsigned int>(configuration.getMaxTransferBufferSize());
-    if (configuration.getTimeout() == 0)
-        noTimeOut = 1;
-    
     StorageLayout::DefaultTileSize = static_cast<r_Bytes>(configuration.getDefaultTileSize());
     LINFO << "Tile size set to : " << StorageLayout::DefaultTileSize;
     StorageLayout::DefaultMinimalTileSize = static_cast<r_Bytes>(configuration.getDefaultPCTMin());
@@ -269,18 +264,13 @@ bool initialize()
     StorageLayout::DefaultIndexSize = static_cast<unsigned int>(configuration.getDefaultIndexSize());
     LINFO << "Index size set to: " << StorageLayout::DefaultIndexSize;
 
-#ifdef RMANDEBUG
-    RManDebug = configuration.getDebugLevel();
-    LINFO << "Debug level      : " << RManDebug;
-#endif
-
     try
     {
         StorageLayout::DefaultTileConfiguration = r_Minterval(configuration.getDefaultTileConfig());
     }
-    catch (r_Error& err)
+    catch (r_Error &err)
     {
-        LERROR << "Failed converting " << configuration.getDefaultTileConfig() 
+        LERROR << "Failed converting " << configuration.getDefaultTileConfig()
                << " to r_Minterval, error " << err.get_errorno() << " : " << err.what();
         return false;
     }
@@ -295,8 +285,6 @@ bool initialize()
     }
     if (ts != r_Tiling_Scheme_NUMBER)
         StorageLayout::DefaultTilingScheme = ts;
-    // retiling enabled only if tiling scheme is regular tiling
-    RMInit::tiling = (ts == r_RegularTiling);
     LINFO << "Default tiling   : " << StorageLayout::DefaultTilingScheme;
 
     // Index
@@ -304,10 +292,6 @@ bool initialize()
     if (tmpIT != r_Index_Type_NUMBER)
         StorageLayout::DefaultIndexType = tmpIT;
     LINFO << "Default Index    : " << StorageLayout::DefaultIndexType;
-
-    //use tilecontainer
-    RMInit::useTileContainer = configuration.useTileContainer();
-    LINFO << "Tile container   : " << (RMInit::useTileContainer ? "yes" : "no");
 
     return true;
 }

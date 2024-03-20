@@ -21,6 +21,8 @@
  */
 package petascope.wcps.metadata.service;
 
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import petascope.util.BigDecimalUtil;
 import petascope.wcps.metadata.model.ParsedSubset;
 
@@ -42,6 +44,7 @@ import petascope.wcps.metadata.model.Axis;
 import petascope.wcps.metadata.model.NumericSubset;
 import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.subset_axis.model.WcpsSliceSubsetDimension;
+import petascope.wcps.subset_axis.model.WcpsSliceTemporalSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 
@@ -52,111 +55,142 @@ import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
  * @author <a href="mailto:b.phamhuu@jacobs-university.de">Bang Pham Huu</a>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class CoordinateTranslationService {
     
     private final BigDecimal GDAL_EPSILON_MIN = new BigDecimal("0.001");
     private final BigDecimal GDAL_EPSILON_MAX = new BigDecimal("0.5");
     
-    /**
-     * From a geo bounds for X axis (e.g: lon1:lon2]
-     * return the grid bound and number of grid pixel
-     */
-    private Pair<BigDecimal, BigDecimal> calculateGridXBounds(GeoTransform adfGeoTransform, BigDecimal geoXMin, BigDecimal geoXMax) {
-        
-        BigDecimal gridXMin = BigDecimalUtil.divide(geoXMin.subtract(adfGeoTransform.getUpperLeftGeoXDecimal()), adfGeoTransform.getGeoXResolution());
-        BigDecimal numberOfXPixels = BigDecimalUtil.divide(geoXMax.subtract(geoXMin), adfGeoTransform.getGeoXResolution());
-        
-        // Default nearest neighbor
-        if (!BigDecimalUtil.approximateInteger(gridXMin)) {
-            gridXMin = gridXMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.CEILING);
-        } else {
-            gridXMin = gridXMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.FLOOR);
-        }
-        numberOfXPixels = numberOfXPixels.add(GDAL_EPSILON_MAX).setScale(0, RoundingMode.FLOOR);
-        
-        return new Pair<>(gridXMin, numberOfXPixels);
-    }
+    // ----------------------------------- X Axis 
     
     /**
-     * From a geo bounds for Y axis (e.g: lat1:lat2]
-     * return the grid bound and number of grid pixel
+     * From a geo bound on X axis -> grid index on X axis
      */
-    private Pair<BigDecimal, BigDecimal> calculateGridYBounds(GeoTransform adfGeoTransform, BigDecimal geoYMin, BigDecimal geoYMax) {
-        BigDecimal gridYMin = BigDecimalUtil.divide(geoYMax.subtract(adfGeoTransform.getUpperLeftGeoY()), adfGeoTransform.getGeoYResolutionDecimal());
-        BigDecimal numberOfYPixels = BigDecimalUtil.divide(geoYMin.subtract(geoYMax), adfGeoTransform.getGeoYResolutionDecimal());
+    private Long getGridXIndex(BigDecimal geoSliceX, BigDecimal geoResolutionX, BigDecimal geoAxisYMin) {
+        BigDecimal gridIndexXApproximate = BigDecimalUtil.divide(geoSliceX.subtract(geoAxisYMin),
+                                                                      geoResolutionX);
+        Long gridIndexX = BigDecimalUtil.shiftToInteger(gridIndexXApproximate);    
         
-        // Default nearest neighbor
-        if (!BigDecimalUtil.approximateInteger(gridYMin)) {
-            gridYMin = gridYMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.CEILING);
-        } else {
-            gridYMin = gridYMin.add(GDAL_EPSILON_MIN).setScale(0, RoundingMode.FLOOR);
-        } 
-        numberOfYPixels = numberOfYPixels.add(GDAL_EPSILON_MAX).setScale(0, RoundingMode.FLOOR);
+        return gridIndexX;
+    }
+    
+    
+    /**
+     * From a geo bounds for X axis (e.g: lon1:lon2]
+     * return the grid bounds of the input geo bounds
+     */
+    private Pair<Long, Long> calculateGridXBounds(GeoTransform adfGeoTransform, BigDecimal geoSubsetXMin, BigDecimal geoSubsetXMax) {
+        BigDecimal geoAxisYMin = adfGeoTransform.getUpperLeftGeoX();
         
-        return new Pair<>(gridYMin, numberOfYPixels);
+        BigDecimal shiftedGeoLowerBoundX = geoSubsetXMin.add(new BigDecimal("0.5").multiply(adfGeoTransform.getGeoXResolution()));
+        Long gridLowerBoundX = this.getGridXIndex(shiftedGeoLowerBoundX, adfGeoTransform.getGeoXResolution(), geoAxisYMin);
+        
+        BigDecimal shiftedGeoUpperBoundX = geoSubsetXMax.subtract(new BigDecimal("0.5").multiply(adfGeoTransform.getGeoXResolution()));
+        Long gridUpperBoundX = this.getGridXIndex(shiftedGeoUpperBoundX, adfGeoTransform.getGeoXResolution(), geoAxisYMin);
+        
+        return new Pair<>(gridLowerBoundX, gridUpperBoundX);
     }
     
     /**
      * Get a pair of lower:upper bounds for geo and grid by geo trimming subset of X axis
-     * as gdal_translate -projwin
      */
     public Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> calculateGeoGridXBounds(boolean checkBoundary, boolean checkGridBound, Axis axisX, GeoTransform adfGeoTransform, 
-                                                                                      BigDecimal geoXMin, BigDecimal geoXMax) {
-        Pair<BigDecimal, BigDecimal> gridPair = this.calculateGridXBounds(adfGeoTransform, geoXMin, geoXMax);
+                                                                                      BigDecimal geoXMinSubset, BigDecimal geoXMaxSubset) {
+        Pair<Long, Long> gridPair = this.calculateGridXBounds(adfGeoTransform, geoXMinSubset, geoXMaxSubset);
         
-        BigDecimal dfOXSize = gridPair.snd.subtract(GDAL_EPSILON_MIN).setScale(0, RoundingMode.CEILING);
-        BigDecimal gridXMin = gridPair.fst;
-        BigDecimal gridXMax = gridXMin.add(dfOXSize).subtract(BigDecimal.ONE);
-        
-        gridXMin = gridXMin.add(axisX.getGridBounds().getLowerLimit());
-        gridXMax = gridXMax.add(axisX.getGridBounds().getLowerLimit());
+        Long gridXMin = gridPair.fst;
+        BigDecimal girdLowerBoundDecimal = new BigDecimal(gridXMin);
+        // NOTE: gird bound origin can be negative (in case of mosaic files), not always 0
+        gridXMin = axisX.getGridBounds().getLowerLimit().longValue() + gridXMin;
+
+        Long gridXMax = gridPair.snd;
+        gridXMax = axisX.getGridBounds().getLowerLimit().longValue() + gridXMax;
+
+        Long totalPixels = gridXMax - gridXMin + 1L;
         
         if (checkGridBound) {
-            gridXMin = BigDecimalUtil.getValidValue(axisX.getGridBounds().getLowerLimit(), axisX.getGridBounds().getUpperLimit(), gridXMin);
-            gridXMax = BigDecimalUtil.getValidValue(axisX.getGridBounds().getLowerLimit(), axisX.getGridBounds().getUpperLimit(), gridXMax);
+            gridXMin = gridXMin > axisX.getGridBounds().getLowerLimit().longValue() ? gridXMin : axisX.getGridBounds().getLowerLimit().longValue();
+            gridXMax = gridXMax < axisX.getGridBounds().getUpperLimit().longValue() ? gridXMax : axisX.getGridBounds().getUpperLimit().longValue();
         }
         
-        if (gridXMin.compareTo(gridXMax) > 0) {
+        if (gridXMin > gridXMax) {
             gridXMin = gridXMax;
         }        
+
+        BigDecimal updatedGeoXMin = adfGeoTransform.getUpperLeftGeoXDecimal().add(girdLowerBoundDecimal.multiply(adfGeoTransform.getGeoXResolution()));
+        BigDecimal updatedGeoXMax = updatedGeoXMin.add(adfGeoTransform.getGeoXResolution().multiply(new BigDecimal(totalPixels.toString())));
         
-        BigDecimal updatedGeoXMin = adfGeoTransform.getUpperLeftGeoXDecimal().add(gridPair.fst.multiply(adfGeoTransform.getGeoXResolution()));
-        BigDecimal updatedGeoXMax = updatedGeoXMin.add(adfGeoTransform.getGeoXResolution().multiply(dfOXSize));
-        
-        ParsedSubset<Long> gridSubset = new ParsedSubset<>(gridXMin.longValue(), gridXMax.longValue());
+        ParsedSubset<Long> gridSubset = new ParsedSubset<>(gridXMin, gridXMax);
         ParsedSubset<BigDecimal> geoSubset = new ParsedSubset<>(updatedGeoXMin, updatedGeoXMax);
         
         return new Pair<>(geoSubset, gridSubset);
     }
     
+    
+    
+    // ----------------------------------- Y Axis 
+    
+    /**
+     * From a geo bound on Y axis -> grid index on Y axis
+     */
+    private Long getGridYIndex(BigDecimal geoSliceY, BigDecimal geoResolutionY, BigDecimal geoAxisYMax) {
+        BigDecimal gridIndexYApproximate = BigDecimalUtil.divide(geoAxisYMax.subtract(geoSliceY),
+                                                                      geoResolutionY.abs());
+        Long gridIndexY = BigDecimalUtil.shiftToInteger(gridIndexYApproximate);    
+        
+        return gridIndexY;
+    }
+    
+    /**
+     * From a geo bounds for Y axis (e.g: lat1:lat2]
+     * return the grid bounds of the input geo bounds.
+     * 
+     * NOTE: Y axis, grid coordinate 0 is at the top (geoYMax), while geoYMin is at the bottom of grid coordinate (i.e. dom(griY).hi)
+     */
+    private Pair<Long, Long> calculateGridYBounds(GeoTransform adfGeoTransform, BigDecimal geoSubsetYMin, BigDecimal geoYMaxSubset) {
+        BigDecimal geoAxisYMax = adfGeoTransform.getUpperLeftGeoY();
+        
+        BigDecimal shiftedGeoUpperBoundY = geoYMaxSubset.subtract(new BigDecimal("0.5").multiply(adfGeoTransform.getGeoYResolution().abs()));
+        Long gridLowerBoundY = this.getGridYIndex(shiftedGeoUpperBoundY, adfGeoTransform.getGeoYResolution(), geoAxisYMax);
+        
+        BigDecimal shiftedGeoLowerBoundY = geoSubsetYMin.add(new BigDecimal("0.5").multiply(adfGeoTransform.getGeoYResolution().abs()));
+        Long gridUpperBoundY = this.getGridYIndex(shiftedGeoLowerBoundY, adfGeoTransform.getGeoYResolution(), geoAxisYMax);
+        
+        return new Pair<>(gridLowerBoundY, gridUpperBoundY);
+    }
+    
     /**
      * Get a pair of lower:upper bounds for geo and grid by geo trimming subset of Y axis
-     * as gdal_translate -projwin
      */
     public Pair<ParsedSubset<BigDecimal>, ParsedSubset<Long>> calculateGeoGridYBounds(boolean checkBoundary, boolean checkGridBound, Axis axisY, GeoTransform adfGeoTransform, 
-                                                                                      BigDecimal geoYMin, BigDecimal geoYMax) {
-        Pair<BigDecimal, BigDecimal> gridPair = this.calculateGridYBounds(adfGeoTransform, geoYMin, geoYMax);
+                                                                                      BigDecimal geoYMinSubset, BigDecimal geoYMaxSubset) {
+        Pair<Long, Long> gridPair = this.calculateGridYBounds(adfGeoTransform, geoYMinSubset, geoYMaxSubset);
         
-        BigDecimal dfOYSize = gridPair.snd.subtract(GDAL_EPSILON_MIN).setScale(0, RoundingMode.CEILING);
-        BigDecimal gridYMin = gridPair.fst;
-        BigDecimal gridYMax = gridYMin.add(dfOYSize).subtract(BigDecimal.ONE);
-        
-        gridYMin = gridYMin.add(axisY.getGridBounds().getLowerLimit());
-        gridYMax = gridYMax.add(axisY.getGridBounds().getLowerLimit());
+        Long gridYMin = gridPair.fst;
+        BigDecimal girdLowerBoundDecimal = new BigDecimal(gridYMin);
+
+        // NOTE: gird bound origin can be negative (in case of mosaic files), not always 0
+        gridYMin = axisY.getGridBounds().getLowerLimit().longValue() + gridYMin;
+
+        Long gridYMax = gridPair.snd;
+        gridYMax = axisY.getGridBounds().getLowerLimit().longValue() + gridYMax;
+
+        Long totalPixels = gridYMax - gridYMin + 1L;
         
         if (checkGridBound) {
-            gridYMin = BigDecimalUtil.getValidValue(axisY.getGridBounds().getLowerLimit(), axisY.getGridBounds().getUpperLimit(), gridYMin);
-            gridYMax = BigDecimalUtil.getValidValue(axisY.getGridBounds().getLowerLimit(), axisY.getGridBounds().getUpperLimit(), gridYMax);
+            gridYMin = gridYMin > axisY.getGridBounds().getLowerLimit().longValue() ? gridYMin : axisY.getGridBounds().getLowerLimit().longValue();
+            gridYMax = gridYMax < axisY.getGridBounds().getUpperLimit().longValue() ? gridYMax : axisY.getGridBounds().getUpperLimit().longValue();
         }
         
         if (gridYMin.compareTo(gridYMax) > 0) {
             gridYMin = gridYMax;
-        } 
+        }
         
-        BigDecimal updatedGeoYMax = adfGeoTransform.getUpperLeftGeoY().add(gridPair.fst.multiply(adfGeoTransform.getGeoYResolutionDecimal()));
-        BigDecimal updatedGeoYMin = updatedGeoYMax.add(adfGeoTransform.getGeoYResolutionDecimal().multiply(dfOYSize));
+        BigDecimal updatedGeoYMax = adfGeoTransform.getUpperLeftGeoY().add(girdLowerBoundDecimal.multiply(adfGeoTransform.getGeoYResolutionDecimal()));
+        BigDecimal updatedGeoYMin = updatedGeoYMax.add(adfGeoTransform.getGeoYResolutionDecimal().multiply(new BigDecimal(totalPixels.toString())));
         
-        ParsedSubset<Long> gridSubset = new ParsedSubset<>(gridYMin.longValue(), gridYMax.longValue());
+        ParsedSubset<Long> gridSubset = new ParsedSubset<>(gridYMin, gridYMax);
         ParsedSubset<BigDecimal> geoSubset = new ParsedSubset<>(updatedGeoYMin, updatedGeoYMax);
         
         return new Pair<>(geoSubset, gridSubset);
@@ -226,7 +260,7 @@ public class CoordinateTranslationService {
         ParsedSubset<Long> parsedGridSubset;
         if (axis instanceof RegularAxis) {
             parsedGridSubset = this.geoToGridForRegularAxis(parsedGeoSubset, axis.getGeoBounds().getLowerLimit(),
-                                                            axis.getGeoBounds().getUpperLimit(), axis.getResolution(), axis.getGridBounds().getLowerLimit());
+                                                            axis.getGeoBounds().getUpperLimit(), axis.getResolution(), axis.getGridBounds().getLowerLimit(), axis.getGridBounds().getUpperLimit());
         } else {
             parsedGridSubset = this.geoToGridForIrregularAxes(subsetDimension, parsedGeoSubset, axis.getResolution(), axis.getGridBounds().getLowerLimit(), 
                                                             axis.getGridBounds().getUpperLimit(), axis.getGeoBounds().getLowerLimit(), (IrregularAxis)axis);
@@ -247,7 +281,7 @@ public class CoordinateTranslationService {
      * @return the pair of grid coordinates corresponding to the given geo subset.
      */
     public ParsedSubset<Long> geoToGridForRegularAxis(ParsedSubset<BigDecimal> numericSubset, BigDecimal geoDomainMin,
-        BigDecimal geoDomainMax, BigDecimal resolution, BigDecimal gridDomainMin) {
+        BigDecimal geoDomainMax, BigDecimal resolution, BigDecimal gridDomainMin, BigDecimal gridDomainMax) {
         boolean zeroIsMin = resolution.compareTo(BigDecimal.ZERO) > 0;
         
         BigDecimal lowerBound = numericSubset.getLowerLimit();
@@ -258,17 +292,31 @@ public class CoordinateTranslationService {
             upperBound = numericSubset.getSlicingCoordinate();
         }
 
+        boolean isSlicing = false;
+        if (lowerBound.equals(upperBound)) {
+            isSlicing = true;
+        }
+
         BigDecimal returnLowerLimit, returnUpperLimit;
         if (zeroIsMin) {
             // closed interval on the lower limit, open on the upper limit - use floor and ceil - 1 repsectively
             // e.g: Long(0:20) -> c[0:50]
             BigDecimal lowerLimit = BigDecimalUtil.divide(lowerBound.subtract(geoDomainMin), resolution);
-            lowerLimit = CrsComputerService.shiftToNearestGridPointWCPS(lowerLimit);
+            if (!isSlicing) {
+                lowerLimit = CrsComputerService.shiftToNearestGridPointWCPS(lowerLimit);
+            }
             returnLowerLimit = lowerLimit.setScale(0, RoundingMode.FLOOR).add(gridDomainMin);
             
-            BigDecimal upperLimit = BigDecimalUtil.divide(upperBound.subtract(geoDomainMin), resolution);            
-            upperLimit = CrsComputerService.shiftToNearestGridPointWCPS(upperLimit);
-            returnUpperLimit = upperLimit.setScale(0, RoundingMode.CEILING).subtract(BigDecimal.ONE).add(gridDomainMin);
+            BigDecimal upperLimit = BigDecimalUtil.divide(upperBound.subtract(geoDomainMin), resolution);
+            if (!isSlicing) {
+                upperLimit = CrsComputerService.shiftToNearestGridPointWCPS(upperLimit);
+            }
+
+            if (upperLimit.equals(lowerLimit)) {
+                returnUpperLimit = upperLimit.add(gridDomainMin);
+            } else {
+                returnUpperLimit = upperLimit.setScale(0, RoundingMode.CEILING).subtract(BigDecimal.ONE).add(gridDomainMin);
+            }
 
         } else {
             // Linear negative axis (eg northing of georeferenced images)
@@ -279,22 +327,39 @@ public class CoordinateTranslationService {
             // geo:  80  60  40  20  0
             // user subset 58: count how many resolution-sized interval are between 80 and 58 (1.1), and floor it to get 1
             BigDecimal lowerLimit = BigDecimalUtil.divide(upperBound.subtract(geoDomainMax), resolution);
-            lowerLimit = CrsComputerService.shiftToNearestGridPointWCPS(lowerLimit);
+            if (!isSlicing) {
+                lowerLimit = CrsComputerService.shiftToNearestGridPointWCPS(lowerLimit);
+            }
             returnLowerLimit = lowerLimit.setScale(0, RoundingMode.FLOOR).add(gridDomainMin);
             
             BigDecimal upperLimit = BigDecimalUtil.divide(lowerBound.subtract(geoDomainMax), resolution);
-            upperLimit = CrsComputerService.shiftToNearestGridPointWCPS(upperLimit);
-            returnUpperLimit = upperLimit.setScale(0, RoundingMode.CEILING).subtract(BigDecimal.ONE).add(gridDomainMin);
+            if (!isSlicing) {
+                upperLimit = CrsComputerService.shiftToNearestGridPointWCPS(upperLimit);
+            }
+
+            if (upperLimit.equals(lowerLimit)) {
+                returnUpperLimit = upperLimit.add(gridDomainMin);
+            } else {
+                returnUpperLimit = upperLimit.setScale(0, RoundingMode.CEILING).subtract(BigDecimal.ONE).add(gridDomainMin);
+            }
+
         }
         
-        //because we use ceil - 1, when values are close (less than 1 resolution dif), the upper will be pushed below the lower            
-        if (returnUpperLimit.add(BigDecimal.ONE).equals(returnLowerLimit)) {
-            if (returnUpperLimit.compareTo(gridDomainMin) < 0) {
-                returnUpperLimit = gridDomainMin;
+        if (returnLowerLimit.compareTo(gridDomainMin.subtract(BigDecimal.ONE)) == 0) {
+            returnLowerLimit = gridDomainMin;
+        }
+        if (returnUpperLimit.compareTo(gridDomainMin.subtract(BigDecimal.ONE)) == 0) {
+            returnUpperLimit = gridDomainMin;
+        }
+
+        if (gridDomainMax != null) {
+            if (returnLowerLimit.compareTo(gridDomainMax.add(BigDecimal.ONE)) == 0) {
+                returnLowerLimit = gridDomainMax;
             }
-            returnLowerLimit = returnUpperLimit;
-            
-        }            
+            if (returnUpperLimit.compareTo(gridDomainMax.add(BigDecimal.ONE)) == 0) {
+                returnUpperLimit = gridDomainMax;
+            }
+        }
         
         return new ParsedSubset(returnLowerLimit.longValue(), returnUpperLimit.longValue());
     }
@@ -318,7 +383,7 @@ public class CoordinateTranslationService {
             // e.g: Long:"CRS:1"(0:50) -> Long(0.5:20.5)
             returnLowerLimit = BigDecimalUtil.multiple(numericSubset.getLowerLimit().subtract(gridDomainMin), resolution)
                                .add(geoDomainMin);
-            returnUpperLimit = BigDecimalUtil.multiple(numericSubset.getUpperLimit().subtract(gridDomainMin), resolution)
+            returnUpperLimit = BigDecimalUtil.multiple(numericSubset.getUpperLimit().add(BigDecimal.ONE).subtract(gridDomainMin), resolution)
                                .add(geoDomainMin);
 
             // because we use ceil - 1, when values are close (less than 1 resolution dif), the upper will be pushed below the lower
@@ -330,9 +395,9 @@ public class CoordinateTranslationService {
             // First coordHi, so that left-hand index is the lower one
             // e.g: Lat:"CRS:"(0:50) -> Lat(0.23:20.23)
             // (input grid - total pixels) / resolution + geoDomain, NOTE: total pixels + 1 (e.g: 0:710 then max is not: 0 but 711)
-            returnLowerLimit = BigDecimalUtil.multiple(numericSubset.getUpperLimit().subtract(gridDomainMax.add(BigDecimal.ONE)), resolution)
+            returnLowerLimit = BigDecimalUtil.multiple(numericSubset.getUpperLimit().subtract(gridDomainMax), resolution)
                                .add(geoDomainMin);
-            returnUpperLimit = BigDecimalUtil.multiple(numericSubset.getLowerLimit().subtract(gridDomainMax.add(BigDecimal.ONE)), resolution)
+            returnUpperLimit = BigDecimalUtil.multiple(numericSubset.getLowerLimit().subtract(BigDecimal.ONE).subtract(gridDomainMax), resolution)
                                .add(geoDomainMin);
 
             if (returnUpperLimit.compareTo(returnLowerLimit) < 0) {
@@ -356,18 +421,27 @@ public class CoordinateTranslationService {
         BigDecimal upperLimit = null;
         String originalLowerBound = null;
         String originalUpperBound = null;
-        
-        if (numericSubset.isSlicing()) {
+
+        if (subsetDimension instanceof WcpsTrimSubsetDimension) {
+            lowerLimit = numericSubset.getLowerLimit();
+            upperLimit = numericSubset.getUpperLimit();
+            originalLowerBound = ((WcpsTrimSubsetDimension)subsetDimension).getLowerBound();
+            originalUpperBound = ((WcpsTrimSubsetDimension)subsetDimension).getUpperBound();
+        } else if (subsetDimension instanceof WcpsSliceSubsetDimension) {
             lowerLimit = numericSubset.getSlicingCoordinate();
             upperLimit = numericSubset.getSlicingCoordinate();
             originalLowerBound = ((WcpsSliceSubsetDimension)subsetDimension).getBound();
             originalUpperBound = ((WcpsSliceSubsetDimension)subsetDimension).getBound();
         } else {
+            WcpsSliceTemporalSubsetDimension sliceTemporalSubsetDimension = (WcpsSliceTemporalSubsetDimension)subsetDimension;
+            // special time slicing, here it has time granularity as lowerBound:upperBound
             lowerLimit = numericSubset.getLowerLimit();
             upperLimit = numericSubset.getUpperLimit();
-            originalLowerBound = ((WcpsTrimSubsetDimension)subsetDimension).getLowerBound();
-            originalUpperBound = ((WcpsTrimSubsetDimension)subsetDimension).getUpperBound();
+
+            // in datetime format (e.g. "2023-01") bound input by user
+            originalLowerBound = ((WcpsSliceTemporalSubsetDimension)subsetDimension).getOriginalBound();
         }
+
 
         // e.g: t(148654) in irr_cube_2
         NumericSubset originalGeoBounds = irregularAxis.getOriginalGeoBounds();
@@ -376,21 +450,16 @@ public class CoordinateTranslationService {
         if (originalGeoDomainMin.compareTo(originalGeoDomainMax) > 0) {
             originalGeoDomainMin = originalGeoDomainMax;
         }
-        
-        BigDecimal lowerCoefficient = (lowerLimit.subtract(originalGeoDomainMin)).divide(scalarResolution);
-        BigDecimal upperCoefficient = (upperLimit.subtract(originalGeoDomainMin)).divide(scalarResolution);
-        
-        BigDecimal firstCoefficient = irregularAxis.getLowestCoefficientValue();
-        lowerCoefficient = lowerCoefficient.add(firstCoefficient);
-        upperCoefficient = upperCoefficient.add(firstCoefficient);
-        
-        if (numericSubset.isSlicing()) {
-            // e.g: irregular date axis has values "2015-01", "2016-01", "2018-01" and request "2017-01"
-            if (irregularAxis.getIndexOfCoefficient(lowerCoefficient) < 0) {
-                throw new IrreguarAxisCoefficientNotFoundException(irregularAxis.getLabel(), originalLowerBound);
-            }
+
+
+        BigDecimal lowerCoefficient = (lowerLimit.subtract(irregularAxis.getCoefficientZeroValueAsNumber())).divide(scalarResolution);
+        BigDecimal upperCoefficient = (upperLimit.subtract(irregularAxis.getCoefficientZeroValueAsNumber())).divide(scalarResolution);
+
+        if (irregularAxis.isFlippedCoefficients()) {
+            lowerCoefficient = (irregularAxis.getCoefficientZeroValueAsNumber().subtract(lowerLimit)).divide(scalarResolution);
+            upperCoefficient = (irregularAxis.getCoefficientZeroValueAsNumber().subtract(upperLimit)).divide(scalarResolution);
         }
-        
+
         // In case of flip(), lowerbound and upperbound are swapped
         BigDecimal originalLowerBoundNumber = originalGeoBounds.getLowerLimit().compareTo(originalGeoBounds.getUpperLimit()) < 0 
                                                 ? originalGeoBounds.getLowerLimit() 
@@ -425,16 +494,19 @@ public class CoordinateTranslationService {
         
         // Return the grid indices of the lower and upper coefficients in an irregular axis
         Pair<Long, Long> gridIndicePair = irregularAxis.getGridIndices(lowerCoefficient, upperCoefficient);
-        if (gridIndicePair.fst > gridIndicePair.snd) {
+        Long gridLowerBound = gridIndicePair.fst;
+        Long gridUpperBound = gridIndicePair.snd;
+
+        if (gridLowerBound == null || gridUpperBound == null
+            || gridLowerBound > gridUpperBound) {
             if (irregularAxis.isTimeAxis()) {
-                originalLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, irregularAxis.getOriginalGeoBounds().getLowerLimit(), irregularAxis.getCrsDefinition());
-                originalUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, irregularAxis.getOriginalGeoBounds().getUpperLimit(), irregularAxis.getCrsDefinition());
+                originalLowerBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, lowerLimit, irregularAxis.getCrsDefinition());
+                originalUpperBound = TimeUtil.valueToISODateTime(BigDecimal.ZERO, upperLimit, irregularAxis.getCrsDefinition());
             }
             
             throw new IrregularAxisTrimmingCoefficientNotFoundException(irregularAxis.getLabel(), originalLowerBound, originalUpperBound);
         }
         Pair<Long, Long> gridBoundsPair = irregularAxis.calculateGridBoundsByZeroCoefficientIndex(gridIndicePair.fst, gridIndicePair.snd);
-
         return new ParsedSubset(gridBoundsPair.fst, gridBoundsPair.snd);
     }
     

@@ -22,6 +22,8 @@
 package petascope.wcps.result;
 
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
+import petascope.wcps.subset_axis.model.BoundResult;
+import petascope.wcps.subset_axis.model.ListStringResult;
 
 /**
  * @author <a href="merticariu@rasdaman.com">Vlad Merticariu</a>
@@ -36,7 +38,19 @@ public abstract class VisitorResult {
 
 
     public String getResult() {
-        return result;
+        String returnValue = this.result;
+        if (returnValue == null) {
+            if (this instanceof WcpsMetadataResult) {
+                returnValue = ((WcpsMetadataResult)this).getResult();
+            } else if (this instanceof WcpsResult) {
+                returnValue = ((WcpsResult)this).getRasql();
+            } else if (this instanceof BoundResult) {
+                returnValue = ((BoundResult)this).getBound();
+            } else if (this instanceof ListStringResult) {
+                returnValue = ((ListStringResult)this).toString();
+            }
+        }
+        return returnValue;
     }
 
     public WcpsCoverageMetadata getMetadata() {

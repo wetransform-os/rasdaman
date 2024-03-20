@@ -37,11 +37,13 @@ class GlobalExtraMetadata:
 
 
 class LocalExtraMetadata:
-    def __init__(self, local_extra_metadata, slice_subsets):
+    def __init__(self, local_extra_metadata, slice_subsets, axes_metadata):
         """
         Representation of the extra metadata extracted from a dataset
         :param dict local_extra_metadata: a dictionary of local extra metadata values for a coverage slice
         :param list[ExtraMetadataSliceSubset] slice_subsets: the spatio-temporal position of the slice
+        :param axes_metadata contains a dictionary of axis label and list of areas of validity if they exist
         """
         self.local_extra_metadata = local_extra_metadata
         self.slice_subsets = slice_subsets
+        self.local_axes_metadata = axes_metadata

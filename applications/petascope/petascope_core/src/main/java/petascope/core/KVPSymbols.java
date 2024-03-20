@@ -100,9 +100,22 @@ public interface KVPSymbols {
 
     // e.g. wcst_import with importing file non-local, then it has this file parameter in the request
     String KEY_UPLOADED_FILE = "file";
+
+    String KEY_INTERNAL_PREFIX = "INTERNAL";
     
     // used internally in petascope only
-    String KEY_INTERNAL_UPLOADED_FILE_PATH = "INTERNAL_uploadedFilePath";
+    String KEY_INTERNAL_UPLOADED_FILE_PATH = KEY_INTERNAL_PREFIX + "_uploadedFilePath";
+    
+    // used internally in petascope only
+    String KEY_INTERNAL_WCPS_FROM_WCS_GET_COVERAGE = KEY_INTERNAL_PREFIX + "_WCPS_FROM_WCS_GETCOVERAGE";
+
+    // then WCPS will not run the generated rasql query
+    String KEY_INTERNAL_WCPS_NOT_RUN_RASQL_QUERY = KEY_INTERNAL_PREFIX + "_WCPS_NOT_RUN_RASQL_QUERY";
+    // This request is /oapi/coverageId/coverage to get a coverage -> output format is based on the input coverage data dimensions and type
+    String KEY_INTERNAL_OAPI_GET_COVERAGE = KEY_INTERNAL_PREFIX + "_GET_COVERAGE";
+
+    // Return 204 http code in this case
+    String KEY_INTERNAL_OAPI_SUBSET_OUT_OF_BOUND_HTTP_CODE = KEY_INTERNAL_PREFIX + "OAPI_SUBSET_OUT_OF_BOUND_HTTP_CODE";
     
     // WCPS
     String VALUE_PROCESS_COVERAGES = "ProcessCoverages";
@@ -143,6 +156,9 @@ public interface KVPSymbols {
     String KEY_WMS_DEFAULT_STYLE = "default";
     String KEY_WMS_LEGEND_GRAPHIC = "legendGraphic";
 
+    // Petascope ignore random=anyValue parameter from clients to bypass the cache from web browser
+    String KEY_RASDAMAN_RANDOM = "random";
+
     // used for non XY axes, time axis, elevation axis, (e.g: dim_pressure with axis name is pressure) 
     String KEY_WMS_DIM_PREFIX = "dim_";
     String KEY_WMS_EXCEPTIONS = "exceptions";
@@ -171,7 +187,35 @@ public interface KVPSymbols {
     
     // NOTE: this key is used internally in petascope to let GetMap handler know which pyramid member (TileMatrix) it should process for a layer
     String KEY_WMTS_RASDAMAN_INTERNAL_FOR_GETMAP_REQUEST_PYRAMID_COVERAGE_ID = "KEY_WMTS_RASDAMAN_INTERNAL_FOR_GETMAP_REQUEST_PYRAMID_COVERAGE_ID";
-   
+
+    // OAPI
+
+    // GetCapabilities with coverages filter (7.4.1. Collections)
+    String KEY_OAPI_BBOX = "bbox";
+    String KEY_OAPI_DATETIME = "datetime";
+    String KEY_OAPI_BBOX_CRS = "bbox-crs";
+
+    String KEY_OAPI_SUBSET = "subset";
+
+    // e.g. scaleAxes=Lat(3) -> Lat axis is DOWNSCALED 3 times (not as in WCS GetCoverage it is UPSCALED)
+    String KEY_OAPI_GET_COVERAGE_SCALE_AXES = "scale-axes";
+    // e.g. scaleFactor=3 -> all axes are DOWNSCALED 3 times (not as in WCS GetCoverage it is UPSCALED)
+    String KEY_OAPI_GET_COVERAGE_SCALE_FACTOR = "scale-factor";
+    // e.g. scaleSize=Lat(30) -> axis Lat is scaled to 30 pixels
+    String KEY_OAPI_GET_COVERAGE_SCALE_SIZE = "scale-size";
+    // subsettingCRS
+    String KEY_OAPI_GET_COVERAGE_SUBSET_CRS = "subset-crs";
+    // outputCRS
+    String KEY_OAPI_GET_COVERAGE_OUTPUT_CRS = "crs";
+    // output format
+    String KEY_OAPI_GET_COVERAGE_OUTPUT_FORMAT = "f";
+    // rangesubset
+    String KEY_OAPI_GET_COVERAGE_RANGE_SUBSET = "range-subset";
+    String KEY_GDC_OAPI_GET_COVERAGE_RANGE_SUBSET = "properties";
+
+    // OpenEO
+    String KEY_OPENEO_PROCESS_GRAPH_ID = "processGraphId";
+    String KEY_OPENEO_PROCESS_GRAPH_JSON_CONTENT = "processGraphJsonContent";
     
 
     /**
@@ -224,6 +268,7 @@ public interface KVPSymbols {
     // Update coverage's id by new id
     String KEY_COVERAGE_ID = "coverageId";
     String KEY_NEW_COVERAGE_ID = "newCoverageId";
+    String KEY_NULL_VALUES = "nullValues";
     String KEY_LAYER_ID = "layerId";
     String KEY_SOAP = "SOAP";
 

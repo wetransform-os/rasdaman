@@ -1,0 +1,5 @@
+for $c in (test_eobstest)
+return encode(
+coverage x
+over $month t( alldays( "1950-01-01" ) )
+values $c[ t(  $month : $month ) ] , "csv")

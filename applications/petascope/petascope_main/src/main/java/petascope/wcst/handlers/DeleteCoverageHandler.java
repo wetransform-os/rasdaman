@@ -21,7 +21,6 @@
  */
 package petascope.wcst.handlers;
 
-import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.util.ArrayList;
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
@@ -38,8 +37,10 @@ import org.rasdaman.repository.service.WMSRepostioryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import petascope.controller.AuthenticationController;
 import petascope.controller.PetascopeController;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.WMSException;
 import petascope.rasdaman.exceptions.RasdamanException;
 import petascope.exceptions.WCSException;
 import petascope.util.ras.RasUtil;
@@ -54,7 +55,6 @@ import petascope.wcst.parsers.DeleteCoverageRequest;
 import petascope.wms.handlers.service.WMSGetMapCachingService;
 import org.rasdaman.repository.service.WMTSRepositoryService;
 import petascope.util.CrsUtil;
-import petascope.wmts.handlers.service.WMTSGetCapabilitiesService;
 
 /**
  * Handles the deletion of a coverage.
@@ -85,8 +85,8 @@ public class DeleteCoverageHandler {
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(DeleteCoverageHandler.class);
 
     public Response handle(DeleteCoverageRequest request) throws Exception {
-        
-        petascopeController.validateWriteRequestFromIP(httpServletRequest);
+
+        this.petascopeController.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
         
         String username = ConfigManager.RASDAMAN_ADMIN_USER;
         String password = ConfigManager.RASDAMAN_ADMIN_PASS;
@@ -133,62 +133,67 @@ public class DeleteCoverageHandler {
             // Finally, delete all created set/mdd/cell types for this coverage if no other coverages is using them.
             String collectionType = coverage.getRasdamanRangeSet().getCollectionType();
             if (!coverageRepostioryService.collectionTypeExist(collectionType)) {
-                String suffix = collectionType.substring(collectionType.length() - 4, collectionType.length());
-                
-                // NOTE: Only delete types which were created from Petascope internally (with suffix _Set, _Array, _Cell)
-                if (suffix.equals(SET_TYPE_SUFFIX)) {
-                    String prefix = collectionType.substring(0, collectionType.length() - 4);
-                    String mddType = prefix + ARRAY_TYPE_SUFFIX;
-                    String cellType = prefix + CELL_TYPE_SUFFIX;
-                    
-                    // And delete them from registry
-                    TypeRegistry typeRegistry = TypeRegistry.getInstance();
-                    boolean setTypeExist = typeRegistry.deleteSetTypeFromRegistry(collectionType);
-                    boolean mddTypeExist = typeRegistry.deleteMDDTypeFromRegistry(mddType);
-                    boolean cellTypeExist = typeRegistry.deleteCellTypeFromRegistry(cellType);
-                    
-                    final String TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE = "currently in use by another stored object";
-                    
-                     // Then, delete these types from Rasdaman
-                    if (setTypeExist) {
-                        try {
-                            RasUtil.dropRasdamanType(collectionType);
-                        } catch (RasdamanException ex) {
-                            if (!ex.getMessage().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
-                                throw ex;
-                            }
-                        }
-                    }
-                    if (mddTypeExist) {
-                        if (!setTypeExist) { 
-                            log.warn("mdd type found but corresponding set type '" + collectionType + "'  not found in rasdaman.");
-                        }
-                        try {
-                            RasUtil.dropRasdamanType(mddType);
-                        } catch (RasdamanException ex) {
-                            if (!ex.getMessage().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
-                                throw ex;
-                            }
-                        }
-                    }
-                    if (cellTypeExist) {
-                        try {
-                            RasUtil.dropRasdamanType(cellType);
-                        } catch (RasdamanException ex) {
-                            if (!ex.getMessage().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
-                                throw ex;
-                            }
-                        }
-                    }
-                }
+                this.dropUnusedRasdamanTypes(collectionType);
             }
 
         }
         
-        Response response = new Response();
-        response.setCoverageID(coverageIds.get(0));
-        
         return new Response();
+    }
+    
+    
+    /**
+     * Given an used rasdaman collectionType -> drop any other related types for this collectionType
+     */
+    public static void dropUnusedRasdamanTypes(String collectionType) throws PetascopeException {
+        String suffix = collectionType.substring(collectionType.length() - 4, collectionType.length());
+                
+        // NOTE: Only delete types which were created from Petascope internally (with suffix _Set, _Array, _Cell)
+        if (suffix.equals(SET_TYPE_SUFFIX)) {
+            String prefix = collectionType.substring(0, collectionType.length() - 4);
+            String mddType = prefix + ARRAY_TYPE_SUFFIX;
+            String cellType = prefix + CELL_TYPE_SUFFIX;
+
+            // And delete them from registry
+            TypeRegistry typeRegistry = TypeRegistry.getInstance();
+            boolean setTypeExist = typeRegistry.deleteSetTypeFromRegistry(collectionType);
+            boolean mddTypeExist = typeRegistry.deleteMDDTypeFromRegistry(mddType);
+            boolean cellTypeExist = typeRegistry.deleteCellTypeFromRegistry(cellType);
+
+            final String TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE = "currently in use by another stored object";
+
+             // Then, delete these types from Rasdaman
+            if (setTypeExist) {
+                try {
+                    RasUtil.dropRasdamanType(collectionType);
+                } catch (RasdamanException ex) {
+                    if (!ex.getExceptionText().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
+                        throw ex;
+                    }
+                }
+            }
+            if (mddTypeExist) {
+                if (!setTypeExist) { 
+                    log.warn("mdd type found but corresponding set type '" + collectionType + "'  not found in rasdaman.");
+                }
+                try {
+                    RasUtil.dropRasdamanType(mddType);
+                } catch (RasdamanException ex) {
+                    if (!ex.getExceptionText().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
+                        throw ex;
+                    }
+                }
+            }
+            if (cellTypeExist) {
+                try {
+                    RasUtil.dropRasdamanType(cellType);
+                } catch (RasdamanException ex) {
+                    if (!ex.getExceptionText().contains(TYPE_IS_USED_BY_ANOTHER_OBJECT_ERROR_MESSAGE)) {
+                        throw ex;
+                    }
+                }
+            }
+        }
     }
     
     /**
@@ -276,8 +281,8 @@ public class DeleteCoverageHandler {
 
         try {
             layer = wmsRepositoryService.readLayerByNameFromDatabase(coverageId);
-        } catch(PetascopeException ex) {
-            if (!ex.getExceptionCode().equals(ExceptionCode.NoSuchLayer)) {
+        } catch (WMSException ex) {
+            if (!ex.getExceptionCode().equals(ExceptionCode.LayerNotDefined)) {
                 throw ex;
             }
         }

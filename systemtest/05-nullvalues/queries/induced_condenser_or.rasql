@@ -1,0 +1,1 @@
+select encode(condense and over i in [0:1] using (( <[0:1,0:0,0:1] true, true; true, false>[i[0], *:*, *:*]) null values [1]), "csv")

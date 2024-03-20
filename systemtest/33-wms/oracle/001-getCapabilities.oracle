@@ -1,0 +1,50 @@
+<Service>
+<Name>WMS</Name>
+<Title>rasdaman</Title>
+<Abstract>rasdaman server - free download from www.rasdaman.org</Abstract>
+<ContactInformation>
+<ContactPersonPrimary>
+<ContactPerson>Prof. Dr. Peter Baumann</ContactPerson>
+<ContactOrganization>Jacobs University Bremen</ContactOrganization>
+</ContactPersonPrimary>
+<ContactPosition>Project Leader</ContactPosition>
+<ContactAddress>
+<AddressType>postal</AddressType>
+<Address>Campus Ring 1</Address>
+<City>Bremen</City>
+<StateOrProvince>Bremen</StateOrProvince>
+<Country>Germany</Country>
+</ContactAddress>
+<ContactVoiceTelephone>+49 421 20040</ContactVoiceTelephone>
+<ContactElectronicMailAddress>p.baumann@jacobs-university.de</ContactElectronicMailAddress>
+</ContactInformation>
+</Service>
+<Capability>
+<Request>
+<GetCapabilities>
+<Format>text/xml</Format>
+<DCPType>
+<HTTP>
+<Get>
+</Get>
+<Post>
+</Post>
+</HTTP>
+</DCPType>
+</GetCapabilities>
+<GetMap>
+<Format>image/png</Format>
+<Format>image/tiff</Format>
+<Format>image/jpeg</Format>
+<DCPType>
+<HTTP>
+<Get>
+</Get>
+<Post>
+</Post>
+</HTTP>
+</DCPType>
+</GetMap>
+</Request>
+<Exception>
+<Format>XML</Format>

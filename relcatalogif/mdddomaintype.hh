@@ -26,7 +26,6 @@ rasdaman GmbH.
 #ifndef _MDDDOMAINTYPE_HH_
 #define _MDDDOMAINTYPE_HH_
 
-
 #include <iosfwd>
 #include "raslib/minterval.hh"
 #include "mddbasetype.hh"
@@ -49,7 +48,7 @@ class MDDDomainType;
 class MDDDomainType : public MDDBaseType
 {
 public:
-    MDDDomainType(const OId &id);
+    explicit MDDDomainType(const OId &id);
 
     MDDDomainType(const char *newTypeName, const BaseType *newBaseType, const r_Minterval &newDomain);
 
@@ -85,13 +84,13 @@ public:
         the basetypes are compatible
     */
 
-    char *getTypeStructure() const override;
+    std::string getTypeStructure() const override;
     /*@Doc:
     looks like:
         marray <myBaseType->getTypeStructure(), myDomain->get_string_representation()>
     */
 
-    char *getNewTypeStructure() const override;
+    std::string getNewTypeStructure() const override;
 
     r_Bytes getMemorySize() const override;
     /*@Doc:

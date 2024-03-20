@@ -26,6 +26,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.WCSException;
+import petascope.util.BigDecimalUtil;
 import petascope.util.ListUtil;
 import petascope.wcps.metadata.model.RangeField;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
@@ -58,12 +59,14 @@ public class KVPWCSGetCoverageRangeSubsetService {
         // The range of translated coverage which can contain with less or more range fields than the persisted ranges.
         List<RangeField> translatedRangeFields = new ArrayList<>();
 
-        for (String rangeSubset : rangeSubsets) {
-            // It can be: b1, b3 or b5:b7,...
-            if (rangeSubset.contains(":")) {
+        int totalBands = originalRangeFields.size();
+
+        for (String rangeSubsetValue : rangeSubsets) {
+            // It can be: b1, b3 or b2:b3,b5:b7 or OAPI style with 0,1,*
+            if (rangeSubsetValue.contains(":")) {
                 // range subset is interval with lowerRange:upperRange
-                String lowerRangeName = rangeSubset.split(":")[0].trim();
-                String upperRangeName = rangeSubset.split(":")[1].trim();
+                String lowerRangeName = rangeSubsetValue.split(":")[0].trim();
+                String upperRangeName = rangeSubsetValue.split(":")[1].trim();
 
                 // validate the range sequence
                 int lowerRangeIndex = this.getRangeFieldIndex(originalRangeFields, lowerRangeName);
@@ -71,7 +74,7 @@ public class KVPWCSGetCoverageRangeSubsetService {
 
                 // e.g: coverage has red, green, blue ranges and request is green:red
                 if (lowerRangeIndex > upperRangeIndex) {
-                    throw new WCSException(ExceptionCode.IllegalFieldSequence, "Lower limit is above the upper limit in the range field interval, received: ." + rangeSubset);
+                    throw new WCSException(ExceptionCode.IllegalFieldSequence, "Lower limit is above the upper limit in the range field interval, received: ." + rangeSubsetValue);
                 }
 
                 // add all the ranges from lowerIndex:upperIndex as requested ranges
@@ -79,11 +82,36 @@ public class KVPWCSGetCoverageRangeSubsetService {
                     translatedRangeFields.add(originalRangeFields.get(i));
                 }
             } else {
-                // range subset is 1 range name 
-                int rangeIndex = this.getRangeFieldIndex(originalRangeFields, rangeSubset);
+                // range subset is not an interval
 
-                // add this range as a requested range
-                translatedRangeFields.add(originalRangeFields.get(rangeIndex));
+                 if (rangeSubsetValue.equalsIgnoreCase("*")) {
+                     // e.g. *
+                     if (translatedRangeFields.isEmpty()) {
+                         translatedRangeFields.addAll(originalRangeFields);
+                     } else {
+                         // add subsequent rangefields starting from the last added rangefield
+                         RangeField lastAddedRangeField = translatedRangeFields.get(translatedRangeFields.size() - 1);
+                         // e.g. 1 and coverage has 5 bands, then add subsequent bands after band 1, so it has: 2,3,4
+                         int lastAddedRangedFieldIndex = this.getRangeFieldIndex(originalRangeFields, lastAddedRangeField.getName());
+                         for (int i = lastAddedRangedFieldIndex + 1; i < totalBands; i++) {
+                             RangeField newAddedRangeField = originalRangeFields.get(i);
+                             translatedRangeFields.add(newAddedRangeField);
+                         }
+                     }
+                 } else {
+                     // e.g. Red or 1 (rangeIndex)
+                     int rangeIndex = 0;
+                     if (BigDecimalUtil.isNumber(rangeSubsetValue)) {
+                         // e.g. 2
+                         rangeIndex = Integer.parseInt(rangeSubsetValue);
+                     } else {
+                         // e.g Red
+                         rangeIndex = this.getRangeFieldIndex(originalRangeFields, rangeSubsetValue);
+                     }
+
+                     // add this range as a requested range
+                     translatedRangeFields.add(originalRangeFields.get(rangeIndex));
+                 }
             }
         }
 
@@ -102,7 +130,7 @@ public class KVPWCSGetCoverageRangeSubsetService {
      * @return
      */
     public String generateRangeConstructorWCPS(WcpsCoverageMetadata wcpsCoverageMetadata,
-            String generatedCoverageExpression, String rangeSubsets) {
+            String generatedCoverageExpression, String rangeSubsets,int totalOriginalRangeFields) {
         if (rangeSubsets == null) {
             // If no range is requested, just use all the ranges of coverage
             return generatedCoverageExpression.replace(RANGE_NAME, "");
@@ -112,14 +140,23 @@ public class KVPWCSGetCoverageRangeSubsetService {
 
             List<String> rangeExpressions = new ArrayList<>();
             // Red: c[i(0:10]]
+            int i = 0;
             for (RangeField rangeField : wcpsCoverageMetadata.getRangeFields()) {
                 // replace the rangeName with the current range name: e.g c[i(0:20)].rangeName -> c[i(0:20)].Red
-                rangeExpressions.add(rangeField.getName() + ": "
+                String fieldName = rangeField.getName();
+
+                if (i >= totalOriginalRangeFields) {
+                    // NOTE: in case, WCS rangeSubset creates more bands than total number of bands of the requested coverage
+                    // then it add the suffix to the band index, e.g. red,green,blue,red0,red1,...
+                    fieldName += (i - totalOriginalRangeFields);
+                }
+                rangeExpressions.add(fieldName + ": "
                         + generatedCoverageExpression.replace(RANGE_NAME, "." + rangeField.getName()));
+
+                i += 1;
             }
 
             rangeConstructorExpression += ListUtil.join(rangeExpressions, "; ") + " }";
-
             return rangeConstructorExpression;
         }
     }

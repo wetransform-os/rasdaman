@@ -127,6 +127,8 @@ public class MIMEUtil {
     // Metadata for JPEG2000 (jp2openjpeg driver)
     public static final String FORMAT_ID_OPENJP2_CODEC = "codec=jp2";
 
+    private static final String UNKNOWN_EXTENSION = "unknown";
+
     private static Map<String, String> mimeTypesMap;
 
     private static void init() {
@@ -137,7 +139,7 @@ public class MIMEUtil {
         mimeTypesMap.put(MIME_JPEG, ENCODE_JPEG);
         mimeTypesMap.put(MIME_PNG, ENCODE_PNG);        
         mimeTypesMap.put(MIME_TIFF, ENCODE_TIFF);
-        mimeTypesMap.put(MIME_GTIFF, ENCODE_GTIFF);
+        mimeTypesMap.put(MIME_GTIFF, ENCODE_TIFF);
         mimeTypesMap.put(MIME_BMP, ENCODE_BMP);
         mimeTypesMap.put(MIME_JP2, ENCODE_JPEG2000);
         mimeTypesMap.put(MIME_NETCDF, ENCODE_NETCDF);
@@ -218,6 +220,10 @@ public class MIMEUtil {
      * (not supported), jpeg])
      */
     public static String getFormatType(String mimeType) throws PetascopeException {
+        if (mimeType.equalsIgnoreCase(MIME_BINARY)) {
+            return UNKNOWN_EXTENSION;
+        }
+
         String formatType = getInstance().get(mimeType);
         if (formatType == null) {
             throw new PetascopeException(ExceptionCode.NoApplicableCode, "MIME type is not supported. Given: '" + mimeType + "'.");

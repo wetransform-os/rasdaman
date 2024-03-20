@@ -1,5 +1,0 @@
-<?xml version='1.0' encoding="UTF-8"?>
-<ServiceException code="NoApplicableCode">
-The supplied crs uri 'OGC:Index2D' is invalid, current only supports EPSG code.
-</ServiceException>
-</ServiceExceptionReport>

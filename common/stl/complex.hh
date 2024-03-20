@@ -1,8 +1,12 @@
 #ifndef _COMMON_COMPLEX_HH_
 #define _COMMON_COMPLEX_HH_
 
+#include "common/macros/pragmas.hh"
 #include <complex>
 #include <type_traits>
+
+DIAGNOSTIC_PUSH
+IGNORE_WARNING("-Wnarrowing")
 
 namespace common {
 
@@ -11,7 +15,7 @@ struct complex : std::complex<T> {
     complex() = default;
     
     // Allow casting from non-complex real argument; 
-    // needed in physical/tile/cpu/binary.hh for example, in the case of
+    // needed in physical/operators/binary.hh for example, in the case of
     // complex<int> - uint, see https://stackoverflow.com/questions/59894531/
     //
     // To remove this method for U = complex the enable_if trick is used,
@@ -28,10 +32,6 @@ struct complex : std::complex<T> {
                                                    static_cast<T>(o.imag())) {}
     complex(T real, T imag) : std::complex<T>(real, imag) {}
     
-    template<class U>
-    operator complex<U>() const {
-        return complex{static_cast<U>(this->real()), static_cast<U>(this->imag())};
-    }
 };
 
 /**
@@ -168,6 +168,8 @@ bool operator!=(const complex<L>& lhs, const complex<R>& rhs) {
 }
 
 } // namespace std
+
+DIAGNOSTIC_POP
 
 #endif
 

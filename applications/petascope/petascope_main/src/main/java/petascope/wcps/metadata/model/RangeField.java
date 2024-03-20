@@ -24,6 +24,7 @@ package petascope.wcps.metadata.model;
 import java.util.List;
 import org.rasdaman.domain.cis.AllowedValue;
 import org.rasdaman.domain.cis.NilValue;
+import org.rasdaman.domain.cis.Quantity;
 
 /**
  * @author <a href="merticariu@rasdaman.com">Vlad Merticariu</a>
@@ -38,18 +39,25 @@ public class RangeField {
 
     private List<NilValue> nodata;
 
+    // NOTE: used only for swe:Quantity
     private String uomCode;
 
     private String definition;
 
     private List<AllowedValue> allowedValues;
+
+    private Quantity.ObservationType observationType;
+
+    // NOTE: used only for swe:Category
+    private String codeSpace;
     
     public RangeField() {
         
     }
 
-    public RangeField(String dataType, String name, String description, List<NilValue> nodata, 
-                      String uomCode, String definition, List<AllowedValue> allowedValues) {
+    public RangeField(String dataType, String name, String description, List<NilValue> nodata,
+                      String uomCode, String definition, List<AllowedValue> allowedValues,
+                      Quantity.ObservationType observationType, String codeSpace) {
         this.dataType = dataType;
         this.name = name;
         this.description = description;
@@ -57,6 +65,8 @@ public class RangeField {
         this.uomCode = uomCode;
         this.definition = definition;
         this.allowedValues = allowedValues;
+        this.observationType = observationType;
+        this.codeSpace = codeSpace;
     }
     
     public void setName(String name) {
@@ -120,7 +130,23 @@ public class RangeField {
     public void setAllowedValues(List<AllowedValue> allowedValues) {
         this.allowedValues = allowedValues;
     }
-    
+
+    public Quantity.ObservationType getObservationType() {
+        return observationType;
+    }
+
+    public void setObservationType(Quantity.ObservationType observationType) {
+        this.observationType = observationType;
+    }
+
+    public void setCodeSpace(String codeSpace) {
+        this.codeSpace = codeSpace;
+    }
+
+    public String getCodeSpace() {
+        return codeSpace;
+    }
+
     public static final String DATA_TYPE = "double";
     public static final String UOM_CODE = "10^0";
     // used in case of creating coverage constructor

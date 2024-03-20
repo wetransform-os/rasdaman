@@ -19,30 +19,31 @@
  * For more information please see <http://www.rasdaman.org>
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
-
-#include <string>
-
 #ifndef RASMGR_X_SRC_CLIENTCREDENTIALS_HH_
 #define RASMGR_X_SRC_CLIENTCREDENTIALS_HH_
 
+#include <string>
+
 namespace rasmgr
 {
+
+/**
+ * Credentials specified by the client when it wants to connect to the server
+ * in the ClientManager with a `connectClient(...)` call.
+ */
 class ClientCredentials
 {
 public:
-
     /**
-     * Initialize a new instance of the ClientCredentials class.
      * @param userName User name
      * @param passwordHash Password hash
+     * @param token user token
      */
     ClientCredentials(const std::string &userName = "",
-                      const std::string &passwordHash = "");
+                      const std::string &passwordHash = "",
+                      const std::string &token = "");
 
-    /**
-     * Destroy an instance of the ClientCredentials object
-     */
-    virtual ~ClientCredentials();
+    ~ClientCredentials() = default;
 
     /**
      * @return the password hash.
@@ -51,7 +52,6 @@ public:
 
     /**
      * Set the password hash.
-     * @param passwordHash
      */
     void setPasswordHash(const std::string &passwordHash);
 
@@ -62,14 +62,25 @@ public:
     const std::string &getUserName() const;
 
     /**
-     * Set the user name
-     * @param userName
+     * Set the user token
      */
+    void setToken(const std::string &token);
+
+    /**
+     *
+     * @return the user token
+     */
+    const std::string &getToken() const;
+
+    /**
+   * Set the user name
+   */
     void setUserName(const std::string &userName);
 
 private:
-    std::string userName;/*! User name used for authenticating the client*/
-    std::string passwordHash;/*!Password hash used for authenticating the client */
+    std::string userName;     /*! User name used for authenticating the client*/
+    std::string passwordHash; /*!Password hash used for authenticating the client */
+    std::string token;        /*!JWT used for authenticating the client*/
 };
 } /* namespace rasmgr */
 

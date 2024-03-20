@@ -46,7 +46,7 @@ model]. If the **scientific background** of rasdaman is of interest, then check 
 ...and cite our papers!
 
 Finally, for the **legalese** see `Imprint and Disclaimer
-<http://www.rasdaman.org/wiki/Legal>`__.
+<http://www.rasdaman.org/trac/wiki/Legal>`__.
 
 Features
 ========
@@ -54,8 +54,8 @@ Features
 **Technically**, rasdaman is a `domain independent Array DBMS
 <http://en.wikipedia.org/wiki/Array_DBMS>`__, which makes it suitable for `all
 applications where raster data management is an issue
-<http://rasdaman.org/wiki/ApplicationDomains>`_. The `petascope
-<http://rasdaman.org/wiki/Documentation>`_ component of rasdaman adds on geo
+<http://rasdaman.org/trac/wiki/ApplicationDomains>`_. The `petascope
+<http://rasdaman.org/trac/wiki/Documentation>`_ component of rasdaman adds on geo
 semantics for example, with full support for the `OGC
 <http://www.opengeospatial.org>`__ standard interfaces `WCS
 <http://www.opengeospatial.org/standards/wcs>`__, `WCPS
@@ -262,7 +262,7 @@ There are lots of ways to get involved and help out with the rasdaman project:
 
 **Help us spot & fix bugs.**
 
-  Which software is perfect? We know there are some bugs in rasdaman, see the `open tickets <http://rasdaman.org/report/1>`_ (or the `low complexity tickets for beginners <http://rasdaman.org/report/14>`_. Whether you add a ticket or `provide a fix <http://rasdaman.org/wiki/ProvideFix>`_,  all is most welcome.
+  Which software is perfect? We know there are some bugs in rasdaman, see the `open tickets <http://rasdaman.org/report/1>`_ (or the `low complexity tickets for beginners <http://rasdaman.org/report/14>`_. Whether you add a ticket or `provide a fix <http://rasdaman.org/trac/wiki/ProvideFix>`_,  all is most welcome.
 
 **Write documentation.**
 
@@ -270,11 +270,11 @@ There are lots of ways to get involved and help out with the rasdaman project:
 
 **Contribute to the Wiki.**
 
-    Of course you can also contribute to the wiki, for example by adding `HowTos and FAQs <http://rasdaman.org/wiki/FAQ>`_. Send a message with a change request to *patch* in the domain *rasdaman.org*.
+    Of course you can also contribute to the wiki, for example by adding `HowTos and FAQs <http://rasdaman.org/trac/wiki/FAQ>`_. Send a message with a change request to *patch* in the domain *rasdaman.org*.
 
 **Help plan and design the next version.**
 
-    Browse this section of the website, we use "Feature" tickets to hold ideas for new features; add your own and/or discuss a topic on the  `dev list <http://rasdaman.org/wiki/MailingLists>`_.
+    Browse this section of the website, we use "Feature" tickets to hold ideas for new features; add your own and/or discuss a topic on the  `dev list <http://rasdaman.org/trac/wiki/MailingLists>`_.
 
 
 .. _reporting-problems:
@@ -283,7 +283,7 @@ Reporting problems
 ==================
 
 Reporting problems should be done by sending an email to the `rasdaman-users 
-mailing list <https://rasdaman.org/wiki/MailingLists>`__. Your email should
+mailing list <https://rasdaman.org/trac/wiki/MailingLists>`__. Your email should
 include a report with *relevant information* about the issue, either prepared 
 with help of the :ref:`prepare_issue_report.sh script 
 <executables-prepare-issue-report>`, or manually specified as bellow:
@@ -331,7 +331,7 @@ with help of the :ref:`prepare_issue_report.sh script
                                        
    Attach ``/tmp/rasdaman_logs.tar.gz`` to the report.
 
-   Prior to sending your request to the please inspect the log files, they may
+   Prior to sending your request, you should inspect the log files, they may
    already provide a clue that helps you resolve the issue.
 
 
@@ -363,7 +363,7 @@ petascopedb, etc). The limit can be changed with --limit-size <N>. As soon as
 a particular --include-* option is specified, the default behavior is no
 longer in effect and exclusively the specified options are considered.
 
-Please check ``prepare_issue_report.sh --help`` for a list of all available
+Check ``prepare_issue_report.sh --help`` for a list of all available
 options.
 
 **Examples**

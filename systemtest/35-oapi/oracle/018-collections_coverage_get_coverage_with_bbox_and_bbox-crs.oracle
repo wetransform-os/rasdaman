@@ -1,0 +1,81 @@
+{
+  "type" : "CoverageByDomainAndRangeType",
+  "id" : "test_mean_summer_airtemp",
+  "envelope" : {
+    "type" : "EnvelopeByAxisType",
+    "srsName" : "http://localhost:8080/rasdaman/def/crs/EPSG/0/4269",
+    "axisLabels" : [ "Lat", "Lon" ],
+    "axis" : [ {
+      "type" : "AxisExtentType",
+      "axisLabel" : "Lat",
+      "lowerBound" : -29.974999999999987,
+      "upperBound" : -19.974999999999987,
+      "uomLabel" : "degree"
+    }, {
+      "type" : "AxisExtentType",
+      "axisLabel" : "Lon",
+      "lowerBound" : 111.975,
+      "upperBound" : 119.975,
+      "uomLabel" : "degree"
+    } ]
+  },
+  "domainSet" : {
+    "type" : "DomainSetType",
+    "generalGrid" : {
+      "type" : "GeneralGridCoverageType",
+      "srsName" : "http://localhost:8080/rasdaman/def/crs/EPSG/0/4269",
+      "axisLabels" : [ "Lat", "Lon" ],
+      "axis" : [ {
+        "type" : "RegularAxisType",
+        "axisLabel" : "Lat",
+        "lowerBound" : -29.974999999999987,
+        "upperBound" : -19.974999999999987,
+        "uomLabel" : "degree",
+        "resolution" : -0.5
+      }, {
+        "type" : "RegularAxisType",
+        "axisLabel" : "Lon",
+        "lowerBound" : 111.975,
+        "upperBound" : 119.975,
+        "uomLabel" : "degree",
+        "resolution" : 0.5
+      } ],
+      "gridLimits" : {
+        "type" : "GridLimitsType",
+        "srsName" : "http://www.opengis.net/def/crs/OGC/0/Index2D",
+        "axisLabels" : [ "i", "j" ],
+        "axis" : [ {
+          "type" : "IndexAxisType",
+          "axisLabel" : "i",
+          "lowerBound" : 22,
+          "upperBound" : 41
+        }, {
+          "type" : "IndexAxisType",
+          "axisLabel" : "j",
+          "lowerBound" : 0,
+          "upperBound" : 15
+        } ]
+      }
+    }
+  },
+  "rangeType" : {
+    "type" : "DataRecordType",
+    "field" : [ {
+      "type" : "QuantityType",
+      "name" : "Gray",
+      "description" : "",
+      "definition" : "ogcType:unsignedByte",
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      }
+    } ]
+  },
+  "rangeSet" : {
+    "type" : "RangeSetType",
+    "dataBlock" : {
+      "type" : "VDataBlockType",
+      "values" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 79, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 56, 0, 51, 28, 29, 0, 4, 8, 61, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 68, 57, 39, 42, 55, 68, 84, 66, 48, 33, 1, 0, 0, 0, 0, 0, 0, 0, 66, 70, 68, 66, 56, 56, 61, 68, 70, 63, 52, 42, 33, 28, 0, 0, 0, 0, 0, 75, 75, 74, 73, 71, 70, 69, 68, 66, 62, 53, 49, 48, 43, 45, 50, 51, 0, 0, 8, 80, 82, 81, 77, 77, 77, 76, 72, 68, 59, 46, 42, 48, 56, 58, 59, 57, 0, 0, 86, 93, 92, 85, 81, 84, 82, 81, 76, 70, 58, 46, 45, 50, 61, 66, 65, 58, 2, 90, 100, 99, 86, 77, 82, 87, 87, 84, 80, 72, 63, 52, 52, 54, 60, 67, 65, 59, 0, 103, 102, 95, 75, 74, 82, 91, 92, 87, 78, 73, 67, 64, 65, 62, 63, 67, 67, 61, 0, 102, 104, 90, 75, 75, 83, 92, 92, 85, 77, 71, 67, 69, 73, 72, 66, 70, 71, 65, 12, 111, 106, 94, 84, 81, 86, 93, 90, 79, 73, 67, 65, 68, 74, 77, 73, 75, 76, 72, 0, 108, 112, 104, 94, 91, 95, 98, 90, 78, 72, 66, 64, 66, 71, 77, 80, 83, 84, 79, 88, 104, 116, 117, 108, 105, 105, 103, 91, 80, 71, 64, 61, 64, 70, 79, 87, 91, 92, 82, 83, 102, 116, 121, 118, 113, 109, 104, 93, 79, 70, 61, 58, 64, 70, 80, 88, 94, 95, 85 ]
+    }
+  }
+}

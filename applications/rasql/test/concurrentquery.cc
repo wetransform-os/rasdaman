@@ -22,6 +22,7 @@
  */
 #include "version.h"
 #include "config.h"
+#include "raslib/rminit.hh"
 
 #include "globals.hh"
 
@@ -43,11 +44,11 @@ const unsigned int THREAD_NO = 2;
 
 RMINITGLOBALS('C')
 
-void* query_thread(void *ptr);
+void *query_thread(void *ptr);
 
-void* query_thread(void *ptr)
+void *query_thread(void *ptr)
 {
-    auto threadId = *reinterpret_cast<unsigned int*>(ptr);
+    auto threadId = *reinterpret_cast<unsigned int *>(ptr);
     LINFO << "running thread " << threadId;
 
     r_Database db;
@@ -58,7 +59,7 @@ void* query_thread(void *ptr)
     db.open(DEFAULT_DBNAME);
 
     ta.begin(r_Transaction::read_only);
-    r_Set< r_Ref_Any > result_set;
+    r_Set<r_Ref_Any> result_set;
     r_OQL_Query query("select avg_cells(c) from test_rgb as c");
 
     LINFO << "executing query...";
@@ -74,7 +75,7 @@ void* query_thread(void *ptr)
 
 INITIALIZE_EASYLOGGINGPP
 
-int main(int ac, char** av)
+int main(int ac, char **av)
 {
     common::LogConfiguration logConf(string(CONFDIR), CLIENT_LOG_CONF);
     logConf.configClientLogging();

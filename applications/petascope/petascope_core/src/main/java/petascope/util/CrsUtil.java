@@ -22,6 +22,7 @@
 package petascope.util;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -40,6 +41,11 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.servlet.ServletException;
@@ -52,10 +58,14 @@ import nu.xom.ParsingException;
 import nu.xom.ValidityException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
 import org.gdal.osr.SpatialReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.rasdaman.config.ConfigManager;
+import static org.rasdaman.config.ConfigManager.KEY_PETASCOPE_CONF_DIR;
+import static org.rasdaman.config.ConfigManager.KEY_SECORE_CONF_DIR;
 import static org.rasdaman.config.ConfigManager.SECORE_INTERNAL;
 import org.rasdaman.secore.Resolver;
 import org.rasdaman.secore.db.DbManager;
@@ -65,12 +75,15 @@ import org.rasdaman.secore.req.ResolveResponse;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.stereotype.Service;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.exceptions.SecoreException;
 import petascope.core.AxisTypes;
 import petascope.core.XMLSymbols;
+
 import static petascope.util.StringUtil.ENCODING_UTF8;
 import static petascope.core.CrsDefinition.LONGITUDE_AXIS_LABEL_EPGS_VERSION_0;
 import static petascope.core.CrsDefinition.LONGITUDE_AXIS_LABEL_EPGS_VERSION_85;
@@ -88,6 +101,7 @@ import static petascope.core.CrsDefinition.LONGITUDE_AXIS_LABEL_EPGS_VERSION_85;
  *
  * @author <a href="mailto:p.campalani@jacobs-university.de">Piero Campalani</a>
  */
+@Service
 public class CrsUtil {
 
     // NOTE: accept any URI format, but ask to SECORE: flattened definitions, less recursion.
@@ -103,7 +117,8 @@ public class CrsUtil {
 
     // SECORE keywords (URL is set in the ConfigManager)
     public static final String KEY_RESOLVER_CRS = "crs";
-    public static final String KEY_RESOLVER_CCRS = "crs-compound";
+    private static final String KEY_RESOLVER_CRS_QUOTED_BY_SLASHES = "/" + KEY_RESOLVER_CRS + "/";
+    public static final String KEY_RESOLVER_CRS_COMPOUND = "crs-compound";
     public static final String KEY_RESOLVER_EQUAL = "equal";
     public static final char SLICED_AXIS_SEPARATOR = '@';
 
@@ -130,24 +145,35 @@ public class CrsUtil {
     public static final String AUTO_AUTH = "AUTO";
     public static final String OGC_AUTH = "OGC";
     public static final String URN_EPSG_PREFIX = "urn:ogc:def:crs:EPSG::";
-    
+    public static final String DEFAULT_DATETIME_CRS = "https://www.opengis.net/def/crs/OGC/0/AnsiDate";
+
     // rotated-CRS netCDF
     public static final String COSMO_AUTH = "COSMO";
     // COSMO 101 CRS
     public static final String COSMO_101_AUTHORITY_CODE = COSMO_AUTH + ":101";
     //public static final String IAU_AUTH  = "IAU2000";
     //public static final String UMC_AUTH  = "UMC";
-    public static final List<String> SUPPORTED_AUTHS = Arrays.asList(EPSG_AUTH, ISO_AUTH, AUTO_AUTH, OGC_AUTH); // IAU_AUTH, UMC_AUTH);
+
+    // Add more when needed
+    private static final Set<String> SUPPORTED_AUTHORITY_PREFIXES = new LinkedHashSet<>(Arrays.asList(EPSG_AUTH,
+                                                                                ISO_AUTH, AUTO_AUTH, OGC_AUTH,
+                                                                                COSMO_AUTH));
 
     // WGS84
     public static final String WGS84_EPSG_CODE = "4326";
+    // Used only for WMS
+    public static final String WMS_WGS84_CRS = "CRS:84";
+    public static final String OGC_WGS84_CRS = "OGC:CRS84";
 
     // e.g: <identifier>http://localhost:8080/def/crs/EPSG/0/4326</identifier>
     public static final String SECORE_IDENTIFIER_PATTERN = "<identifier>(.+?)</identifier>";
     
     private static final String REGEX = "localhost(:[0-9]+)?/def";
     private static final Pattern localhostPattern = Pattern.compile(REGEX, Pattern.CASE_INSENSITIVE);
-    
+
+    // e.g. EPSG/0/4326
+    private static final Pattern authorityCodeWithVersionPattern = Pattern.compile("^\\w+/([0-9]*[.])?[0-9]+/[0-9]+$");
+
 
     /* CACHES: avoid EPSG db and SECORE redundant access */
     private static Map<String, CrsDefinition> parsedCRSs = new HashMap<String, CrsDefinition>();        // CRS definitions
@@ -160,7 +186,6 @@ public class CrsUtil {
     
     
     private static final String APPLICATION_PROPERTIES_FILE = "application.properties";
-    private static final String KEY_SECORE_CONF_DIR = "secore.confDir";
     
     // NOTE: this is the hard-coded WKT of rorated CRS from https://github.com/Geomatys/MetOceanDWG/blob/main/MetOceanDWG%20Projects/Authority%20Codes%20for%20CRS/RotatedPole.xml
     private static final String COSMO_CRS_101_WKT = "GEODCRS[\"COSMO-DWD rotated pole grid\",\n" +
@@ -185,11 +210,100 @@ public class CrsUtil {
     
     private static boolean isSECOREloaded = false;
     
+    // SECORE URL -> timer
+    private static Map<String, WaitingTimer> checkResolverURLsTasksMap = new ConcurrentSkipListMap<>();
+    private static ScheduledExecutorService checkResolverURLsSchedulerExecutorService = Executors.newScheduledThreadPool(1);
+    // Set of down SECORE URLs
+    public static Set<String> downResolverURLs = new ConcurrentSkipListSet<>();
+
+    // after this time interval **in seconds** to check which SECORE URL is working
+    private static final int TIME_TO_CHECK_WORKING_SECORE_URL = 60;
+    public static String currentWorkingResolverURL = null;
+    private static boolean initWhenPetascopeStarts = false;
+
+    /**
+     * Run every intervals to check which SECORE URL is running
+     */
+    public static void runTaskByInterval() throws PetascopeException {
+        
+         // Run internal check to determine which SECORE endpoint is up
+        final Runnable checkResolverURLsTask = new Runnable() {
+            public void run() {
+                
+                boolean working = false;
+                log.trace("Checking which resolver is running ...");
+                
+                for (Map.Entry<String, WaitingTimer> entry : checkResolverURLsTasksMap.entrySet()) {
+                    
+                    String resolverURL = entry.getKey();
+                    WaitingTimer waitingTimer = entry.getValue();
+                    
+                    if (waitingTimer.shouldRun()) {
+                        // if endpoint is up -> make it as the cached 
+                        String epsg4326URL = resolverURL + "/crs/EPSG/0/4326";
+                
+                        if (HttpUtil.urlExists(epsg4326URL)) {
+                            waitingTimer.reportSuccessRequest();
+                            if (downResolverURLs.contains(resolverURL)) {
+                                downResolverURLs.remove(resolverURL);
+                                log.info("Resolver '" + resolverURL + "' "
+                                        + "is up again after " + waitingTimer.getCurrentWaitInSeconds() + " seconds.");
+                            }
+                            
+                            currentWorkingResolverURL = resolverURL;
+                            working = true;
+                            break;
+                        } else {
+                            // endpoint is down
+                            waitingTimer.reportFailedRequest();
+                            downResolverURLs.add(resolverURL);
+                            log.debug("Resolver '" + resolverURL + "' "
+                                    + "is down after " + waitingTimer.getCurrentWaitInSeconds() + " seconds.");
+                        }
+                    }
+                }
+                
+                if (!working) {
+                    // No SECORE is working
+                    currentWorkingResolverURL = null;
+                    log.error("No working CRS resolver is available.");
+                } else {
+                    log.debug("Current working CRS resolver is: " + currentWorkingResolverURL);
+                }
+            }
+        };
+         
+        // Run interval by 60 seconds
+        checkResolverURLsSchedulerExecutorService.scheduleAtFixedRate(checkResolverURLsTask,
+                                                                            TIME_TO_CHECK_WORKING_SECORE_URL, 
+                                                                            TIME_TO_CHECK_WORKING_SECORE_URL, SECONDS);
+
+        if (initWhenPetascopeStarts == false) {
+            // NOTE: when petascope starts, "internal" SECORE doesn't work until petascope fully started
+            currentWorkingResolverURL = ConfigManager.SECORE_URLS.get(0);
+
+            for (String resolverURL : ConfigManager.SECORE_URLS) {
+                checkResolverURLsTasksMap.put(resolverURL, new WaitingTimer());
+            }
+
+            checkResolverURLsTask.run();
+            initWhenPetascopeStarts = true;
+        }
+    }    
+    
+    
+    /**
+     * If secore_urls contains internal in petascope.properties
+     */
+    private static boolean isResovlerInternalEnabled() {
+        return ConfigManager.SECORE_URLS.contains(ConfigManager.SECORE_INTERNAL);
+    }
+    
     /**
      * Invoke embedded SECORE in petascope before petascope starts to migrate 
      * 
      */
-    public static void loadInternalSecore(boolean embedded, String webappsDir) throws IOException, org.rasdaman.secore.util.SecoreException, SecoreException {
+    public static void loadInternalSecore(boolean embedded, String webappsDir) throws IOException, org.rasdaman.secore.util.SecoreException, SecoreException, Exception {
         
         if (isSECOREloaded == false) {
 
@@ -198,9 +312,25 @@ public class CrsUtil {
             properties.load(resourceStream);
 
             PropertySourcesPlaceholderConfigurer propertyResourcePlaceHolderConfigurer = new PropertySourcesPlaceholderConfigurer();
+            
+            Properties props = new Properties();
+            props.load(new FileInputStream(properties.getProperty(KEY_PETASCOPE_CONF_DIR) + "/petascope.properties"));
+            Object secoreURLs = props.get(ConfigManager.KEY_SECORE_URLS);
+            if (secoreURLs == null || secoreURLs.toString().isEmpty()) {
+                ConfigManager.SECORE_URLS = StringUtil.csv2list(ConfigManager.SECORE_INTERNAL);
+            } else {
+                ConfigManager.SECORE_URLS = StringUtil.csv2list(secoreURLs.toString());
+            }
+            
+            if (!isResovlerInternalEnabled()) {
+                // secore_urls doesn't contain internal -> no need to initialize embedded SECORE
+                ConfigManager.SECORE_INTERNAL_SHOULD_RUN = false;
+                return;
+            }
+            
             File initialFile = new File(properties.getProperty(KEY_SECORE_CONF_DIR) + "/" + org.rasdaman.secore.ConfigManager.SECORE_PROPERTIES_FILE);
             propertyResourcePlaceHolderConfigurer.setLocation(new FileSystemResource(initialFile));
-
+            
             String confDir = properties.getProperty(KEY_SECORE_CONF_DIR);
             try {
                 org.rasdaman.secore.ConfigManager.initInstance(confDir, embedded, webappsDir);
@@ -212,19 +342,26 @@ public class CrsUtil {
                 // if current version of Secoredb is empty then add SecoreVersion element to BaseX database and run all the db_updates files.
                 DbSecoreVersion dbSecoreVersion = new DbSecoreVersion(dbManager.getDb());
                 dbSecoreVersion.handle();
-                log.debug("Initialzed BaseX dbs successfully.");
+                log.debug("Initialized BaseX dbs successfully.");
                 
                 isSECOREloaded = true;
             } catch (Exception ex) {
                 throw new SecoreException(ExceptionCode.InternalComponentError, "Cannot initialize internal SECORE database manager. Reason: " + ex.getMessage(), ex);
             }
             
+            log.info("Internal CRS resolver (SECORE) is loaded.");
         }
     }
     
-    public static void handleSecoreController(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    public static void handleSecoreController(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException, org.rasdaman.secore.util.SecoreException {
         org.rasdaman.secore.controller.SecoreController controller = new org.rasdaman.secore.controller.SecoreController();
-        controller.handleRequest(req, resp);
+        try {
+            controller.handleRequest(req, resp);
+        } catch (ExceptionInInitializerError ex) {
+            // NOTE: in case secore internal is not running and one still tries to request it at localhost -> throws more detailed exception
+            throw new org.rasdaman.secore.util.SecoreException(org.rasdaman.secore.util.ExceptionCode.InvalidRequest,
+                    "Internal SECORE is not running. Current value for: " + ConfigManager.KEY_SECORE_URLS + " setting in petascope properties file is: " + ListUtil.join(ConfigManager.SECORE_URLS, ","));
+        }
     }
 
     // Interface (unuseful now)
@@ -252,11 +389,11 @@ public class CrsUtil {
         return resolver + "/" + KEY_RESOLVER_CRS + "/" + committee + "/" + version + "/" + code;
     }
 
-    public static String CrsUri(String committee, String version, String code) {
-        return getResolverUri() + "/" + KEY_RESOLVER_CRS + "/" + committee + "/" + version + "/" + code;
+    public static String CrsUri(String committee, String version, String code) throws PetascopeException {
+        return getDefaultResolverUri() + "/" + KEY_RESOLVER_CRS + "/" + committee + "/" + version + "/" + code;
     }
 
-    public static String CrsUri(String committee, String code) {
+    public static String CrsUri(String committee, String code) throws PetascopeException {
         return CrsUri(committee, CRS_DEFAULT_VERSION, code);
     }
 
@@ -269,13 +406,18 @@ public class CrsUtil {
         return CrsUriDir(prefix, committee, CRS_DEFAULT_VERSION);
     }
 
-    public static String CrsUriDir(String committee) {
-        return CrsUriDir(getResolverUri(), committee, CRS_DEFAULT_VERSION);
+    public static String CrsUriDir(String committee) throws PetascopeException {
+        return CrsUriDir(getDefaultResolverUri(), committee, CRS_DEFAULT_VERSION);
     }
     
-    public static final String getEPSGVersion0CRS() {
+    public static final String getEPSGVersion0CRS() throws PetascopeException {
         // used in WCS GetCapabilities to list all the possible CRSs
-        String result = CrsUtil.getResolverUri() + "/crs/EPSG/0";
+        String result = CrsUtil.getDefaultResolverUri() + "/crs/EPSG/0";
+        return result;
+    }
+
+    public static final String getEPSGFullURL(String version, String code) throws PetascopeException {
+        String result = CrsUtil.getDefaultResolverUri() + "/crs/EPSG/" + version + "/" + code;
         return result;
     }
 
@@ -315,15 +457,33 @@ public class CrsUtil {
     /**
      * Check if the crs should go to the internal SECORE or not
      */
-    public static boolean isInternalSecoreURL(String url) {
-        if (url.contains(LOCALHOST + ":" + ConfigManager.EMBEDDED_PETASCOPE_PORT)
+    public static boolean isInternalSecoreURL(String url) throws PetascopeException {
+        
+        if (!isResovlerInternalEnabled()) {
+            // In case internal SECORE is not enabled 
+            return false;
+        }
+        
+        if (url.contains(LOCALHOST)
             || url.contains("www.opengis.net/def/uom/")) {
             // NOTE: server opengis.net/def limit number of requests for UoM URI requests ("Rate limit exceeded: 15 per 1 minute"})
             // then, use internal SECORE instead
             
+            if (url.contains(ConfigManager.SECORE_INTERNAL_CONTEXT_PATH)) {
+                return true;
+            }
+            
+            // e.g. http://localhost:8082/rasdaman/def
+            String tmpCRS = ConfigManager.getInternalSecoreURL();
+            if (currentWorkingResolverURL.trim().equals(ConfigManager.DEFAULT_SECORE_INTERNAL_URL)
+                || currentWorkingResolverURL.trim().equals(tmpCRS)) {
+                return true;
+            }
+            
             // If SECORE url is localhost, then check it should be resolved internally by petascope or not
-            String tmpCRS = url.replace(ConfigManager.DEFAULT_PETASCOPE_PORT, ConfigManager.EMBEDDED_PETASCOPE_PORT);
-            return url.startsWith(ConfigManager.DEFAULT_SECORE_INTERNAL_URL) || url.startsWith(tmpCRS);
+            tmpCRS = url.replace(ConfigManager.DEFAULT_PETASCOPE_PORT, ConfigManager.EMBEDDED_PETASCOPE_PORT);
+            return url.startsWith(ConfigManager.DEFAULT_SECORE_INTERNAL_URL)
+                   || url.startsWith(tmpCRS);
         }
         
         return false;
@@ -345,7 +505,7 @@ public class CrsUtil {
         } else {
             log.debug("# Checking external SECORE with url " + crsUri);
             // external secore, send requests normally
-            result = HttpUtil.getInputStream(crsUri);
+            result = HttpUtil.getSECOREInputStream(crsUri);
         }
         
         return result;
@@ -383,10 +543,25 @@ public class CrsUtil {
             return CrsUri.getCachedDefinition(givenCrsUri);
         }
 
+        if (isAuthorityCode(givenCrsUri)) {
+            // e.g. 32632
+            String code = getCode(givenCrsUri);
+            givenCrsUri = getEPSGFullUriByCode(code);
+        } else if (isAuthorityCodeWithVersion(givenCrsUri)) {
+            // e.g. EPSG/0/4326
+            String[] tmps = givenCrsUri.split("/");
+            // e.g. 0
+            String version = tmps[1];
+            // e.g. 32632
+            String code = tmps[2];
+            givenCrsUri = getEPSGFullURL(version, code);
+        }
+
         // Check if the URI syntax is valid
         if (!CrsUri.isValid(givenCrsUri)) {
             throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS '" + givenCrsUri + "' definition seems not valid.");
         }
+
 
         // Need to parse the XML
         String datumOrigin = ""; // for TemporalCRSs
@@ -517,6 +692,8 @@ public class CrsUtil {
                             } else {
                                 // Need to parse a new XML definition
                                 try {
+                                    String[] parts = uomCrsUrlTmp.split("/uom");
+                                    uomCrsUrlTmp = getDefaultResolverUri() + "/uom" + parts[1];
                                     Element uomRoot = crsDefUrlToXml(uomCrsUrlTmp);
                                     if (uomRoot != null) {
 
@@ -637,17 +814,16 @@ public class CrsUtil {
      * @throws IOException
      * @throws ParsingException
      */
-    public static Element crsDefUrlToXml(final String url) throws Exception {
+    public static Element crsDefUrlToXml(String url) throws Exception {
+        
+        url = url.replace("http://www.opengis.net/def/uom", currentWorkingResolverURL + "/uom");
+        
         Element ret = crsDefUrlToDocument(url);
         if (ret == null) {
-            for (String configuredResolver : ConfigManager.SECORE_URLS) {
-                String newUrl = CrsUri.replaceResolverInUrl(url, configuredResolver);
-                ret = crsDefUrlToDocument(newUrl);
-                if (ret != null) {
-                    break;
-                }
-            }
+            String newUrl = CrsUri.replaceResolverInUrl(url, currentWorkingResolverURL);
+            ret = crsDefUrlToDocument(newUrl);
         }
+        
         return ret;
     }
 
@@ -658,7 +834,7 @@ public class CrsUtil {
      * @return
      */
     public static boolean isGridCrs(String axisCrs) {
-        if (axisCrs.equals(CrsUtil.GRID_CRS)) {
+        if (CrsUtil.GRID_CRS.equals(axisCrs)) {
             return true;
         }
         return false;
@@ -704,7 +880,7 @@ public class CrsUtil {
             InputStream inStream = getInputStreamByInternalOrExternalSECORE(url);               
             Document doc = XMLUtil.buildDocument(null, inStream);
             ret = doc.getRootElement();
-        } catch (IOException | ParsingException | PetascopeException ex) {
+        } catch (Exception ex) {
             log.warn("Error while building the document from URL '" + url + "'", ex);
             ret = null;
         }
@@ -854,8 +1030,9 @@ public class CrsUtil {
         CrsDefinition crsDef = CrsUtil.getCrsDefinition(singleCrsURI);
         
         Map<String, String> map = new HashMap<>();
-        for (CrsDefinition.Axis crsAxis : crsDef.getAxes()) { 
-            map.put(crsAxis.getAbbreviation(), crsAxis.getType());
+        for (CrsDefinition.Axis crsAxis : crsDef.getAxes()) {
+            // e.g. Lat -> lat
+            map.put(crsAxis.getAbbreviation().toLowerCase(), crsAxis.getType());
         }
         
         return map;
@@ -1041,14 +1218,21 @@ public class CrsUtil {
     }
 
     /**
-     * Method to return the default SECORE URI (first in the configuration list)
+     * Method to return the default SECORE URI (first working URI in the configuration list)
      */
-    public static String getResolverUri() {
-        return ConfigManager.SECORE_URLS.get(0);
+    public static String getDefaultResolverUri() throws PetascopeException {
+        
+        if (currentWorkingResolverURL == null) {
+            throw new PetascopeException(ExceptionCode.SecoreError, 
+                    "All configured CRSs from setting: " + ConfigManager.KEY_SECORE_URLS + " in petascope.properties are not accessible. "
+                    + "Hint: find a working SECORE URL to change in the specified setting and restart petascope.");
+        }
+        
+        return currentWorkingResolverURL;
     }
     
-    public static String getEPSG4326FullURL() {
-        return getResolverUri() + "/crs/EPSG/0/4326";
+    public static String getEPSG4326FullURL() throws PetascopeException {
+        return getDefaultResolverUri() + "/crs/EPSG/0/4326";
     }
 
     /**
@@ -1067,13 +1251,13 @@ public class CrsUtil {
         String code = tmps[1];
         
         // e.g. http://localhost:8080/def/crs/EPSG/0/4326
-        return getResolverUri() + "/crs/" + authortiy + "/0/" + code;
+        return getDefaultResolverUri() + "/crs/" + authortiy + "/0/" + code;
     }
     
     /**
      * e.g: 4326 -> localhost:8080/def/crs/EPSG/0/
      */
-    public static String getEPSGFullUriByCode(String code) {
+    public static String getEPSGFullUriByCode(String code) throws PetascopeException {
         return getEPSGVersion0CRS() + "/" + code;
     }
  
@@ -1096,6 +1280,10 @@ public class CrsUtil {
         
         if (isAuthorityCode(crs)) {
             return crs;
+        } else if (isAuthorityCodeWithVersion(crs)) {
+            // e.g. EPSG/0/4326
+            Triple<String, String, String> triple = CrsUri.getAuthorityVersionCodeTriple(crs);
+            return triple.getLeft() + ":" + triple.getRight();
         }
         
         String prefix = "/crs/";
@@ -1128,9 +1316,14 @@ public class CrsUtil {
         
         // e.g. EPSG:4326 or COSMO:101
         String authorityCode = getAuthorityCode(crs);
-        if (authorityCode.contains(EPSG_AUTH)) {
+        if (authorityCode.contains(EPSG_AUTH) || authorityCode.contains(OGC_AUTH)) {
             // e.g. EPSG:4326 -> 4326
-            int epsgCode = Integer.valueOf(authorityCode.split(":")[1]);
+            int epsgCode = 4326;
+            if (!authorityCode.equals(OGC_WGS84_CRS)) {
+                // OGC:CRS84 is just as same as EPSG:4326
+                epsgCode = Integer.valueOf(authorityCode.split(":")[1]);
+            }
+
             spatialReference.ImportFromEPSG(epsgCode);
             wkt = spatialReference.ExportToWkt();
         } else if (authorityCode.contains(COSMO_101_AUTHORITY_CODE)) {
@@ -1169,7 +1362,7 @@ public class CrsUtil {
         // e.g. EPSG:4326 or COSMO:101
         String authorityCode = getAuthorityCode(crs);
         String result = null;
-        if (authorityCode.contains(EPSG_AUTH)) {
+        if (authorityCode.contains(EPSG_AUTH) || authorityCode.contains(OGC_AUTH)) {
             result = authorityCode;
         } else if (authorityCode.contains(COSMO_AUTH)) {
             result = getWKTCOSMO101CRS();
@@ -1200,11 +1393,11 @@ public class CrsUtil {
      * return the axis type of an aixs label (e.g: "Long")
      */
     public static String getAxisTypeFromMap(Map<String, String> axisLabelsTypesMap, String axisLabel) throws PetascopeException {
-        String axisType = axisLabelsTypesMap.get(axisLabel);
+        String axisType = axisLabelsTypesMap.get(axisLabel.toLowerCase());
         
         if (axisType == null) {
-            if (axisLabel.equals(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85)) {
-                axisType = axisLabelsTypesMap.get(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0);
+            if (axisLabel.equalsIgnoreCase(LONGITUDE_AXIS_LABEL_EPGS_VERSION_85)) {
+                axisType = axisLabelsTypesMap.get(LONGITUDE_AXIS_LABEL_EPGS_VERSION_0.toLowerCase());
             }
             
             if (axisType == null) {
@@ -1226,8 +1419,8 @@ public class CrsUtil {
     public static boolean crsURIsMatch(String crsURI1, String crsURI2) {
         String strippedCRS1 = CrsUtil.CrsUri.toDbRepresentation(crsURI1).split("\\?")[0];
         String strippedCRS2 = CrsUtil.CrsUri.toDbRepresentation(crsURI2).split("\\?")[0];
-        
-        return strippedCRS1.equals(strippedCRS2);        
+
+        return strippedCRS1.equals(strippedCRS2);
     }
     
     /**
@@ -1250,7 +1443,16 @@ public class CrsUtil {
     public static boolean isAuthorityCode(String input) {
         return input.contains(":") && !input.contains("/");
     }
-    
+
+    /**
+     * Check if a given string is authorityCodeWithVersion, e.g. EPSG/0/4326
+     *
+     */
+    public static boolean isAuthorityCodeWithVersion(String input) {
+        Matcher matcher = authorityCodeWithVersionPattern.matcher(input);
+        return matcher.find();
+    }
+
     /**
      * Check if CRS definition is XY axes order (e.g: EPSG:3857) or YX axes order (e.g: EPSG:4326)
      * @param uri URL to CRS definition from SECORE
@@ -1264,12 +1466,36 @@ public class CrsUtil {
         axes = CrsUtil.getCrsDefinition(uri).getAxes();
         if (axes.isEmpty()) {
             throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS does not contain any axis. Given: '" + uri + "'.");
-        } else if (axes.get(0).getType().equals(AxisTypes.Y_AXIS)) {
-            // YX order
+        } else if (axes.get(0).getType().equalsIgnoreCase(AxisTypes.Y_AXIS)) {
+            // YX axis orders
             return false;
         }
         
         // XY order
+        return true;
+    }
+
+    /**
+     * Check if CRS is EastNorth order.
+     * NOTE: Normally XY axis order in the CRS -> EastNorth orientation and YX axis order in the CRS -> NorthEast orientation
+     * However, https://ows.rasdaman.org/rasdaman/def/crs/EPSG/0/31467 is an exception with XY axis order but NorthEast orientation
+     */
+    public static boolean isEastNorthOrientation(String uri) throws PetascopeException {
+        if (isAuthorityCode(uri)) {
+            // e.g: EPSG:4326 -> http://localhost:8080/def/crs/EPSG/0/4326
+            uri = getFullCRSURLByAuthorityCode(uri);
+        }
+        List<CrsDefinition.Axis> axes = new ArrayList<>();
+        axes = CrsUtil.getCrsDefinition(uri).getAxes();
+        if (axes.isEmpty()) {
+            throw new PetascopeException(ExceptionCode.InvalidMetadata, "CRS does not contain any axis. Given: '" + uri + "'.");
+        } else if (axes.get(0).getDirection().equalsIgnoreCase(CrsDefinition.Axis.NORTH_ORIENTATION_DIRECTION)) {
+            // YX direction orders
+            // NOTE:  https://ows.rasdaman.org/rasdaman/def/crs/EPSG/0/31467 has XY axes, but their directions are actually North, East (uncommon case)
+            // while: https://ows.rasdaman.org/rasdaman/def/crs/EPSG/0/32632 has XY axes, and their directions are: East, North (normal case)
+            return false;
+        }
+
         return true;
     }
     
@@ -1296,6 +1522,11 @@ public class CrsUtil {
     
     public static boolean isTimeAxis(String axisType) {
         return axisType.equals(AxisTypes.T_AXIS);
+    }
+
+    public static boolean isElevationAxis(String axisType) {
+        return axisType.equals(AxisTypes.HEIGHT_AXIS)
+            || axisType.equals(AxisTypes.DEPTH_AXIS);
     }
     
     /**
@@ -1340,8 +1571,7 @@ public class CrsUtil {
      * to migrate to secore_urls=internal
      * 
      */
-    public static void checkSECOREURLsForInternalMigration() throws PetascopeException {
-        
+    public static void setInternalResolverCRSToQualifiedCRS() throws PetascopeException {
         
         // e.g. http://localhost:8080/rasdaman/def
         final String internalSECOREURL = ConfigManager.getInstance(ConfigManager.CONF_DIR).getInternalSecoreURL();
@@ -1350,6 +1580,7 @@ public class CrsUtil {
             String url = ConfigManager.SECORE_URLS.get(i);
             
             if (url.trim().equals(SECORE_INTERNAL)) {
+                // if internal is in secore_urls -> set it to http://localhost:8080/rasdaman/def
                 ConfigManager.SECORE_URLS.set(i, internalSECOREURL);
             } else {
                 Matcher m = localhostPattern.matcher(url);
@@ -1359,6 +1590,10 @@ public class CrsUtil {
                 }
             }
         }
+    }
+
+    public static boolean isCRS84(String crs) {
+        return WMS_WGS84_CRS.equalsIgnoreCase(crs);
     }
 
     /**
@@ -1374,11 +1609,11 @@ public class CrsUtil {
          * petascope.propeties with SECORE http://abc.com/def/crs/epsg/0/4326,
          * the stored URI with localhost will be not found.
          */
-        public static final String SECORE_URL_PREFIX = "$SECORE_URL$";
+        public static final String SECORE_URL_PREFIX_PLACE_HOLDER = "$SECORE_URL$";
         public static final String LAST_PATH_PATTERN = ".*/(.*)$";
 
         private static final String COMPOUND_SPLIT = "(\\?|&)\\d+=";
-        private static final String COMPOUND_PATTERN = "^" + HTTP_URL_PATTERN + KEY_RESOLVER_CCRS;
+        private static final String COMPOUND_PATTERN = "^" + HTTP_URL_PATTERN + KEY_RESOLVER_CRS_COMPOUND;
 
         private static final String AUTHORITY_KEY = "authority";    // Case-insensitivity is added in the pattern
         private static final String VERSION_KEY = "version";
@@ -1417,7 +1652,7 @@ public class CrsUtil {
             if (isCompound(decUri)) {
                 String[] splitted = decUri.split(COMPOUND_SPLIT);
                 if (splitted.length <= 1) {
-                    log.warn(decUri + " seems invalid: check consitency first.");
+                    log.warn(decUri + " seems invalid: check consistency first.");
                 }
                 if (splitted.length == 2) {
                     log.warn(decUri + " seems compound but only one CRS is listed.");
@@ -1578,16 +1813,13 @@ public class CrsUtil {
                         + getAuthority(uri2) + "(" + getVersion(uri2) + "):" + getCode(uri2) + " "
                         + "comparison is *not* cached: need to ask SECORE.");
                 Boolean equal = null;
-                for (String resolverUri : ConfigManager.SECORE_URLS) {
-                    try {
-                        equal = checkEquivalence(resolverUri, uri1, uri2);
-                        break; // No need to check against any resolver
-                    } catch (SecoreException ex) {
-                        // Skip to next loop cycle: try with an other configured resolver URI.
-                        log.warn(ex.getMessage());
-                    } catch (PetascopeException ex) {
-                        throw ex;
-                    }
+                try {
+                    equal = checkEquivalence(currentWorkingResolverURL, uri1, uri2);
+                } catch (SecoreException ex) {
+                    // Skip to next loop cycle: try with an other configured resolver URI.
+                    log.warn(ex.getMessage());
+                } catch (PetascopeException ex) {
+                    throw ex;
                 }
 
                 if (null == equal) {
@@ -1809,7 +2041,7 @@ public class CrsUtil {
          * @param crsUris
          * @return The compounding of the listed CRS URIs.
          */
-        public static String createCompound(List<String> crsUris) {
+        public static String createCompound(List<String> crsUris) throws PetascopeException {
             Set<String> crsSet = new LinkedHashSet<>(crsUris);
             String ccrsOut = "";
             switch (crsSet.size()) {
@@ -1819,7 +2051,7 @@ public class CrsUtil {
                     ccrsOut = crsSet.iterator().next();
                     break;
                 default: // By default, use SECORE host in the CCRS URL
-                    ccrsOut = getResolverUri() + "/" + KEY_RESOLVER_CCRS + "?";
+                    ccrsOut = getDefaultResolverUri() + "/" + KEY_RESOLVER_CRS_COMPOUND + "?";
                     Iterator it = crsSet.iterator();
                     for (int i = 0; i < crsSet.size(); i++) {
                         ccrsOut += (i + 1) + "=" + it.next();
@@ -1916,7 +2148,7 @@ public class CrsUtil {
             } //compound
             else {
                 List<String> uris = CrsUri.decomposeUri(crsUri);
-                String result = SECORE_URL_PREFIX + "/" + CrsUtil.KEY_RESOLVER_CCRS + "?";
+                String result = SECORE_URL_PREFIX_PLACE_HOLDER + "/" + CrsUtil.KEY_RESOLVER_CRS_COMPOUND + "?";
                 int counter = 1;
                 for (String uri : uris) {
                     result += String.valueOf(counter) + "=" + simpleUriToDbRepresentation(uri);
@@ -1930,19 +2162,53 @@ public class CrsUtil {
         }
 
         /**
-         * When reading coverage's CRS from database, the URI contains SECORE
-         * prefix as string placeholder. So, replace it with SECORE endpoint
-         * configured in petascope.properties. e.g:
-         * %SECORE_URL%/def/crs/epsg/0/4326 to
-         * http://localhost:8080/def/crs/epsg/0/4326
-         *
-         * @param crsUri
-         * @return
+         * When reading coverage's CRS from database, the URI is stored with different SECORE endpoint,
+         * so, replace it with the current working SECORE endpoint
+         * configured in petascope.properties at secore_urls setting
          */
         public static String fromDbRepresentation(String crsUri) {
-            String secoreURL = ConfigManager.SECORE_URLS.get(0);
-            crsUri = crsUri.replace(SECORE_URL_PREFIX, secoreURL);
-            return crsUri;
+            String secoreURL = CrsUtil.currentWorkingResolverURL;
+            crsUri = crsUri.replace(SECORE_URL_PREFIX_PLACE_HOLDER, secoreURL);
+
+            if (!crsUri.startsWith(HTTP_PREFIX)) {
+                // e.g. input CRS is: EPSG/0/4269
+                return crsUri;
+            }
+
+            String result = null;
+
+            if (crsUri.contains(SECORE_URL_PREFIX_PLACE_HOLDER)) {
+                result = crsUri.replace(SECORE_URL_PREFIX_PLACE_HOLDER, secoreURL);
+            } else {
+
+                if (crsUri.contains(KEY_RESOLVER_CRS_COMPOUND)) {
+                    String[] crsTmps = crsUri.split(KEY_RESOLVER_CRS_QUOTED_BY_SLASHES);
+
+                    List<String> crsUriComponents = new ArrayList<>();
+
+                    int i = 1;
+                    for (String tmp : crsTmps) {
+                        // e.g. OGC or EPSG
+                        String authorityCode = tmp.split("/")[0];
+                        if (SUPPORTED_AUTHORITY_PREFIXES.contains(authorityCode)) {
+                            String crsUriComponent = i + "=" + secoreURL + KEY_RESOLVER_CRS_QUOTED_BY_SLASHES + tmp.split("&")[0];
+                            crsUriComponents.add(crsUriComponent);
+
+                            i++;
+                        }
+
+                    }
+
+                    // e.g. https://crs.rasdaman.com/def/crs-compound?1=https://crs.rasdaman.com/def/crs/OGC/0/AnsiDate&2=https://crs.rasdaman.com/def/crs/EPSG/0/4326
+                    result = secoreURL + "/" + KEY_RESOLVER_CRS_COMPOUND + "?" + ListUtil.join(crsUriComponents, "&");
+                } else {
+                    // e.g. https://crs.rasdaman.com/rasdaman/def/crs/EPSG/0/4326
+                    result = secoreURL + KEY_RESOLVER_CRS_QUOTED_BY_SLASHES + crsUri.split(KEY_RESOLVER_CRS_QUOTED_BY_SLASHES)[1];
+                }
+
+            }
+
+            return result;
         }
 
         /**
@@ -1950,11 +2216,40 @@ public class CrsUtil {
          *
          * @return
          */
-        public static String getAuthorityCode(String crsUri) {
+        public static String getAuthorityCode(String crsUri) throws PetascopeException {
+            crsUri = crsUri.trim();
+            if (!crsUri.startsWith(HTTP_PREFIX) && crsUri.contains("/")) {
+                // assume it is EPSG/0/4326
+                String[] tmps = crsUri.split("/");
+                if (tmps.length != 3) {
+                    throw new PetascopeException(ExceptionCode.InvalidRequest,
+                            "Cannot get authority code from the given CRS: " + crsUri);
+                }
+                return tmps[0] + ":" + tmps[2];
+            }
+
+            if (isAuthorityCode(crsUri)) {
+                return crsUri;
+            }
+
             String authorityName = getAuthority(crsUri);
             String codeName = getCode(crsUri);
             String authorityCode = authorityName + ":" + codeName;
             return authorityCode;
+        }
+
+        /**
+         * e.g. EPSG/0/4326 -> Pair(0, 4326)
+         *
+         */
+        public static Triple<String, String, String> getAuthorityVersionCodeTriple(String crs) throws PetascopeException {
+            if (!isAuthorityCodeWithVersion(crs)) {
+                throw new PetascopeException(ExceptionCode.InvalidCRS, "Given CRS: " + crs + " is not authority/version/code pattern.");
+            }
+
+            String[] tmps = crs.split("/");
+            ImmutableTriple<String, String, String> result = new ImmutableTriple<>(tmps[0], tmps[1], tmps[2]);
+            return result;
         }
         
 
@@ -1971,13 +2266,31 @@ public class CrsUtil {
             String result = crsUri;
             
             // Don't try to parse CRS when it is already the abstract URL
-            if (!crsUri.contains(SECORE_URL_PREFIX)) {
+            if (!crsUri.contains(SECORE_URL_PREFIX_PLACE_HOLDER)) {
                 String authority = CrsUri.getAuthority(crsUri);
                 String code = CrsUri.getCode(crsUri);
                 String version = CrsUri.getVersion(crsUri);
-                result = SECORE_URL_PREFIX + "/" + CrsUtil.KEY_RESOLVER_CRS + "/" + authority + "/" + version + "/" + code;
+                result = SECORE_URL_PREFIX_PLACE_HOLDER + "/" + CrsUtil.KEY_RESOLVER_CRS + "/" + authority + "/" + version + "/" + code;
             }
 
+            return result;
+        }
+        
+        /**
+         * Return the shorthand version of a CRS
+         * e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326 -> EPSG:4326
+         * "http://localhost:8080/rasdaman/def/crs-compound?1=http://localhost:8080/rasdaman/def/crs/EPSG/0/4326&2=http://localhost:8080/rasdaman/def/crs/OGC/0/AnsiDate"
+         * -> EPSG:4326+OGC:AnsiDate
+         */
+        public static String getShorthandUri(String inputCRS) throws PetascopeException {
+            List<String> crss = decomposeUri(inputCRS);
+
+            List<String> tmps = new ArrayList<>();
+            for (String crs : crss) {
+                tmps.add(getAuthorityCode(crs));
+            }
+            
+            String result = ListUtil.join(tmps, "+");
             return result;
         }
     }

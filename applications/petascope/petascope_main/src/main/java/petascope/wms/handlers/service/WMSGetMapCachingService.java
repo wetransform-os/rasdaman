@@ -22,12 +22,25 @@
 package petascope.wms.handlers.service;
 
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.rasdaman.config.ConfigManager;
+import org.rasdaman.domain.cis.Wgs84BoundingBox;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.controller.PetascopeController;
 import petascope.core.KVPSymbols;
+import petascope.core.Pair;
 import petascope.core.response.Response;
+import petascope.exceptions.PetascopeException;
+import petascope.exceptions.WMSException;
+import petascope.wms.handlers.kvp.KVPWMSGetMapHandler;
 
 /**
  * Only GetMap request needs to cache the response if it is not exception.
@@ -35,10 +48,19 @@ import petascope.core.response.Response;
  * @author <a href="mailto:b.phamhuu@jacobs-university.de">Bang Pham Huu</a>
  */
 @Service
+// Create a new instance of this bean for each request (so it will not use the old object with stored data)
+@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class WMSGetMapCachingService {
+    
+    private static Logger log = LoggerFactory.getLogger(WMSGetMapCachingService.class);
+    
+    @Autowired
+    private KVPWMSGetMapHandler kvpWMSGetMapHandler;
+    @Autowired
+    private PetascopeController petascopeController;
 
     private long totalCachedSize = 0;
-    public static final Map<String, Response> responseCachingMap = new ConcurrentHashMap<>();
+    public static final Map<String, Pair<Wgs84BoundingBox, Response>> responseCachingMap = new ConcurrentHashMap<>();
 
     public WMSGetMapCachingService() {
 
@@ -51,15 +73,15 @@ public class WMSGetMapCachingService {
      * @param queryString
      * @param response
      */
-    public void addResponseToCache(String queryString, Response response) {
+    public void addResponseToCache(String queryString, Wgs84BoundingBox wgs84BBox, Response response) {
         byte[] bytes = response.getDatas().get(0);
         // Check if cache's size is greater than the maximum configuration
         if (!(totalCachedSize + bytes.length <= ConfigManager.MAX_WMS_CACHE_SIZE)) {
             // Remove all the less received cached objects until there is enough bytes for the new cache response    
-            Iterator<Map.Entry<String, Response>> iterator = responseCachingMap.entrySet().iterator();
+            Iterator<Map.Entry<String, Pair<Wgs84BoundingBox, Response>>> iterator = responseCachingMap.entrySet().iterator();
             long removedBytes = 0;
             while (iterator.hasNext()) {
-                removedBytes += iterator.next().getValue().getDatas().get(0).length;
+                removedBytes += iterator.next().getValue().snd.getDatas().get(0).length;
                 // Continue to remove older bytes
                 if (removedBytes < bytes.length) {
                     iterator.remove();
@@ -73,9 +95,31 @@ public class WMSGetMapCachingService {
         totalCachedSize += bytes.length;
         if (totalCachedSize <= ConfigManager.MAX_WMS_CACHE_SIZE) {
             // then add the new bytes[] to cached
-            this.responseCachingMap.put(queryString, response);
+            this.responseCachingMap.put(queryString, new Pair<> (wgs84BBox, response));
         }
 
+    }
+    
+    /**
+     * Any cached requests intersecting with an input WGS84 will need to be updated results from rasdaman
+     */
+    public void updateCachesIntersectingWGS84BBox(String inputLayerName, Wgs84BoundingBox inputWGS84BBox) throws PetascopeException, WMSException, Exception {
+        Iterator<Map.Entry<String, Pair<Wgs84BoundingBox, Response>>> iterator = responseCachingMap.entrySet().iterator();
+        
+        while (iterator.hasNext()) {
+            Map.Entry<String, Pair<Wgs84BoundingBox, Response>> entry = iterator.next();
+            Wgs84BoundingBox wgs84BBox = entry.getValue().fst;
+            String request = entry.getKey();
+            
+            if (wgs84BBox.intersects(inputWGS84BBox)) {
+                String[] keyValues = request.split("&");
+
+                if (this.contain(keyValues, inputLayerName)) {
+                    // A GetMap request which contains the removed layerName, then remove it from cache
+                    iterator.remove();
+                }
+            }
+        }
     }
 
     /**
@@ -86,7 +130,7 @@ public class WMSGetMapCachingService {
      * @return
      */
     public Response getResponseFromCache(String queryString) {
-        return this.responseCachingMap.get(queryString);
+        return this.responseCachingMap.get(queryString).snd;
     }
     
     /**
@@ -95,7 +139,7 @@ public class WMSGetMapCachingService {
      * @param layerName 
      */
     public void removeLayerGetMapInCache(String layerName) {
-        Iterator<Map.Entry<String, Response>> iterator = responseCachingMap.entrySet().iterator();
+        Iterator<Map.Entry<String, Pair<Wgs84BoundingBox, Response>>> iterator = responseCachingMap.entrySet().iterator();
         while (iterator.hasNext()) {
             String requestQuery = iterator.next().getKey();
             String[] keyValues = requestQuery.split("&");
@@ -140,7 +184,7 @@ public class WMSGetMapCachingService {
      * @param styleName 
      */
     public void removeStyleGetMapInCache(String layerName, String styleName) {
-        Iterator<Map.Entry<String, Response>> iterator = responseCachingMap.entrySet().iterator();
+        Iterator<Map.Entry<String, Pair<Wgs84BoundingBox, Response>>> iterator = responseCachingMap.entrySet().iterator();
         while (iterator.hasNext()) {
             String requestQuery = iterator.next().getKey();
             String[] keyValues = requestQuery.split("&");

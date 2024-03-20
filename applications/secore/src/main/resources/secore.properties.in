@@ -34,6 +34,9 @@ db_updates.path=@SHARE_DATA_DIR@/secore
 # Service URL, used in automatic substitution of URNs (urn:ogc:def) and URLs 
 # (http://localhost:8080/def). Set this parameter to your public service URL if 
 # SECORE is behind a proxy.
+# Note:  change only when running SECORE as a standalone web application.
+# When embedded in petascope, this setting is dictated by petascope_servlet_url in petascope.properties. 
+# e.g. petascope_servlet_url=http://your_domain.com/rasdaman/ows -> service.url=http://your_domain.com/rasdaman/def
 service.url=http://localhost:8080/def
 
 # Default codeSpace to be used for definitions constructed on the fly by 

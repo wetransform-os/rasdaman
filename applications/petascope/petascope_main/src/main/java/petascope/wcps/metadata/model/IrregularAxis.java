@@ -29,14 +29,12 @@ import java.util.List;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.PetascopeException;
 import static petascope.core.AxisTypes.T_AXIS;
+
 import petascope.util.ListUtil;
 import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.util.BigDecimalUtil;
 import petascope.util.BigDecimalUtil.BigDecimalComparator;
-import static petascope.util.BigDecimalUtil.MIN_SCALE_TO_CHECK_EPSILON;
-import petascope.util.JSONUtil;
-import petascope.util.StringUtil;
 import petascope.util.TimeUtil;
 import petascope.wcps.exception.processing.IrregularAxisTrimmingCoefficientNotFoundException;
 
@@ -46,29 +44,40 @@ import petascope.wcps.exception.processing.IrregularAxisTrimmingCoefficientNotFo
 public class IrregularAxis extends Axis {
 
     // list of coefficients for irregular axis
+
     private List<BigDecimal> directPositions;
-    
     private List<BigDecimal> originalDirectPositions;
-    
+
+    private List<BigDecimal> directPositionsAreaOfValidityStarts;
+    private List<BigDecimal> originalDirectPositionsAreaOfValidityStarts;
+
+    private List<BigDecimal> directPositionsAreaOfValidityEnds;
+    private List<BigDecimal> originalDirectPositionsAreaOfValidityEnds;
+
     public IrregularAxis() {
         
     }
-    
-    public IrregularAxis(String label, NumericSubset geoBounds, NumericSubset originalGridBounds, NumericSubset gridBounds,
-            String crsUri, CrsDefinition crsDefinition,
-            String axisType, String axisUoM,
-            int rasdamanOrder, BigDecimal origin, BigDecimal resolution, List<BigDecimal> directPositions) {
-        this(label, geoBounds, originalGridBounds, gridBounds, crsUri, crsDefinition, axisType, axisUoM, rasdamanOrder, origin, resolution, directPositions, null);
-    }
 
     public IrregularAxis(String label, NumericSubset geoBounds, NumericSubset originalGridBounds, NumericSubset gridBounds,
-            String crsUri, CrsDefinition crsDefinition,
-            String axisType, String axisUoM,
-            int rasdamanOrder, BigDecimal origin, BigDecimal resolution, List<BigDecimal> directPositions, NumericSubset originalGeoBounds) {
+             String crsUri, CrsDefinition crsDefinition,
+             String axisType, String axisUoM,
+             int rasdamanOrder, BigDecimal origin, BigDecimal resolution,
+             List<BigDecimal> directPositions,
+             List<BigDecimal> directPositionsAreaOfValidityStarts,
+             List<BigDecimal> directPositionsAreaOfValidityEnds,
+             NumericSubset originalGeoBounds) {
         super(label, geoBounds, originalGridBounds, gridBounds, crsUri, crsDefinition, axisType, axisUoM, rasdamanOrder, origin, resolution, originalGeoBounds);
         this.directPositions = directPositions;
+
+        this.directPositionsAreaOfValidityStarts = directPositionsAreaOfValidityStarts;
+        this.directPositionsAreaOfValidityEnds = directPositionsAreaOfValidityEnds;
+
         this.setOriginalDirectPositions();
+        this.setOriginalDirectPositionsAreaOfValidityStarts();
+        this.setOriginalDirectPositionsAreaOfValidityEnds();
     }
+
+    // ---------------- direct positions
 
     public List<BigDecimal> getDirectPositions() {
         return directPositions;
@@ -81,32 +90,79 @@ public class IrregularAxis extends Axis {
     public List<BigDecimal> getOriginalDirectPositions() {
         return this.originalDirectPositions;
     }
-    
-    public List<String> getOriginalDirectPositionsAsString() {
-        List<String> results = new ArrayList<>();
-        for (BigDecimal value : this.originalDirectPositions) {
-            results.add(value.toPlainString());
-        }
-        
-        return results;
-    }
-    
+
     public void setOriginalDirectPositions() {
         this.originalDirectPositions = new ArrayList<>();
+
         for (BigDecimal value : this.directPositions) {
-            this.originalDirectPositions.add(new BigDecimal(value.toPlainString()));
+            this.originalDirectPositions.add(value);
+        }
+
+    }
+
+    // --------------- direct positions area of validity start
+    
+
+    public List<BigDecimal> getDirectPositionsAreaOfValidityStarts() {
+        return this.directPositionsAreaOfValidityStarts;
+    }
+
+    public void setDirectPositionsAreaOfValidityStarts(List<BigDecimal> directPositionsAreaOfValidityStarts) {
+        this.directPositionsAreaOfValidityStarts = directPositionsAreaOfValidityStarts;
+    }
+
+    public List<BigDecimal> getOriginalDirectPositionsAreaOfValidityStarts() {
+        return this.originalDirectPositionsAreaOfValidityStarts;
+    }
+
+    public void setOriginalDirectPositionsAreaOfValidityStarts() {
+        this.originalDirectPositionsAreaOfValidityStarts = new ArrayList<>();
+
+        if (this.directPositionsAreaOfValidityStarts != null) {
+            for (BigDecimal value : this.directPositionsAreaOfValidityStarts) {
+                this.originalDirectPositionsAreaOfValidityStarts.add(value);
+            }
         }
     }
+
+
+    // --------------- direct positions area of validity end
+
+
+    public List<BigDecimal> getDirectPositionsAreaOfValidityEnds() {
+        return this.directPositionsAreaOfValidityEnds;
+    }
+
+    public void setDirectPositionsAreaOfValidityEnds(List<BigDecimal> directPositionsAreaOfValidityEnds) {
+        this.directPositionsAreaOfValidityEnds = directPositionsAreaOfValidityEnds;
+    }
+
+    public List<BigDecimal> getOriginalDirectPositionsAreaOfValidityEnds() {
+        return this.originalDirectPositionsAreaOfValidityEnds;
+    }
+
+    public void setOriginalDirectPositionsAreaOfValidityEnds() {
+        this.originalDirectPositionsAreaOfValidityEnds = new ArrayList<>();
+
+        if (directPositionsAreaOfValidityEnds != null) {
+            for (BigDecimal value : this.directPositionsAreaOfValidityEnds) {
+                this.originalDirectPositionsAreaOfValidityEnds.add(value);
+            }
+        }
+    }
+
+    // ---------------------- Start / End Coefficients calculate main functions
+
 
     /**
      * Get the fixed first slice (0) imported coefficient's index from list of directPositions
      */
     @JsonIgnore
     public int getIndexOfCoefficientZero() {
-        int i = Collections.binarySearch(this.directPositions, BigDecimal.ZERO);        
+        int i = Collections.binarySearch(this.directPositions, BigDecimal.ZERO);
         return i;
     }
-    
+
     /**
      * Get the index of a given coefficient from the list of original coefficients
      */
@@ -132,7 +188,7 @@ public class IrregularAxis extends Axis {
      */
     @JsonIgnore
     public int getIndexOfCoefficientZeroFromOriginalDirectPositions() {
-        int i = Collections.binarySearch(this.originalDirectPositions, BigDecimal.ZERO);        
+        int i = Collections.binarySearch(this.originalDirectPositions, BigDecimal.ZERO);
         return i;
     }
     
@@ -161,35 +217,21 @@ public class IrregularAxis extends Axis {
         BigDecimal result = firstCoefficient.compareTo(lastCoefficient) < 0 ? firstCoefficient : lastCoefficient;
         return result;            
     }
-    
+
     /**
-     * Return the bound number of first imported coverage slice (coefficient zero)
-     * in direct positions list.
-     * 
-     * NOTE: This one is used as the anchor when needs to normalize other coefficients (greater than or lower than).
+    // NOTE: very important to know the coefficient zero number
+    // (e.g. "2001-01-01" not the adjusted lower bound "2000-01-01" from the areas of validity start)
      */
-    @JsonIgnore
-    public BigDecimal getCoefficientZeroBoundNumber() throws PetascopeException {        
-        int coefficientZeroIndex = this.getIndexOfCoefficientZero();
-        BigDecimal lowestCoefficient = this.directPositions.get(0);
-        // Distance value between lowest coefficient and coeffcient zero
-        BigDecimal distanceValue = this.directPositions.get(coefficientZeroIndex).subtract(lowestCoefficient);
-        BigDecimal coefficientZeroBoundNumber = this.getGeoBounds().getLowerLimit().add(distanceValue.multiply(this.getResolution()));
-        
+    public BigDecimal getCoefficientZeroValueAsNumber() {
+        BigDecimal lowestCoefficient = this.getLowestCoefficientValue();
+        if (this.originalDirectPositionsAreaOfValidityStarts != null && !this.originalDirectPositionsAreaOfValidityStarts.isEmpty()) {
+            lowestCoefficient = this.originalDirectPositionsAreaOfValidityStarts.get(0);
+        }
+
+        BigDecimal coefficientZeroBoundNumber = this.getOriginalGeoBounds().getLowerLimit().add(lowestCoefficient.abs());
         return coefficientZeroBoundNumber;
     }
-    
-    @JsonIgnore
-    public BigDecimal getCoefficientZeroBoundNumberFromOriginalDirectPositions() throws PetascopeException {        
-        int coefficientZeroIndex = this.getIndexOfCoefficientZeroFromOriginalDirectPositions();
-        BigDecimal lowestCoefficient = this.originalDirectPositions.get(0);
-        // Distance value between lowest coefficient and coeffcient zero
-        BigDecimal distanceValue = this.originalDirectPositions.get(coefficientZeroIndex).subtract(lowestCoefficient);
-        BigDecimal coefficientZeroBoundNumber = this.getOriginalGeoBounds().getLowerLimit().add(distanceValue.multiply(this.getResolution()));
-        
-        return coefficientZeroBoundNumber;
-    }
-    
+
     /**
      * From the index of grid bound in list of coefficients, find out the correspond
      * grid bound in rasdaman grid axis. e.g: a list of coefficients: 
@@ -258,7 +300,16 @@ public class IrregularAxis extends Axis {
         
         return new Pair<>(gridLowerBound, gridUpperBound);
     }
-    
+
+
+    /**
+     * In this case element 0 is larger than other elements,
+     * this is only the case when the normal direct positions are flipped
+     */
+    public boolean isFlippedCoefficients() {
+        boolean result = this.getDirectPositions().get(0).compareTo(this.getDirectPositions().get(this.directPositions.size() - 1)) > 0;
+        return result;
+    }
 
     /**
      *
@@ -273,50 +324,100 @@ public class IrregularAxis extends Axis {
      */
     @JsonIgnore
     public Pair<Long, Long> getGridIndices(BigDecimal minInput, BigDecimal maxInput) throws PetascopeException {
+
+        boolean needToSwapBounds = this.isFlippedCoefficients();
         
-        BigDecimal coefficientLowerBound = this.directPositions.get(0);
-        BigDecimal coefficientUpperBound = this.directPositions.get(this.directPositions.size() - 1);
-        
-        boolean needToSwapBounds = false;
-        
-        if (coefficientLowerBound.compareTo(coefficientUpperBound) > 0) {
-            BigDecimal tmp = coefficientLowerBound;
-            coefficientLowerBound = coefficientUpperBound;
-            coefficientUpperBound = tmp;
-            
-            needToSwapBounds = true;
+        BigDecimal smallestCoefficientValueTmp = this.originalDirectPositions.get(0);
+        BigDecimal biggestCoefficientValueTmp = this.originalDirectPositions.get(this.originalDirectPositions.size() - 1);
+
+        if (!this.directPositionsAreaOfValidityStarts.isEmpty()) {
+            smallestCoefficientValueTmp = this.directPositionsAreaOfValidityStarts.get(0);
         }
-        
-        
-        if (minInput.compareTo(coefficientLowerBound) < 0) {
-            throw new PetascopeException(ExceptionCode.InternalComponentError, "Input coefficient lower bound '" + minInput 
-                                                    + "' is lower than the direct positions' lower bound '" + coefficientLowerBound.toPlainString() 
-                                                    + "' of irregular axis '" + this.getLabel() + "'.");
-        } else if (maxInput.compareTo(coefficientUpperBound.add(BigDecimalUtil.COEFFICIENT_DECIMAL_EPSILON)) > 0) {
+        if (!this.directPositionsAreaOfValidityEnds.isEmpty()) {
+            biggestCoefficientValueTmp = this.directPositionsAreaOfValidityEnds.get(this.directPositionsAreaOfValidityEnds.size() - 1);
+        }
+
+        BigDecimal smallestCoefficientValue = smallestCoefficientValueTmp;
+        BigDecimal biggestCoefficientValue = biggestCoefficientValueTmp.subtract(smallestCoefficientValueTmp);
+
+        if (minInput.compareTo(smallestCoefficientValue) < 0) {
+            throw new PetascopeException(ExceptionCode.InternalComponentError, "Input coefficient lower bound '" + minInput
+                    + "' is lower than the direct positions' lower bound '" + smallestCoefficientValue.toPlainString()
+                    + "' of irregular axis '" + this.getLabel() + "'.");
+        } else if (maxInput.compareTo(biggestCoefficientValue) > 0) {
             throw new PetascopeException(ExceptionCode.InternalComponentError, "Input upper bound '" + maxInput
-                                                    + "' is greater than the direct positions' upper bound '" + coefficientUpperBound 
-                                                    + "' of irregular axis '" + this.getLabel() + "'.");
+                    + "' is greater than the direct positions' upper bound '" + biggestCoefficientValue
+                    + "' of irregular axis '" + this.getLabel() + "'.");
+        }
+
+        if (needToSwapBounds) {
+            smallestCoefficientValue = biggestCoefficientValue;
         }
 
         Long minIndex = null;
         Long maxIndex = null;
         boolean foundMinIndex = false;  
         
+        
+        minIndex = BigDecimalUtil.getExactCoefficientIndex(directPositions, minInput);
+        maxIndex = BigDecimalUtil.getExactCoefficientIndex(directPositions, maxInput);
+        
+        if (minIndex != null && maxIndex != null) {        
+            return new Pair<> (minIndex, maxIndex);
+        }
+
         if (!needToSwapBounds) {
             // normal list of coefficients
             for (long i = 0; i < directPositions.size(); i++) {
                 BigDecimal coefficient = directPositions.get((int) i);
-                // find the min number which >= minInput
-                if (!foundMinIndex && BigDecimalUtil.greaterThanOrEqual(coefficient, minInput)) {
-                    minIndex = i;
-                    foundMinIndex = true;
+                BigDecimal coefficientStart = coefficient;
+                BigDecimal coefficientEnd = coefficient;
+
+                if (!this.directPositionsAreaOfValidityStarts.isEmpty()) {
+                    coefficientStart = directPositionsAreaOfValidityStarts.get((int) i);
+                    coefficientEnd = directPositionsAreaOfValidityEnds.get((int) i);
                 }
-                // find the max number which <= maxInput (as it is ascending list, so don't stop until coefficent > maxInput
-                if (BigDecimalUtil.smallerThanOrEqual(coefficient, maxInput)) {
-                    maxIndex = i;
+
+                if (!this.directPositionsAreaOfValidityStarts.isEmpty()) {
+                    // coefficients has areasOfValidity
+                    if (!foundMinIndex && BigDecimalUtil.smallerThanOrEqual(coefficientStart, minInput) &&
+                            BigDecimalUtil.greaterThanOrEqual(coefficientEnd, minInput)) {
+                        foundMinIndex = true;
+                        minIndex = i;
+                    } else if (BigDecimalUtil.greaterThanOrEqual(minInput, coefficientStart)) {
+                        // NOTE: In case min input does not touch current coefficient's areas of validity
+                        // but it is greater than the current coefficient's start value -> next grid point is selected
+                        minIndex = i + 1;
+                    }
+
+                    if (BigDecimalUtil.smallerThanOrEqual(coefficientStart, maxInput) &&
+                            BigDecimalUtil.greaterThanOrEqual(coefficientEnd, maxInput)) {
+                        maxIndex = i;
+                    } else if (BigDecimalUtil.smallerThanOrEqual(maxInput, coefficientStart)) {
+                        // NOTE: In case max input does not touch current coefficient's areas of validity
+                        // but it is smaller than the current coefficient's start value -> previous grid point is selected
+                        maxIndex = i - 1;
+                    }
+                } else {
+                    // coefficient has no areasOfValidity
+                    // find the min number which >= minInput
+                    if (!foundMinIndex
+                            && BigDecimalUtil.greaterThanOrEqual(coefficient, minInput)
+                    ) {
+                        minIndex = i;
+                        foundMinIndex = true;
+                    }
+
+
+                    // find the max number which <= maxInput (as it is ascending list, so don't stop until coefficient > maxInput
+                    if (BigDecimalUtil.smallerThanOrEqual(coefficient, maxInput)) {
+                        maxIndex = i;
+                    }
+
                 }
+
                 // stop as it should find the minIndex and maxIndex already
-                if (coefficient.compareTo(maxInput) >= 0) {
+                if (coefficientEnd.compareTo(maxInput) >= 0) {
                     break;
                 }
             }
@@ -329,7 +430,7 @@ public class IrregularAxis extends Axis {
                     minIndex = i;
                     foundMinIndex = true;
                 }
-                // find the max number which <= maxInput (as it is ascending list, so don't stop until coefficent > maxInput
+                // find the max number which <= maxInput (as it is ascending list, so don't stop until coefficient > maxInput
                 if (BigDecimalUtil.smallerThanOrEqual(coefficient, maxInput)) {
                     maxIndex = i;
                 }
@@ -350,8 +451,9 @@ public class IrregularAxis extends Axis {
      *
      */
     @JsonIgnore
-    public List<BigDecimal> getAllCoefficientsInInterval(BigDecimal minInput, BigDecimal maxInput) throws PetascopeException {
-        // Find the min and max grid incides in the List of directPositions
+    private List<BigDecimal> getAllCoefficientsInInterval(BigDecimal minInput, BigDecimal maxInput) throws PetascopeException {
+        
+        // Find the min and max grid indices in the List of directPositions
         Pair<Long, Long> gridIndices = this.getGridIndices(minInput, maxInput);
         if (gridIndices.fst.compareTo(gridIndices.snd) > 0) {
             throw new IrregularAxisTrimmingCoefficientNotFoundException(this.getLabel(), minInput.toPlainString(), maxInput.toPlainString());
@@ -368,136 +470,102 @@ public class IrregularAxis extends Axis {
     }
 
     /**
-     * Return the list of raw coefficients in a String, raw means dateTime no
-     * transform to dateTime format e.g: 0 3 5 8
-     *
-     * @return
+     * Collect only coefficients from directPositions which minInput <= coefficients <= maxInput
+     * and coefficient starts / coefficient ends from areas of validity
      */
     @JsonIgnore
-    public String getRawCoefficients() throws PetascopeException {
-        List<BigDecimal> adjustedDirectPositions = this.adjustCoefficientsForPresentation(directPositions);
-        String result = ListUtil.join(adjustedDirectPositions, " ");
-        return result;
+    public void setCoefficientsAndAreasOfValidityBetweenInterval(BigDecimal minInput, BigDecimal maxInput) throws PetascopeException {
+        // Find the min and max grid indices in the List of directPositions
+        Pair<Long, Long> gridIndices = this.getGridIndices(minInput, maxInput);
+        if (gridIndices.fst.compareTo(gridIndices.snd) > 0) {
+            throw new IrregularAxisTrimmingCoefficientNotFoundException(this.getLabel(), minInput.toPlainString(), maxInput.toPlainString());
+        }
+
+        Long firstIndex = gridIndices.fst;
+        Long secondIndex = gridIndices.snd;
+
+        List<BigDecimal> collectedCoefficientsTmp = new ArrayList<>();
+        List<BigDecimal> collectedDirectPositionsAreaOfValidityStartsTmp = new ArrayList<>();
+        List<BigDecimal> collectedDirectPositionsAreaOfValidityEndsTmp = new ArrayList<>();
+
+        for (Long i = firstIndex; i <= secondIndex; i++) {
+            BigDecimal coefficient = this.directPositions.get((int)(i.intValue()));
+            collectedCoefficientsTmp.add(coefficient);
+
+            if (this.directPositionsAreaOfValidityStarts != null && !this.directPositionsAreaOfValidityStarts.isEmpty()) {
+                collectedDirectPositionsAreaOfValidityStartsTmp.add(this.directPositionsAreaOfValidityStarts.get(i.intValue()));
+                collectedDirectPositionsAreaOfValidityEndsTmp.add(this.directPositionsAreaOfValidityEnds.get(i.intValue()));
+            }
+        }
+
+        this.directPositions = collectedCoefficientsTmp;
+        this.directPositionsAreaOfValidityStarts = collectedDirectPositionsAreaOfValidityStartsTmp;
+        this.directPositionsAreaOfValidityEnds = collectedDirectPositionsAreaOfValidityEndsTmp;
     }
-    
+
+
     /**
      * In case of irregular axis is imported with reversed values (e.g: 10000 7000 50000 0)
      * then, it the coefficient values should be shown by these values as well.
      */
-    private List<BigDecimal> adjustCoefficientsForPresentation(List<BigDecimal> coefficients) throws PetascopeException {
-        List<BigDecimal> adjustedDirectPositions = new ArrayList<>();
-        
+    private List<String> adjustCoefficientsForPresentation(List<BigDecimal> coefficients) throws PetascopeException {
+        List<String> results = new ArrayList<>();
+
         for (int i = 0; i < coefficients.size(); i++) {
-            adjustedDirectPositions.add(this.getCoefficientZeroBoundNumberFromOriginalDirectPositions().add(coefficients.get(i)));
+            String numberStr = BigDecimalUtil.stripDecimalZeros(this.getCoefficientZeroValueAsNumber().add(coefficients.get(i))).toPlainString();
+            results.add(numberStr);
         }
-        
-        return adjustedDirectPositions;
+
+        return results;
     }
 
     /**
      * Return the concatenated string of a list of translated coefficients (DateTime axis) or raw
      * coefficients (non-datetime axis)
-     *
-     * @return
-     * @throws PetascopeException
      */
-    public String getRepresentationCoefficients() throws PetascopeException {
-        String coefficients = "";
-
-        // date time axis, need to translate from raw coefficients to datetime format based on CRS origin
-        if (this.getAxisType().equals(T_AXIS)) {
-            List<String> translatedCoefficients = TimeUtil.listValuesToISODateTime(this.getGeoBounds().getLowerLimit(),
-                    directPositions, this.getCrsDefinition());
-            coefficients = ListUtil.join(translatedCoefficients, " ");
-        } else {
-            // non date time axis
-            coefficients = this.getRawCoefficients();
-        }
-
-        return coefficients;
+    public String getRepresentationCoefficients(String delimiterCharacter) throws PetascopeException {
+        String coefficientsStr = ListUtil.join(this.getRepresentationCoefficientsList(), delimiterCharacter);
+        return coefficientsStr;
     }
-    
-    public List<String> getCoefficientValues() throws PetascopeException {
-        List<String> coefficients = new ArrayList<>();
 
-        // date time axis, need to translate from raw coefficients to datetime format based on CRS origin
-        if (this.getAxisType().equals(T_AXIS)) {
-            List<String> timeValues = TimeUtil.listValuesToISODateTime(this.getGeoBounds().getLowerLimit(),
-                    directPositions, this.getCrsDefinition());
-            
-            for (String value : timeValues) {
-                coefficients.add(StringUtil.stripQuotes(value));
-            }
-        } else {
-            // non date time axis
-            List<BigDecimal> adjustedDirectPositions = this.adjustCoefficientsForPresentation(directPositions);
-            for (BigDecimal value : adjustedDirectPositions) {
-                coefficients.add(BigDecimalUtil.stripDecimalZeros(value).toPlainString());
-            }
-        }
-
-        return coefficients;
-    }
-    
     /**
      * Return the list of translated coefficients (DateTime axis) or raw
      * coefficients (non-datetime axis)
      */
     public List<String> getRepresentationCoefficientsList() throws PetascopeException  {
-        
-        List<String> coefficients = new ArrayList<>();
-        
+        List<String> results = new ArrayList<>();
+
+        BigDecimal lowerLimit = this.getGeoBounds().getLowerLimit();
+
+        BigDecimal smallestCoefficient = this.getDirectPositions().get(0);
+        if (this.directPositionsAreaOfValidityStarts != null && !this.directPositionsAreaOfValidityStarts.isEmpty()) {
+            BigDecimal smallestCoefficientStart = this.directPositionsAreaOfValidityStarts.get(0);
+            BigDecimal distance = smallestCoefficient.subtract(smallestCoefficientStart);
+            lowerLimit = lowerLimit.add(distance);
+        }
+
         // date time axis, need to translate from raw coefficients to datetime format based on CRS origin
         if (this.getAxisType().equals(T_AXIS)) {
-            List<String> translatedCoefficients = TimeUtil.listValuesToISODateTime(this.getGeoBounds().getLowerLimit(),
+            results = TimeUtil.listValuesToISODateTime(lowerLimit,
+                    directPositions.get(0),
                     directPositions, this.getCrsDefinition());
-            
-            coefficients.addAll(translatedCoefficients);
         } else {
-            List<BigDecimal> adjustedDirectPositions = this.adjustCoefficientsForPresentation(this.directPositions);
-            
             // non date time axis
-            for (BigDecimal coefficient : adjustedDirectPositions) {
-                coefficients.add(BigDecimalUtil.stripDecimalZeros(coefficient).toPlainString());
-            }            
+            results = this.adjustCoefficientsForPresentation(directPositions);
         }
-        
-        return coefficients;
+
+        return results;
 
     }
-    
-    /**
-     * Return the list of all original coefficients (DateTime axis) or raw
-     * coefficients (non-datetime axis)
-     */
-    public List<String> getRepresentationOriginalCoefficientsList() throws PetascopeException  {
-        
-        List<String> coefficients = new ArrayList<>();
-        
-        // date time axis, need to translate from raw coefficients to datetime format based on CRS origin
-        if (this.getAxisType().equals(T_AXIS)) {
-            List<String> translatedCoefficients = TimeUtil.listValuesToISODateTime(this.getGeoBounds().getLowerLimit(),
-                    this.originalDirectPositions, this.getCrsDefinition());
-            
-            coefficients.addAll(translatedCoefficients);
-        } else {
-            List<BigDecimal> adjustedDirectPositions = this.adjustCoefficientsForPresentation(this.originalDirectPositions);
-            
-            // non date time axis
-            for (BigDecimal coefficient : adjustedDirectPositions) {
-                coefficients.add(BigDecimalUtil.stripDecimalZeros(coefficient).toPlainString());
-            }            
-        }
-        
-        return coefficients;
-
-    }    
 
     @Override
     public IrregularAxis clone() {
         return new IrregularAxis(getLabel(), getGeoBounds(), getOriginalGridBounds(), getGridBounds(),
                 getNativeCrsUri(), getCrsDefinition(), getAxisType(), getAxisUoM(),
-                getRasdamanOrder(), getOriginalOrigin(), getResolution(), getDirectPositions(), getOriginalGeoBounds());
+                getRasdamanOrder(), getOriginalOrigin(), getResolution(), getDirectPositions(),
+                getDirectPositionsAreaOfValidityStarts(),
+                getDirectPositionsAreaOfValidityEnds(),
+                getOriginalGeoBounds());
     }
 
 }

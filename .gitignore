@@ -7,6 +7,7 @@ autom4te.cache
 *.o
 *.a
 *.patch
+*.BAK
 secore.properties
 petascope.properties
 log4j.properties
@@ -213,7 +214,7 @@ config.sub
 phantomjs
 phantomjsdriver.log
 test_web_interfaces-spring-boot.jar
-systemtest/conf/test.cfg
+systemtest/util/test.cfg
 *.resume.json
 
 #core

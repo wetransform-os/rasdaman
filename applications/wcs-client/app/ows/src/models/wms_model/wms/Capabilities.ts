@@ -41,13 +41,18 @@ module wms {
         // If a layer is blacklisted, only petascope admin user can see it from GetCapabilities
         public showBlackListedColumn:boolean;
 
+        public totalLocalLayerSizesInBytes:number = 0;
+        public totalRemoteLayerSizesInBytes:number = 0;       
+        public totalLayerSizesInBytes:number = 0; 
+
         public totalLocalLayerSizes:String;
         public totalRemoteLayerSizes:String;
         public totalLayerSizes:String;
         public numberOfLayers:String;
 
         // source is the JSON object parsed from gmlDocument (a full XML result of WMS GetCapabilities request)
-        public constructor(source:rasdaman.common.ISerializedObject, gmlDocument:string) {
+        public constructor(serializedObjectFactory:rasdaman.common.SerializedObjectFactory,
+                           source:rasdaman.common.ISerializedObject, gmlDocument:string) {
             this.gmlDocument = gmlDocument;
 
             rasdaman.common.ArgumentValidator.isNotNull(source, "source");       
@@ -95,16 +100,19 @@ module wms {
                 var layerObjs = capabilityObj.getChildAsSerializedObject("Layer").getChildrenAsSerializedObjects("Layer");
                 this.layers = [];
 
-                let totalLocalLayerSizesInBytes = 0;
-                let totalRemoteLayerSizesInBytes = 0;
-                let totalLayerSizesInBytes = 0;
-
                 layerObjs.forEach(obj => {
                     var name = obj.getChildAsSerializedObject("Name").getValueAsString();
                     var title = obj.getChildAsSerializedObject("Title").getValueAsString();
                     var abstract = obj.getChildAsSerializedObject("Abstract").getValueAsString();
 
-                    var customizedMetadata = this.parseLayerCustomizedMetadata(obj);
+                    const startingElement = "<ows:AdditionalParameters";
+                    const endingElement = "</ows:AdditionalParameters>";
+                    let rasdamanAdditionalMetadataStr = abstract.substring(abstract.indexOf(startingElement), abstract.indexOf(endingElement) + endingElement.length).trim();
+
+                    var gmlDocument = new rasdaman.common.ResponseDocument(rasdamanAdditionalMetadataStr, rasdaman.common.ResponseDocumentType.XML);
+                    let addionalParametersSource = serializedObjectFactory.getSerializedObject(gmlDocument);
+
+                    var customizedMetadata = this.parseLayerCustomizedMetadata(addionalParametersSource);
 
                     if (customizedMetadata != null) {
                         if (customizedMetadata.hostname != null) {
@@ -116,9 +124,9 @@ module wms {
                         }
 
                         if (customizedMetadata.localCoverageSizeInBytes > 0) {
-                            totalLocalLayerSizesInBytes += customizedMetadata.localCoverageSizeInBytes;
+                            this.totalLocalLayerSizesInBytes += customizedMetadata.localCoverageSizeInBytes;
                         } else {
-                            totalRemoteLayerSizesInBytes += customizedMetadata.remoteCoverageSizeInBytes;
+                            this.totalRemoteLayerSizesInBytes += customizedMetadata.remoteCoverageSizeInBytes;
                         }     
 
                         if (customizedMetadata.isBlackedList != null) {
@@ -152,12 +160,12 @@ module wms {
                                                    crs, minx, miny, maxx, maxy));
                 });
 
-                totalLayerSizesInBytes += totalLocalLayerSizesInBytes + totalRemoteLayerSizesInBytes;
+                this.totalLayerSizesInBytes += this.totalLocalLayerSizesInBytes + this.totalRemoteLayerSizesInBytes;
 
                 // Convert Bytes to GBs for total sizes of layers
-                this.totalLocalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalLocalLayerSizesInBytes);
-                this.totalRemoteLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalRemoteLayerSizesInBytes);
-                this.totalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(totalLayerSizesInBytes);
+                this.totalLocalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLocalLayerSizesInBytes);
+                this.totalRemoteLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalRemoteLayerSizesInBytes);
+                this.totalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLayerSizesInBytes);
                 this.numberOfLayers = layerObjs.length.toString();
             }
         }
@@ -166,11 +174,11 @@ module wms {
          * Parse layer's customized metadata (if any)
          */
         private parseLayerCustomizedMetadata(source:rasdaman.common.ISerializedObject) {
-            let childElement = "ows:AdditionalParameters";
+            let childElement = "ows:AdditionalParameter";
             let customizedMetadata:ows.CustomizedMetadata = null;
 
             if (source.doesElementExist(childElement)) {
-                customizedMetadata = new ows.CustomizedMetadata(source.getChildAsSerializedObject(childElement));
+                customizedMetadata = new ows.CustomizedMetadata(source);
             }
 
             return customizedMetadata;            
@@ -190,6 +198,22 @@ module wms {
             }    
             
             return null;
+        }
+
+        /**
+         * Invoked when a layer is deleted         
+         */
+        public recalculateTotalAndSizes(deletedLayer:wms.Layer) {
+            this.totalLocalLayerSizesInBytes -= deletedLayer.customizedMetadata.localCoverageSizeInBytes;
+            this.totalRemoteLayerSizesInBytes -= deletedLayer.customizedMetadata.remoteCoverageSizeInBytes;
+            this.totalLayerSizesInBytes = this.totalLocalLayerSizesInBytes + this.totalRemoteLayerSizesInBytes;
+
+            // Convert Bytes to GBs for total sizes of available layers
+            this.totalLocalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLocalLayerSizesInBytes);
+            this.totalRemoteLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalRemoteLayerSizesInBytes);
+            this.totalLayerSizes = ows.CustomizedMetadata.convertNumberOfBytesToHumanReadable(this.totalLayerSizesInBytes);
+            this.numberOfLayers = this.layers.length.toString();               
+         
         }
     }
 }

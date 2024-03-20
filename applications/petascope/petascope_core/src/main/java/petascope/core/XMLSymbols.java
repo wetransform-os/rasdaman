@@ -61,10 +61,17 @@ public interface XMLSymbols {
     String PREFIX_SWE = "swe";
     String PREFIX_OWS = "ows";
     String PREFIX_WCS = "wcs";
+
+    // WCS 2.1.0
+    // example: https://schemas.opengis.net/wcs/2.1/gml/examples/GeneralGridCoverage/responseDescribeCoverage.xml
+    String PREFIX_WCS_21 = "wcs21";
+    String PREFIX_WCS_20 = "wcs20";
+
     String PREFIX_WSDL = "wsdl";
     String PREFIX_XSI = "xsi";
     String PREFIX_RASDAMAN = "rasdaman";
     String PREFIX_XLINK = "xlink";
+    String PREFIX_XLINK_HREF = "xlink:href";
     // Used in CRS-Extensions
     String PREFIX_CRS = "crs";
     String PREFIX_PROCESS_COVERAGE = "proc";
@@ -82,14 +89,17 @@ public interface XMLSymbols {
     // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     String NAMESPACE_CIS_11 = "http://www.opengis.net/cis/1.1/gml";
     String NAMESPACE_XML = "http://www.w3.org/XML/1998/namespace";
+    String NAMESPACE_GML_WMTS = "http://www.opengis.net/gml";
     String NAMESPACE_GML = "http://www.opengis.net/gml/3.2";
     String NAMESPACE_GMLCOV = "http://www.opengis.net/gmlcov/1.0";
     String NAMESPACE_RASDAMAN = "http://www.rasdaman.org";
     String NAMESPACE_GMLRGRID = "http://www.opengis.net/gml/3.3/rgrid";
     String NAMESPACE_SWE = "http://www.opengis.net/swe/2.0";
+    
+    String NAMESPACE_OWS_11 = "http://www.opengis.net/ows/1.1";
     String NAMESPACE_OWS = "http://www.opengis.net/ows/2.0";
     String NAMESPACE_WCS_20 = "http://www.opengis.net/wcs/2.0";
-    String NAMESPACE_WCS_21 = "http://www.opengis.net/wcs/2.1";
+    String NAMESPACE_WCS_21 = "http://www.opengis.net/wcs/2.1/gml";
     // nu xom to get the child element must need the namespace beside the nu
     String NAMESPACE_WCPS = "http://www.opengis.net/wcps/1.0";
     String NAMESPACE_WMS = "http://www.opengis.net/wms";
@@ -127,6 +137,7 @@ public interface XMLSymbols {
     String LABEL_COVERAGE_DESCRIPTIONS = "CoverageDescriptions";
     String LABEL_COVERAGE_DESCRIPTION = "CoverageDescription";
     String LABEL_COVERAGE_FUNCTION = "coverageFunction";
+    String LABEL_COVERAGE_FUNCTION_CIS_111 = "CoverageFunction";
     String LABEL_IRREGULAR_AXIS_COEFFICIENT = "C";
     String LABEL_DATABLOCK = "DataBlock";
     String LABEL_DIMENSION = "Dimension";
@@ -249,6 +260,7 @@ public interface XMLSymbols {
     String LABEL_WMTS_IDENTIFIER = "Identifier";
     String LABEL_WMTS_DEFAULT = "Default";
     
+    String LABEL_WMTS_CONSTRAINT = "Constraint";
     String LABEL_WMTS_VALUE = "Value";
     
     String LABEL_WMTS_WGS84_BOUNDING_BOX = "WGS84BoundingBox";
@@ -441,7 +453,9 @@ public interface XMLSymbols {
     String LABEL_NILVALUES_ASSOCIATION_ROLE = "nilValues";
     String LABEL_NILVALUES = "NilValues";
     String LABEL_QUANTITY = "Quantity";
+    String LABEL_CATEGORY = "Category";
     String LABEL_UOM = "uom";
+    String LABEL_CODE_SPACE = "codeSpace";
 
     // contrain with AllowedValues
     String LABEL_CONSTRAINT_ASSOCIATE_ROLE = "Constraint";
@@ -499,7 +513,7 @@ public interface XMLSymbols {
     String LABEL_WMS_DEFAULT_STYLE = "default";
     
     // CIS 1.1
-    // -- partitoned coverage
+    // -- partitioned coverage
     String LABEL_PARTITION_SET = "PartitionSet";
     String LABEL_PARTITION = "Partition";
     String LABEL_COVERAGE_REF = "CoverageRef";
@@ -533,6 +547,7 @@ public interface XMLSymbols {
     String ATT_CODESPACE = "codeSpace";
     String ATT_LANG = "lang";
     String ATT_HREF = "href";
+    String ATT_WMS_TYPE_VALUE = "simple";
     
     String ATT_LOWER_BOUND = "lowerBound";
     String ATT_UPPER_BOUND = "upperBound";
@@ -586,6 +601,9 @@ public interface XMLSymbols {
     
     String ATT_METADATA_URL = "metadataURL";
     
+    String ATT_VALUE_GET_ENCODING = "GetEncoding";
+    String ATT_VALUE_POST_ENCODING = "PostEncoding";
+    
     
     // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
@@ -604,13 +622,21 @@ public interface XMLSymbols {
     String SCHEMA_LOCATION_GMLRGRID = "http://schemas.opengis.net/gml/3.3/referencableGrid.xsd";
     
     String SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES = "http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsGetCapabilities.xsd";
-    String SCHEMA_LOCATION_WCS_21_GET_CAPABILITIES = "http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsGetCapabilities.xsd";
+
+    // NOTE: for WCS 2.1.0 this schema location for GetCapabilities doesn't exist, hence, just use 2.0.1 for now
+    // String SCHEMA_LOCATION_WCS_21_GET_CAPABILITIES = "http://www.opengis.net/wcs/2.1/gml https://schemas.opengis.net/wcs/2.1/gml/wcsAll.xsd";
+    String SCHEMA_LOCATION_WCS_21_GET_CAPABILITIES = SCHEMA_LOCATION_WCS_20_GET_CAPABILITIES;
     
     String SCHEMA_LOCATION_WCS_CIS_10_COVERAGE_DESCRIBE_COVERAGE = "http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsDescribeCoverage.xsd";
-    String SCHEMA_LOCATION_WCS_CIS_10_REFERENCEABLE_COVERAGE_DESCRIBE_COVERAGE = "http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd";
+    String SCHEMA_LOCATION_WCS_CIS_10_REFERENCEABLE_COVERAGE_DESCRIBE_COVERAGE = "http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsDescribeCoverage.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd";
+
+
+    String SCHEMA_LOCATION_WCS_2_0_1_GET_COVERAGE = "http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/coverage.xsd";
     
     String SCHEMA_LOCATION_WCS_CIS_11_GET_COVERAGE = "http://www.opengis.net/cis/1.1/gml http://schemas.opengis.net/cis/1.1/gml/cisAll.xsd";    
-    String SCHEMA_LOCATION_WCS_CIS_11_DESCRIBE_COVERAGE = "http://www.opengis.net/wcs/2.1/gml http://schemas.opengis.net/wcs/2.1/gml/wcsAll.xsd";
+    String SCHEMA_LOCATION_WCS_CIS_11_DESCRIBE_COVERAGE = "http://www.opengis.net/swe/2.0     http://schemas.opengis.net/sweCommon/2.0/swe.xsd\n" +
+                                                        "                        http://www.opengis.net/wcs/2.1/gml http://schemas.opengis.net/wcs/2.1/gml/wcsAll.xsd\n" +
+                                                        "                        http://www.opengis.net/wcs/2.0     http://schemas.opengis.net/wcs/2.0/wcsAll.xsd";
     
     String SCHEMA_LOCATION_INSPIRE1 = "http://inspire.ec.europa.eu/schemas/inspire_dls/1.0";
     String SCHEMA_LOCATION_INSPIRE2 = "http://inspire.ec.europa.eu/schemas/inspire_dls/1.0/inspire_dls.xsd";

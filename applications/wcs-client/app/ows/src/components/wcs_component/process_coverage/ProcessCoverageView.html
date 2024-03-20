@@ -21,10 +21,22 @@
         }
     </style>
     <div class="col-sm-11 col-centered">
+        <button ng-click="showGeneratedGETURL()" class="btn btn-success" title="When a WCPS query is executed, click on this button to show/hide the **encoded** generated WCPS GET request URL.">
+            {{actionGeneratedGETURLText}} Generated GET URL
+        </button>
+
+        <div class="col-sm-12 input-group input-group-lg" style="margin-top: 20px;" ng-show="actionGeneratedGETURLText != 'Show'">
+            <div style="float:left">
+                <a href="{{generatedGETURL}}" target="_blank" class="long-link-wrap-text">{{generatedGETURL}}</a>
+            </div>
+        </div>
+
+        <hr/>
+
         <div class="row">
             <div id="output" class="col-sm-12" scroll-glue>
                 <div class="row">
-                    <span class="label label-info">you@wcps>Status</span> Welcome to the interactive WCPS (<a href="https://tutorial.rasdaman.org/rasdaman-and-ogc-ws-tutorial/#ogc-web-services-web-coverage-processing-service">WCPS tutorial</a>) console. Type your WCPS query in the textbox below and click on <span class="label label-primary">Execute</span> button to run it.<br> 
+                    <span class="label label-info">you@wcps>Status</span> Welcome to the interactive WCPS (<a href="https://tutorial.rasdaman.org/rasdaman-and-ogc-ws-tutorial/#ogc-web-services-web-coverage-processing-service">WCPS tutorial</a>) console. Type your WCPS query in the textbox below and click on <span class="label label-warning">Execute</span> button to run it.<br> 
                     <br>
                     The output of the query can be visualized with a widget by writing the query as <span class="label label-warning">widget>>WCPS query</span>.
                     <br>
@@ -116,7 +128,7 @@
                 <div id="queryInput" ui-codemirror="EditorOptions" ng-model="query"></div>
             </div>
             <div class="col-sm-1">
-                <button ng-click="executeQuery()" class="btn btn-primary">
+                <button ng-click="executeQuery()" class="btn btn-warning">
                     Execute
                 </button>
             </div>
@@ -144,6 +156,8 @@
             <button ng-click="clearHistory()" class="btn btn-primary" style="float:right">
                 Clear History
             </button>
-        </div>
+        </div> 
+
+
     </div>
 </div>

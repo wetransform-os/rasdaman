@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -53,9 +55,9 @@ public class AxisSpecHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         // dimensionIntervalElement (e.g: i(0:20) or j:"CRS:1"(0:30))
-        WcpsSubsetDimension subsetDimension = (WcpsSubsetDimension) this.getFirstChild().handle();
+        WcpsSubsetDimension subsetDimension = (WcpsSubsetDimension) this.getFirstChild().handle(serviceRegistries);
         AxisSpec axisSpec = new AxisSpec(subsetDimension);
         
         return axisSpec;

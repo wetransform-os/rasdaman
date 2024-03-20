@@ -25,9 +25,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.WCPSException;
+import petascope.wcps.result.ParameterResult;
 import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsMetadataResult;
 import petascope.wcps.result.WcpsResult;
+
+import java.lang.reflect.Parameter;
 
 /**
  * Executor Factory for WcpsMetaExecutor and WcpsRasqlExecutor
@@ -41,6 +44,8 @@ public class WcpsExecutorFactory {
     private WcpsMetaExecutor wcpsMetadataExecutor;
     @Autowired
     private WcpsRasqlExecutor wcpsRasqlExecutor;
+    @Autowired
+    private WcpsParameterExecutor wcpsParameterExecutor;
 
     public WcpsExecutorFactory() {
 
@@ -53,6 +58,8 @@ public class WcpsExecutorFactory {
         } // Execute Rasql and get the value
         else if (result instanceof WcpsResult) {
             return wcpsRasqlExecutor;
+        } else if (result instanceof ParameterResult) {
+            return wcpsParameterExecutor;
         } else {
             throw new WCPSException(ExceptionCode.NoApplicableCode, "Cannot get the executor to get the result from translated tree.");
         }

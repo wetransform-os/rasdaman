@@ -1,0 +1,1 @@
+select encode(c, "netcdf", "vars=data") from test_nulltest_float as c

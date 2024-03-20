@@ -64,7 +64,13 @@ public class RasdamanValuesInserter extends AbstractRasdamanInserter {
             //insert the values
             RasUtil.executeInsertStatement(collectionName, values, tiling, username, password);
         } catch (RasdamanException ex) {
-            log.error("Rasdaman error when inserting into collection " + collectionName + ". Error message: " + ex.getMessage());
+            log.error("Rasdaman error when inserting into collection " + collectionName + ", the collection will be dropped. Error message: " + ex.getMessage());
+            try {
+                RasUtil.dropCollection(collectionName, username, password);
+            } catch (RasdamanException ex1) {
+                log.warn("Failed to drop collection: " + collectionName + ". Reason: " + ex1.getMessage());
+            }
+
             throw ex;
         }
     }

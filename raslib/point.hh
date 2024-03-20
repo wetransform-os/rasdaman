@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: point.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Point
- *
- * COMMENTS:
- *
-*/
 
 #ifndef D_POINT_HH
 #define D_POINT_HH
@@ -38,10 +29,13 @@ rasdaman GmbH.
 #include <iosfwd>
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
 
- Class \Ref{r_Point} represents an n-dimensional point vector.
+ Class r_Point represents an n-dimensional point vector.
 
 */
 
@@ -51,12 +45,11 @@ public:
     // the coordinates underlying type
     using value_type = r_Range;
     using DimType = r_Dimension;
-    
+
     /// default constructor
     r_Point() = default;
     /// constructor getting dimensionality for stream initializing
     explicit r_Point(r_Dimension);
-
     /// constructor taking string representation (e.g. [ 1, 2, 3])
     explicit r_Point(char *);
 
@@ -70,20 +63,17 @@ public:
     explicit r_Point(std::vector<r_Range> pointArg);
     //@}
 
-    /// copy constructor
-    r_Point(const r_Point &) = default;
-
     /// destructor: cleanup dynamic memory
     ~r_Point() = default;
-    
+
     /// stream-input operator for stream initializing
     r_Point &operator<<(r_Range);
-    
+
     /// subscriptor for read access
     r_Range operator[](r_Dimension) const;
     /// subscriptor for write access
     r_Range &operator[](r_Dimension);
-    
+
     /// subscriptor for read access with bound-checking
     r_Range at(r_Dimension) const;
     /// subscriptor for write access with bound-checking
@@ -111,10 +101,10 @@ public:
 
     /// non equal operator - negation of equal operator
     bool operator!=(const r_Point &) const;
-    bool operator < (const r_Point &) const;
-    bool operator > (const r_Point &) const;
-    bool operator <= (const r_Point &) const;
-    bool operator >= (const r_Point &) const;
+    bool operator<(const r_Point &) const;
+    bool operator>(const r_Point &) const;
+    bool operator<=(const r_Point &) const;
+    bool operator>=(const r_Point &) const;
 
     /// vector addition
     r_Point operator+(const r_Point &) const;
@@ -154,7 +144,7 @@ public:
 
 private:
     void checkDimensionMatch(const r_Point &pt) const;
-    
+
     /// array holding the point coordinates
     std::vector<r_Range> points;
     size_t streamIndex{};

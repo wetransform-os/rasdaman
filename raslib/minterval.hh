@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: minterval.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Minterval
- *
- * COMMENTS:
- *
-*/
 
 #ifndef D_MINTERVAL_HH
 #define D_MINTERVAL_HH
@@ -37,12 +28,14 @@ rasdaman GmbH.
 #include "raslib/point.hh"
 #include "raslib/mddtypes.hh"  // for r_Dimension, r_Area, r_Bytes, r_Range
 
-#include <iosfwd>     // for ostream, cout
-#include <string>       // for string
-#include <vector>       // for vector
-
+#include <iosfwd>  // for ostream, cout
+#include <string>  // for string
+#include <vector>  // for vector
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
 /**
 
@@ -235,15 +228,15 @@ public:
     using DimType = r_Dimension;
     using AreaType = r_Area;
     using OffsetType = r_Sinterval::OffsetType;
-    
+
     /// constructor getting a low, high pair
     r_Minterval(const r_Point &low, const r_Point &high);
     /// constructor getting dimensionality for stream initializing
-    r_Minterval(r_Dimension);
+    explicit r_Minterval(r_Dimension);
     /// constructor taking string representation (e.g. [ 1:255, *:200, *:* ])
-    r_Minterval(const char *);
+    explicit r_Minterval(const char *);
     /// constructor taking string representation (e.g. [ 1:255, *:200, *:* ])
-    r_Minterval(char *);
+    explicit r_Minterval(char *);
     /// construct from interval axes
     explicit r_Minterval(std::vector<r_Sinterval> intervals);
     /// for stream initializing with intervals
@@ -257,12 +250,12 @@ public:
     r_Minterval() = default;
     /// default destructor
     ~r_Minterval() = default;
-    
+
     /// move constructor
     r_Minterval(r_Minterval &&other) = default;
     /// move assignment
     r_Minterval &operator=(r_Minterval &&other) = default;
-  
+
     /// copy constructor
     r_Minterval(const r_Minterval &other) = default;
     /// copy assignment
@@ -270,13 +263,13 @@ public:
 
     /// read access the i-th interval
     const r_Sinterval &operator[](r_Dimension) const;
-    
+
     /// read access the i-th interval with bound checking
     const r_Sinterval &at(r_Dimension) const;
 
     /// write access the i-th interval
     r_Sinterval &operator[](r_Dimension);
-    
+
     /// write access the i-th interval with bound checking
     r_Sinterval &at(r_Dimension);
 
@@ -300,7 +293,7 @@ public:
     /// Does this interval cover the given interval.
     /// Throws r_Edim_mismatch when dimensions do not match.
     bool covers(const r_Minterval &inter) const;
-    
+
     /// Check whether one interval is within another.
     bool inside_of(const r_Minterval &) const;
 
@@ -316,24 +309,44 @@ public:
     /// Returns a point with the minimum coordinates in all dimensions.
     /// This is operation is only legal if all lower bounds are fixed!
     r_Point get_origin() const;
-    
+
     /// Returns a point with the maximum coordinates in all dimensions.
     /// This is operation is only legal if all upper bounds are fixed!
     r_Point get_high() const;
 
-    /// Get size of minterval as point. Returns a point with high() - low() + 1 
+    /// Get size of minterval as point. Returns a point with high() - low() + 1
     /// in each dimension when all bounds are fixed.
     r_Point get_extent() const;
-    
+
     /// Returns true if all lower bounds are fixed, otherwise false.
     bool is_origin_fixed() const noexcept;
 
     /// Returns true if all upper bounds are fixed, otherwise false.
     bool is_high_fixed() const noexcept;
-    
+
     /// Returns true if all intervals are fixed
     bool is_fixed() const noexcept;
-    
+
+    /// @return the axis names of the underlying sintervals; this may be a
+    /// vector of empty strings if no sinterval has an axis name.
+    std::vector<std::string> get_axis_names() const;
+
+    /// set new axis names to the underlying sintervals; the size of the
+    /// axis_names vector must match the dimension of this minterval, otherwise
+    /// an exception is thrown.
+    void set_axis_names(std::vector<std::string> axis_names);
+
+    /// copy the axis names from o to this minterval; minterval dimensions must
+    /// match, otherwise an exception is thrown.
+    void set_axis_names(const r_Minterval &o);
+
+    /// @return true if the axis names of this minterval match the axis names of
+    /// the other interval o.
+    bool axis_names_match(const r_Minterval &o) const;
+
+    /// @return true if this minterval has axis names, false otherwise.
+    bool has_axis_names() const;
+
     /**
       This method checks if two r_Mintervals are "mergeable" side by side.
       For this to be possible, they have to have the same low() and high()
@@ -353,27 +366,20 @@ public:
      +-------------+
     */
     bool is_mergeable(const r_Minterval &other) const;
-    
-    /// Get axis names associated with this minterval.
-    const std::vector<std::string> &getAxisNames() const;
-    
-    /// Set axis names associated with this minterval; number of axis names 
-    /// should match the dimension.
-    void setAxisNames(std::vector<std::string> axisNames);
 
     // Methods for translation:
     //@{
-    /// Subtracts respective coordinate of a point to the lower bounds of an 
+    /// Subtracts respective coordinate of a point to the lower bounds of an
     /// interval. This operation is only legal if all bounds are fixed!
     r_Minterval &reverse_translate(const r_Point &);
 
-    /// Returns new interval as translation of this by a point. 
+    /// Returns new interval as translation of this by a point.
     /// Subtracts respective coordinate of a point to the lower bounds of an
     /// interval. This operation is only legal if all bounds are fixed!
     r_Minterval create_reverse_translation(const r_Point &) const;
 
-    /// Translates this by a point. 
-    /// Adds respective coordinate of a point to the lower bounds of an 
+    /// Translates this by a point.
+    /// Adds respective coordinate of a point to the lower bounds of an
     /// interval. This operation is only legal if all bounds are fixed!
     r_Minterval &translate(const r_Point &);
 
@@ -450,11 +456,12 @@ public:
     /// Closure of argument with this minterval.
     r_Minterval &closure_with(const r_Minterval &);
     /// Same as closure_with but return a new minterval instead of modifying this one.
-    r_Minterval  create_closure(const r_Minterval &) const;
+    r_Minterval create_closure(const r_Minterval &) const;
     /// @return vector of domains so that the disjoint union of this and returned domains is big.
+    /// preconditions: big must cover this domain (this.covers(big) == true).
     std::vector<r_Minterval> extension_of(const r_Minterval &big) const;
     //@}
-    
+
     // Methods/Operators for dimension-specific operations involving projections:
     //@{
     /// the vector of projection dimensions cannot have more values than dimension()
@@ -466,17 +473,13 @@ public:
 
     /// Serialize the object to the specified stream.
     void print_status(std::ostream &s) const;
-    
+
     /// Returns a string representation of this minterval as a pointer that
     /// should eventually be deallocated by the caller with `free()`.
     char *get_string_representation() const;
 
     /// Returns a string representation of this minterval as a string object.
     std::string to_string() const;
-
-    /// Returns a string representation of this minterval that takes into account
-    /// also the axis names.
-    std::string get_named_axis_string_representation() const;
 
     // Methods for internal use only:
     //@{
@@ -488,7 +491,7 @@ public:
     r_Area cell_offset_unsafe(const r_Point &) const;
     /// calculate point index out of offset
     r_Point cell_point(r_Area) const;
-    
+
     /// add dimension with open bounds
     void add_dimension();
     /// delete the specified dimension
@@ -499,15 +502,30 @@ public:
     void delete_non_trims(const std::vector<bool> &trims);
     /// delete intervals which are slices (i.e. interval.is_slice() is true)
     void delete_slices();
+    /// append mint's intervals to the end of this minterval, resulting in
+    /// [ ..., mint[0], ..., mint[mint.dimension()-1] ]
+    void append_axes(const r_Minterval &mint);
+    /// append pnt's coordinates to the end of this minterval, resulting in
+    /// [ ..., pnt[0]:pnt[0], ..., pnt[pnt.dimension()-1]:pnt[pnt.dimension()-1]]
+    void append_axes(const r_Point &pnt);
     /// @return true if all intervals are slices
     bool is_point() const noexcept;
-    
+
     /// calculate the size of the storage space occupied
     r_Bytes get_storage_size() const;
-    
+
+    /// @return the number of axes which are trims (i.e. dimension() - slices)
+    /// if is_point() is true, then this method will return 0.
+    r_Dimension get_trim_count() const;
+
+    /// @return true if any axes are slices rather than trims.
+    bool has_slices() const;
+
     /// @return true if domains are same after normalization to zero origin.
     bool compareDomainExtents(const r_Minterval &b) const;
-    
+    /// throw error if domains differ in the extents of any axis.
+    void validateDomainExtents(const r_Minterval &b) const;
+
     /// @return a if a == b, otherwise normalize the result to [0, 0, ..].
     r_Minterval computeDomainOfResult(const r_Minterval &b) const;
     //@}
@@ -516,11 +534,8 @@ protected:
     /// axis intervals, intervals.size() == dimension()
     std::vector<r_Sinterval> intervals;
 
-    /// names of the axes
-    std::vector<std::string> axisNames;
-    
     /// The minterval can be initialized in all dimensions as follows:
-    /// `minterval << sinterval1 << sinterval2 << ...` where number of 
+    /// `minterval << sinterval1 << sinterval2 << ...` where number of
     /// sintervals cannot be more than `dimension()`. This variable tracks
     /// how many sintervals have been set so far with the stream operator.
     r_Dimension streamInitCnt{};

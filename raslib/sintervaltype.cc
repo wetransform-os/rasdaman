@@ -21,6 +21,7 @@
 */
 
 #include "raslib/sintervaltype.hh"
+#include <ostream>
 
 r_Type *
 r_Sinterval_Type::clone() const
@@ -34,24 +35,20 @@ r_Sinterval_Type::type_id() const
     return SINTERVALTYPE;
 }
 
-bool
-r_Sinterval_Type::isSintervalType() const
+bool r_Sinterval_Type::isSintervalType() const
 {
     return true;
 }
 
-void
-r_Sinterval_Type::convertToLittleEndian(char *, r_Area) const
+void r_Sinterval_Type::convertToLittleEndian(char *, r_Area) const
 {
 }
 
-void
-r_Sinterval_Type::convertToBigEndian(char *, r_Area) const
+void r_Sinterval_Type::convertToBigEndian(char *, r_Area) const
 {
 }
 
-void
-r_Sinterval_Type::print_status(std::ostream &s) const
+void r_Sinterval_Type::print_status(std::ostream &s) const
 {
     s << "interval";
 }

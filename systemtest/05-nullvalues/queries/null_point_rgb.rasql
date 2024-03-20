@@ -1,0 +1,1 @@
+select encode((d null values [119, 208, 248])[0,0], "json") from test_rgb2 as d

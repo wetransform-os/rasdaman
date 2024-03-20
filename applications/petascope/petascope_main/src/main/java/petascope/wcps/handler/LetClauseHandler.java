@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -31,7 +33,9 @@ import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCPSException;
 import petascope.wcps.metadata.service.CoverageAliasRegistry;
+import petascope.wcps.metadata.service.LetClauseAliasCoverageExpressionHandlerRegistry;
 import petascope.wcps.metadata.service.LetClauseAliasRegistry;
+import petascope.wcps.result.ParameterResult;
 import petascope.wcps.result.VisitorResult;
 import petascope.wcps.result.WcpsMetadataResult;
 import petascope.wcps.result.WcpsResult;
@@ -49,6 +53,8 @@ public class LetClauseHandler extends Handler {
     @Autowired
     private LetClauseAliasRegistry letClauseAliasRegistry;
     @Autowired
+    private LetClauseAliasCoverageExpressionHandlerRegistry letClauseAliasCoverageExpressionHandlerRegistry;
+    @Autowired
     private CoverageAliasRegistry coverageAliasRegistry;
     
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(LetClauseHandler.class);
@@ -61,14 +67,20 @@ public class LetClauseHandler extends Handler {
         LetClauseHandler result = new LetClauseHandler();
         result.letClauseAliasRegistry = letClauseAliasRegistry;
         result.coverageAliasRegistry = coverageAliasRegistry;
+        result.letClauseAliasCoverageExpressionHandlerRegistry = letClauseAliasCoverageExpressionHandlerRegistry;
+
+        // NOTE: let $add := $c + 300, $result := $add * 200
+        // then return $result will be return $c + 300 * 200
         result.setChildren(Arrays.asList(variableNameHandler, coverageExpressionHandler));
         
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        String variableName = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        VisitorResult coverageExpressionVisitorResult = this.getSecondChild().handle();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String variableName = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        this.letClauseAliasCoverageExpressionHandlerRegistry.add(variableName, this.getSecondChild());
+
+        VisitorResult coverageExpressionVisitorResult = this.getSecondChild().handle(serviceRegistries);
         
         WcpsResult result;
         if (coverageExpressionVisitorResult instanceof DimensionIntervalList) {
@@ -81,38 +93,32 @@ public class LetClauseHandler extends Handler {
     }
 
     private WcpsResult handle(String variableName, VisitorResult coverageExpressionVisitorResult) {
-        
-        this.validate(variableName);
-        
-        WcpsResult wcpsResult = null;
+
+        VisitorResult visitorResult = null;
         if (coverageExpressionVisitorResult instanceof WcpsResult) {
-            wcpsResult = (WcpsResult)coverageExpressionVisitorResult;
+            visitorResult = (WcpsResult)coverageExpressionVisitorResult;
         } else if (coverageExpressionVisitorResult instanceof WcpsMetadataResult) {
             WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) coverageExpressionVisitorResult;
-            wcpsResult = new WcpsResult(wcpsMetadataResult.getMetadata(), wcpsMetadataResult.getResult());
+            visitorResult = new WcpsResult(wcpsMetadataResult.getMetadata(), wcpsMetadataResult.getResult());
+        } else if (coverageExpressionVisitorResult instanceof ParameterResult) {
+            visitorResult = (ParameterResult)coverageExpressionVisitorResult;
         }
         
-        this.letClauseAliasRegistry.add(variableName, wcpsResult);
-        
+        this.letClauseAliasRegistry.add(variableName, visitorResult);
+
         WcpsResult result = new WcpsResult(null, null);
+        if (visitorResult instanceof WcpsResult) {
+            result = (WcpsResult) visitorResult;
+        }
         return result;
     }
     
     private WcpsResult handle(String variableName, DimensionIntervalList dimensionIntervalList) {
-        
-        this.validate(variableName);
-        
+
         WcpsResult result = new WcpsResult(dimensionIntervalList);
         this.letClauseAliasRegistry.add(variableName, result);
         
         return result;
     }
-    
-    private void validate(String variableName) {
-        if (this.coverageAliasRegistry.getAliasByCoverageName(variableName) != null) {
-            throw new WCPSException(ExceptionCode.InvalidRequest, "Variable '" + variableName + "' in LET clause must not exist in FOR clause");
-        } else if (this.letClauseAliasRegistry.get(variableName) != null) {
-            throw new WCPSException(ExceptionCode.InvalidRequest, "Variable '" + variableName + "' in LET clause is duplicate");
-        }
-    }
+
 }

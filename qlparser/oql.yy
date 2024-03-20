@@ -78,6 +78,7 @@ rasdaman GmbH.
 #include "qlparser/qtgeometryop.hh"
 #include "qlparser/qtgeometrydata.hh"
 #include "qlparser/qtsort.hh"
+#include "qlparser/qtpolygonize.hh"
 
 #include "raslib/mddtypes.hh"
 #include "rasodmg/dirdecompose.hh"
@@ -283,19 +284,20 @@ struct QtUpdateSpecElement
 %token <floatToken>      FloatLit
 %token <stringToken>     StringLit
 %token <typeToken>       TUNSIG TBOOL TOCTET TCHAR TSHORT TUSHORT TLONG TULONG TFLOAT TDOUBLE TCOMPLEX1 TCOMPLEX2 TCINT16 TCINT32
-%token <commandToken>    SELECT FROM WHERE AS RESTRICT TO EXTEND BY PROJECT AT DIMENSION ALL SOME
+%token <commandToken>    SELECT FROM WHERE AS RESTRICT TO EXTEND BY PROJECT AT DIMENSION ALL SOME POLYGONIZE
                          COUNTCELLS ADDCELLS AVGCELLS MINCELLS MAXCELLS VAR_POP VAR_SAMP STDDEV_POP STDDEV_SAMP SDOM OVER USING LO HI UPDATE
                          SET ASSIGN MARRAY MDARRAY CONDENSE IN DOT COMMA IS NOT AND OR XOR PLUS MINUS MAX_BINARY MIN_BINARY MULT
-                         DIV INTDIV MOD EQUAL LESS GREATER LESSEQUAL GREATEREQUAL NOTEQUAL COLON SEMICOLON LEPAR
+                         DIV INTDIV MOD ATAN2 EQUAL LESS GREATER LESSEQUAL GREATEREQUAL NOTEQUAL COLON SEMICOLON LEPAR
                          REPAR LRPAR RRPAR LCPAR RCPAR INSERT INTO VALUES DELETE DROP CREATE COLLECTION TYPE
                          MDDPARAM OID SHIFT CLIP CURTAIN CORRIDOR POLYGON LINESTRING MULTIPOLYGON MULTILINESTRING RANGE SCALE SQRT ABS EXP
                          LOGFN LN SIN COS TAN SINH COSH TANH ARCSIN ASIN SUBSPACE DISCRETE COORDINATES
-                         ARCCOS ACOS ARCTAN ATAN POW POWER OVERLAY BIT UNKNOWN FASTSCALE MEMBERS ADD ALTER LIST PROJECTION SORT ASC DESC FLIP
-			 INDEX RC_INDEX TC_INDEX A_INDEX D_INDEX RD_INDEX RPT_INDEX RRPT_INDEX IT_INDEX AUTO
-			 TILING ALIGNED REGULAR DIRECTIONAL NULLKEY
-			 WITH SUBTILING AREA OF INTEREST STATISTIC TILE SIZE BORDER THRESHOLD
-			 STRCT COMPLEX RE IM TIFF BMP HDF NETCDF CSV JPEG PNG VFF TOR DEM INV_TIFF INV_BMP INV_HDF INV_NETCDF
-			 INV_JPEG INV_PNG INV_VFF INV_CSV INV_TOR INV_DEM INV_GRIB ENCODE DECODE CONCAT ALONG DBINFO
+                         ARCCOS ACOS ARCTAN ATAN CEIL FLOOR ROUND POW POWER OVERLAY BIT 
+                         UNKNOWN FASTSCALE MEMBERS ADD ALTER LIST PROJECTION SORT ASC DESC FLIP
+                         INDEX RC_INDEX TC_INDEX A_INDEX D_INDEX RD_INDEX RPT_INDEX RRPT_INDEX IT_INDEX AUTO
+                         TILING ALIGNED REGULAR DIRECTIONAL NULLKEY
+                         WITH SUBTILING AREA OF INTEREST STATISTIC TILE SIZE BORDER THRESHOLD
+                         STRCT COMPLEX RE IM TIFF BMP HDF NETCDF CSV JPEG PNG VFF TOR DEM INV_TIFF INV_BMP INV_HDF INV_NETCDF
+                         INV_JPEG INV_PNG INV_VFF INV_CSV INV_TOR INV_DEM INV_GRIB ENCODE DECODE CONCAT ALONG DBINFO
                          CASE WHEN THEN ELSE END COMMIT RAS_VERSION P_REGROUP P_REGROUP_AND_SUBTILING P_NO_LIMIT
 /* resampling algorithms */
                          RA_NEAR RA_BILINEAR RA_CUBIC RA_CUBIC_SPLINE RA_LANCZOS RA_AVERAGE RA_MODE RA_MED RA_QFIRST RA_QTHIRD
@@ -311,7 +313,7 @@ struct QtUpdateSpecElement
 %left EQUAL LESS GREATER LESSEQUAL GREATEREQUAL NOTEQUAL
 %left PLUS MINUS
 %left MAX_BINARY MIN_BINARY
-%left MULT DIV INTDIV MOD
+%left MULT DIV INTDIV MOD ATAN2
 %left UNARYOP BIT
 %left DOT LEPAR SDOM
 %left COMMA
@@ -329,7 +331,7 @@ struct QtUpdateSpecElement
 %type <qtOperationValue>      mddExp inductionExp generalExp resultList reduceExp  functionExp spatialOp
                               integerExp mintervalExp nullvaluesList nullvaluesExp addNullvaluesExp intervalExp
                               condenseExp variable mddConfiguration mintervalList  concatExp rangeConstructorExp
-                              caseExp typeAttribute projectExp sortExp flipExp
+                              caseExp typeAttribute projectExp sortExp flipExp polygonizeExp
                               //namedMintervalExp2,namedIntervalExp2 is for select and similar, namedMintervalExp and namedIntervalExp is for type definition.
 %type <intervalListToken>       namedMintervalExp namedIntervalExp namedMintervalExp2 namedIntervalExp2
 %type <intervalListValueToken>  namedSpatialOpList2 namedSpatialOpList namedSpatialOpList22 namedSpatialOpList1
@@ -396,6 +398,50 @@ query: createExp
      | dropType
      | alterExp
      ;
+
+
+polygonizeExp: POLYGONIZE LRPAR generalExp COMMA StringLit RRPAR 
+{
+  $$ = new QtPolygonize($3, $5.value);
+  parseQueryTree->addDynamicObject( $$ );
+  parseQueryTree->removeDynamicObject( $3 );
+  FREESTACK($2)
+  FREESTACK($4)
+  FREESTACK($6)
+}
+| POLYGONIZE LRPAR generalExp COMMA StringLit COMMA IntegerLit RRPAR
+{
+  $$ = new QtPolygonize($3, $5.value, $7.svalue);
+  parseQueryTree->addDynamicObject( $$ );
+  parseQueryTree->removeDynamicObject( $3 );
+  FREESTACK($2)
+  FREESTACK($4)
+  FREESTACK($6)
+  FREESTACK($8)
+}
+| POLYGONIZE LRPAR generalExp COMMA StringLit COMMA StringLit COMMA StringLit RRPAR
+{
+  $$ = new QtPolygonize($3, $5.value, $7.value, $9.value);
+  parseQueryTree->addDynamicObject( $$ );
+  parseQueryTree->removeDynamicObject( $3 );
+  FREESTACK($2)
+  FREESTACK($4)
+  FREESTACK($6)
+  FREESTACK($8)
+  FREESTACK($10)
+}
+| POLYGONIZE LRPAR generalExp COMMA StringLit COMMA IntegerLit COMMA StringLit COMMA StringLit RRPAR
+{
+  $$ = new QtPolygonize($3, $5.value, $7.svalue, $9.value, $11.value);
+  parseQueryTree->addDynamicObject( $$ );
+  parseQueryTree->removeDynamicObject( $3 );
+  FREESTACK($2)
+  FREESTACK($4)
+  FREESTACK($6)
+  FREESTACK($8)
+  FREESTACK($10)
+  FREESTACK($12)
+}
 
 commitExp: COMMIT
 {
@@ -923,7 +969,75 @@ updateExp:
           FREESTACK($5)
           FREESTACK($7)
           FREESTACK($9)
-        };
+        }
+        | UPDATE iteratedCollection mddConfiguration
+        {
+          try {
+            accessControl.wantToWrite();
+          }
+          catch(...) {
+            // save the parse error info and stop the parser
+            if ( parseError ) delete parseError;
+            parseError = new ParseInfo( NO_PERMISSION_FOR_OPERATION, $1.info->getToken().c_str(),
+                                        $1.info->getLineNo(), $1.info->getColumnNo() );
+            FREESTACK($1)
+            QueryTree::symtab.wipe();
+            YYABORT;
+          }
+
+          // create an update node
+          QtUpdate* update = new QtUpdate( $3 );
+          update->setStreamInput( $2 );
+          update->setParseInfo( *($1.info) );
+          parseQueryTree->removeDynamicObject( $2 );
+          parseQueryTree->removeDynamicObject( $3 );
+
+          // set the update node  as root of the Query Tree
+          parseQueryTree->setRoot( update );
+
+          FREESTACK($1)
+        }
+        | UPDATE iteratedCollection mddConfiguration WHERE generalExp
+        {
+          try {
+            accessControl.wantToWrite();
+          }
+          catch(...) {
+            // save the parse error info and stop the parser
+            if ( parseError ) delete parseError;
+            parseError = new ParseInfo( NO_PERMISSION_FOR_OPERATION, $1.info->getToken().c_str(),
+                                        $1.info->getLineNo(), $1.info->getColumnNo() );
+            FREESTACK($1)
+            FREESTACK($4)
+            QueryTree::symtab.wipe();
+            YYABORT;
+          }
+
+          QtIterator::QtONCStreamList* streamList = new QtIterator::QtONCStreamList(1);
+          (*streamList)[0] = $2;
+          parseQueryTree->removeDynamicObject( $2 );
+
+          QtSelectionIterator* si = new QtSelectionIterator();
+          si->setStreamInputs( streamList );
+          si->setConditionTree( $5 );
+          si->setParseInfo( *($4.info) );
+          parseQueryTree->removeDynamicObject( $5 );
+
+          // create an update node
+          QtUpdate* update = new QtUpdate( $3 );
+          update->setStreamInput( si );
+          update->setParseInfo( *($1.info) );
+          parseQueryTree->removeDynamicObject( $3 );
+
+          // set the update node  as root of the Query Tree
+          parseQueryTree->setRoot( update );
+
+          FREESTACK($1)
+          FREESTACK($4)
+        }
+
+        
+        ;
 
 alterExp: ALTER COLLECTION namedCollection SET TYPE typeName
     {
@@ -1405,6 +1519,7 @@ generalExp:
 	| mintervalExp                      { $$ = $1; }
 	| intervalExp                       { $$ = $1; }
 	| projectExp	                      { $$ = $1; }
+  | polygonizeExp                     { $$ = $1; }
 	| generalLit
 	{
 	  $$ = new QtConst( $1 );
@@ -3204,51 +3319,7 @@ inductionExp: SQRT LRPAR generalExp RRPAR
 	  FREESTACK($1)
 	  FREESTACK($2)
 	  FREESTACK($4)
- 	}
-	| POW LRPAR generalExp COMMA intLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, (double) $5.svalue );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POW LRPAR generalExp COMMA floatLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, $5.value );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POWER LRPAR generalExp COMMA intLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, (double) $5.svalue );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
-	| POWER LRPAR generalExp COMMA floatLitExp RRPAR
-	{
-	  $$ = new QtPow( $3, $5.value );
-	  $$->setParseInfo( *($1.info) );
-	  parseQueryTree->removeDynamicObject( $3 );
-	  parseQueryTree->addDynamicObject( $$ );
-	  FREESTACK($1)
-	  FREESTACK($2)
-	  FREESTACK($4)
-	  FREESTACK($6)
-	}
+    }
 	| ABS LRPAR generalExp RRPAR
 	{
 	  $$ = new QtAbs( $3 );
@@ -3409,6 +3480,36 @@ inductionExp: SQRT LRPAR generalExp RRPAR
 	  FREESTACK($2)
 	  FREESTACK($4)
 	}
+    | CEIL LRPAR generalExp RRPAR
+      {
+        $$ = new QtCeil( $3 );
+        $$->setParseInfo( *($1.info) );
+        parseQueryTree->removeDynamicObject( $3 );
+        parseQueryTree->addDynamicObject( $$ );
+        FREESTACK($1)
+        FREESTACK($2)
+        FREESTACK($4)
+      }
+    | FLOOR LRPAR generalExp RRPAR
+      {
+        $$ = new QtFloor( $3 );
+        $$->setParseInfo( *($1.info) );
+        parseQueryTree->removeDynamicObject( $3 );
+        parseQueryTree->addDynamicObject( $$ );
+        FREESTACK($1)
+        FREESTACK($2)
+        FREESTACK($4)
+      }
+    | ROUND LRPAR generalExp RRPAR
+      {
+        $$ = new QtRound( $3 );
+        $$->setParseInfo( *($1.info) );
+        parseQueryTree->removeDynamicObject( $3 );
+        parseQueryTree->addDynamicObject( $$ );
+        FREESTACK($1)
+        FREESTACK($2)
+        FREESTACK($4)
+      }
 
         | generalExp DOT RE
         {
@@ -3584,6 +3685,43 @@ inductionExp: SQRT LRPAR generalExp RRPAR
       FREESTACK($4);
       FREESTACK($6);
 	}
+    | POW LRPAR generalExp COMMA generalExp RRPAR
+    {
+      $$ = new QtPowU  ( $3, $5 );
+      LDEBUG << "right";
+      $$->setParseInfo( *($1.info) );
+      parseQueryTree->removeDynamicObject( $3 );
+      parseQueryTree->removeDynamicObject( $5 );
+      parseQueryTree->addDynamicObject( $$ );
+      FREESTACK($1);
+      FREESTACK($2);
+      FREESTACK($4);
+      FREESTACK($6);
+    }
+    | POWER LRPAR generalExp COMMA generalExp RRPAR
+    {
+      $$ = new QtPowU  ( $3, $5 );
+      $$->setParseInfo( *($1.info) );
+      parseQueryTree->removeDynamicObject( $3 );
+      parseQueryTree->removeDynamicObject( $5 );
+      parseQueryTree->addDynamicObject( $$ );
+      FREESTACK($1);
+      FREESTACK($2);
+      FREESTACK($4);
+      FREESTACK($6);
+    }
+    | ATAN2 LRPAR generalExp COMMA generalExp RRPAR
+    {
+      $$ = new QtAtan2  ( $3, $5 );
+      $$->setParseInfo( *($1.info) );
+      parseQueryTree->removeDynamicObject( $3 );
+      parseQueryTree->removeDynamicObject( $5 );
+      parseQueryTree->addDynamicObject( $$ );
+      FREESTACK($1);
+      FREESTACK($2);
+      FREESTACK($4);
+      FREESTACK($6);
+    }
     | generalExp EQUAL generalExp
 	{
 	  $$ = new QtEqual( $1, $3 );
@@ -4540,7 +4678,7 @@ sortExp : sortHeader AS sortAxisIterator listingOrder BY generalExp
   // get sdom of mdd at axis - used in ranking function.
   QtAxisSDom *sdom;
   if(!$1.named)
-    sdom = new QtAxisSDom( $1.MDD, $1.axis );
+    sdom = new QtAxisSDom( $1.MDD, r_Dimension($1.axis) );
   else
     sdom = new QtAxisSDom( $1.MDD, $1.namedAxis );
 
@@ -4573,7 +4711,7 @@ sortExp : sortHeader AS sortAxisIterator listingOrder BY generalExp
   // $4 needs to become array of sortOrders for future multidimensional sorting
   QtSort *sortNode;
   if(!$1.named)
-    sortNode = new QtSort($1.MDD, $1.axis, $4.value, ranksArray );
+    sortNode = new QtSort($1.MDD, r_Dimension($1.axis), $4.value, ranksArray );
   else
     sortNode = new QtSort($1.MDD, $1.namedAxis, $4.value, ranksArray );
 
@@ -4652,7 +4790,7 @@ flipExp: FLIP generalExp ALONG flipAxis
   }
   else
   {
-    sortNode = new QtSort($2, $4.axis);
+    sortNode = new QtSort($2, r_Dimension($4.axis));
   }
 
   // get ParseInfo for error case in ALONG clause.

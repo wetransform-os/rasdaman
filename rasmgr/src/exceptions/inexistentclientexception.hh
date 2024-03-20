@@ -23,7 +23,7 @@
 #ifndef RASMGR_X_SRC_EXCEPTIONS_INEXISTENTCLIENTEXCEPTION_HH
 #define RASMGR_X_SRC_EXCEPTIONS_INEXISTENTCLIENTEXCEPTION_HH
 
-#include "common/exceptions/rasexceptions.hh"
+#include "common/exceptions/missingresourceexception.hh"
 
 namespace rasmgr
 {
@@ -32,13 +32,13 @@ namespace rasmgr
  * It reports errors that arise because a user tried to operate on the properties of a client object
  * that is not defined.
  */
-class InexistentClientException: public common::MissingResourceException
+class InexistentClientException : public common::MissingResourceException
 {
 public:
-    InexistentClientException(const std::string& clientId);
-    InexistentClientException(const std::string& clientId, const std::string &details);
+    explicit InexistentClientException(std::uint32_t clientId);
+    InexistentClientException(std::uint32_t clientId, const std::string &details);
 
     virtual ~InexistentClientException() noexcept;
 };
-}
-#endif // RASMGR_X_SRC_EXCEPTIONS_INEXISTENTCLIENTEXCEPTION_HH
+}  // namespace rasmgr
+#endif  // RASMGR_X_SRC_EXCEPTIONS_INEXISTENTCLIENTEXCEPTION_HH

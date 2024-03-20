@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.5.xsd">
+<changeSet author="rasdaman (generated)" id="1692254586497-20">
+<createTable tableName="openeo_process_graph">
+<column name="openeo_process_graph_id" type="BIGINT">
+<constraints nullable="false" primaryKey="true" primaryKeyName="openeo_process_graph_pkey"/>
+</column>
+<column name="process_graph_content" type="OID"/>
+<column name="namespace" type="VARCHAR(255)"/>
+<column name="process_graph_id" type="VARCHAR(255)"/>
+<column name="username" type="VARCHAR(255)"/>
+</createTable>
+</changeSet>
+
+<changeSet author="rasdaman (generated)" id="1700808795734-20">
+<addColumn tableName="quantity">
+<column name="observation_type" type="int4"/>
+</addColumn>
+</changeSet>
+
+</databaseChangeLog>

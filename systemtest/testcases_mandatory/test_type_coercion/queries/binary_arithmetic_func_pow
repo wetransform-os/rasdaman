@@ -1,1 +1,0 @@
-select pow(first, 2.0)

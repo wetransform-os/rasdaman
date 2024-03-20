@@ -25,7 +25,7 @@ rasdaman GmbH.
 #ifndef _DOUBLETYPE_HH_
 #define _DOUBLETYPE_HH_
 
-#include <iosfwd>     // for ostream
+#include <iosfwd>  // for ostream
 
 #include "realtype.hh"  // for RealType
 
@@ -46,7 +46,7 @@ class DoubleType : public RealType
 public:
     DoubleType();
 
-    DoubleType(const OId &id);
+    explicit DoubleType(const OId &id);
 
     DoubleType(const DoubleType &) = default;
 
@@ -61,12 +61,11 @@ public:
 
     double *convertToCDouble(const char *cell, double *value) const override;
     char *makeFromCDouble(char *cell, const double *value) const override;
-    
+
     r_ULong *convertToCULong(const char *cell, r_ULong *value) const override;
     r_Long *convertToCLong(const char *cell, r_Long *value) const override;
 
     static const char *Name;
-
 };
 
 #endif

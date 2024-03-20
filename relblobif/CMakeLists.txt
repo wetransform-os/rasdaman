@@ -68,9 +68,10 @@ target_link_libraries(relblobif
 #    relcatalogif
 #    relstorageif
     ${BASEDB_LIBRARIES}
+    ${FMT_LIBRARY}
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(relblobif REUSE_FROM common_logging)
 endif()
 

@@ -40,7 +40,7 @@ class r_Interest_Tiling;
 
 //@ManMemo: Module: {\bf rasodmg}
 
-/*@Doc:
+/**
   This class implements the "Interesting Areas" tiling algorithm.
   The user specifies which areas are of interest to him and tiling is
   performed accordingly.
@@ -51,8 +51,7 @@ class r_Interest_Tiling;
     to this setting. To specify this with this class the following code
     would work:
 
-      ...
-
+    ```
       r_Minterval domain(2);
       domain << r_Sinterval(0L, 1000L) << r_Sinterval(0L, 1000L);
 
@@ -67,8 +66,7 @@ class r_Interest_Tiling;
       interest_areas.insert_element(interest2);
 
       r_Interest_Tiling(interest_areas);
-
-      ...
+    ```
 */
 
 /**
@@ -77,17 +75,23 @@ class r_Interest_Tiling;
 class r_Interest_Tiling : public r_Dimension_Tiling
 {
 public:
-
     /// Possible strategies to limit the tilesize
-    enum Tilesize_Limit {NO_LIMIT, REGROUP, SUB_TILING, REGROUP_AND_SUBTILING, NUMBER};
+    enum Tilesize_Limit
+    {
+        NO_LIMIT,
+        REGROUP,
+        SUB_TILING,
+        REGROUP_AND_SUBTILING,
+        NUMBER
+    };
 
     /// read everything from an encoded string
     /// e.g. "2;[0:9,0:9];[100:109,0:9];100;REGROUPSUBTILING"
-    r_Interest_Tiling(const char *encoded);
+    explicit r_Interest_Tiling(const char *encoded);
 
     r_Interest_Tiling(r_Dimension dim,
                       const std::vector<r_Minterval> &interest_areas,
-                      r_Bytes ts = RMInit::clientTileSize,
+                      r_Bytes ts = r_Tiling::defaultTileSize,
                       Tilesize_Limit strat = SUB_TILING);
     /**
       It takes as parameter a list containing the areas of interest to
@@ -138,13 +142,17 @@ public:
 
     static const char *description;
 
-protected: // methods.
-
+protected:  // methods.
     /// Given a domain and a set of interest areas (internal) gener. partition
     std::vector<r_Dir_Decompose> make_partition(const r_Minterval &domain) const;
 
     /// The Block types (A, B or C)
-    enum Blocks_Type {BLOCKS_A, BLOCKS_B, BLOCKS_C };
+    enum Blocks_Type
+    {
+        BLOCKS_A,
+        BLOCKS_B,
+        BLOCKS_C
+    };
     /**
       A Blocks ---> Blocks that belong to two or more interest zones
                     (non-groupable)
@@ -166,7 +174,6 @@ protected: // methods.
 
     /// Interest areas
     std::vector<r_Minterval> iareas;
-
 
     //@ManMemo: Module: {\bf raslib}
     /**

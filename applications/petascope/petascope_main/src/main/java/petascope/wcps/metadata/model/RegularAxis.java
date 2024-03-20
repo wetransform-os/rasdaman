@@ -47,6 +47,10 @@ public class RegularAxis extends Axis {
         super(label, geoBounds, originalGridBounds, gridBounds, crsUri, crsDefinition, axisType, axisUoM, rasdamanOrder, origin, resolution, originalGeoBounds);
     }
     
+    public RegularAxis(Axis inputAxis, NumericSubset geoBounds, NumericSubset originalGridBounds, NumericSubset gridBounds) {
+        super(inputAxis, geoBounds, originalGridBounds, gridBounds);
+    }
+    
     @Override
     public RegularAxis clone() {
         return new RegularAxis(getLabel(), getGeoBounds(), getOriginalGridBounds(), getGridBounds(),

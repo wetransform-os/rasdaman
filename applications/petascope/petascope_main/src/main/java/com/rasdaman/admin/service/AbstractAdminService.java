@@ -31,6 +31,7 @@ import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 
+import petascope.controller.PetascopeController;
 /**
  *
  * Abstract handler class for all requests in KVP or XML
@@ -46,6 +47,10 @@ public abstract class AbstractAdminService {
     
     @Autowired
     public HttpServletRequest httpServletRequest;
+    
+    @Autowired
+    private PetascopeController petascopeController;
+
     
     public static void validateRequiredParameters(Map<String, String[]> kvpParameters, Set<String> validParameters) throws PetascopeException {
         for (String key : kvpParameters.keySet()) {

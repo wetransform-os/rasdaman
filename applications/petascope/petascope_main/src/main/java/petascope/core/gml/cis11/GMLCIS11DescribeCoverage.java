@@ -21,24 +21,14 @@
  */
 package petascope.core.gml.cis11;
 
-import nu.xom.Attribute;
 import nu.xom.Element;
-import static petascope.core.XMLSymbols.ATT_ID;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_DESCRIPTION;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_ID;
-import static petascope.core.XMLSymbols.LABEL_COVERAGE_SUBTYPE;
-import static petascope.core.XMLSymbols.LABEL_NATIVE_FORMAT;
-import static petascope.core.XMLSymbols.LABEL_SERVICE_PARAMETERS;
-import static petascope.core.XMLSymbols.NAMESPACE_GML;
-import static petascope.core.XMLSymbols.PREFIX_GML;
-import static petascope.core.XMLSymbols.PREFIX_WCS;
-import static petascope.core.XMLSymbols.VALUE_COVERAGE_NATIVE_FORMAT;
+import org.rasdaman.repository.service.CoverageRepositoryService;
 import petascope.core.gml.cis.AbstractGMLCISDescribeCoverage;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
 import petascope.util.XMLUtil;
-import static petascope.core.XMLSymbols.NAMESPACE_WCS_21;
+
+import static petascope.core.XMLSymbols.*;
 
 /**
  * Class to build result for WCS DescribeCoverage request.
@@ -84,33 +74,23 @@ public class GMLCIS11DescribeCoverage extends AbstractGMLCISDescribeCoverage {
     @Override
     public Element serializeToXMLElement() throws PetascopeException {
         
-        // <wcs:CoverageDescription>
-        Element coverageDescriptionElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_DESCRIPTION), NAMESPACE_WCS_21);
-        Attribute attributeId = XMLUtil.createXMLAttribute(NAMESPACE_GML, PREFIX_GML, ATT_ID, this.coverageId);
-        coverageDescriptionElement.addAttribute(attributeId);
-        
-        // <gml:envelope>
-        Element envelopeElement = this.getGmlCore().getEnvelope().serializeToXMLElement();
-        coverageDescriptionElement.appendChild(envelopeElement);
-        
-        // <wcs:CoverageId>
-        Element coverageIdElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_ID), NAMESPACE_WCS_21);
-        coverageIdElement.appendChild(coverageId);
+        // <wcs21:CoverageDescription>
+        Element coverageDescriptionElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS_21, LABEL_COVERAGE_DESCRIPTION), NAMESPACE_WCS_21);
+
+        // <wcs20:CoverageId>
+        Element coverageIdElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS_20, LABEL_COVERAGE_ID), NAMESPACE_WCS_20);
+        coverageIdElement.appendChild(this.coverageId);
         coverageDescriptionElement.appendChild(coverageIdElement);
-        
+
         // <gml:coverageFunction>
         Element coverageFunctionElement = this.getGmlCore().getCoverageFunction().serializeToXMLElement();
         coverageDescriptionElement.appendChild(coverageFunctionElement);
-        
-        // <gml:domainSet>
-        Element domainSetElement = this.getGmlCore().getDomainSet().serializeToXMLElement();
-        coverageDescriptionElement.appendChild(domainSetElement);
-        
-        // <gml:rangeType>
-        Element rangeTypeElement = this.getGmlCore().getRangeType().serializeToXMLElement();
-        coverageDescriptionElement.appendChild(rangeTypeElement);
-        
-        // <gmlcov:metadata>
+
+        // <cis11:envelope>
+        Element envelopeElement = this.getGmlCore().getEnvelope().serializeToXMLElement();
+        coverageDescriptionElement.appendChild(envelopeElement);
+
+        // <cis11:Metadata>
         Element metadataElement;
         try {
             metadataElement = this.getGmlCore().getMetadata().serializeToXMLElement();
@@ -119,12 +99,21 @@ public class GMLCIS11DescribeCoverage extends AbstractGMLCISDescribeCoverage {
         }
         coverageDescriptionElement.appendChild(metadataElement);
         
-        // <wcs:ServiceParameters>
-        Element serviceParametersElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_SERVICE_PARAMETERS), NAMESPACE_WCS_21);
+        // <gml:domainSet>
+        Element domainSetElement = this.getGmlCore().getDomainSet().serializeToXMLElement();
+        coverageDescriptionElement.appendChild(domainSetElement);
         
-        Element coverageSubTypeElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_COVERAGE_SUBTYPE), NAMESPACE_WCS_21);
+        // <gml:rangeType>
+        Element rangeTypeElement = this.getGmlCore().getRangeType().serializeToXMLElement();
+        coverageDescriptionElement.appendChild(rangeTypeElement);
+
+        // <wcs20:ServiceParameters>
+        Element serviceParametersElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS_20, LABEL_SERVICE_PARAMETERS), NAMESPACE_WCS_20);
+        
+        Element coverageSubTypeElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS_20, LABEL_COVERAGE_SUBTYPE), NAMESPACE_WCS_20);
         coverageSubTypeElement.appendChild(coverageType);
-        Element nativeFormatElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS, LABEL_NATIVE_FORMAT), NAMESPACE_WCS_21);
+        
+        Element nativeFormatElement = new Element(XMLUtil.createXMLLabel(PREFIX_WCS_20, LABEL_NATIVE_FORMAT), NAMESPACE_WCS_20);
         nativeFormatElement.appendChild(VALUE_COVERAGE_NATIVE_FORMAT);
         
         serviceParametersElement.appendChild(coverageSubTypeElement);

@@ -32,6 +32,7 @@
 # PROTOBUF_PROTOC_EXECUTABLE - The Protobuf Protoc compiler which is used to generate C++ and Java files from *.proto definitions
 # GRPC_JAVA_PLUGIN_EXECUTABLE - Plugin used to generate GRPC Java code from proto files.
 # JSONCPP - Used by the encoders and decoders for extra parameter passing
+# FMT_LIBRARY - https://fmt.dev an open-source formatting library providing a fast and safe alternative to C stdio and C++ iostreams.
 
 # `make clean` will not remove files built here with the setting below; we don't change
 # third_party (often) so no need to rebuild on every make clean. If it is changed, then
@@ -76,10 +77,8 @@ macro(InstallExternalDynamicLibrary LIBRARY_NAME LIBRARY_PATH DEPENDENCIES)
 endmacro()
 
 #########################################
-# DOWNLOAD THE SUBMODULES				#
+# Prepare				#
 #########################################
-execute_process(COMMAND git submodule update --init --recursive
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # Create this folder first before tar can extract grpc.tar.gz
 execute_process(COMMAND mkdir -p ${CMAKE_BINARY_DIR}/third_party)
@@ -170,6 +169,36 @@ InstallExternalLibrary(${JSONCPP_LIBRARY} ${JSONCPP_LIBRARY_PATH} jsoncpp_projec
 
 
 ############################################################################
+# Begin FMT
+############################################################################
+# Set variables to build fmt
+# This variable can be used throughout the code whenever the fmt library is needed
+set(FMT_LIBRARY fmt)
+set(FMT_SOURCE_DIR "${CMAKE_SOURCE_DIR}/third_party/fmt")
+set(FMT_INCLUDE_DIR "${FMT_SOURCE_DIR}/include")
+set(FMT_BINARY_DIR "${CMAKE_BINARY_DIR}/third_party/bin/fmt")
+set(FMT_LIBRARY_PATH ${FMT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${FMT_LIBRARY}${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+# This external project will build the fmt library and copy it.
+ExternalProject_add(fmt_project
+        DOWNLOAD_COMMAND ""
+        SOURCE_DIR ${FMT_SOURCE_DIR}
+        BINARY_DIR ${FMT_BINARY_DIR}
+        CONFIGURE_COMMAND ${CMAKE_COMMAND} ${FMT_SOURCE_DIR} -DFMT_DOC=OFF -DFMT_TEST=OFF
+        BUILD_COMMAND ${CMAKE_COMMAND} --build .
+        INSTALL_COMMAND ""
+        LOG_DOWNLOAD ON
+        LOG_BUILD ON
+        BUILD_BYPRODUCTS ${FMT_LIBRARY_PATH}
+        )
+
+include_directories(SYSTEM ${FMT_INCLUDE_DIR})
+
+InstallExternalLibrary(${FMT_LIBRARY} ${FMT_LIBRARY_PATH} fmt_project)
+
+
+
+############################################################################
 # Begin Google Mock
 ############################################################################
 set(GMOCK_LIBRARY gmock)
@@ -204,7 +233,7 @@ set_property(TARGET ${GMOCK_LIBRARY} APPEND PROPERTY
 
 
 ############################################################################
-# Begin Google RPC
+# Begin GRPC
 ############################################################################
 # TODO: Convert the Google Protobuf build process to use External Project once we give up Autotools
 
@@ -241,6 +270,11 @@ set(GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 
 GetProcessorCount(PROCESSOR_COUNT)
 
+set(CONFIG_VAL "opt")
+if (ENABLE_TSAN)
+    set(CONFIG_VAL "tsan")
+endif()
+
 add_custom_command(OUTPUT ${GRPC_LIBRARY_PATH} ${GRPCPP_LIBRARY_PATH} ${GRPC_CPP_PLUGIN_EXECUTABLE_PATH}
                           ${PROTOBUF_LIBRARY_PATH} ${PROTOBUF_PROTOC_EXECUTABLE_PATH}
         COMMAND 
@@ -256,7 +290,7 @@ add_custom_command(OUTPUT ${GRPC_LIBRARY_PATH} ${GRPCPP_LIBRARY_PATH} ${GRPC_CPP
         && sed -i "s|CONFIG)) -g |CONFIG)) |g" Makefile
         && sed -i "s|-C third_party/protobuf\$|&\\n\\tmake -C third_party/protobuf install|" Makefile
         && export MAKEFLAGS= && export MAKEOVERRIDES=
-        && make -j${PROCESSOR_COUNT} CONFIG=opt PROTOBUF_CONFIG_OPTS="--prefix=${PROTOBUF_BINARY_DIR}" > ${GRPC_SOURCE_DIR}/make.log 2>&1
+        && make -j${PROCESSOR_COUNT} CONFIG=${CONFIG_VAL} PROTOBUF_CONFIG_OPTS="--prefix=${PROTOBUF_BINARY_DIR}" > ${GRPC_SOURCE_DIR}/make.log 2>&1
         && export MAKEFLAGS=$MAKEFLAGS_AUX && export MAKEOVERRIDES=$MAKEOVERRIDES_AUX
         COMMAND make ARGS install prefix=${GRPC_BINARY_DIR} PROTOC=${PROTOBUF_PROTOC_EXECUTABLE_PATH} -j${PROCESSOR_COUNT} > ${GRPC_SOURCE_DIR}/make_install.log 2>&1
         WORKING_DIRECTORY ${GRPC_SOURCE_DIR}
@@ -270,18 +304,17 @@ add_custom_target(google-grpc
 include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
 include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
 
-install(DIRECTORY ${GRPC_INCLUDE_DIR}/
-        DESTINATION ${INCLUDE_DIR})
-
 find_package (Threads REQUIRED)
 
 InstallExternalLibrary(${GRPC_LIBRARY} ${GRPC_LIBRARY_PATH} google-grpc)
 set_property(TARGET ${GRPC_LIBRARY} APPEND PROPERTY
         IMPORTED_LINK_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${ZLIB_LIBRARIES})
+target_link_libraries(${GRPC_LIBRARY} INTERFACE ${ZLIB_LIBRARIES})
 
 InstallExternalLibrary(${GRPCPP_LIBRARY} ${GRPCPP_LIBRARY_PATH} google-grpc)
 set_property(TARGET ${GRPCPP_LIBRARY} APPEND PROPERTY
         IMPORTED_LINK_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${ZLIB_LIBRARIES})
+target_link_libraries(${GRPCPP_LIBRARY} INTERFACE ${ZLIB_LIBRARIES})
 
 InstallExternalLibrary(${PROTOBUF_LIBRARY} ${PROTOBUF_LIBRARY_PATH} google-grpc)
 
@@ -314,3 +347,73 @@ target_include_directories(${ELPP_LIBRARY} PRIVATE include/
 install(FILES ${ELPP_INCLUDE_DIR}/easylogging++.h
         DESTINATION ${INCLUDE_DIR})
 install(TARGETS ${ELPP_LIBRARY} ARCHIVE DESTINATION ${LIB_DIR})
+
+############################################################################
+# Begin Intel TBB
+############################################################################
+
+if (ENABLE_MULTITHREADING)
+
+include("${CMAKE_SOURCE_DIR}/cmake/modules/GetTargetArchitecture.cmake")
+
+set(TBB_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}/third_party/tbb")
+set(TBB_INCLUDE_DIR "${TBB_SRC_DIR}/include")
+
+# We are using the release build of the library. 
+# TODO: Generate the LIB_DIR release/debug depending on configuration.
+set(TBB_LIB_DIR "${TBB_SRC_DIR}/lib/tbb_release")
+
+set(TBB_LIBRARY "tbb")
+set(TBB_LIBRARY_PATH "${TBB_LIB_DIR}/libtbb.a")
+
+set(TBB_MALLOC_LIBRARY "tbbmalloc")
+set(TBB_MALLOC_LIBRARY_PATH "${TBB_LIB_DIR}/libtbbmalloc.a")
+
+set(TBB_MALLOC_PROXY_LIBRARY "tbbmalloc_proxy")
+set(TBB_MALLOC_PROXY_LIBRARY_PATH "${TBB_LIB_DIR}/libtbbmalloc_proxy.a")
+
+ExternalProject_Add(tbb_project
+    URL "${CMAKE_SOURCE_DIR}/third_party/tbb/2019_U9.tar.gz"
+    SOURCE_DIR ${TBB_SRC_DIR}
+    UPDATE_COMMAND ""
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    BUILD_BYPRODUCTS ${TBB_LIBRARY_PATH} ${TBB_MALLOC_LIBRARY_PATH}
+    LOG_MERGED_STDOUTERR ON
+    LOG_DOWNLOAD ON
+    LOG_OUTPUT_ON_FAILURE ON)
+
+ExternalProject_Add_Step(tbb_project custom_build
+    COMMAND export MAKEFLAGS_AUX=$MAKEFLAGS
+    && export MAKEOVERRIDES_AUX=$MAKEOVERRIDES
+    && export MAKEFLAGS=
+    && export MAKEOVERRIDES=
+    && make -j tbb_build_dir=lib tbb_build_prefix=tbb stdver=c++0x extra_inc=big_iron.inc
+    && export MAKEFLAGS=$MAKEFLAGS_AUX
+    && export MAKEOVERRIDES=$MAKEOVERRIDES_AUX
+    DEPENDEES build
+    DEPENDERS install
+    WORKING_DIRECTORY ${TBB_SRC_DIR}
+    #LOG ON
+    COMMENT "Building Intel TBB library.")
+
+link_directories(${TBB_LIB_DIR})
+include_directories(SYSTEM ${TBB_INCLUDE_DIR})
+
+InstallExternalDynamicLibrary(${TBB_LIBRARY} ${TBB_LIBRARY_PATH} tbb_project)
+InstallExternalDynamicLibrary(${TBB_MALLOC_LIBRARY} ${TBB_MALLOC_LIBRARY_PATH} tbb_project)
+#InstallExternalDynamicLibrary(${TBB_MALLOC_PROXY_LIBRARY} ${TBB_MALLOC_PROXY_LIBRARY_PATH} tbb_project)
+
+# Create a variable to hold the whole collection of libraries.
+set(TBB_LIBRARIES ${TBB_LIBRARY} ${TBB_MALLOC_LIBRARY})
+
+endif() # ENABLE_MULTITHREADING
+
+############################################################################
+# Begin xenium (https://github.com/mpoeter/xenium)
+############################################################################
+
+add_library(xenium INTERFACE)
+include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/third_party/xenium/)
+target_include_directories(xenium INTERFACE ${CMAKE_SOURCE_DIR}/third_party/xenium/)

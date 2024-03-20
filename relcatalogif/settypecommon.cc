@@ -21,21 +21,22 @@ rasdaman GmbH.
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
-#include "settype.hh"         // for SetType
-#include "mddtype.hh"         // for MDDType
-#include "raslib/odmgtypes.hh" // for SETTYPE
+#include "settype.hh"           // for SetType
+#include "mddtype.hh"           // for MDDType
+#include "raslib/odmgtypes.hh"  // for SETTYPE
 #include "reladminif/oidif.hh"
-#include "mymalloc/mymalloc.h"
 
-#include <string.h>           // for sprintf
+#include <string.h>  // for sprintf
 
-SetType::SetType() : CollectionType("unnamed settype")
+SetType::SetType()
+    : CollectionType("unnamed settype")
 {
     myType = SETTYPE;
     objecttype = OId::SETTYPEOID;
 }
 
-SetType::SetType(const OId &id) : CollectionType(id)
+SetType::SetType(const OId &id)
+    : CollectionType(id)
 {
     objecttype = OId::SETTYPEOID;
     readFromDb();
@@ -53,12 +54,14 @@ SetType::~SetType() noexcept(false)
     validate();
 }
 
-char *SetType::getTypeStructure() const
+std::string SetType::getTypeStructure() const
 {
-    char *dummy = myMDDType->getTypeStructure();
-    char *result = static_cast<char *>(mymalloc(5 + strlen(dummy) + 2));
-    sprintf(result, "set <%s>", dummy);
-
-    free(dummy);
-    return result;
+    auto baseType = myMDDType->getTypeStructure();
+    auto resultLen = 6 + baseType.size();
+    std::string ret;
+    ret.reserve(resultLen);
+    ret += "set <";
+    ret += baseType;
+    ret += ">";
+    return ret;
 }

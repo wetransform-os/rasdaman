@@ -1,0 +1,2 @@
+for c in (test_irr_cube_2)
+return encode(c[ansi("2008-01-01T03":"2008-01-08T00:02:58.000Z")].b1 + 70, "csv")

@@ -14,7 +14,7 @@
 //  https://muflihun.github.io/easyloggingpp
 //  http://muflihun.com
 //
-#include "common/pragmas/pragmas.hh"
+#include "common/macros/pragmas.hh"
 
 DIAGNOSTIC_PUSH
 IGNORE_WARNING("-Wstrict-overflow")
@@ -713,6 +713,7 @@ bool File::pathExists(const char* path, bool considerFile) {
   }
   return considerFile ? true : ((fileType & FILE_ATTRIBUTE_DIRECTORY) == 0 ? false : true);
 #endif  // ELPP_OS_UNIX
+  return false;
 }
 
 bool File::createPath(const std::string& path) {

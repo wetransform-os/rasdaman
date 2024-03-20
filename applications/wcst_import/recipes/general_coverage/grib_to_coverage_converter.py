@@ -26,7 +26,8 @@ import copy
 from config_manager import ConfigManager
 from lib import arrow
 from master.error.validate_exception import RecipeValidationException
-from util.time_util import DateTimeUtil
+from util.gdal_util import MAX_RETRIES_TO_OPEN_FILE
+from util.time_util import DateTimeUtil, execute_with_retry_on_timeout
 from util import list_util
 from master.evaluator.evaluator_slice import GribMessageEvaluatorSlice
 from master.evaluator.sentence_evaluator import SentenceEvaluator
@@ -48,7 +49,8 @@ from master.error.runtime_exception import RuntimeException
 from util.crs_util import CRSAxis
 from util.file_util import File
 
-from util.import_util import import_pygrib
+from util.grib_util import grib_open
+from master.generator.model.range_type_nill_value import RangeTypeNilValue
 
 
 class GRIBMessage:
@@ -145,17 +147,29 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
         if self.default_null_values is not None:
             return self.default_null_values
 
+        nil_value = None
+
         # NOTE: all files should have same bands's metadata
         try:
-            nil_value = self.dataset.message(1)["missingValue"]
+            nil_value = RangeTypeNilValue("", self.dataset.message(1)["missingValue"])
         except KeyError:
             # missingValue is not defined in grib file
             nil_value = None
+        except Exception as ex:
+            if ConfigManager.blocking is True:
+                raise RuntimeException("Cannot get missingValue from GRIB file.")
 
         if nil_value is None:
             return None
         else:
             return [nil_value]
+
+    def _get_file_band_data_type_and_chunk_sizes_from_file(self, band_id):
+        """
+        band_id is the identifier of the band
+        """
+        data_type = GRIBToCoverageConverter.DEFAULT_DATA_TYPE
+        return data_type, None
 
     def _evaluated_messages_to_dict(self, evaluated_messages):
         """
@@ -186,9 +200,8 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
         # NOTE: grib only supports 1 band
         band = self.bands[0]
 
-        pygrib = import_pygrib()
-
-        self.dataset = pygrib.open(grib_file.filepath)
+        file_path = grib_file.filepath
+        self.dataset = grib_open(file_path)
         evaluated_messages = []
         collected_evaluated_messages = []
 
@@ -266,7 +279,7 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             # instead of the one from shortName then, this collect every available messages from the input files
             if len(collected_evaluated_messages) > 0:
                 evaluated_messages = collected_evaluated_messages
-            else:
+            elif ConfigManager.blocking is True:
                 raise RuntimeException("Grib file '" + grib_file.filepath + "' does not contain any selected messages to import.")
 
         return evaluated_messages, first_grib_message
@@ -308,14 +321,17 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             if user_axis.type == UserAxisType.DATE:
                 if crs_axis.is_time_day_axis():
                     coefficients = self._translate_day_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                            user_axis.directPositions)
+                                                                                            user_axis.directPositions,
+                                                                                            user_axis.areas_of_validity)
                 else:
                     coefficients = self._translate_seconds_date_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                                user_axis.directPositions)
+                                                                                                user_axis.directPositions,
+                                                                                                user_axis.areas_of_validity)
             else:
                 # number axis like Index1D
                 coefficients = self._translate_number_direct_position_to_coefficients(user_axis.interval.low,
-                                                                                      user_axis.directPositions)
+                                                                                      user_axis.directPositions,
+                                                                                      user_axis.areas_of_validity)
 
             self._update_for_slice_group_size(self.coverage_id, user_axis, crs_axis, coefficients)
 
@@ -385,7 +401,7 @@ class GRIBToCoverageConverter(AbstractToCoverageConverter):
             if user_axis.name == crs_axis_name:
                 return user_axis
 
-    def _create_coverage_slice(self, grib_file, crs_axes, evaluator_slice=None, axis_resolutions=None):
+    def _create_coverage_slice(self, grib_file, crs_axes, evaluator_slice=None, axis_resolutions=None, user_axes=None):
         """
         Returns a slice for a grib file
         :param File grib_file: the path to the grib file

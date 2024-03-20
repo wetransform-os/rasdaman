@@ -20,22 +20,21 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-#include <stdexcept>
-
-#include <logging.hh>
-#include "common/exceptions/rasexceptions.hh"
-
-#include "exceptions/rasmgrexceptions.hh"
-#include "databasehost.hh"
-
 #include "databasehostmanager.hh"
+#include "databasehost.hh"
+#include "common/exceptions/invalidargumentexception.hh"
+#include "exceptions/dbhostalreadyexistsexception.hh"
+#include "exceptions/dbhostbusyexception.hh"
+#include "exceptions/inexistentdbhostexception.hh"
+#include <logging.hh>
+
 #include <boost/thread/shared_lock_guard.hpp>
 
 namespace rasmgr
 {
 using std::list;
-using std::shared_ptr;
 using std::runtime_error;
+using std::shared_ptr;
 
 void DatabaseHostManager::defineDatabaseHost(const DatabaseHostPropertiesProto &newDbHost)
 {
@@ -56,9 +55,7 @@ void DatabaseHostManager::defineDatabaseHost(const DatabaseHostPropertiesProto &
 
     std::string empty = "";
     std::string connectStr = newDbHost.has_connect_string() ? newDbHost.connect_string() : empty;
-    std::string userName = newDbHost.has_user_name() ? newDbHost.user_name() : empty;
-    std::string password = newDbHost.has_password() ? newDbHost.password() : empty;
-    auto dbHost = std::make_shared<DatabaseHost>(newDbHost.host_name(), connectStr, userName, password);
+    auto dbHost = std::make_shared<DatabaseHost>(newDbHost.host_name(), connectStr);
 
     boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(lock);
     this->hostList.push_back(dbHost);
@@ -75,16 +72,12 @@ void DatabaseHostManager::changeDatabaseHost(const std::string &oldName, const D
         {
             if (!(*it)->isBusy())
             {
-              if (newProperties.has_connect_string())
-                  (*it)->setConnectString(newProperties.connect_string());
-              if (newProperties.has_host_name() && !newProperties.host_name().empty())
-                  (*it)->setHostName(newProperties.host_name());
-              if (newProperties.has_password())
-                  (*it)->setPasswdString(newProperties.password());
-              if (newProperties.has_user_name())
-                  (*it)->setUserName(newProperties.user_name());
-              changed = true;
-              break;
+                if (newProperties.has_connect_string())
+                    (*it)->setConnectString(newProperties.connect_string());
+                if (newProperties.has_host_name() && !newProperties.host_name().empty())
+                    (*it)->setHostName(newProperties.host_name());
+                changed = true;
+                break;
             }
             else
             {
@@ -156,7 +149,7 @@ std::shared_ptr<DatabaseHost> DatabaseHostManager::getDatabaseHost(const std::st
     throw common::RuntimeException("Host containing database " + dbName + " not found.");
 }
 
-std::list<std::shared_ptr<DatabaseHost> > DatabaseHostManager::getDatabaseHostList() const
+std::list<std::shared_ptr<DatabaseHost>> DatabaseHostManager::getDatabaseHostList() const
 {
     return this->hostList;
 }
@@ -171,6 +164,5 @@ DatabaseHostMgrProto DatabaseHostManager::serializeToProto()
     }
     return result;
 }
-
 
 } /* namespace rasmgr */

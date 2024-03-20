@@ -31,7 +31,6 @@ rasdaman GmbH.
 #include "relblobif/tileid.hh"
 #include "relindexif/indexid.hh"
 #include "relstorageif/dbstoragelayout.hh"
-#include "relstorageif/storageid.hh"
 #include <iosfwd>
 
 class BaseType;
@@ -99,6 +98,12 @@ public:
     DBStorageLayoutId getDBStorageLayout() const;
     /*@Doc:
         return the storage layout object for this mdd object.
+    */
+
+    void setDBStorageLayout(const DBStorageLayoutId &newSL);
+    /*@Doc:
+        make the mdd object use Storage Layour instead of its old storage layout.
+        the old storage layout is not deleted from the database!
     */
 
     const char *getCellTypeName() const;
@@ -200,6 +205,11 @@ public:
     /*@Doc:
     updates the domain of this object in the db
     */
+
+   void commitUpdate();
+   /*@Doc:
+    update the MDD in the relational database.
+   */
 
 protected:
     friend class ObjectBroker;

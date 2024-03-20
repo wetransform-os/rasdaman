@@ -29,15 +29,13 @@ namespace rasmgr
 class UserAdminRightsProto;
 
 /**
- * @brief The UserAdminRights class represents the administration rights of the
- * user. @see Installation and Administration Guide
+ * Represents the administration rights of the user.
  */
 class UserAdminRights
 {
 public:
     /**
-     * Initialize a new instance of the UserAdminRights object
-     * with NO rights
+     * Initialize a new instance of the UserAdminRights object with NO rights
      */
     UserAdminRights() = default;
 
@@ -59,10 +57,10 @@ public:
     static UserAdminRightsProto serializeToProto(const UserAdminRights &rights);
 
 private:
-    bool systemConfigRights{false};/*!< Rights to configure the system*/
-    bool accessControlRights{false};/*!< Rights to modify access control*/
-    bool serverAdminRights{false};/*!< Rights to administer servers*/
-    bool infoRights{false};/*!< Rights to list information about this rasdaman instance*/
+    bool systemConfigRights{false};  /*!< Rights to configure the system*/
+    bool accessControlRights{false}; /*!< Rights to modify access control*/
+    bool serverAdminRights{false};   /*!< Rights to administer servers*/
+    bool infoRights{false};          /*!< Rights to list information about this rasdaman instance*/
 };
 
 } /* namespace rasmgr */

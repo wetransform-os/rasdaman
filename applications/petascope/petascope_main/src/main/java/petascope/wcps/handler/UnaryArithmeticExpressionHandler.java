@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -46,30 +48,47 @@ public class UnaryArithmeticExpressionHandler extends Handler {
         
     }
     
-    public UnaryArithmeticExpressionHandler create(StringScalarHandler operatorHandler, Handler coverageExpressionHandler) {
+    public UnaryArithmeticExpressionHandler create(StringScalarHandler operatorHandler, Handler coverageExpressionHandler, 
+                                                    StringScalarHandler leftParenthesis,
+                                                    StringScalarHandler rightParenthesis) {
         UnaryArithmeticExpressionHandler result = new UnaryArithmeticExpressionHandler();
-        result.setChildren(Arrays.asList(operatorHandler, coverageExpressionHandler));
+        result.setChildren(Arrays.asList(operatorHandler, coverageExpressionHandler, leftParenthesis, rightParenthesis));
                 
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        String operator = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        WcpsResult coverageExpression = ((WcpsResult)this.getSecondChild().handle());
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String operator = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        WcpsResult coverageExpression = ((WcpsResult)this.getSecondChild().handle(serviceRegistries));
+        String leftParenthesis = null;
+        String rightParenthesis = null;
         
-        WcpsResult result = this.handle(operator, coverageExpression);
+        if (this.getThirdChild() != null) {
+            leftParenthesis = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
+        }
+        if (this.getFourthChild()!= null) {
+            rightParenthesis = ((WcpsResult)this.getFourthChild().handle(serviceRegistries)).getRasql();
+        }
+        
+        WcpsResult result = this.handle(operator, coverageExpression, leftParenthesis, rightParenthesis);
         return result;
     }
 
-    private WcpsResult handle(String operator, WcpsResult coverageExpression) {
+    private WcpsResult handle(String operator, WcpsResult coverageExpression, String leftParenthesis, String rightParenthesis) {
         String template = TEMPLATE.replace("$coverage", coverageExpression.getRasql());
-        //real and imaginary translate to postfix operations in rasql
-        //yielding .re and .im
+        
+        // real and imaginary translate to postfix operations in rasql
+        // yielding .re and .im
         if (operator.toLowerCase().equals(POST_REAL) || operator.toLowerCase().equals(POST_IMAGINARY)) {
             template = template.replace("$preOperator", "").replace("$postOperator", "." + operator);
         } else {
-            template = template.replace("$preOperator", operator + "(").replace("$postOperator", ")");
+            if (leftParenthesis != null) {
+                template = template.replace("$preOperator", operator + "(").replace("$postOperator", ")");
+            } else {
+                template = operator + coverageExpression.getRasql();
+            }
         }
+        
         return new WcpsResult(coverageExpression.getMetadata(), template);
     }
 

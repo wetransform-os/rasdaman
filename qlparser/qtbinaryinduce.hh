@@ -23,6 +23,7 @@ rasdaman GmbH.
 #ifndef _QTBINARYINDUCE_
 #define _QTBINARYINDUCE_
 
+#include <cstddef>
 #include <string>
 
 #include "qlparser/qtbinaryoperation.hh"
@@ -55,11 +56,11 @@ public:
     virtual const QtTypeElement &checkType(QtTypeTuple *typeTuple = NULL);
 
     /// computes a binary induce operation on two MDD objects
-    static QtData *computeBinaryMDDOp(QtMDD *operand1, QtMDD *operand2, const BaseType *resultBaseType, BinaryOp *myOp);
+    static QtData *computeBinaryMDDOp(QtMDD *operand1, QtMDD *operand2, const BaseType *resultBaseType, BinaryOp *myOp, Ops::OpType* opType = nullptr);
     static std::vector<std::shared_ptr<Tile>> computeBinaryMDDOpOneTile(
-             const std::shared_ptr<Tile> &tileOp1, const std::unique_ptr<std::vector<std::shared_ptr<Tile>>> &tileOp2,
-             const r_Point &offset12, const r_Point &offset21, const r_Minterval &areaOp1,
-             const BaseType *resultBaseType, BinaryOp *myOp, bool fullTiles, unsigned int &capturedErrCode);
+        const std::shared_ptr<Tile> &tileOp1, const std::unique_ptr<std::vector<std::shared_ptr<Tile>>> &tileOp2,
+        const r_Point &offset12, const r_Point &offset21, const r_Minterval &areaOp1,
+        const BaseType *resultBaseType, BinaryOp *myOp, bool fullTiles, unsigned int &capturedErrCode);
     /**
       The method carries out the binary induce operation specified by <tt>operation</tt> on the two operands. For
       the result, a new transient MDD object is created and returned. In the end, the MDD objects of the operands
@@ -85,16 +86,14 @@ protected:
       The method carries out the binary operation specified by <tt>operation</tt> on the two operands.
     */
 
-//  private:
+    //  private:
     // type of operation
     Ops::OpType opType;
 
 private:
     /// atribute for identification of nodes
     static const QtNodeType nodeType;
-
 };
-
 
 //@ManMemo: Module: {\bf qlparser}
 
@@ -124,7 +123,6 @@ private:
     /// attribute for identification of nodes
     static const QtNodeType nodeType;
 };
-
 
 //@ManMemo: Module: {\bf qlparser}
 
@@ -193,7 +191,6 @@ public:
     /// constructor getting the two operands
     QtMin_binary(QtOperation *input1, QtOperation *input2);
 
-
     /// prints the tree
     virtual void printTree(int tab, std::ostream &s = std::cout, QtChildType mode = QT_ALL_NODES);
 
@@ -237,7 +234,6 @@ private:
     static const QtNodeType nodeType;
 };
 
-
 //@ManMemo: Module: {\bf qlparser}
 
 /*@Doc:
@@ -266,7 +262,6 @@ private:
     /// attribute for identification of nodes
     static const QtNodeType nodeType;
 };
-
 
 //@ManMemo: Module: {\bf qlparser}
 
@@ -326,7 +321,57 @@ private:
     static const QtNodeType nodeType;
 };
 
+class QtPowU : public QtBinaryInduce
+{
+public:
+    /// constructor getting the two operands
+    QtPowU(QtOperation *input1, QtOperation *input2);
+
+    /// prints the tree
+    virtual void printTree(int tab, std::ostream &s = std::cout, QtChildType mode = QT_ALL_NODES);
+
+    /// prints the algebraic expression
+    virtual void printAlgebraicExpression(std::ostream &s = std::cout);
+
+    /// method for identification of nodes
+    inline virtual QtNodeType getNodeType() const;
+
+    /// returns FALSE saying that the operation IS NOT commutative
+    virtual bool isCommutative() const;
+
+private:
+    /// attribute for identification of nodes
+    static const QtNodeType nodeType;
+};
+
+//@ManMemo: Module: {\bf qlparser}
+
+/*@Doc:
+
+*/
+class QtAtan2 : public QtBinaryInduce
+{
+public:
+    /// constructor getting the two operands
+    QtAtan2(QtOperation *input1, QtOperation *input2);
+
+    /// prints the tree
+    virtual void printTree(int tab, std::ostream &s = std::cout, QtChildType mode = QT_ALL_NODES);
+
+    /// prints the algebraic expression
+    virtual void printAlgebraicExpression(std::ostream &s = std::cout);
+
+    /// method for identification of nodes
+    inline virtual QtNodeType getNodeType() const {return nodeType;}
+
+    /// returns FALSE saying that the operation IS NOT commutative
+    virtual bool isCommutative() const;
+
+private:
+    /// attribute for identification of nodes
+    static const QtNodeType nodeType;
+};
+
 #include "qlparser/qtbinaryinduce.icc"
 
 #endif
-

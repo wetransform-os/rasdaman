@@ -24,6 +24,7 @@ package petascope.wms.handlers.model;
 import java.util.List;
 import java.util.Map;
 import petascope.core.BoundingBox;
+import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
 
 /**
@@ -43,11 +44,15 @@ public class WMSLayer {
    private BoundingBox requestBBox;
    // extended min and max XY geo bounds from the requesting BBOX from client
    private BoundingBox extendedRequestBBox;
+   // it comes from extendedRequestBBox but this bbox is aligned to the top left corner like with gdal_translate -projwin when doing subsets
+   private BoundingBox extendedAlignedRequestBBox;
    private final Integer width;
    private final Integer height;
-   
+
    // List of WCPS subsets on nonXY axes (e.g. time / elevation,...)
    private List<WcpsSubsetDimension> nonXYSubsetDimensions;
+   private WcpsCoverageMetadata wcpsCoverageMetadata;
+   
 
     public WMSLayer(String layerName, BoundingBox originalXYBoundsBBox, BoundingBox requestBBox, BoundingBox extendedRequestBBox, Integer width, Integer height,
                     List<WcpsSubsetDimension> nonXYSubsetDimensions
@@ -100,7 +105,7 @@ public class WMSLayer {
         this.extendedRequestBBox = extendedRequestBBox;
     }
 
-    public BoundingBox getOriginalBoundsBBox() {
+    public BoundingBox getOriginalXYBoundsBBox() {
         return originalXYBoundsBBox;
     }
 
@@ -111,7 +116,24 @@ public class WMSLayer {
     public List<WcpsSubsetDimension> getNonXYSubsetDimensions() {
         return nonXYSubsetDimensions;
     }
-    
+
+
+    public WcpsCoverageMetadata getWcpsCoverageMetadata() {
+        return wcpsCoverageMetadata;
+    }
+
+    public void setWcpsCoverageMetadata(WcpsCoverageMetadata wcpsCoverageMetadata) {
+        this.wcpsCoverageMetadata = wcpsCoverageMetadata;
+    }
+
+    public BoundingBox getExtendedAlignedRequestBBox() {
+        return extendedAlignedRequestBBox;
+    }
+
+    public void setExtendedAlignedRequestBBox(BoundingBox extendedAlignedRequestBBox) {
+        this.extendedAlignedRequestBBox = extendedAlignedRequestBBox;
+    }
+
     @Override
     public String toString() {
         return this.layerName;

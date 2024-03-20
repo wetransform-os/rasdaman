@@ -18,47 +18,44 @@ class Configuration;
 class ConfigurationManager;
 
 /**
- * @brief The RasManager class Central class of rasmgr that performs
- * initialization of the other submodules.
+ * Central class of rasmgr that performs initialization of the other
+ * submodules.
  */
 class RasManager
 {
 public:
     /**
-     * @brief RasManager Initialize the class using configuration obtained from command
-     * line parameters
-     * @param config
+     * Initialize using configuration obtained from cmd-line parameters/
      */
-    RasManager(Configuration &config
-               );
+    RasManager(Configuration &config);
 
-    virtual ~RasManager();
+    virtual ~RasManager() = default;
 
     /**
-     * @brief start Initialize rasmgr components and publish the services to
-     * the network.
+     * Initialize rasmgr components and publish the services to the network.
      */
     void start();
 
     /**
-     * @brief stop Save the current configuration and stop the instance.
+     * Save the current configuration and stop the instance.
      */
     void stop();
 
     /**
-     * @brief saveConfiguration Save this rasmanager's configuration to rasmgr.conf and rasmgr.auth
+     * Save this rasmanager's configuration to rasmgr.conf and rasmgr.auth
      */
     void saveConfiguration();
 
     void setIsConfigurationDirty(bool isDirty);
+
 private:
     std::shared_ptr<ConfigurationManager> configManager;
     std::unique_ptr<grpc::Server> server;
 
     sig_atomic_t running; /*!<True if the rasmgr is running, false otherwise */
-    std::uint32_t port; /*!< Port on which this rasmgr instance will be running */
+    std::uint32_t port;   /*!< Port on which this rasmgr instance will be running */
 };
 
-}
+}  // namespace rasmgr
 
-#endif // RASMGR_X_SRC_RASMANAGER_HH
+#endif  // RASMGR_X_SRC_RASMANAGER_HH

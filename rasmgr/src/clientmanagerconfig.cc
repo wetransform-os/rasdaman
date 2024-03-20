@@ -8,11 +8,12 @@ ClientManagerConfig::ClientManagerConfig()
 {
     this->clientLifeTime = CLIENT_LIFETIME;
     this->cleanupInterval = CLIENT_MANAGER_CLEANUP_INTERVAL;
+    this->maxClientQueueSize = MAX_CLIENT_QUEUE_SIZE;
 }
 
 ClientManagerConfig::~ClientManagerConfig()
-{}
-
+{
+}
 
 std::int32_t ClientManagerConfig::getCleanupInterval() const
 {
@@ -34,4 +35,14 @@ void ClientManagerConfig::setClientLifeTime(const std::int32_t &value)
     clientLifeTime = value;
 }
 
+uint32_t ClientManagerConfig::getMaxClientQueueSize() const
+{
+    return maxClientQueueSize;
 }
+
+void ClientManagerConfig::setMaxClientQueueSize(const uint32_t &value)
+{
+    maxClientQueueSize = value;
+}
+
+}  // namespace rasmgr

@@ -22,8 +22,9 @@
  *
 """
 from util.file_util import File
-from util.gdal_util import GDALGmlUtil
-from util.import_util import import_netcdf4
+from util.gdal_util import GDALGmlUtil, MAX_RETRIES_TO_OPEN_FILE
+from util.netcdf4_util import netcdf4_open
+from util.time_util import execute_with_retry_on_timeout
 
 
 class EvaluatorSlice:
@@ -69,8 +70,7 @@ class GDALEvaluatorSlice(FileEvaluatorSlice):
         :rtype: gdal Dataset
         """
         if self.dataset is None:
-            self.dataset = GDALGmlUtil(self.get_file().filepath)
-
+            self.dataset = GDALGmlUtil.get(self.get_file().filepath)
         return self.dataset
 
     def get_data_type(self, gdal_recipe_converter=None):
@@ -134,10 +134,8 @@ class NetcdfEvaluatorSlice(FileEvaluatorSlice):
         Returns the dataset ofthe file
         :rtype: netCDF4.Dataset
         """
-        netCDF4 = import_netcdf4()
-        if self.dataset is None:
-            file_path = self.get_file().get_filepath()
-            self.dataset = netCDF4.Dataset(file_path, "r") # pylint: disable=no-member
+        file_path = self.get_file().get_filepath()
+        self.dataset = netcdf4_open(file_path)
 
         return self.dataset
 

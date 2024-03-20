@@ -1,0 +1,84 @@
+{
+    "id": "is_valid",
+    "summary": "Value is valid data",
+    "description": "Checks which elements of `x` are valid (*`x IS NULL`*). Valid values are all finite numerical values (excluding NaN according to [IEEE Standard 754](https://ieeexplore.ieee.org/document/4610935)), which are not nodata values according to ``is_nodata()``.\n\nThe operand can be a scalar number or a datacube.\n\n\nThe result is a scalar number if the operand is scalar, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type   | result type   |\n|----------------|---------------|\n| X              | bool          |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "True where `x` is valid, false otherwise.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": null
+            },
+            "returns": false
+        },
+        {
+            "arguments": {
+                "x": 1.0
+            },
+            "returns": true
+        },
+        {
+            "arguments": {
+                "x": [
+                    1.0,
+                    "NaN",
+                    null
+                ]
+            },
+            "returns": [
+                true,
+                false,
+                false
+            ]
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "https://ieeexplore.ieee.org/document/8766229",
+            "title": "IEEE Standard 754-2019 for Floating-Point Arithmetic"
+        }
+    ],
+    "wcps": "<x> != nan and x is not null",
+    "categories": [
+        "Logical"
+    ]
+}

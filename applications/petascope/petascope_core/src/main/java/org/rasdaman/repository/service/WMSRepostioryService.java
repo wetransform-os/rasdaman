@@ -22,8 +22,12 @@
 package org.rasdaman.repository.service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentSkipListMap;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -36,6 +40,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.PetascopeRuntimeException;
+import petascope.exceptions.WMSException;
+import petascope.util.ThreadUtil;
 
 /**
  *
@@ -144,7 +151,7 @@ public class WMSRepostioryService {
         
         Layer layer = this.layerRepository.findOneByName(layerName);
         if (layer == null) {
-            throw new PetascopeException(ExceptionCode.NoSuchLayer, "Layer '" + layerName + "' does not exist in local petascopedb.");
+            throw new WMSException(ExceptionCode.LayerNotDefined, "Layer '" + layerName + "' does not exist.");
         }
         
         final long end = System.currentTimeMillis();
@@ -166,8 +173,22 @@ public class WMSRepostioryService {
     public List<Layer> readAllLayers() throws PetascopeException {
 
         // Read all layers from database
-        List<Layer> layers = this.readAllLocalLayers();
-        this.wmtsRepositoryService.initializeLocalTileMatrixSetsMapCache();
+        List<Layer> layers = this.readAllLocalLayersFromCache();
+        final WMTSRepositoryService wmtsRepostioryService = this.wmtsRepositoryService;
+        
+        Runnable localTask = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    wmtsRepostioryService.initializeLocalTileMatrixSetsMapCache();
+                } catch (PetascopeException ex) {
+                    log.error("Failed to initialize local tile matrix sets. Reason: " + ex.getMessage(), ex);
+                    throw new PetascopeRuntimeException(ex);
+                }
+            }
+        };
+        Thread thread1 = new Thread(localTask);
+        thread1.start();
 
         return layers;
     }
@@ -196,7 +217,7 @@ public class WMSRepostioryService {
      /**
      * This one should return only local layer of this node and not contain any remote layers.
      */
-    public List<Layer> readAllLocalLayers() throws PetascopeException {
+    public List<Layer> readAllLocalLayersFromCache() throws PetascopeException {
         List<Layer> layers = new ArrayList<>();
         
         final long start = System.currentTimeMillis();        

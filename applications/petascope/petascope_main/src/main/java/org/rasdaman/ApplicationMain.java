@@ -32,6 +32,7 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import javax.servlet.ServletContext;
 import org.gdal.gdal.gdal;
 import org.rasdaman.config.ConfigManager;
 import org.rasdaman.migration.service.AbstractMigrationService;
@@ -41,38 +42,47 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.boot.web.support.SpringBootServletInitializer;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.event.EventListener;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 import petascope.controller.AbstractController;
 import petascope.core.GeoTransform;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.util.CrsProjectionUtil;
 import petascope.util.ras.TypeRegistry;
 import petascope.wcs2.parsers.request.xml.XMLAbstractParser;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.rasdaman.config.ConfigManager.STATIC_HTML_DIR_PATH;
 import org.rasdaman.datamigration.DataMigrationService;
+import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.rasdaman.repository.service.WMSRepostioryService;
 import org.springframework.beans.factory.annotation.Autowired;
+import petascope.core.Pair;
 import petascope.util.CrsUtil;
 import petascope.util.ras.RasUtil;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
-import org.rasdaman.domain.cis.Coverage;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static org.rasdaman.config.ConfigManager.KEY_PETASCOPE_CONF_DIR;
 import org.rasdaman.repository.service.OWSMetadataRepostioryService;
-import petascope.core.Pair;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 
 /**
  * This class initializes the petascope properties and runs the application as jar file.
@@ -80,7 +90,7 @@ import petascope.core.Pair;
  * @author <a href="mailto:b.phamhuu@jacobs-university.de">Bang Pham Huu</a>
  * @author Dimitar Misev
  */
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.rasdaman", "org.rasdaman", "petascope"})
 @EnableCaching
 
 // NOTE: When the repository/entity/compontent package 
@@ -98,8 +108,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
     
     public static final String APPLICATION_PROPERTIES_FILE = "application.properties";
     // path to gdal native files (.so) which are needed for GDAL java to invoke.
-    private static final String PREFIX_INPUT_PARAMETER = "--";
-    private static final String KEY_PETASCOPE_CONF_DIR = "petascope.confDir";
+    private static final String PREFIX_INPUT_PARAMETER = "--";    
     private static final String KEY_MIGRATE = "migrate";
     
     // When invoked from command line (e.g: java -jar rasdaman.war), the migration
@@ -115,7 +124,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
     
     // NOTE: this set is not updated when insert/delete local coverages, it only contains
     // the list of local collection from rasdaman when petascope starts
-    public static Set<String> localRasdamanCollectionNames = new HashSet<>();
+    private static Set<String> localRasdamanCollectionNames = new HashSet<>();
     
     /**
      * Check if petascope runs with embedded tomcat or external tomcat
@@ -137,6 +146,13 @@ public class ApplicationMain extends SpringBootServletInitializer {
     @Autowired
     private OWSMetadataRepostioryService owsMetadataRepostioryService;
 
+    @Autowired
+    private ServletContext servletContext;
+
+
+
+    private static ScheduledExecutorService schedulerExecutorService = Executors.newScheduledThreadPool(1);
+    private static boolean initAfterPetascopeStarted = false;
 
     /**
      * Invoked when running Petascope (rasdaman.war) only in an external servlet container. 
@@ -191,6 +207,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
             // NOTE: for external system tomcat, it returns `/var/lib/tomcat9`
             // for external local tomcat, it returns `/home/rasdaman/pache-tomcat-8.5.34/bin`
             webappsDir = new FileSystemResource("").getFile().getCanonicalPath().replace("/bin", "") + "/webapps";
+
         }
         
         CrsUtil.loadInternalSecore(embedded, webappsDir);
@@ -307,38 +324,101 @@ public class ApplicationMain extends SpringBootServletInitializer {
             System.exit(ExitCode.SUCCESS.getExitCode());
         }
 
-        CrsUtil.checkSECOREURLsForInternalMigration();
 
         // ### data migration
 
-        // Test if rasdaman is running first
+        // Test if rasdaman is running first with provided credentials from rasguest and rasadmin
+
+        if (ConfigManager.RASDAMAN_USER != null && !ConfigManager.RASDAMAN_USER.isEmpty()
+          && ConfigManager.RASDAMAN_PASS != null && !ConfigManager.RASDAMAN_PASS.isEmpty()) {
+            try {
+                RasUtil.checkValidUserCredentials(ConfigManager.RASDAMAN_USER, ConfigManager.RASDAMAN_PASS);
+            } catch (Exception ex) {
+                String errorMessage = "Cannot check if rasdaman is running. Reason: " + ex.getMessage().trim()
+                        + ". Hint: make sure rasdaman is running, user's credentials are correct and restart tomcat service afterwards.";
+                log.error(errorMessage);
+                AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError, errorMessage);
+                return;
+            }
+        }
+
 
         try {
             RasUtil.checkValidUserCredentials(ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS);
         } catch(Exception ex) {
             String errorMessage = "Cannot check if rasdaman is running. Reason: " + ex.getMessage().trim()
-                                + " Hint: make sure rasdaman is running and restart tomcat service afterwards.";
+                                + ". Hint: make sure rasdaman is running, user's credentials are correct and restart tomcat service afterwards.";
             log.error(errorMessage);
             AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError, errorMessage);
             return;
         }
 
-        log.info("Running data migrations ...");
+        CrsUtil.setInternalResolverCRSToQualifiedCRS();
+        CrsUtil.currentWorkingResolverURL = ConfigManager.SECORE_URLS.get(0);
 
-        this.dataMigrationService.runMigration();
+        if (ConfigManager.RASDAMAN_USER.trim().isEmpty() && ConfigManager.RASDAMAN_PASS.trim().isEmpty()
+                && !ConfigManager.enableAuthentication()
+        ) {
+            AbstractController.startException = new PetascopeException(ExceptionCode.InternalComponentError,
+                    "No authentication is enabled, hence, petascope does not know which user to query to rasdaman.\n" +
+                            "Hint: in petascope.properties either change to authentication_type=basic_header " +
+                            "or set rasdaman_user and rasdaman_pass with valid credentials of a rasdaman user, then restart petascope.");
+        }
 
-        log.info("Checked data migrations.");
-        
-        owsMetadataRepostioryService.read();
-
-        // load coverages / layers to caches in background thread
-        this.loadCoveragesLayersCaches(this);
-        
-        // then, check if local rasdaman collections of local coverages exist in RASBASE
-        this.checkLocalCollectionsOfCoveragesExist(this);
-        
     }
 
+    @EventListener(ApplicationReadyEvent.class)
+    private void initAfterWebApplicationStarted(ApplicationReadyEvent event) throws Exception {
+        // In case someone changed rasdaman.war to name.war and deployed it to external tomcat
+        ConfigManager.CONTEXT_PATH = this.servletContext.getContextPath();
+
+        final ApplicationMain currentClass = this;
+        final Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (initAfterPetascopeStarted) {
+                        // Everything was started, this service is stopped
+                        schedulerExecutorService = Executors.newScheduledThreadPool(0);
+                        return;
+                    }
+
+                    // Trigger checking working SECORE URL
+                    CrsUtil.runTaskByInterval();
+
+                    log.info("Running data migrations ...");
+
+                    dataMigrationService.runMigration();
+
+                    log.info("Checked data migrations.");
+
+                    owsMetadataRepostioryService.read();
+
+
+                    // load coverages / layers to caches in background thread
+                    loadCoveragesLayersCaches(currentClass);
+
+                    // then, check if local rasdaman collections of local coverages exist in RASBASE
+                    checkLocalCollectionsOfCoveragesExist(currentClass);
+
+                    initAfterPetascopeStarted = true;
+                } catch (Exception ex) {
+                    log.error("Failed to run services after petascope started. Reason: " + ex.getMessage(), ex);
+                    throw new PetascopeRuntimeException(ex);
+                }
+            }
+        };
+
+        // NOTE: This schedule runs only one time and it checks when petascope actually started (especially when it is deployed in external tomcat)
+        schedulerExecutorService.scheduleAtFixedRate(runnable,
+                                                1,
+                                                1, SECONDS);
+
+
+    }
+
+
+    
     /**
      * Run in a background thread to load coverages and layers to caches.
      * Log warnings if something don't work (later WCS / WMS Getcapabilities requests will retry to read from database to caches)
@@ -351,7 +431,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
                 
                 try {
                     log.info("Loading coverages to caches ...");
-                    coverageRepositoryService.readAllCoveragesBasicMetadata();
+                    coverageRepositoryService.readAllCoveragesBasicMetadataWhenPetascopeStarts();
                 } catch (Exception ex) {
                     log.warn("Cannot load coverages to cache. Reason: " + ex.getMessage(), ex);
                 }
@@ -372,7 +452,7 @@ public class ApplicationMain extends SpringBootServletInitializer {
                 try {
                     wmsRepostioryService.readAllLayers();
                 } catch (PetascopeException ex) {
-                    log.warn("Cannto load layers to cache. Reason: " + ex.getMessage(), ex);                    
+                    log.warn("Cannot load layers to cache. Reason: " + ex.getMessage(), ex);                    
                 }
                 
                 log.info("Loaded layers to caches.");

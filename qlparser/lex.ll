@@ -189,6 +189,8 @@ int string_yyinput( char* buf, int max_size )
 "q1"                                     { SETTOKEN( RA_QFIRST, commandToken, RA_QFIRST ) }
 "q3"                                     { SETTOKEN( RA_QTHIRD, commandToken, RA_QTHIRD ) }
 
+"POLYGONIZE"                             { SETTOKEN( POLYGONIZE, commandToken, POLYGONIZE) }
+
 "at"                                     { SETTOKEN( AT, commandToken, AT ) }
 "dimension"                              { SETTOKEN( DIMENSION, commandToken, DIMENSION ) }
 "all_cell"|"all_cells"                   { SETTOKEN( ALL, commandToken, ALL ) }
@@ -305,6 +307,9 @@ int string_yyinput( char* buf, int max_size )
 "acos"                                   { SETTOKEN( ACOS, commandToken, ACOS ) }
 "arctan"                                 { SETTOKEN( ARCTAN, commandToken, ARCTAN ) }
 "atan"                                   { SETTOKEN( ATAN, commandToken, ATAN ) }
+"round"                                  { SETTOKEN( ROUND, commandToken, ROUND ) }
+"ceil"                                   { SETTOKEN( CEIL, commandToken, CEIL ) }
+"floor"                                  { SETTOKEN( FLOOR, commandToken, FLOOR ) }
 
 "index"                 { SETTOKEN( INDEX, commandToken, INDEX ) }
 "rc_index"              { SETTOKEN( RC_INDEX, commandToken, RC_INDEX ) }
@@ -366,6 +371,8 @@ int string_yyinput( char* buf, int max_size )
 "/"                                      { SETTOKEN( DIV, commandToken, DIV ) }
 "div"                                    { SETTOKEN( INTDIV, commandToken, INTDIV ) }
 "mod"                                    { SETTOKEN( MOD, commandToken, MOD ) }
+"atan2"                                   { SETTOKEN( ATAN2, commandToken, ATAN2 ) }
+"arctan2"                                { SETTOKEN( ATAN2, commandToken, ATAN2 ) }
 "="                                      { SETTOKEN( EQUAL, commandToken, EQUAL ) }
 "<"                                      { SETTOKEN( LESS, commandToken, LESS ) }
 ">"                                      { SETTOKEN( GREATER, commandToken, GREATER ) }

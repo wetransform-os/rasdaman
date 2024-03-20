@@ -26,7 +26,7 @@ alphanumeric data maintained as relational tables or object-oriented
 semantic nets.
 
 This guide is specific for *rasdaman community*; for *rasdaman
-enterprise* (`what's the difference? <https://rasdaman.org/wiki/Features>`_)
+enterprise* (`what's the difference? <https://rasdaman.org/trac/wiki/Features>`_)
 contact `rasdaman GmbH <https://rasdaman.com>`_.
 
 Audience
@@ -74,11 +74,10 @@ Rasdaman is continuously tested on the platforms listed below. The rasdaman code
 has been developed on SUN/Solaris and HP-UX originally, and has been ported to
 IBM AIX, SGI IRIX, and DEC Unix - but that was way back in the last millennium.
 
-- Ubuntu 18.04, 20.04
-- CentOS 7
+- Ubuntu 20.04, 22.04
 
-In general, compiling rasdaman should work on distributions with gcc 4.8 or
-later and Java 8 or later.
+In general, compiling rasdaman should work on distributions with gcc 9.3 or
+later and Java 11 or later.
 
 **Alternative 1: Packages**
 
@@ -143,7 +142,7 @@ Debian-based systems
 
 Currently the following Debian-based distributions are supported:
 
-- Ubuntu 18.04 / 20.04
+- Ubuntu 20.04 / 22.04
 
 
 Installation
@@ -167,16 +166,8 @@ Installation
 
       .. hidden-code-block:: bash
 
-        # For ubuntu 22.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb jammy stable" \
-        | sudo tee /etc/apt/sources.list.d/rasdaman.list
-
-        # For ubuntu 20.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb focal stable" \
-        | sudo tee /etc/apt/sources.list.d/rasdaman.list
-
-        # For ubuntu 18.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb bionic stable" \
+        $ . /etc/os-release  # provides $VERSION_CODENAME
+        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb $VERSION_CODENAME stable" \
         | sudo tee /etc/apt/sources.list.d/rasdaman.list
 
     - **testing:** updated more frequently with beta releases, so aimed for
@@ -184,16 +175,8 @@ Installation
 
       .. hidden-code-block:: bash
 
-        # For ubuntu 22.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb jammy testing" \
-        | sudo tee /etc/apt/sources.list.d/rasdaman.list
-
-        # For ubuntu 20.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb focal testing" \
-        | sudo tee /etc/apt/sources.list.d/rasdaman.list
-
-        # For ubuntu 18.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb bionic testing" \
+        $ . /etc/os-release  # provides $VERSION_CODENAME
+        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb $VERSION_CODENAME testing" \
         | sudo tee /etc/apt/sources.list.d/rasdaman.list
 
     - **nightly:** updated nightly, so that they have the latest patches.
@@ -202,16 +185,8 @@ Installation
 
       .. hidden-code-block:: bash
 
-        # For ubuntu 22.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb jammy nightly" \
-        | sudo tee /etc/apt/sources.list.d/rasdaman.list
-
-        # For ubuntu 20.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb focal nightly" \
-        | sudo tee /etc/apt/sources.list.d/rasdaman.list
-
-        # For ubuntu 18.04
-        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb bionic nightly" \
+        $ . /etc/os-release  # provides $VERSION_CODENAME
+        $ echo "deb [arch=amd64] https://download.rasdaman.org/packages/deb $VERSION_CODENAME nightly" \
         | sudo tee /etc/apt/sources.list.d/rasdaman.list
 
 3. rasdaman can be installed now: ::
@@ -261,9 +236,6 @@ Installation
 
     http://localhost:8080/rasdaman/ows
 
-7. If SELinux is running then possibly some extra configuration is needed to
-   get petascope run properly. See :ref:`here <selinux-configuration>` for more
-   details.
 
 .. _sec-system-update-pkgs-deb:
 
@@ -279,8 +251,7 @@ your installation: ::
 
 .. note::
     You may need to update the ca-certificates package to allow SSL-based applications 
-    (e.g. ``yum update`` or ``wget/curl``) to check for the authenticity
-    of SSL connections: ::
+    like ``wget/curl`` to check for the authenticity of SSL connections: ::
 
      $ sudo apt-get install ca-certificates
 
@@ -290,119 +261,13 @@ your installation: ::
 RPM-based systems
 -----------------
 
-Currently the following RPM-based distributions are supported:
+Currently no RPM-based distributions are supported.
 
-- CentOS 7
+If an RPM-based OS must be used, then one way to install rasdaman is to setup
+the latest Ubuntu LTS in a VM or a docker container and install rasdaman packages
+in it. Alternatively rasdaman can be compiled from source.
 
-
-Installation
-^^^^^^^^^^^^
-
-1. Add the rasdaman repository to yum. There are three types of packages:
-
-    - **stable:** these packages are only updated on stable releases of rasdaman,
-      and hence recommended for operational production installations.
-
-      .. hidden-code-block:: bash
-
-        $ sudo curl "https://download.rasdaman.org/packages/rpm/stable/CentOS/7/x86_64/rasdaman.repo" \
-                  -o /etc/yum.repos.d/rasdaman.repo
-
-    - **testing:** updated more frequently with beta releases, so aimed for
-      feature testing in non-critical installations.
-
-      .. hidden-code-block:: bash
-
-        $ sudo curl "https://download.rasdaman.org/packages/rpm/testing/CentOS/7/x86_64/rasdaman.repo" \
-                  -o /etc/yum.repos.d/rasdaman.repo
-
-    - **nightly:** updated nightly, so that they have the latest patches.
-      It is not recommended to use these packages in a production installation
-      as things could sometimes break.
-
-      .. hidden-code-block:: bash
-
-        $ sudo curl "https://download.rasdaman.org/packages/rpm/nightly/CentOS/7/x86_64/rasdaman.repo" \
-                  -o /etc/yum.repos.d/rasdaman.repo
-
-   .. note::
-        You may need to update the ca-certificates package to allow SSL-based applications 
-        (e.g. ``yum update`` or ``wget/curl``) to check for the authenticity
-        of SSL connections: ::
-
-         $ sudo yum install -y ca-certificates
-
-2. The rasdaman packages should be available now via yum: ::
-
-    $ sudo yum clean all
-    $ sudo yum update
-    $ sudo yum search rasdaman
-
-   Output: ::
-
-    rasdaman.x86_64 : Rasdaman extends standard relational database systems with the ability
-                      to store and retrieve multi-dimensional raster data
-
-3. Add the EPEL repository to yum
-   (`official page <https://fedoraproject.org/wiki/EPEL>`__), needed for several
-   dependencies of the rasdaman package: ::
-
-    $ sudo yum install epel-release
-
-4. Install the rasdaman package: ::
-
-    $ sudo yum install rasdaman
-
-   You will find the rasdaman installation under ``/opt/rasdaman/``.
-   To make rasql available on the PATH for your system user: ::
-
-    $ source /etc/profile.d/rasdaman.sh
-
-   .. note::
-        If petascope has *problems* connecting to rasdaman, check this
-        `FAQ entry <https://rasdaman.org/wiki/FAQ#PetascopecannotconnecttorasdamaninCentos7>`__
-        for some advice.
-
-5. Check that the rasdaman server can answer queries: ::
-
-    $ rasql -q 'select c from RAS_COLLECTIONNAMES as c' --out string
-
-   Typical output: ::
-
-    rasql: rasdaman query tool v1.0, rasdaman v10.0.0 -- generated on 26.02.2020 08:44:56.
-    opening database RASBASE at localhost:7001...ok
-    Executing retrieval query...ok
-    Query result collection has 0 element(s):
-    rasql done.
-
-6. Check that petascope is initialized properly, typically at this URL: ::
-
-    http://localhost:8080/rasdaman/ows
-
-7. If SELinux is running then likely some extra configuration is needed to
-   get petascope run properly. See :ref:`here <selinux-configuration>` for more
-   details.
-
-
-.. _sec-system-update-pkgs-rpm:
-
-Updating
-^^^^^^^^
-
-The packages are updated whenever a new version of rasdaman is released. To download
-an update perform these steps: ::
-
-    $ sudo yum clean all
-    $ sudo service rasdaman stop
-    $ sudo yum update rasdaman
-
-.. note::
-    You may need to update the ca-certificates package to allow SSL-based applications 
-    (e.g. ``yum update`` or ``wget/curl``) to check for the authenticity
-    of SSL connections: ::
-
-     $ sudo yum install -y ca-certificates
-
+.. _customize-package-install:
 
 Customizing the package installation
 ------------------------------------
@@ -441,6 +306,7 @@ A ``rasdaman`` service script allows to start/stop rasdaman, e.g. ::
 
     $ service rasdaman start
     $ service rasdaman stop
+    $ service rasdaman force-stop
     $ service rasdaman status
 
 It can be similarly referenced with ``systemctl``, e.g. ::
@@ -494,7 +360,7 @@ by simply editing a JSON file.
 Currently, the following distributions are supported:
 
 -  Debian (9, 10)
--  Ubuntu (16.04, 18.04, 20.04)
+-  Ubuntu (16.04, 18.04, 20.04, 22.04)
 -  CentOS (7)
 
 First-Time Installation
@@ -811,135 +677,86 @@ used, here is a guidance for some of the most frequently used.
                           --global-option="-I/usr/include/gdal" GDAL==...
 
 
-CentOS 7
-~~~~~~~~
+Ubuntu 20.04
+~~~~~~~~~~~~
 
 .. hidden-code-block:: bash
 
     # To build rasdaman
-    $ sudo yum install \
-      make libtool autoconf bison flex flex-devel git curl gcc gcc-c++ unzip \
-      boost-devel libstdc++-static boost-static libtiff-devel zlib-devel \
-      libedit-devel readline-devel libpng-devel netcdf-devel postgresql-devel \
-      eccodes-devel hdf-devel sqlite-devel openssl-devel libxml2-devel elfutils-devel
-    # To build Java components
-    $ sudo yum install java-1.8.0-openjdk-devel maven ant
-
-    # CMake needs to be manually downloaded and installed as the system 
-    # provided version is too outdated.
-
-    # To generate HTML documentation
-    $ sudo pip install sphinx sphinx_rtd_theme
-    # To generate PDF documentation (in addition to above)
-    $ sudo yum install python-pip texlive-cm texlive-ec texlive-ucs \
-      texlive-metafont-bin texlive-fncychap texlive-pdftex-def texlive-fancyhdr \
-      texlive-titlesec texlive-framed texlive-wrapfig texlive-parskip \
-      texlive-upquote texlive-ifluatex texlive-cmap texlive-makeindex-bin \
-      texlive-times texlive-courier texlive-dvips texlive-helvetic latexmk
-    # To generate C++ API documentation
-    $ sudo yum install doxygen
-
-    # To run rasdaman
-    $ sudo yum install \
-      postgresql-server postgresql-contrib sqlite zlib elfutils netcdf libtiff \
-      libedit readline openssl libxml2 which python3-devel python3-pip \
-      python3-setuptools python3-wheel eccodes hdf sysvinit-tools
-    # To run Java components
-    $ sudo yum install java-1.8.0-openjdk tomcat
-
-    # To run wcst_import.sh
-    $ sudo pip3 install jsonschema python-dateutil lxml \
-      pyproj pygrib numpy netCDF4==1.2.7 pygrib
-
-    # To run rasdapy
-    $ pip3 install --user grpcio==1.9.0 protobuf==3.6.1
-
-    # To run systemtest
-    $ sudo apt-get install bc vim-common valgrind netcdf-bin libpython3-dev
-
-Debian 9 / Ubuntu 16.04
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. hidden-code-block:: bash
-
-    # To build rasdaman
-    $ sudo apt-get install --no-install-recommends \
-      make libtool gawk autoconf automake bison flex git g++ \
-      unzip libpng-dev libjpeg-dev libboost-filesystem-dev libboost-thread-dev \
-      libboost-system-dev libtiff-dev libgdal-dev zlib1g-dev libffi-dev \
-      libboost-dev libnetcdf-dev libedit-dev libreadline-dev libdw-dev \
-      libsqlite3-dev libgrib2c-dev curl libssl-dev libgrib-api-dev
-    # To build Java components
-    $ sudo apt-get install default-jdk-headless maven ant libgdal-java
-
-    # CMake needs to be manually downloaded and installed as the system 
-    # provided version is too outdated.
-
-    # To generate HTML documentation
-    $ sudo pip install sphinx sphinx_rtd_theme
-    # To generate PDF documentation (in addition to above)
-    $ sudo apt-get install --no-install-recommends latexmk texlive-latex-base \
-      texlive-fonts-recommended texlive-latex-extra 
-    # To generate C++ API documentation
-    $ sudo apt-get install --no-install-recommends doxygen
-
-    # To run rasdaman
-    $ sudo apt-get install \
-      postgresql postgresql-contrib sqlite3 zlib1g libdw1 gdal-bin debianutils \
-      libedit-dev libnetcdf-dev python3-pip python3-setuptools python3-wheel \
-      libreadline-dev libssl1.0.0 libgrib-api-dev libpython3-dev
-    # To run Java components
-    $ sudo apt-get install default-jre-headless libgdal-java tomcat8
-
-    # To run wcst_import.sh; it is recommended to install Python 3.6
-    $ sudo pip3 install jsonschema python-dateutil lxml \
-      pyproj numpy netCDF4==1.2.7 GDAL==1.11.2 pygrib==1.9.9
-    # To run rasdapy
-    $ pip3 install --user grpcio==1.9.0 protobuf==3.6.1
-
-    # To run systemtest
-    $ sudo apt-get install bc vim-common valgrind netcdf-bin libpython3-dev
-
-Debian 10 / Ubuntu 18.04 / Ubuntu 20.04
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. hidden-code-block:: bash
-
-    # To build rasdaman
-    $ sudo apt-get install --no-install-recommends \
+    $ sudo apt install --no-install-recommends \
       make libtool gawk autoconf automake bison flex git g++ unzip libpng-dev \
       libjpeg-dev libboost-filesystem-dev libboost-thread-dev libboost-system-dev \
       libtiff-dev libgdal-dev zlib1g-dev libffi-dev libboost-dev libnetcdf-dev \
       libedit-dev libreadline-dev libdw-dev libsqlite3-dev libgrib2c-dev curl \
       libssl-dev libeccodes-dev cmake ccache
     # To build Java components
-    $ sudo apt-get install default-jdk-headless maven ant libgdal-java
+    $ sudo apt install default-jdk-headless maven ant libgdal-java
 
     # To generate HTML documentation
     $ pip3 install --user sphinx sphinx_rtd_theme
     # To generate PDF documentation (in addition to above)
-    $ sudo apt-get install --no-install-recommends latexmk texlive-latex-base \
+    $ sudo apt install --no-install-recommends latexmk texlive-latex-base \
       texlive-fonts-recommended texlive-latex-extra 
     # To generate C++ API documentation
-    $ sudo apt-get install --no-install-recommends doxygen
+    $ sudo apt install --no-install-recommends doxygen
 
     # To run rasdaman
-    $ sudo apt-get install \
+    $ sudo apt install \
       postgresql postgresql-contrib sqlite3 zlib1g libdw1 gdal-bin debianutils \
       libedit-dev libnetcdf-dev python3-pip python3-setuptools python3-wheel \
       libreadline-dev libssl1.1 libeccodes0
     # To run Java components
-    $ sudo apt-get install default-jre-headless libgdal-java tomcat9
+    $ sudo apt install default-jre-headless libgdal-java tomcat9
 
-    # To run wcst_import.sh; it is recommended to install Python 3.6
+    # To run wcst_import.sh; it is recommended to install at least Python 3.6
     $ pip3 install --user jsonschema python-dateutil lxml \
-      pyproj pygrib numpy netCDF4==1.2.7 GDAL==2.2.3
+                          pyproj pygrib numpy netCDF4==1.3.1 GDAL==3.0.4
     # To run rasdapy
-    $ pip3 install --user grpcio==1.9.0 protobuf==3.6.1
+    $ pip3 install --user grpcio==1.30.0 protobuf==3.6.1
 
     # To run systemtest
-    $ sudo apt-get install bc vim-common valgrind netcdf-bin libpython3-dev
+    $ sudo apt install bc vim-common valgrind netcdf-bin libpython3-dev
 
+
+Ubuntu 22.04
+~~~~~~~~~~~~
+
+.. hidden-code-block:: bash
+  
+    # To build rasdaman
+    $ sudo apt install --no-install-recommends make libtool gawk autoconf automake \
+      pkg-config bison flex git g++ unzip libpng-dev libjpeg-dev libtiff-dev \
+      libgdal-dev libnetcdf-dev libeccodes-dev libboost-filesystem-dev libssl-dev \
+      libboost-thread-dev libboost-system-dev libboost-dev zlib1g-dev libffi-dev \
+      libedit-dev libreadline-dev libdw-dev libsqlite3-dev libgrib2c-dev curl
+    # To build Java components
+    $ sudo apt install default-jdk-headless maven ant
+
+    # To generate HTML/PDF and C++ API documentation
+    $ sudo apt install latexmk tex-gyre python3-sphinx python3-sphinx-rtd-theme \
+      texlive-latex-base texlive-fonts-recommended texlive-latex-extra doxygen
+
+    # To run rasdaman
+    $ sudo apt install sqlite3 zlib1g libdw1 debianutils sudo libssl3 gdal-bin \
+      libnetcdf-dev libgdal-dev libeccodes0 libreadline-dev libedit-dev \
+      python3-jsonschema python3-dateutil python3-lxml python3-grib python3-numpy \
+      python3-netcdf4 python3-pyproj
+    # To run Java components
+    $ sudo apt install postgresql postgresql-contrib default-jre-headless
+    
+    # To run systemtest
+    $ sudo apt install bc vim-common valgrind netcdf-bin gdal-bin python3-protobuf \
+      python3-pip jq
+    $ pip3 install grpcio pylint==2.13.4
+
+
+.. note::
+    Two files - *gdal.jar* and *libgdalalljni.so*, are absent in Ubuntu 22.04.
+    You need to manually paste *gdal.jar* at ``/usr/share/java`` and
+    *libgdalalljni.so* at ``/usr/lib/jni/`` for a successful build.  
+    
+    You can find these files here:
+    https://download.rasdaman.org/installer/tpinstaller/ubuntu2204/
 
 .. _sec-download-install:
 
@@ -966,7 +783,7 @@ Change into the newly cloned directory: ::
     $ cd rasdaman
 
 Optionally, select a tagged stable release. To activate a `particular
-tagged version <https://rasdaman.org/wiki/Versions>`_ use its name
+tagged version <https://rasdaman.org/trac/wiki/Versions>`_ use its name
 prefixed with a "v", e.g: ::
 
     $ git checkout v9.8.1
@@ -1039,6 +856,8 @@ that can be specified with ``-D<option>``, along with the default settings.
     | ``ENABLE_R``                    | ON / **OFF**      | Enable compilation of R support.                                         |
     +---------------------------------+-------------------+--------------------------------------------------------------------------+
     | ``GENERATE_DOCS``               | **ON** / OFF      | Generate and install documentation (manuals, doxygen, javadoc).          |
+    +---------------------------------+-------------------+--------------------------------------------------------------------------+
+    | ``GENERATE_DOCS_PDF``           | ON / **OFF**      | Generate and install documentation in PDF format.                        |
     +---------------------------------+-------------------+--------------------------------------------------------------------------+
     | ``GENERATE_PIC``                | **ON** / OFF      | Generate position independent code (PIC).                                |
     +---------------------------------+-------------------+--------------------------------------------------------------------------+
@@ -1389,87 +1208,7 @@ To alternatively set up H2 / HSQLDB for use by petascope instead of PostgreSQL:
 
 5. Restart the webserver running petascope (or rasdaman if embedded tomcat).
 
-.. _selinux-configuration:
-
-**SELinux configuration**
-
-If ``SELinux`` is enabled (result of ``getenforce`` is ``enforcing``) then
-permissions for the ``tomcat`` user which is running petascope need to be
-configured properly if petascope is running in an external servlet container
-(as opposed to :ref:`embedded <start-stop-embedded-applications>`):
-
-- Allow to load the ``gdal-java`` native library (via JNI)
-- Read / write files in ``/tmp/rasdaman_*``
-- Make HTTP requests to rasdaman and get back results on ports ``7001-7010``
-  (these are default, specified in ``$RMANHOME/etc/rasmgr.conf``).
-
-Before proceeding, a SELinux utility package needs to be installed on CentOS 7: ::
-
-    $ sudo yum install policycoreutils-python
-
-There are two ways to configure SELinux in order to enable petascope:
-
-1. Change from ``enforcing`` to ``permissive`` for Tomcat: ::
-
-    $ semanage permissive -a tomcat_t
-
-2. Create specific rules for the ``tomcat`` user and register with ``SELinux``.
-
-  - Create a rule config file ``tomcat_config.te`` with this contents:
-
-    .. hidden-code-block:: text
-
-        module tomcat_config 1.0;
-
-        require {
-            type tomcat_t;
-            type tomcat_var_lib_t;
-            type usr_t;
-            type tomcat_exec_t;
-            type unconfined_service_t;
-            type afs_pt_port_t;
-            type tomcat_tmp_t;
-            type tmpfs_t;
-            type afs3_callback_port_t;
-            class tcp_socket name_connect;
-            class file {
-                append create execute read relabelfrom rename write };
-            class shm {
-                associate getattr read unix_read unix_write write };
-        }
-
-        # ============= tomcat_t ==============
-        allow tomcat_t afs3_callback_port_t:tcp_socket name_connect;
-        allow tomcat_t tmpfs_t:file { read write };
-        allow tomcat_t tomcat_tmp_t:file { execute relabelfrom };
-        allow tomcat_t tomcat_var_lib_t:file execute;
-        allow tomcat_t unconfined_service_t:shm {
-            associate getattr read unix_read unix_write write  };
-
-  - Create a shell script ``deployse.sh`` to generate a binary package from this
-    config file: ::
-
-    .. hidden-code-block:: bash
-
-        #!/bin/bash
-        set -e
-        MODULE=${1}
-        # this will create a .mod file
-        checkmodule -M -m -o ${MODULE}.mod ${MODULE}.te
-        # this will create a compiled semodule
-        semodule_package -m ${MODULE}.mod -o ${MODULE}.pp
-        # this will install the module
-        semodule -i ${MODULE}.pp
-
-  - Run the script to load the binary package module to ``SELinux``: ::
-
-        $ sudo ./deployse.sh tomcat_config
-
-Restart Tomcat with ``sudo service tomcat restart``; now rasdaman should be able
-to import data to petascope via WCSTImport and get data from rasdaman via
-WCS / WMS / WCPS.
-
-SSL/TLS Configuration
+SSL/TLS configuration
 ^^^^^^^^^^^^^^^^^^^^^
 
 Transport Layer Security (``TLS``) and its predecessor, Secure Sockets Layer
@@ -1532,47 +1271,6 @@ rasdaman. This manual describes the installation process of the package.
 Preconfigured Virtual Machines
 ==============================
 
-This is the easiest way of obtaining rasdaman. The preconfectioned VM has a
-running rasdaman system on Xubuntu 18.04 with a database already containing
-sample data for experimentation.
-
-
-rasdaman VM image
------------------
-
-A recent rasdaman VM disk image can be downloaded from
-`here <http://download.rasdaman.org/vms/Rasdaman.vmdk.xz>`__. Unzip the
-archive and then follow instructions on how to use it with:
-
-* `VMWare Player <http://smallbusiness.chron.com/play-vmdk-file-44318.html>`__
-* `VMWare Workstation <http://blogs.vmware.com/kb/2012/08/creating-a-workstation-virtual-machine-using-existing-vmdk-virtual-disks.html>`__
-* `VirtualBox <https://susestudio.com/help/use/virtualbox.html>`__
-
-**VM Requirements**
-
-* Minimum disk space: ~20G
-* Minimum RAM: 4GB
-* Architecture: x86_64 (i.e. 64bit)
-
-**Login credentials**
-
-- username: rasdaman
-- password: rasdaman
-
-**Once started**
-
-On start the VM will launch a browser with tabs giving you access to
-
--  a Web client accessing the VM-local rasdaman database with some
-   sample n-D geo data, using Web requests adhering to the OGC W\*S standards
--  the rasdaman documentation starting point
-
-**Updating rasdaman**
-
-In the VM rasdaman is installed as a Debian package. To make sure that the
-latest rasdaman version is running, make sure to 
-`update the package <sec-system-update-pkgs-deb>`__
-
 
 rasdaman @ `OSGeo Live <http://live.osgeo.org/>`__
 --------------------------------------------------
@@ -1594,25 +1292,31 @@ environment with `vagrant <https://www.vagrantup.com/>`__:
 
 .. code-block:: text
 
-    rasdaman/ubuntu1604
     rasdaman/ubuntu1804
+    rasdaman/ubuntu2004
     rasdaman/centos7e
     rasdaman/centos7e_gdal2
 
-rasdaman is not installed, but all packages needed for building are preinstalled and
-the rasdaman sources can be found in ``/opt/rasdaman/source`` (make sure
+rasdaman is not installed, this can be done by following the guides for
+installing rasdaman from a package or building from source.
+All packages needed for building rasdaman are preinstalled and
+the sources can be found in ``/opt/rasdaman/source`` (make sure
 to ``git pull`` to get the latest version). In
 ``/opt/rasdaman/third_party`` there is a cmake that can be used to
 configure and build rasdaman. To build and install rasdaman, you can use
 the `rasdaman installer <sec-system-install-installer>`_ or
 `do it from scratch <sec-system-install>`_.
 
-Here is a sample ``Vagrantfile`` for the Ubuntu 18.04 box:
+It is not required to use the rasdaman-specific boxes, you can use any box
+published on the `vagrant cloud <https://app.vagrantup.com/boxes/search>`__
+such as ``ubuntu/jammy64``.
+
+Here is a sample ``Vagrantfile`` for the Ubuntu 20.04 box:
 
 .. hidden-code-block:: ruby
 
     Vagrant.configure(2) do |config|
-       config.vm.box = "rasdaman/ubuntu1804"
+       config.vm.box = "rasdaman/ubuntu2004"
        config.vm.box_check_update = false
        config.vm.synced_folder ".", "/vagrant", type: "rsync"
        config.vm.provider "virtualbox" do |vb|
@@ -1746,7 +1450,7 @@ To start a specific service (rasdaman and :ref:`embedded petascope
 
 Since v10.0 the rasmgr port can be specified with ``-p, --port``. Additionally,
 for security and usability reasons, ``start_rasdaman.sh`` will refuse running
-if executed with root user; this can  be overriden if needed with the
+if executed with root user; this can be overriden if needed with the
 ``--allow-root`` option.
 
 The script will use various environment variables, if they are set before it is
@@ -1829,6 +1533,12 @@ There are 2 types of migration:
   The petascope Web application must not be running (e.g in Tomcat) while 
   migrating to a different database (type 2 above) to protect the existing 
   data integrity.
+  
+The script will use various environment variables, if they are set before it is
+executed:
+
+- ``JAVA_OPTS`` - options passed on to the ``java`` command when used to start
+  embedded petascope to migrate. If not set, it defaults to ``-Xmx4000m``
 
 
 Configuration files
@@ -1866,7 +1576,7 @@ library for logging in its C++ components. Log properties can be
 configured as documented on the `EasyLogging GitHub page 
 <https://github.com/muflihun/easyloggingpp/tree/v9.96.2#using-configuration-file>`__.
 
-External potentially relevant configuration files are:
+External, potentially relevant configuration files are:
 
 +------------+---------------------------------------------------------+
 | postgresql |``/var/lib/pgsql/data/{postgresql.conf,pg_hba.conf}`` or |
@@ -1893,17 +1603,25 @@ process, and ``pid`` is a Linux process identifier:
 ``rasmgr.<pid>.log``
     ``rasmgr`` log: there is only one ``rasmgr`` process running at any time.
 
+``petascope.log``
+    ``petascope`` log if ``java_server=embedded`` in ``petascope.properties``.
+
 .. note::
     ``ls -ltr`` is a useful command to see the most recently modified log
     files at the bottom when debugging recently executed queries.
 
 **petascope & secore**
 
-It is highly recommended to set a specific log file however in the log4j
-configuration section in ``petascope.properties`` (e.g.
-``log4j.appender.rollingFile.File=/var/log/tomcatN/petascope.log``). Be
-careful that this location needs to be write accessible by the Tomcat
-user. The same can be set for SECORE in ``secore.properties``.
+The path to the petascope.log file is set in the log4j configuration section in 
+``/opt/rasdaman/etc/petascope.properties``.
+
+- If petascope is deployed embedded as part of rasdaman, then the path must be 
+  writable by the ``rasdaman`` user; default is on rasdaman installation is 
+  ``log4j.appender.rollingFile.File=/opt/rasdaman/log/petascope.log``.
+
+- If petascope is deployed in an external servlet container, by default Tomcat 9,
+  then the path must be writable by the ``tomcat9`` user; default is 
+  ``log4j.appender.rollingFile.File=/var/log/tomcat9/petascope.log``.
 
 
 .. _sec-temporary-files:
@@ -2095,8 +1813,9 @@ The diagram below illustrates the OGC service architecture of rasdaman:
 APIs
 ====
 
-Programmatic access is available through self-programmed code using the
-C++ and Java interfaces; see the C++ and Java Guide for details.
+Programmatic access is available through self-programmed code using the C++ and
+Java interfaces; see the `C++ <cpp-dev-guide>` and `Java <java-dev-guide>`
+guides for details.
 
 
 .. _sec-rasdaman-architecture:
@@ -2124,7 +1843,9 @@ Executables Overview
 The following executables are provided in the ``bin/`` directory, among
 others:
 
-*  ``rasmgr`` is the central rasdaman request dispatcher;
+*  ``rasmgr`` is the central rasdaman request dispatcher; clients connect to
+   ``rasmgr`` initially and are then assigned to a specific ``rasserver``
+   process which will evaluate queries;
 
 *  ``rasserver`` is the rasdaman server engine, it should not be generally 
    invoked in a standalone manner;
@@ -2244,27 +1965,6 @@ login under which the rasdaman installation has been done, usually (and
 recommended) ``rasdaman``. The service script ``/etc/init.d/rasdaman`` (when
 rasdaman is installed from the packages) automatically takes care of this.
 
-Server Federation
------------------
-
-rasdaman servers running on different computers can be coupled so as to
-form one single server network. To this end, the dispatcher processes,
-``rasmgr``, running on each node exploits knowledge about other nodes in the
-network. This is accomplished via ``inpeer`` and ``outpeer`` directives, best
-written into ``rasmgr.conf``.
-
-Whenever a local dispatcher finds that a new session cannot be served as
-there is no more free server process available currently it will attempt
-to acquire a free server from a peer ``rasmgr``. Upon success, this server
-is transparently communicated to the client.
-
-Any server in the network can forward requests this way (depending on
-the administrator controlled security policy on each node). Hence, there
-is **no single point of failure** in such a rasdaman peer network.
-
-All peers in a rasdaman federation are assumed to access the same
-underlying database, or a database with identical contents.
-
 Authentication
 --------------
 
@@ -2288,14 +1988,11 @@ rasdaman Manager Defaults
 The manager's default name is the ``hostname`` (the one reported by the UNIX
 command hostname), but it can be changed (see the ``change`` command). By
 default, it listens to port 7001 for incoming requests and uses port
-7001 for outgoing requests:
-
-Port Number Recommendations
----------------------------
+7001 for outgoing requests.
 
 To keep overview of the ports used, it is recommended to use the
 following schema (there is, however, no restriction preventing from
-choosing another schema - just keep an overview\...):
+choosing another schema):
 
 -  use port number 7001 for the server manager;
 
@@ -2440,7 +2137,8 @@ Starting ``rasmgr`` is the only direct action to be done on it. Any further
 administration is performed using ``rascontrol``.
 
 Note that, unless a server configuration has been defined already, no
-rasdaman server is available just by starting the manager.
+rasdaman server is available just by starting the manager. Usually ``rasmgr`` is
+started from ``start_rasdaman.sh``, rather than directly.
 
 Invocation Synopsis
 -------------------
@@ -2451,7 +2149,7 @@ Manager invocation synopsis: ::
 
 where
 
---help            print this help
+--help          print this help
 
 --hostname h    host on which the manager process is running is
                 accessible under name / IP address *h*
@@ -2564,7 +2262,7 @@ The following example shows how first the ``RASLOGIN`` is set appropriately: ::
 
     $ export RASLOGIN=`rascontrol --login`
 
-\...and then a sample Unix shell script which starts all rasdaman servers
+and then a sample Unix shell script which starts all rasdaman servers
 defined in the system configuration, performing implicit login from the
 environment variable contents which has been obtained from the previous
 command and pasted into the shell script: ::
@@ -2705,7 +2403,7 @@ Define rasdaman Servers
 
 ::
 
-    define srv s -host h -type t -port p -dbh d
+    define srv s -host h -port p -dbh d
         [-autorestart [on|off] [-countdown c]
         [-xp options]
 
@@ -2716,36 +2414,31 @@ Define rasdaman Servers
 ``-host h``
     name of the host where the server will run
 
-``-type t``
-    communication type: ``t`` is ``r`` for RPC, ``h`` for http
-
 ``-port p``
-    the RPC *program number* for RPC servers
-    (recommended: 0x2999001 - 0x2999999), TCP/IP
-    port for http servers (recommended: 7002 - 7999)
+    TCP/IP port on which the server will listen (recommended: 7002 - 7999)
 
 ``-dbh d``
     database host where the relational database server
     to which the rasdaman server connects will run
 
 ``-autorestart a``
-    for *a*\ =``on``: automatically restart rasdaman server
-    after unanticipated termination
-    for *a*\ =``off``: don't restart
-    (default: *a*\ =``on``)
+    for ``a = on``: automatically restart rasdaman server after unanticipated
+    termination
+    for ``a = off``: don't restart
+    (default: ``a = on``)
 
-``-countdown *c``
-    for *c*>``0``: restart rasdaman server after c requests
-    for *c*\ =``0``: run rasdaman server indefinitely
-    (default: *c*\ =``1000``)
+``-countdown c``
+    for ``c > 0``: restart rasdaman server after c requests
+    for ``c = 0``: run rasdaman server indefinitely
+    (default: ``c = 10000``)
 
 ``-xp options``
     pass option string *options* to server upon start
     (default: no options, i.e., empty string)
 
-Option ``-xp`` must be the last option. Everything following "-xp" until end
-of line is considered to be "\ *options*\ " and will be passed, at
-startup time, to the server.
+Option ``-xp`` must be the last option. Everything following "-xp" until end of
+line is considered to be *options* and will be passed, at startup time, to the
+server.
 
 .. TODO: invalid reference
 .. ; see :ref:`sec-server-control-options` below for the list of options available.
@@ -2755,7 +2448,7 @@ Change Server Settings
 
 ::
 
-    change srv s [-name n] -type t [-port p] [-dbh d]
+    change srv s [-name n] [-port p] [-dbh d]
             [-autorestart [on|off] [-countdown c]
             [-xp options]
 
@@ -2773,20 +2466,20 @@ Change Server Settings
     server runs to which the rasdaman server connects
 
 ``-autorestart a``
-    for *a*\ =on: automatically restart rasdaman server
-    after unanticipated termination
-    for *a*\ =off: don't restart
+    for ``a = on``: automatically restart rasdaman server after unanticipated 
+    termination
+    for ``a = off``: don't restart
 
 ``-countdown c``
-    for *c*>0: restart rasdaman server after c requests
-    for *c*\ =0: run rasdaman server indefinitely
+    for ``c > 0``: restart rasdaman server after c requests
+    for ``c = 0``: run rasdaman server indefinitely
 
 ``-xp options``
     pass option string *options* to server upon start
 
-Option ``-xp`` must be the last option. Everything following "-xp" until end
-of line is considered to be "\ *options*\ " and will be passed, at
-startup time, to the server.
+Option ``-xp`` must be the last option. Everything following "-xp" until end of
+line is considered to be *options* and will be passed, at startup time, to the
+server.
 
 .. TODO: invalid reference
 .. see Section :ref:`sec-server-control-options` below for the list of options available.
@@ -2849,18 +2542,9 @@ Define Database Hosts
     usually the host machine name
 
 ``-connect c``
-    the connection string used to connect ``rasserver`` to
-    the database server
-
-``-user u``
-    the user name (optional) used to connect ``rasserver``
-    to the base DBMS server; for PostrgreSQL, using this
-    parameter automatically implies trust authentication.
-
-``-passwd p``
-    the password (optional) used to connect ``rasserver`` to
-    the base DBMS server; for PostrgreSQL, using this
-    parameter automatically implies trust authentication.
+    the connection string used to connect ``rasserver`` to the backend database 
+    server; see :ref:`sec-storage-backend` for more details on the format of
+    *c* depending on whether the backend DBMS is SQLite or PostgreSQL.
 
 Change Database Host Settings
 -----------------------------
@@ -2876,17 +2560,9 @@ Change Database Host Settings
     change symbolic database host name to *n*
 
 ``-connect c``
-    change connect string to *c*
-
-``-user u``
-    the user name used to connect ``rasserver`` to the
-    base DBMS server; using this optional parameter
-    automatically implies ident-based authentication.
-
-``-passwd p``
-    the password used to connect ``rasserver`` to the
-    base DBMS server; using this optional parameter
-    automatically implies ident-based authentication.
+    change connect string to *c*; see :ref:`sec-storage-backend` for more
+    details on the format of *c* depending on whether the backend DBMS is SQLite 
+    or PostgreSQL.
 
 The connection parameters can be changed at any time, however the
 servers will get the information only when they are restarted.
@@ -3204,23 +2880,35 @@ for a particular server using the ``rascontrol`` command ``change srv -xp``
 which passes the rest of the line after ``-xp`` on to the server upon
 starting it (see :ref:`sec-rasdaman-servers`).
 
---log logfile           print log to *logfile.*
-                        If *logfile* is stdout, then log output will be printed to
-                        standard output.
-                        (default: ``$RMANHOME/log/rasserver``.\ *serverid.serverpid*.log)
+--log logfile     print log to *logfile*. If *logfile* is stdout, then log 
+                  output will be printed to standard output. It is not
+                  recommended setting this option.
+                  (default: ``$RMANHOME/log/rasserver.uuid.serverpid.log``)
 
---timeout t             client time out in seconds for sign-of-life signal.
-                        If no t indicated: 300 sec; if set to 0, no sign-of-life
-                        check is done.
+--transbuffer b   maximum size of transfer buffer to *b* bytes
+                  (default: 100000000 bytes = 100 MB)
 
---transbuffer b         set maximum size of transfer buffer to *b* bytes
-                        (default: 10 MB = 10000000 bytes)
+--tilesize s      default maximal size of tiles in bytes used when no
+                  tile size is specified in queries (default: 4194304 bytes)
 
---cachelimit c          specifies upper limit in bytes on using memory for caching
-                        (default: 0)
+--pctmin s        minimal size of inline tiles in bytes (default: 2048)
 
---enable-tilelocking    perform tile-level locking on insert / update / delete
-                        (default: whole database is locked)
+--pctmax s        maximal size of inline tiles in bytes (default: 4096)
+
+--tiling name     default tiling scheme when inserting data when no tiling clause
+                  is specified, one of: NoTiling, RegularTiling, AlignedTiling
+                  (default: AlignedTiling)
+
+--tileconf dom    default tile configuration when inserting data when no tiling
+                  clause is specified (default: [0:1023,0:1023])
+
+--index name      default index to be used when inserting data when no tiling
+                  tiling clause is specified, one of: auto, dir, rdir, nrp, rnrp,
+                  tc, rc (default: nrp, i.e. R+ tree)
+
+--indexsize s     specify the node size of the index; value of 0 lets rasdaman 
+                  itself determine this value (default: 0)
+
 
 Distributed Query Processing
 ============================
@@ -3428,7 +3116,7 @@ There are several security measures available, which should be considered
 seriously. Among them are the access right mechanisms found in Tomcat,
 rasdaman, and PostgreSQL. We highly recommend to make use of these.
 
-For Tomcat and PostgreSQL please refer to the pertaining documentation. The
+For Tomcat and PostgreSQL refer to the pertaining documentation. The
 servlet is safe against SQL injection attacks - we are not aware of any means
 for the user to send custom queries to the PostgreSQL server or the rasdaman
 server. XSRF and XSS represent no danger to the service because there is no
@@ -3518,6 +3206,9 @@ be considered for inclusion in a backup:
 Migration
 *********
 
+From one machine to another
+===========================
+
 Sometimes it is necessary to migrate the installation from one machine (*OLD*) to
 another (*NEW*). This section outlines the steps on how to do this.
 
@@ -3566,6 +3257,189 @@ another (*NEW*). This section outlines the steps on how to do this.
       sudo service tomcat9 start
 
 
+Ubuntu 18.04 to Ubuntu 20.04
+============================
+
+These instructions are for rasdaman installation from DEB packages,
+but can be helpful in case of other installation methods as well.
+
+1. Make a backup of the rasdaman and petascope databases by following the 
+   :ref:`backup guide <rasdaman-backup>`. In particular: ::
+
+      # postgres version
+      OLDVER=10
+      # alt 1: create backup in petascopedb.sql.gz; to be restored with psql
+      sudo -u postgres pg_dump petascopedb | gzip > /backup/petascopedb.sql.gz
+      # alt 2: text backup to be restored with pg_restore
+      sudo -u postgres pg_dump --create --compress=5 petascopedb \
+        --file=/backup/petascopedb.sql.gz
+      # backup postgres databases by direct copy as well just in case
+      sudo cp -a /var/lib/postgresql/$OLDVER/main/ /backup/petascopedb_raw_$OLDVER
+      # backup postgres config
+      sudo cp -a /etc/postgresql/$OLDVER /backup/etc_postgresql_$OLDVER
+      # backup rasdaman dir
+      sudo cp -a /opt/rasdaman /backup/opt_rasdaman
+
+   Disable the rasdaman repo in apt and remove rasdaman: ::
+
+      REPO_FILE=/etc/apt/sources.list.d/rasdaman.list
+      sudo mv $REPO_FILE $REPO_FILE.disabled
+      # remove rasdaman package; this won't remove any configuration/data
+      sudo service rasdaman stop
+      sudo apt remove $(dpkg -l | grep rasdaman | awk '{ print $2; }')
+
+2. Upgrade to Ubuntu 20.04: ::
+
+      # first remove this package as it breaks the upgrade
+      apt remove postgresql-10-postgis-2.4
+      # then upgrade
+      do-release-upgrade
+
+3. Migrate data to new postgres version: ::
+
+      sudo apt install postgresql-12-postgis-3
+
+      OLDVER=10
+      NEWVER=12
+
+      # ideally one would run this command and be done, but it fails because the old
+      # postgresql-10-postgis-2.4 gets removed during the upgrade and it is required
+      # in order to do the pg_upgrade. Execute it in any case, as it may migrate
+      # at least configuration files like pg_hba.conf
+      sudo systemctl stop postgresql.service
+      sudo -u postgres /usr/lib/postgresql/$NEWVER/bin/pg_upgrade \
+        --old-datadir=/var/lib/postgresql/$OLDVER/main \
+        --new-datadir=/var/lib/postgresql/$NEWVER/main \
+        --old-bindir=/usr/lib/postgresql/$OLDVER/bin \
+        --new-bindir=/usr/lib/postgresql/$NEWVER/bin \
+        --old-options "-c config_file=/etc/postgresql/$OLDVER/main/postgresql.conf" \
+        --new-options "-c config_file=/etc/postgresql/$NEWVER/main/postgresql.conf"
+      sudo systemctl start postgresql.service
+
+      # instead we have to restore the backup created in step 1. with psql/pg_restore
+      sudo -u postgres -i
+
+      #
+      # alt 1: restore database with psql
+      /usr/lib/postgresql/$NEWVER/bin/createdb -p 5433 petascopedb
+      # enter the spring.datasource.password= from /opt/rasdaman/etc/petascope.properties
+      /usr/lib/postgresql/$NEWVER/bin/createuser -s -p 5433 petauser -P
+      zcat /backup/petascopedb.sql.gz | \
+        /usr/lib/postgresql/$NEWVER/bin/psql -p 5433 -d petascopedb > /dev/null
+      #
+      # alt 2: restore database with pg_restore
+      pg_restore -p 5433 --file=/backup/petascopedb.sql.gz
+      #
+
+      # swap ports in postgres config, so the new version is at 5432
+      sed -i 's/port = 5432/port = 5433/' /etc/postgresql/$OLDVER/main/postgresql.conf
+      sed -i 's/port = 5433/port = 5432/' /etc/postgresql/$NEWVER/main/postgresql.conf
+
+      # restart postgres
+      sudo systemctl restart postgresql.service
+
+      # check version, should show 12.x
+      sudo -u postgres psql -c "SELECT version();"
+
+4. Install rasdaman: ::
+
+      # enable rasdaman repo with correct distribution codename
+      REPO_FILE=/etc/apt/sources.list.d/rasdaman.list
+      sed 's/bionic/focal/g' $REPO_FILE.disabled | sudo tee $REPO_FILE
+      sudo apt update
+      # install rasdaman
+      sudo apt install rasdaman
+
+5. Test rasdaman installation to make sure everything is working
+
+6. Remove old postgres (purge removes its configuration and data as well): ::
+
+      sudo apt purge postgresql-10 postgresql-client-10
+
+
+Ubuntu 20.04 to Ubuntu 22.04
+============================
+
+These instructions are for rasdaman installation from DEB packages,
+but can be helpful in case of other installation methods as well.
+
+1. Make a backup of the rasdaman and petascope databases by following the 
+   :ref:`backup guide <rasdaman-backup>`. In particular: ::
+
+      # postgres version
+      OLDVER=12
+      # alt 1: create backup in petascopedb.sql.gz; to be restored with psql
+      sudo -u postgres pg_dump petascopedb | gzip > /backup/petascopedb.sql.gz
+      # alt 2: text backup to be restored with pg_restore
+      sudo -u postgres pg_dump --create --compress=5 petascopedb \
+        --file=/backup/petascopedb.sql.gz
+      # backup postgres databases by direct copy as well just in case
+      sudo cp -a /var/lib/postgresql/$OLDVER/main/ /backup/petascopedb_raw_$OLDVER
+      # backup postgres config
+      sudo cp -a /etc/postgresql/$OLDVER /backup/etc_postgresql_$OLDVER
+      # backup rasdaman dir
+      sudo cp -a /opt/rasdaman /backup/opt_rasdaman
+
+   Disable the rasdaman repo in apt and remove rasdaman: ::
+
+      REPO_FILE=/etc/apt/sources.list.d/rasdaman.list
+      sudo mv $REPO_FILE $REPO_FILE.disabled
+      # remove rasdaman package; this won't remove any configuration/data
+      sudo service rasdaman stop
+      sudo apt remove $(dpkg -l | grep rasdaman | awk '{ print $2; }')
+
+2. Upgrade to Ubuntu 22.04 with ``do-release-upgrade``
+
+3. Migrate data to new postgres version: ::
+
+      sudo systemctl stop postgresql.service
+      sudo apt install postgresql-14-postgis-3
+
+      # migrate data
+      sudo -u postgres -i
+      cd /tmp
+      OLDVER=12
+      NEWVER=14
+
+      # migrate petascopedb
+      /usr/lib/postgresql/$NEWVER/bin/pg_upgrade \
+        --old-datadir=/var/lib/postgresql/$OLDVER/main \
+        --new-datadir=/var/lib/postgresql/$NEWVER/main \
+        --old-bindir=/usr/lib/postgresql/$OLDVER/bin \
+        --new-bindir=/usr/lib/postgresql/$NEWVER/bin \
+        --old-options "-c config_file=/etc/postgresql/$OLDVER/main/postgresql.conf" \
+        --new-options "-c config_file=/etc/postgresql/$NEWVER/main/postgresql.conf"
+
+      # swap ports in postgres config, so the new version is at 5432
+      sed -i 's/port = 5432/port = 5433/' /etc/postgresql/$OLDVER/main/postgresql.conf
+      sed -i 's/port = 5433/port = 5432/' /etc/postgresql/$NEWVER/main/postgresql.conf
+
+      # restart postgres
+      sudo systemctl restart postgresql.service
+
+      sudo -u postgres -i
+      /usr/lib/postgresql/$NEWVER/bin/vacuumdb --all --analyze-in-stages
+
+      # check version, should show 14.x
+      psql -c "SELECT version();"
+
+4. Install rasdaman: ::
+
+      # enable rasdaman repo with correct distribution codename
+      REPO_FILE=/etc/apt/sources.list.d/rasdaman.list
+      sed 's/focal/jammy/g' $REPO_FILE.disabled | sudo tee $REPO_FILE
+      sudo apt update
+      # install rasdaman
+      sudo apt install rasdaman
+
+5. Test rasdaman installation to make sure everything is working;
+   if UDFs are deployed they will need to be recompiled, and same with any
+   custom C++ clients.
+
+6. Remove old postgres (purge removes its configuration and data as well): ::
+
+      sudo -u postgres /tmp/delete_old_cluster.sh
+      sudo apt purge postgresql-12 postgresql-client-12 postgresql-12-postgis-3
 
 
 **************

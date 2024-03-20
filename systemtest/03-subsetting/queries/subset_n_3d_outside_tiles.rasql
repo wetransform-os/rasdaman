@@ -1,0 +1,1 @@
+select encode(c[1,-300,-300], "csv") from test_subsetting_3d as c

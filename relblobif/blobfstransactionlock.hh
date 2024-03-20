@@ -39,7 +39,7 @@ enum class TransactionLockType
     General,
     Commit,
     Abort,
-    Invalid // always (!) keep as last item (used in BlobFSTransactionLock)
+    Invalid  // always (!) keep as last item (used in BlobFSTransactionLock)
 };
 
 /**
@@ -67,6 +67,7 @@ public:
      * Initialize lock files in the transaction directory trPath.
      *
      * @param trPath the root directory of the transaction.
+     * @param trLocksPath path to the lock file
      * @param check use this object for checking (do not clear locks in destructor)
      */
     BlobFSTransactionLock(const std::string &trPath,
@@ -104,7 +105,7 @@ private:
 
     // transaction root path
     std::string transactionPath;
-    
+
     // /tmp/rasdaman_transaction_locks/<transactionPath>
     std::string transactionLockPath;
 

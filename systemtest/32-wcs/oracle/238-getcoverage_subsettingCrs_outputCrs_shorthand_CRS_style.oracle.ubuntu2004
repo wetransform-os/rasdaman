@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gmlcov:RectifiedGridCoverage gml:id="test_world_temp" xsi:schemaLocation="http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd http://www.opengis.net/gml/3.3/rgrid http://schemas.opengis.net/gml/3.3/referenceableGrid.xsd http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/coverage.xsd" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rasdaman="http://www.rasdaman.org">
+    <gml:boundedBy>
+        <gml:Envelope srsName="EPSG:3857" axisLabels="X Y" uomLabels="metre metre" srsDimension="2">
+            <gml:lowerCorner>4452779.631730943 3621893.2345065328</gml:lowerCorner>
+            <gml:upperCorner>5696828.6767275862 4865942.279503176</gml:upperCorner>
+        </gml:Envelope>
+    </gml:boundedBy>
+    <gml:domainSet>
+        <gml:RectifiedGrid dimension="2" gml:id="test_world_temp-grid">
+            <gml:limits>
+                <gml:GridEnvelope>
+                    <gml:low>22 5</gml:low>
+                    <gml:high>22 5</gml:high>
+                </gml:GridEnvelope>
+            </gml:limits>
+            <gml:axisLabels>X Y</gml:axisLabels>
+            <gml:origin>
+                <gml:Point gml:id="test_world_temp-point" srsName="EPSG:3857">
+                    <gml:pos>5074804.1542292646 4243917.7570048544</gml:pos>
+                </gml:Point>
+            </gml:origin>
+            <gml:offsetVector srsName="EPSG:3857">1244049.0449966432 0</gml:offsetVector>
+            <gml:offsetVector srsName="EPSG:3857">0 -1244049.0449966432</gml:offsetVector>
+        </gml:RectifiedGrid>
+    </gml:domainSet>
+    <gml:rangeSet>
+        <gml:DataBlock>
+            <gml:rangeParameters/>
+            <gml:tupleList cs=" " ts=",">214 0 41</gml:tupleList>
+        </gml:DataBlock>
+    </gml:rangeSet>
+    <gml:coverageFunction>
+        <gml:GridFunction>
+            <gml:sequenceRule axisOrder="+2 +1">Linear</gml:sequenceRule>
+            <gml:startPoint>22 5</gml:startPoint>
+        </gml:GridFunction>
+    </gml:coverageFunction>
+    <gmlcov:rangeType>
+        <swe:DataRecord>
+            <swe:field name="Red">
+                <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
+                    <swe:label>Red</swe:label>
+                    <swe:description/>
+                    <swe:nilValues>
+                        <swe:NilValues>
+                            <swe:nilValue reason="">0</swe:nilValue>
+                        </swe:NilValues>
+                    </swe:nilValues>
+                    <swe:uom code="10^0"/>
+                </swe:Quantity>
+            </swe:field>
+            <swe:field name="Green">
+                <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
+                    <swe:label>Green</swe:label>
+                    <swe:description/>
+                    <swe:nilValues>
+                        <swe:NilValues>
+                            <swe:nilValue reason="">0</swe:nilValue>
+                        </swe:NilValues>
+                    </swe:nilValues>
+                    <swe:uom code="10^0"/>
+                </swe:Quantity>
+            </swe:field>
+            <swe:field name="Blue">
+                <swe:Quantity definition="http://www.opengis.net/def/dataType/OGC/0/unsignedByte">
+                    <swe:label>Blue</swe:label>
+                    <swe:description/>
+                    <swe:nilValues>
+                        <swe:NilValues>
+                            <swe:nilValue reason="">0</swe:nilValue>
+                        </swe:NilValues>
+                    </swe:nilValues>
+                    <swe:uom code="10^0"/>
+                </swe:Quantity>
+            </swe:field>
+        </swe:DataRecord>
+    </gmlcov:rangeType>
+    <gmlcov:metadata/>
+</gmlcov:RectifiedGridCoverage>

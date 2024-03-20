@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: attribute.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Attribute
- *
- * COMMENTS:
- *      None
-*/
 
 #ifndef _D_ATTRIBUTE_
 #define _D_ATTRIBUTE_
@@ -39,15 +30,19 @@ rasdaman GmbH.
 
 class r_Base_Type;
 
+/**
+  * \defgroup raslib Raslib Classes
+  */
+/**
+  * \ingroup raslib
+  */
 
 //@ManMemo: Module: {\bf raslib}
 
-/*@Doc:
+/**
   This class represents attributes of structs in the ODMG
   conformant representation of the RasDaMan type system.
 */
-
-
 class r_Attribute : public r_Property
 {
 public:
@@ -92,28 +87,28 @@ public:
     r_Boolean get_boolean(const char *cell) const;
 
     ///
-    r_Char    get_char(const char *cell)    const;
+    r_Char get_char(const char *cell) const;
 
     ///
-    r_Octet   get_octet(const char *cell)   const;
+    r_Octet get_octet(const char *cell) const;
 
     ///
-    r_Short   get_short(const char *cell)   const;
+    r_Short get_short(const char *cell) const;
 
     ///
-    r_UShort  get_ushort(const char *cell)  const;
+    r_UShort get_ushort(const char *cell) const;
 
     ///
-    r_Long    get_long(const char *cell)    const;
+    r_Long get_long(const char *cell) const;
 
     ///
-    r_ULong   get_ulong(const char *cell)   const;
+    r_ULong get_ulong(const char *cell) const;
 
     ///
-    r_Float   get_float(const char *cell)   const;
+    r_Float get_float(const char *cell) const;
 
     ///
-    r_Double  get_double(const char *cell)  const;
+    r_Double get_double(const char *cell) const;
 
     ///
     //@}

@@ -76,3 +76,9 @@ QtMod::getNodeType() const
 {
     return nodeType;
 }
+
+inline QtNode::QtNodeType
+QtPowU::getNodeType() const
+{
+    return nodeType;
+}

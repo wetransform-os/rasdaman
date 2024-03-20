@@ -28,7 +28,7 @@ add_library(rasserver_lib
         createinitmdd.hh createinitmdd.cc
         )
 target_link_libraries(rasserver_lib
-        PUBLIC commline rasnet
+        PUBLIC commline rasnet common_util 
         )
 
 add_definitions(${PNG_DEFINITIONS})
@@ -49,12 +49,12 @@ target_link_libraries(rasserver
         catalogmgr relmddif relstorageif
         relcatalogif indexmgr relblobif relindexif
         commline relcatalogif lockmanager servercomm
-        mymalloc_svc common_logging clientcomm relcatalogif
-        rasnetserver rasnet
+        mymalloc_svc common_logging
+        clientcomm relcatalogif rasnetserver rasnet
         ${OPENSSL_LIBRARIES} ${BASEDB_LIBRARIES})
 
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(rasserver_lib REUSE_FROM common_logging)
 target_precompile_headers(rasserver REUSE_FROM common_logging)
 endif()

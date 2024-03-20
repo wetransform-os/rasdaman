@@ -21,13 +21,13 @@
  */
 package petascope.wcps.metadata.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import java.math.BigDecimal;
 import petascope.core.CrsDefinition;
 import petascope.exceptions.PetascopeException;
 import petascope.core.AxisTypes;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.TimeUtil;
@@ -61,7 +61,11 @@ public abstract class Axis<T> {
     
     // If this axis was created by subsetting by "CRS:1" -> true
     // NOTE: this is used only when considering if a pyramid member can be used for scaling
-    private boolean transatedGridToGeoBounds = false;
+    private boolean translatedGridToGeoBounds = false;
+
+    // NOTE: in case if c[ansi($pt)] and $pt comes from OVER $pt ansi("2015-01-01":"2015-01-01")
+    // then this is set to true;
+    private boolean createdFromAxisIteratorTemporalSlicingInterval = false;
     
     public Axis() {
         
@@ -89,6 +93,24 @@ public abstract class Axis<T> {
         this.origin = BigDecimalUtil.stripDecimalZeros(origin);
         this.resolution = resolution;
     }
+    
+    public Axis(Axis inputAxis, NumericSubset geoBounds, NumericSubset originalGridBounds, NumericSubset gridBounds) {
+        this(inputAxis.getLabel(), geoBounds, originalGridBounds, gridBounds, 
+            inputAxis.getNativeCrsUri(), inputAxis.getCrsDefinition(), 
+            inputAxis.getAxisType(), inputAxis.getAxisUoM(), 
+            inputAxis.getRasdamanOrder(), geoBounds.getLowerLimit(), null);
+
+        if (inputAxis.isYAxis()) {
+            // negative resolution
+            this.resolution = BigDecimalUtil.divide(geoBounds.getUpperLimit().subtract(geoBounds.getLowerLimit()),
+                    new BigDecimal(gridBounds.getUpperLimit().subtract(gridBounds.getLowerLimit()).longValue() + 1)).multiply(new BigDecimal("-1"));
+        } else {
+            // positive resolution
+            this.resolution = BigDecimalUtil.divide(geoBounds.getUpperLimit().subtract(geoBounds.getLowerLimit()),
+                    new BigDecimal(gridBounds.getUpperLimit().subtract(gridBounds.getLowerLimit()).longValue() + 1));
+        }
+
+    }
 
     public BigDecimal getResolution() {
         return BigDecimalUtil.stripDecimalZeros(resolution);
@@ -106,7 +128,14 @@ public abstract class Axis<T> {
         return nativeCrsUri;
     }
 
-    public CrsDefinition getCrsDefinition() {
+    public CrsDefinition getCrsDefinition() throws PetascopeRuntimeException {
+        if (this.crsDefinition == null) {
+            try {
+                this.crsDefinition = CrsUtil.getCrsDefinition(this.nativeCrsUri);
+            } catch (PetascopeException e) {
+                throw new PetascopeRuntimeException(e);
+            }
+        }
         return crsDefinition;
     }
 
@@ -122,6 +151,10 @@ public abstract class Axis<T> {
         return label;
     }
 
+    public void setLabel(String label) {
+        this.label = label;
+    }
+    
     public NumericSubset getGridBounds() {
         return gridBounds;
     }
@@ -258,6 +291,15 @@ public abstract class Axis<T> {
     }
 
     /**
+     * e.g. time = "2015-07-08":"2019-08-09"
+     *
+     */
+    public String getGeoBoundsRepresentation() throws PetascopeException {
+        String result = this.getLowerGeoBoundRepresentation() + ":" + this.getUpperGeoBoundRepresentation();
+        return result;
+    }
+
+    /**
      * Check if axis is X, Y geoferenced axis (e.g: Lat, Long, E, N,...) and it
      * is not gridCRS (CRS:1) or IndexNDCRS
      *
@@ -290,8 +332,7 @@ public abstract class Axis<T> {
     }
     
     public boolean isElevationAxis() {
-        return this.axisType.equals(AxisTypes.HEIGHT_AXIS) 
-            || this.axisType.equals(AxisTypes.DEPTH_AXIS);
+        return CrsUtil.isElevationAxis(this.axisType);
     }
     
     /**
@@ -312,20 +353,37 @@ public abstract class Axis<T> {
         return axisName;
     }
     
-    public void setSlicing() {
-        this.slicing = true;
+    public void setSlicing(boolean value) {
+        this.slicing = value;
     }
     
     public boolean isSlicing() {
         return slicing == true;
     }
 
-    public boolean isTransatedGridToGeoBounds() {
-        return transatedGridToGeoBounds;
+    public boolean isTranslatedGridToGeoBounds() {
+        return translatedGridToGeoBounds;
     }
 
-    public void setTransatedGridToGeoBounds(boolean transatedGridToGeoBounds) {
-        this.transatedGridToGeoBounds = transatedGridToGeoBounds;
+    public void setTranslatedGridToGeoBounds(boolean translatedGridToGeoBounds) {
+        this.translatedGridToGeoBounds = translatedGridToGeoBounds;
+    }
+
+    /**
+     *
+    If this is true -> although axis is set to sliced, it will not be sliced after shorthand slicing
+    because it is created from axis iterator in coverage constructor which is a trimming afterwards
+     e.g. in rasql, MARRAY x in [0:0] VALUES c[x[0],*:*,*:*] then the sdom of marray is c[0:0,*:*,*:*]
+     even though WCPS query is:
+     OVER $pt ansi("2015-01-01":"2015-01-01"
+     VALUES $c[ansi($pt)] here ansi($pt) looks like a slicing.
+    */
+    public void setCreatedFromAxisIteratorTemporalSlicingInterval(boolean createdFromAxisIteratorTemporalSlicingInterval) {
+        this.createdFromAxisIteratorTemporalSlicingInterval = createdFromAxisIteratorTemporalSlicingInterval;
+    }
+
+    public boolean isCreatedFromAxisIteratorTemporalSlicingInterval() {
+        return this.createdFromAxisIteratorTemporalSlicingInterval;
     }
     
     public String toString() {

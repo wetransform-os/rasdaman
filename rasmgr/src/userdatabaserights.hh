@@ -29,17 +29,17 @@ namespace rasmgr
 class UserDatabaseRightsProto;
 
 /**
- * @brief The UserDatabaseRights class represents the rights the user has on all
- * the databases in the rasdaman system.
+ * Represents the rights the user has on all the databases in the rasdaman
+ * system.
  */
 class UserDatabaseRights
 {
 public:
-    UserDatabaseRights(bool readAccess, bool writeAccess = false);
+    explicit UserDatabaseRights(bool readAccess, bool writeAccess = false);
 
     /**
-     * Initialize a new instance of the UserDatabaseRights
-     * class with read and write access set to false.
+     * Initialize a new instance of the UserDatabaseRights class with read and
+     * write access set to false.
      */
     UserDatabaseRights() = default;
 
@@ -54,6 +54,7 @@ public:
     static UserDatabaseRights parseFromProto(const UserDatabaseRightsProto &rights);
 
     static UserDatabaseRightsProto serializeToProto(const UserDatabaseRights &userDatabaseRights);
+
 private:
     bool readAccess{false};
     bool writeAccess{false};

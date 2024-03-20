@@ -1,0 +1,8 @@
+for c in (test_wcps_irregular_time_germany)
+return encode(
+
+scale(
+        avg(c) - (c + c)[ansi:"CRS:1"(0), Long:"CRS:1"(0:250)],
+        {Long:"CRS:1"(0:60)}
+     )
+, "png")

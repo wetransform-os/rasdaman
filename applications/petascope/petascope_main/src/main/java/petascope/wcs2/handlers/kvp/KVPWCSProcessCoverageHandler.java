@@ -24,39 +24,48 @@ package petascope.wcs2.handlers.kvp;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpStatus;
+import petascope.util.ListUtil;
 import petascope.wcps.metadata.service.CoverageAliasRegistry;
 import petascope.exceptions.WCSException;
 import petascope.core.response.Response;
 import org.slf4j.LoggerFactory;
 import petascope.exceptions.*;
+import petascope.wcps.result.ParameterResult;
 import petascope.wcps.result.executor.WcpsExecutor;
 import petascope.wcps.result.executor.WcpsExecutorFactory;
 import petascope.wcps.parser.WcpsTranslator;
 import petascope.wcps.result.VisitorResult;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
+
 import org.rasdaman.config.ConfigManager;
 import static org.rasdaman.config.ConfigManager.UPLOADED_FILE_DIR_TMP;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import petascope.controller.AbstractController;
+
 import static petascope.controller.AbstractController.getValueByKeyAllowNull;
+import static petascope.controller.AbstractController.getValueByKey;
 import petascope.controller.PetascopeController;
 import petascope.controller.handler.service.XMLWCSServiceHandler;
 import petascope.core.KVPSymbols;
+
 import static petascope.core.KVPSymbols.KEY_QUERY;
 import static petascope.core.KVPSymbols.KEY_QUERY_SHORT_HAND;
 import petascope.core.Pair;
-import petascope.util.StringUtil;
-import static petascope.util.StringUtil.POSITIONAL_PARAMETER_PATTERN;
-import java.util.ArrayList;
 import petascope.core.service.GdalFileToCoverageTranslatorService;
+import petascope.util.StringUtil;
+
+import static petascope.core.KVPSymbols.*;
+import static petascope.util.StringUtil.POSITIONAL_PARAMETER_PATTERN;
+
 import petascope.wcps.metadata.service.TempCoverageRegistry;
 import petascope.wcps.result.WcpsMetadataResult;
 import petascope.wcps.result.WcpsResult;
@@ -93,7 +102,13 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
     private PetascopeController petascopeController;    
     @Autowired
     private XMLWCSServiceHandler xmlWCSServiceHandler;
-    
+
+    final Pattern forClausePattern = Pattern.compile("FOR\\s+");
+    final Pattern letClausePattern = Pattern.compile("LET\\s+");
+    final Pattern whereClausePattern = Pattern.compile("WHERE\\s+");
+    final Pattern returnClausePattern = Pattern.compile("RETURN\\s+");
+
+
     public KVPWCSProcessCoverageHandler() {
     }
 
@@ -113,55 +128,180 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
         this.validate(kvpParameters);
 
         String coverageID = null;
-        String wcpsQuery = getValueByKeyAllowNull(kvpParameters, KEY_QUERY);
-        if (wcpsQuery == null) {
-            wcpsQuery = getValueByKeyAllowNull(kvpParameters, KEY_QUERY_SHORT_HAND);
+        String inputWcpsQuery = getValueByKeyAllowNull(kvpParameters, KEY_QUERY);
+        if (inputWcpsQuery == null) {
+            // don't allow null, it's an error if no query is provided
+            inputWcpsQuery = getValueByKey(kvpParameters, KEY_QUERY_SHORT_HAND);
         }
+
+        inputWcpsQuery = inputWcpsQuery.trim();
         
-        wcpsQuery = wcpsQuery.trim();
-        
-        if (wcpsQuery.startsWith("<")) {
+        if (inputWcpsQuery.startsWith("<")) {
             // In this case, this wcps query is encoded in XML wrapper
-            Map<String, String[]> tmpMaps = this.xmlWCSServiceHandler.parseRequestBodyToKVPMaps(wcpsQuery);
-            wcpsQuery = AbstractController.getValueByKey(tmpMaps, KEY_QUERY);
+            Map<String, String[]> tmpMaps = this.xmlWCSServiceHandler.parseRequestBodyToKVPMaps(inputWcpsQuery);
+            inputWcpsQuery = getValueByKey(tmpMaps, KEY_QUERY);
         }
-        
-        String newWcpsQuery = this.adjustWcpsQueryByPositionalParameters(kvpParameters, wcpsQuery);
-              
-        VisitorResult visitorResult = wcpsTranslator.translate(newWcpsQuery);
-        WcpsExecutor executor = wcpsExecutorFactory.getExecutor(visitorResult);
+        // get response
+        String mimeType = null;
+
+        List<String> wcpsQueries;
+        try {
+            wcpsQueries = this.getWcpsQueries(inputWcpsQuery);
+        } catch (Exception ex) {
+            throw new PetascopeException(ExceptionCode.SyntaxError, "Input WCPS query has error to parse components. Reason: " + ex.getMessage());
+        }
+
+        List<String> finalRasqlQueries = new ArrayList<>();
+        WcpsResult wcpsResult = null;
+        WcpsExecutor executor = null;
+        VisitorResult visitorResult = null;
 
         List<byte[]> results = new ArrayList<>();
 
-        try {
+        for (String wcpsQuery : wcpsQueries) {
+            log.debug("Handling WCPS query: " + wcpsQuery);
+            wcpsQuery = this.adjustWcpsQueryByPositionalParameters(kvpParameters, wcpsQuery);
+
+            visitorResult = wcpsTranslator.translate(wcpsQuery);
+            executor = wcpsExecutorFactory.getExecutor(visitorResult);
 
             if (visitorResult instanceof WcpsMetadataResult) {
-                results.add(executor.execute(visitorResult));
-            } else {
-                WcpsResult wcpsResult = (WcpsResult) visitorResult;
+                byte[] bytes = executor.execute(visitorResult);
+                results.add(bytes);
+            } else if (visitorResult instanceof WcpsResult) {
+                wcpsResult = (WcpsResult) visitorResult;
                 // In case of 0D, metadata is null
                 if (wcpsResult.getMetadata() != null) {
                     coverageID = wcpsResult.getMetadata().getCoverageName();
                 }
+
                 // create multiple rasql queries from a Rasql query result (if it is multipart)
-                List<String> rasqlQueries = wcpsResult.getFinalRasqlQueries();
+                String finalRasqlQuery = wcpsResult.getFinalRasqlQuery();
+                finalRasqlQueries.add(finalRasqlQuery);
+            } else if (visitorResult instanceof ParameterResult) {
+                byte[] bytes = executor.execute(visitorResult);
+                results.add(bytes);
+            }
 
-                // Run all the Rasql queries and get result
-                for (String rasqlQuery : rasqlQueries) {
-                    // Execute multiple Rasql queries with different coverageIDs to get List of byte arrays
-                    ((WcpsResult) visitorResult).setRasql(rasqlQuery);
+            // set metadata and return
+            mimeType = visitorResult.getMimeType();
+        }
 
-                    results.add(executor.execute(visitorResult));
-                }
+        try {
+            // Run all the Rasql queries and get result
+            for (String rasqlQuery : finalRasqlQueries) {
+                // Execute multiple Rasql queries with different coverageIDs to get List of byte arrays
+                wcpsResult.setRasql(rasqlQuery);
+                byte[] bytes = executor.execute(visitorResult);
+                results.add(bytes);
             }
         } finally {
             this.coverageAliasRegistry.clear();
             this.tempCoverageRegistry.clear();
         }
 
-        String mimeType = visitorResult.getMimeType();
-
         return new Response(results, mimeType, coverageID);
+    }
+
+    /**
+     * Given input WCPS query, separate it to multiple smaller WCPS queries in case it should return multipart result.
+     * e.g. for c in (test1, test2, d in (test3)
+     * then the result is a multipart from two queries:
+     *  - for c in (test1), d in (test3)
+     *  - for c in (test2), d in (test3)
+     *
+     */
+    private List<String> getWcpsQueries(String inputWcpsQuery) {
+        String upperCaseQueryTmp = inputWcpsQuery.toUpperCase();
+
+        int forClauseIndex = StringUtil.getIndexOfPattern(forClausePattern, upperCaseQueryTmp);
+
+        int letClauseIndex = StringUtil.getIndexOfPattern(letClausePattern, upperCaseQueryTmp);
+        int whereClauseIndex = StringUtil.getIndexOfPattern(whereClausePattern, upperCaseQueryTmp);
+        int returnClauseIndex = StringUtil.getIndexOfPattern(returnClausePattern, upperCaseQueryTmp);
+
+        int lastIndex = letClauseIndex;
+        if (letClauseIndex == -1) {
+            if (whereClauseIndex != -1) {
+                lastIndex = whereClauseIndex;
+            } else {
+                lastIndex = returnClauseIndex;
+            }
+
+            if (whereClauseIndex > returnClauseIndex) {
+                // In this case: WHERE clause exists in condenser of RETURN clause
+                lastIndex = returnClauseIndex;
+            }
+        }
+
+        // e.g. $c in test1, test2, d in test3
+        String forClauseListStr = inputWcpsQuery.trim().substring(forClauseIndex + 3, lastIndex);
+
+        // e.g. return ...
+        String restOfQuery = inputWcpsQuery.substring(lastIndex);
+
+        List<String> parts = new ArrayList<>();
+        // case insensitive
+        String[] tmps = forClauseListStr.split(" (?i)in ");
+
+        // co
+        parts.add(tmps[0]);
+
+        String tmp = StringUtil.stripOpenAndCloseParentheses(tmps[1]);
+
+        // test1, test2
+        parts.add(tmp);
+
+
+        for (int i = 2; i < tmps.length; i++) {
+            String previousTmp = tmps[i - 1].replaceAll("\\s+", "").trim();
+            previousTmp = StringUtil.stripOpenAndCloseParentheses(previousTmp);
+
+            tmp = tmps[i].trim();
+            tmp = StringUtil.stripOpenAndCloseParentheses(tmp);
+
+            String[] partsTmp = previousTmp.split(",");
+            if (partsTmp.length > 1) {
+                String fixedPreviousTmp = "";
+                for (int j = 0; j < partsTmp.length - 1; j++) {
+                    fixedPreviousTmp += partsTmp[j] + ", ";
+                }
+
+                fixedPreviousTmp = fixedPreviousTmp.substring(0, fixedPreviousTmp.length() - 2);
+
+                String alias = partsTmp[partsTmp.length - 1];
+
+                parts.set(parts.size() - 1, fixedPreviousTmp);
+                parts.add(parts.size(), alias);
+                parts.add(parts.size(), tmp);
+
+            }
+        }
+
+        List<List<String>> nestedList = new ArrayList<>();
+
+        for (int i = 0; i < parts.size(); i += 2) {
+            String coverageAlias = parts.get(i);
+            List<String> coverageIds = Arrays.asList(parts.get(i + 1).split(", "));
+            for (int j = 0; j < coverageIds.size(); j++) {
+                String coverageId = coverageIds.get(j).trim();
+                if (!coverageId.startsWith("(")) {
+                    coverageId = "( " + coverageId + " )";
+                }
+                coverageIds.set(j, coverageAlias + " in " + coverageId);
+            }
+
+            nestedList.add(coverageIds);
+        }
+
+        List<List<String>> mergedList = ListUtil.cartesianProduct(nestedList);
+        List<String> results = new ArrayList<>();
+        for (int i = 0; i < mergedList.size(); i++) {
+            String newWcpsQuery = "FOR " + ListUtil.join(mergedList.get(i), ", ") + "\n " + restOfQuery;
+            results.add(newWcpsQuery);
+        }
+
+        return results;
     }
     
     /**
@@ -170,7 +310,7 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
     public String buildRasqlQuery(String wcpsQuery) throws WCPSException, PetascopeException {
         VisitorResult visitorResult = wcpsTranslator.translate(wcpsQuery);
         WcpsResult wcpsResult = (WcpsResult) visitorResult;        
-        String rasql = wcpsResult.getRasql();
+        String rasql = wcpsResult.getFinalRasqlQuery();
         
         return rasql;
     }
@@ -178,16 +318,16 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
     /**
      * Process a WCPS query and returns the Response
      */
-    public Response processQuery(final String wcpsQuery) throws PetascopeException, WCSException, SecoreException, WMSException, Exception {
-        Map<String, String[]> kvpParameters = new HashMap<String, String[]>() {
-            {
-                put(KVPSymbols.KEY_QUERY, new String[]{wcpsQuery});
-            }
-        };
+    public Response processQuery(final String wcpsQuery, boolean isMultipart) throws Exception {
+        Map<String, String[]> kvpParameters = new HashMap<String, String[]>() {};
+        StringUtil.putKeyToKVPMaps(kvpParameters, KVPSymbols.KEY_QUERY, wcpsQuery);
 
+        if (isMultipart) {
+            StringUtil.putKeyToKVPMaps(kvpParameters, KVPSymbols.VALUE_MULTIPART_RELATED, "true");
+        }
         return this.handle(kvpParameters);
     }
-    
+
     
     /**
      * Replace the positional parameters with proper values
@@ -199,15 +339,20 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
         
         StringBuffer stringBuffer = new StringBuffer();
         Matcher matcher = POSITIONAL_PARAMETER_PATTERN.matcher(wcpsQuery);
-        while (matcher.find()) {
-            // e.g: $1, $2,...
-            String positionalParameter = matcher.group();
-            String value = getValueByKeyAllowNull(kvpParameters, StringUtil.stripDollarSign(positionalParameter));
-            
-            if (value != null) {            
-                if (value.startsWith(UPLOADED_FILE_DIR_TMP)) {
-                    String filePath = value;
-                    try {
+        List<String> uploadedFilePaths = new ArrayList<>();
+        
+        try {
+        
+            while (matcher.find()) {
+                // e.g: $1, $2,...
+                String positionalParameter = matcher.group();
+                String value = getValueByKeyAllowNull(kvpParameters, StringUtil.stripDollarSign(positionalParameter));
+
+                if (value != null) {
+                    if (value.startsWith(UPLOADED_FILE_DIR_TMP)) {
+                        String filePath = value;
+                        uploadedFilePaths.add(filePath);
+
                         // e.g: $1 -> /tmp/rasdaman_petacope/rasdaman...tif (uploaded file in POST body)
                         //      $2 -> 5 (uploaded value in POST body)
                         Coverage coverage = this.gdalFileToCoverageTranslatorService.translate(filePath);
@@ -223,27 +368,31 @@ public class KVPWCSProcessCoverageHandler extends KVPWCSAbstractHandler {
                         this.coverageRepositoryService.putToLocalCacheMap(coverageId, new Pair<>(coverage, true));
 
                         // e.g: $1 -> (TEMP_COV_abc_202001010, /tmp/rasdaman_petacope/rasdaman...tif)
-                        this.tempCoverageRegistry.add(positionalParameter, coverageId, value);
-                    } finally {
-                        try {
-                            // remove the uploaded file afterwards
-                            Files.deleteIfExists(Paths.get(filePath));
-                        } catch (IOException ex) {
-                            throw new PetascopeException(ExceptionCode.IOConnectionError, 
-                                    "Cannot delete file '"  + filePath + "'. Reason: " + ex.getMessage(), ex);
-                        }
+                        this.tempCoverageRegistry.add(positionalParameter, coverageId, filePath, coverage.getRasdamanRangeSet().getCollectionType());
+                    } else {                
+                        // e.g: replace $2 in query with 5
+                        String replacement = Matcher.quoteReplacement(value);
+                        matcher.appendReplacement(stringBuffer, replacement);
                     }
-                } else {                
-                    // e.g: replace $2 in query with 5
-                    matcher.appendReplacement(stringBuffer, Matcher.quoteReplacement(value));
                 }
             }
                         
+        } finally {
+            // remove the uploaded file afterwards
+            for (String filePath : uploadedFilePaths) {
+                try {
+                    log.debug("Removing temporary uploaded file: " + filePath);
+                    Files.deleteIfExists(Paths.get(filePath));
+                } catch (IOException ex) {
+                    log.warn("Cannot delete uploaded file '" + filePath + "'. Reason: " + ex.getMessage());
+                }
+            }
         }
         
         matcher.appendTail(stringBuffer);
         String result = stringBuffer.toString();
 
+        log.debug("Adjusted positional parameters in WCPS query, result: " + result);
         return result;
     }
 }

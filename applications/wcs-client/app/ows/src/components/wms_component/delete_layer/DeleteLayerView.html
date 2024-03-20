@@ -1,0 +1,28 @@
+<div class="row top15 row-centered">
+    <div class="col-sm-11 col-centered">
+        <div class="row input-group input-group-lg">
+            <span class="input-group-addon">
+                            <span class="glyphicon glyphicon-globe">
+                            </span>
+            </span>
+            <input type="text" class="form-control" autocomplete source="availableLayerNames" ng-model="layerNameToDelete" 
+            placeholder="Input layer name or part of it" />
+
+            <span class="input-group-btn">
+                <button ng-disabled="!isLayerNameValid"
+                        ng-click="deleteLayer()"                                    
+                        type="button" class="btn btn-danger" title="Delete only the selected WMS layer, not its associated coverage.">
+                    Delete Layer
+                </button>
+            </span>
+        </div>
+
+        <div class="col-sm-12 input-group input-group-lg" style="margin-top: 50px;" ng-show="isLayerNameValid == true">
+            <div style="float:left">
+                <span>Generated GET URL: </span> <a href="{{generatedGETURL}}" target="_blank" class="long-link-wrap-text">{{generatedGETURL}}</a>
+            </div>
+        </div>
+
+    </div>
+
+</div>

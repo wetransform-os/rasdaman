@@ -22,9 +22,9 @@ rasdaman GmbH.
 */
 
 #include "raslib/oidtype.hh"
+#include <ostream>
 
-bool
-r_Oid_Type::isOidType() const
+bool r_Oid_Type::isOidType() const
 {
     return true;
 }
@@ -41,18 +41,15 @@ r_Oid_Type::type_id() const
     return OIDTYPE;
 }
 
-void
-r_Oid_Type::convertToLittleEndian(char *, r_Area) const
+void r_Oid_Type::convertToLittleEndian(char *, r_Area) const
 {
 }
 
-void
-r_Oid_Type::convertToBigEndian(char *, r_Area) const
+void r_Oid_Type::convertToBigEndian(char *, r_Area) const
 {
 }
 
-void
-r_Oid_Type::print_status(std::ostream &s) const
+void r_Oid_Type::print_status(std::ostream &s) const
 {
     s << "oid";
 }

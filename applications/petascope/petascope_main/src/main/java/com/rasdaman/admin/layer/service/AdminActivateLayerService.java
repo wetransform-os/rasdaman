@@ -21,8 +21,6 @@
  */
 package com.rasdaman.admin.layer.service;
 
-// -- rasdaman enterprise begin
-
 import com.rasdaman.admin.service.AbstractAdminService;
 import petascope.core.response.Response;
 import java.util.Map;
@@ -69,14 +67,13 @@ public class AdminActivateLayerService extends AbstractAdminService {
         this.validate(kvpParameters);
         
         String coverageId = AbstractController.getValueByKey(kvpParameters, KEY_COVERAGE_ID);
-        boolean blacklisted = false;
         
         if (this.wmsRepostioryService.isInLocalCache(coverageId)) {
             throw new PetascopeException(ExceptionCode.InvalidRequest, "Layer '" + coverageId + "' already exists in local database.");
         }
         
         // create a new layer if not exist, or update the existing layer from the existing coverage
-        this.createOrUpdateLayerService.save(coverageId, blacklisted);
+        this.createOrUpdateLayerService.save(coverageId, null);
         
         log.info("Layer '" + coverageId + "' is activated.");
         

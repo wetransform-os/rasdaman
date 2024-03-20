@@ -43,7 +43,7 @@ public class InternalSecoreController {
     private static final Logger log = LoggerFactory.getLogger(InternalSecoreController.class);
     
     @RequestMapping("/def/**")
-    public void handle(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {String uri = req.getRequestURL().toString();        
+    public void handle(HttpServletRequest req, HttpServletResponse resp) throws org.rasdaman.secore.util.SecoreException, ServletException, IOException {String uri = req.getRequestURL().toString();
         CrsUtil.handleSecoreController(req, resp);
     }
     

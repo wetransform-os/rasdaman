@@ -107,13 +107,18 @@ module rasdaman {
                             templateUrl: 'ows/src/components/wms_component/describe_layer/DescribeLayerView.html',
                             controller: rasdaman.WMSDescribeLayerController
                         },
+                        'wms_delete_layer@services': {
+                            url: "wms_delete_layer",
+                            templateUrl: 'ows/src/components/wms_component/delete_layer/DeleteLayerView.html',
+                            controller: rasdaman.WMSDeleteLayerController
+                        },                        
+                        'wms_create_layer@services': {
+                            url: "wms_create_layer",
+                            templateUrl: 'ows/src/components/wms_component/create_layer/CreateLayerView.html',
+                            controller: rasdaman.WMSCreateLayerController
+                        },
 
                         // Admin
-                        'admin_login@services': {
-                            url: "admin_login",
-                            templateUrl: 'ows/src/components/admin_component/login/AdminLoginView.html',
-                            controller: rasdaman.AdminLoginController
-                        }, 
                         'admin_ows_metadata_management@services': {
                             url: "admin_ows_metadata_management",
                             templateUrl: 'ows/src/components/admin_component/ows_metadata_management/AdminOWSMetadataManagementView.html',
@@ -166,9 +171,10 @@ module rasdaman {
             "luegg.directives",
             "nvd3"])
         .config(AngularConfig)        
-        // NOTE: remember to add these types in app/ows/src/components/_component.ts or here will have error not found type
+        // NOTE: remember to add these types in app/ows/src/components/_component.ts or in here it will have error not found type
         .service("rasdaman.common.SerializedObjectFactory", rasdaman.common.SerializedObjectFactory)
         .service("rasdaman.CredentialService", rasdaman.CredentialService)
+        .service("rasdaman.LoginService", rasdaman.LoginService)
         .service("rasdaman.WCSService", rasdaman.WCSService)
         .service("rasdaman.WCSSettingsService", rasdaman.WCSSettingsService)
         .service("rasdaman.WMSService", rasdaman.WMSService)
@@ -197,5 +203,9 @@ module rasdaman {
         .directive("stringToNumberConverter", rasdaman.common.StringToNumberConverter)
         .directive("autocomplete", rasdaman.common.Autocomplete)
         .directive("scrollToBottom", rasdaman.common.scrollToBottom)
-        .directive("getFilteredRows", rasdaman.common.getFilteredRows);
+        .directive("getFilteredRows", rasdaman.common.getFilteredRows)
+
+        // filter to be used in HTML expression
+        .filter("decomposeQualifiedCoverageIdFilter", rasdaman.common.DecomposeQualifiedCoverageIdFilter)
+        ;
 }

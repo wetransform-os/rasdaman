@@ -35,7 +35,6 @@ rasdaman GmbH.
 #include <sqlite3.h>
 #include <string>
 
-
 /**
  * Convenience class for executing SQLite queries.
  */
@@ -46,14 +45,15 @@ public:
      * Construct a query object from a constant string SQL query.
      * @param query the SQL query to be turned into an SQLite statement.
      */
-    explicit SQLiteQuery(char query[]);
+    explicit SQLiteQuery(const char *query);
 
     /**
      * Construct a query object from an SQL query given as a printf format
      * string and a list of parameters to be substituted with vsnprintf.
      * @param query the SQL query to be turned into an SQLite statement.
      */
-    SQLiteQuery(const char *format, ...);
+    explicit SQLiteQuery(const std::string &query);
+    explicit SQLiteQuery(std::string &&query);
 
     /**
      * Destructor
@@ -89,7 +89,7 @@ public:
      * next column.
      * @return the long long value of the current column.
      */
-    long long nextColumnLong();
+    long nextColumnLong();
 
     /**
      * Returns the current column value, and then advances the counter to the
@@ -174,10 +174,9 @@ public:
     static void execute(const char *query);
 
     /**
-     * Execute query in one step, where the query is provided as a printf
-     * formatted string.
+     * Execute query in one step.
      */
-    static void executeWithParams(const char *format, ...);
+    static void execute(std::string &&query);
 
     /**
      * Execute query, where the query is provided as a printf
@@ -201,10 +200,17 @@ public:
      */
     sqlite3_stmt *getStatement();
 
+    /**
+     * This method is called when a connection is attempted while a write
+     * query is already running at the same time. The method sleeps for
+     * SQLITE_BUSY_WAIT ms, in total until the SQLITE_BUSY_TIMEOUT is reached.
+     */
+    static int busyHandler(void *data, int retry);
+
     static void closeConnection();
 
     static void openConnection(const char *globalConnectId);
-    
+
     static void interruptTransaction();
 
     static bool isConnected();
@@ -220,7 +226,6 @@ public:
     static void warnOnError(const char *msg);
 
 private:
-
     sqlite3_stmt *stmt{NULL};
     // saved for debugging purposes, e.g. in case the query execution fails
     std::string query;
@@ -228,6 +233,8 @@ private:
 
     // 10 minutes timeout, in case RASBASE is locked by another rasserver for writing
     static constexpr int SQLITE_BUSY_TIMEOUT_MS{10 * 60 * 1000};
+    // wait for 10ms before attempting to execute query again
+    static constexpr int SQLITE_BUSY_WAIT{10};
 };
 
 #endif

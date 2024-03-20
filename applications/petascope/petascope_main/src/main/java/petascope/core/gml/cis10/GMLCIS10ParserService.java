@@ -23,6 +23,8 @@ package petascope.core.gml.cis10;
 
 import java.math.BigDecimal;
 import java.util.*;
+
+import nu.xom.Attribute;
 import nu.xom.Document;
 
 import nu.xom.Element;
@@ -31,7 +33,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.rasdaman.domain.cis.AllowedValue;
 import org.rasdaman.domain.cis.Axis;
 import org.rasdaman.domain.cis.AxisExtent;
-import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.DataRecord;
 import org.rasdaman.domain.cis.Envelope;
 import org.rasdaman.domain.cis.EnvelopeByAxis;
@@ -57,6 +58,7 @@ import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCSException;
+import petascope.util.XMLUtil;
 import petascope.wcst.exceptions.WCSTInvalidNilValueException;
 import petascope.wcst.exceptions.WCSTLowHighDifferentSizes;
 import petascope.wcst.exceptions.WCSTMissingBoundedBy;
@@ -84,11 +86,10 @@ import petascope.util.CrsUtil;
 import petascope.core.Pair;
 import petascope.util.StringUtil;
 import petascope.core.XMLSymbols;
-import static petascope.core.XMLSymbols.LABEL_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_RECTIFIED_GRID_COVERAGE;
-import static petascope.core.XMLSymbols.LABEL_REFERENCEABLE_GRID_COVERAGE;
 import petascope.core.gml.cis.AbstractGMLCISParserService;
 import petascope.util.ListUtil;
+
+import static petascope.core.XMLSymbols.*;
 import static petascope.util.ras.TypeResolverUtil.R_Abb_Float;
 
 /**
@@ -551,7 +552,7 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
 
                 geoAxes.add(regularAxis);
             } else {
-                // Has coeffcients in GML string -> Irregular axis
+                // Has coefficients in GML string -> Irregular axis
                 IrregularAxis irregularAxis = new IrregularAxis();
                 irregularAxis.setAxisLabel(axisLabel);
                 irregularAxis.setLowerBound(lowerUpperBound.fst);
@@ -562,8 +563,8 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
                 
                 irregularAxis.setAxisType(axisType);
                 
-                // and the cofficients for axis
-                irregularAxis.setDirectPositions(coefficients);
+                // and the coefficients for axis
+                irregularAxis.setDirectPositionsAsNumbers(coefficients);
 
                 geoAxes.add(irregularAxis);
             }
@@ -602,10 +603,11 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
                     String coefficientValues = coefficientsElement.get(0).getValue().trim();
                     if (!coefficientValues.isEmpty()) {
                         //split after space in case there are more than 1
-                        String[] split = coefficientValues.split(" ");
+                        String[] coefficientsTmp = coefficientValues.split(" ");
                         List<BigDecimal> coefficients = new ArrayList<>();
-                        for (String coeffieicent : split) {
-                            coefficients.add(new BigDecimal(coeffieicent));
+
+                        for (String coefficient : coefficientsTmp) {
+                            coefficients.add(new BigDecimal(coefficient));
                         }
 
                         // grid axisOrder -> coefficientList
@@ -711,6 +713,11 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
 
             //get the quantity element
             Elements quantitiesElement = fieldElements.get(i).getChildElements(XMLSymbols.LABEL_QUANTITY, XMLSymbols.NAMESPACE_SWE);
+            if (quantitiesElement.size() == 0) {
+                // In case band has swe:Category
+                quantitiesElement = fieldElements.get(i).getChildElements(XMLSymbols.LABEL_CATEGORY, XMLSymbols.NAMESPACE_SWE);
+            }
+
             if (quantitiesElement.size() != 1) {
                 throw new PetascopeException(ExceptionCode.InvalidCoverageConfiguration, "Wrong number of \"" + XMLSymbols.LABEL_QUANTITY
                         + "\" elements encountered (exactly 1 expected).");
@@ -739,8 +746,14 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
      */
     private Quantity parseSweQuantity(Element quantityElement) throws WCSTWrongInervalFormat, WCSException {
         String description = null;
-        String definitionUri = null;
+        String definition = null;
         String uomCode = null;
+        String codeSpace = null;
+
+        Attribute definitionAttribute = quantityElement.getAttribute(XMLSymbols.LABEL_DEFINITION);
+        if (definitionAttribute != null) {
+            definition = definitionAttribute.getValue();
+        }
 
         //get the description
         Elements descriptionElements = quantityElement.getChildElements(XMLSymbols.LABEL_DESCRIPTION, XMLSymbols.NAMESPACE_SWE);
@@ -752,6 +765,11 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
         Elements uomCodes = quantityElement.getChildElements(XMLSymbols.LABEL_UOM, XMLSymbols.NAMESPACE_SWE);
         if (uomCodes.size() != 0) {
             uomCode = uomCodes.get(0).getAttributeValue(XMLSymbols.ATT_UOMCODE);
+        }
+
+        Elements codeSpaceElements = quantityElement.getChildElements(XMLSymbols.LABEL_CODE_SPACE, XMLSymbols.NAMESPACE_SWE);
+        if (codeSpaceElements.size() != 0) {
+            codeSpace = codeSpaceElements.get(0).getAttributeValue(XMLSymbols.ATT_HREF, NAMESPACE_XLINK);
         }
 
         // get the nilvalues
@@ -788,12 +806,19 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
         // @TODO: add this feature first in wcst_import and to petascope
         List<AllowedValue> allowedValues = new ArrayList<>();
 
+        Quantity.ObservationType observationType = Quantity.ObservationType.NUMERICAL;
+        if (quantityElement.getLocalName().equals(XMLSymbols.LABEL_CATEGORY)) {
+            observationType = Quantity.ObservationType.CATEGORIAL;
+        }
+
         Quantity quantity = new Quantity();
         quantity.setDescription(description);
-        quantity.setDefinition(definitionUri);
+        quantity.setDefinition(definition);
         quantity.setAllowedValues(allowedValues);
         quantity.setUom(new Uom(uomCode));
         quantity.setNilValues(nils);
+        quantity.setObservationType(observationType);
+        quantity.setCodeSpace(codeSpace);
 
         return quantity;
     }
@@ -1083,10 +1108,46 @@ public class GMLCIS10ParserService extends AbstractGMLCISParserService {
 
             //the string representation of the node
             for (int i = 0; i < metadata.get(0).getChildCount(); i++) {
-                ret += metadata.get(0).getChild(i).toXML();
+                ret += metadata.get(0).getChild(i).toXML().trim();
             }
         }
-        return ret;
+
+        ret = ret.replace("<gmlcov:Extension>", "").replace("</gmlcov:Extension>", "");
+        String result = ret;
+
+        if (XMLUtil.isXmlString(result)) {
+
+            String firstElement = ret.substring(0, ret.indexOf(">"));
+            if (firstElement.contains(" ")) {
+                // NOTE: In this case, first element contains namespaces
+                // e.g. <nz-coremd:HazardAreaMetadata xmlns="http://inspire.ec.europa.eu/schemas/nz-core/4.0" ...
+                // then, add the needed namespaces if they don't exist yet
+                int indexOfFirstSpace = ret.indexOf(" ");
+                String firstPart = ret.substring(0, indexOfFirstSpace);
+                String rest = ret.substring(indexOfFirstSpace + 1);
+
+                List<String> neededNamespaces = Arrays.asList(
+                        "xmlns:gml=\"http://www.opengis.net/gml/3.2\"",
+                        "xmlns:gmlcov=\"http://www.opengis.net/gmlcov/1.0\"",
+                        "xmlns:xlink=\"http://www.w3.org/1999/xlink\"",
+                        "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+                );
+
+                List<String> namespacesToAdd = new ArrayList<>();
+
+                for (String namespace : neededNamespaces) {
+                    if (!rest.contains(namespace)) {
+                        namespacesToAdd.add(namespace);
+                    }
+                }
+
+                rest = ListUtil.join(namespacesToAdd, " ") + " " + rest;
+
+                result = firstPart + " " + rest.trim();
+            }
+        }
+
+        return result;
     }
 
     /**

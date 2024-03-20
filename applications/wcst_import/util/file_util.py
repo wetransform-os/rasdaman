@@ -32,8 +32,11 @@ import re
 from master.error.runtime_exception import RuntimeException
 import stat
 from util.import_util import import_glob
+from util.netcdf4_util import netcdf4_open
+from util.grib_util import grib_open
 import os
-import getpass
+from os.path import normpath, join
+
 
 class FileUtil:
 
@@ -47,7 +50,7 @@ class FileUtil:
 
     @staticmethod
     def print_feedback(current_number, number_of_files, file_path):
-        log.info("Analyzing file ({}/{}): {} ...".format(current_number, number_of_files, file_path))
+        log.info("\nAnalyzing file ({}/{}): {} ...".format(current_number, number_of_files, file_path))
 
     @staticmethod
     def get_file_paths_by_regex(ingredients_dir_path, file_path_regex):
@@ -55,26 +58,15 @@ class FileUtil:
         From the file path in regular expression (e.g: *.txt, ./txt), return list of file paths
         :return: list of string
         """
-        file_paths = []
-
         # If the input file is actually a regex pattern then glob can be used
-        if "*" in file_path_regex or "?" in file_path_regex \
-            or "./" in file_path_regex \
-            or ".." in file_path_regex:
+        if "*" in file_path_regex or "?" in file_path_regex:
             glob = import_glob()
             if not file_path_regex.strip().startswith("/"):
-                file_path_regex = ingredients_dir_path + file_path_regex
-
-            file_paths = file_paths + glob.glob(file_path_regex, recursive=True)
+                file_path_regex = join(ingredients_dir_path, file_path_regex)
+            return glob.glob(file_path_regex, recursive=True)
         else:
             # non regex file path
-            if "/" not in file_path_regex:
-                # only file name is listed
-                file_path_regex = ingredients_dir_path + "/" + file_path_regex
-
-            file_paths.append(file_path_regex)
-
-        return file_paths
+            return [normpath(join(ingredients_dir_path, file_path_regex))]
 
     @staticmethod
     def validate_file_path(file_path):
@@ -93,8 +85,8 @@ class FileUtil:
             # or Amazon S3 file path, just ignore
             return True
         elif not os.access(file_path, os.R_OK):
-            log.warn("File '" + file_path + "' is not accessible, will be skipped from further processing.")
-            return False
+            raise RuntimeException("File '" + file_path + "' is not accessible. "
+                                   "Hint: Make sure user running wcst_import has permission to read the file.")
 
         return True
 
@@ -104,31 +96,75 @@ class FileUtil:
         If all input file paths are not available to analyze. Exit wcst_import process and log an warning.
         :param list[str] file_paths: list of input file paths
         """
-        if len(file_paths) == 0:
+        if len(file_paths) == 0 and ConfigManager.blocking is True:
             log.warn("No files provided. Check that the paths you provided are correct. Done.")
             exit(0)
 
+    @staticmethod
+    def open_dataset_from_any_file(recipe_type, files, session):
+        """
+        This method is used to open 1 dataset to get the common metadata shared from all input files.
+        recipe_type: str (e.g. gdal | netcdf | grib)
+        :param list files: input files
+        """
+        dataset = None
+
+        from recipes.general_coverage.gdal_to_coverage_converter import GdalToCoverageConverter
+        from recipes.general_coverage.netcdf_to_coverage_converter import NetcdfToCoverageConverter
+        from recipes.general_coverage.grib_to_coverage_converter import GRIBToCoverageConverter
+        from util.gdal_util import GDALGmlUtil
+
+        for file in files:
+            file_path = file.get_filepath()
+
+            try:
+                if recipe_type == GdalToCoverageConverter.RECIPE_TYPE:
+                    dataset = GDALGmlUtil.init(file_path)
+                    return dataset
+                elif recipe_type == NetcdfToCoverageConverter.RECIPE_TYPE:
+                    dataset = netcdf4_open(file_path)
+                    return dataset
+                elif recipe_type == GRIBToCoverageConverter.RECIPE_TYPE:
+                    dataset = grib_open(file_path)
+                    return dataset
+                else:
+                    log.error("Recipe type: " + recipe_type + " is not supported.")
+                    exit(1)
+            except Exception as ex:
+                error_message = "Failed to open input file '{}'. Reason: {}".format(file_path, str(ex))
+                log.warn(error_message)
+
+                # Cannot open file by gdal, try with next file
+                if session.skip_file_that_fail_to_open():
+                    continue
+                else:
+                    raise ex
+
+        if dataset is None:
+            # Cannot open any dataset from input files, just exit wcst_import process
+            FileUtil.validate_input_file_paths([])
 
     @staticmethod
-    def ignore_coverage_slice_from_file_if_possible(file_path, exception):
+    def ignore_coverage_slice_from_file_if_possible(file_path, exception, session):
         """
         In case, wcst_import cannot process 1 file due to some problem on it and "skip" is set to True,
         wcst_import should not throw exception but log an warning to user.
 
+        :param session: Session object
         :param str file_path: path to the problem file.
         :param Exception exception: exception was thrown from previous statements.
         """
 
-        if ConfigManager.skip:
-            log.warn("WARNING: input file '" + file_path + "' cannot be processed,\n"
-                     "wcst_import will ignore this file as \"skip\" is set to true in the ingredient file. Reason: " + str(exception))
+        if session.skip_file_that_fail_to_open():
+            error_message = "WARNING: input file '" + file_path + "' cannot be processed,\n " \
+                                                                  "wcst_import will ignore this file as \"skip\" is set to: " + str(session.skip) + " in the ingredient file. Reason: " + str(exception)
+            log.warn(error_message)
         else:
             if isinstance(exception, RecipeValidationException):
                 raise exception
             else:
                 # Throws the original source of exception(!)
                 raise Exception(sys.exc_info()[1]).with_traceback(sys.exc_info()[2])
-
 
     @staticmethod
     def strip_root_url(input_file):
@@ -137,7 +173,6 @@ class FileUtil:
         :param str input_file: input file path
         """
         return input_file.replace(ConfigManager.root_url, "")
-
 
     @staticmethod
     def check_dir_writable(input_dir):
@@ -198,6 +233,7 @@ class FileUtil:
         elif not os.access(path, os.W_OK):
             raise Exception(
                 'File "' + path + '" exists, but user "' + getpass.getuser() + '" has no permissions to write to it.')
+
 
 class TmpFile:
     def __init__(self):

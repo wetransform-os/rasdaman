@@ -40,12 +40,14 @@ from util.string_util import is_integer, get_petascope_endpoint_without_ows
 from decimal import Decimal
 
 
+
 glob = import_glob()
 
+DEFAULT_PETASCOPE_CONTEXT_PATH = "/rasdaman"
 INTERNAL_SECORE = "internal"
 DEFAULT_SECORE_URL = "http://localhost:8080/def"
 INTERNAL_SECORE_URL_CONTEXT_PATH = "/rasdaman/def"
-INTERNAL_SECORE_URL = "http://localhost:8080/" + INTERNAL_SECORE_URL_CONTEXT_PATH
+INTERNAL_SECORE_URL = "http://localhost:8080" + INTERNAL_SECORE_URL_CONTEXT_PATH
 
 
 class Session:
@@ -54,6 +56,10 @@ class Session:
 
     # store the map of import files and their axis bboxes dict
     IMPORTED_FILE_AXIS_BBOX_DICT = OrderedDict()
+
+    total_files_to_import = 0
+
+    SKIP_FILES_THAT_FAIL_TO_OPEN = "files_that_fail_to_open"
 
     def __init__(self, config, inp, recipe, hooks, ingredient_file_name, ingredients_dir_path):
         """
@@ -71,11 +77,16 @@ class Session:
         self.ingredient_file_name = ingredient_file_name
         self.ingredients_dir_path = ingredients_dir_path if ingredients_dir_path.endswith("/") \
             else ingredients_dir_path + "/"
-        # input files to import
-        self.files = self.parse_input(inp['paths'] if 'paths' in inp else [])
         # imported files from the list of input files (files are added in .resume.json will be ignored)
         self.imported_files = []
-        self.coverage_id = inp['coverage_id'] if 'coverage_id' in inp else None
+        self.coverage_id = inp['coverage_id']
+        if self.coverage_id.strip() == "":
+            raise RecipeValidationException("Coverage id must not be empty.")
+
+        self.resumer_dir_path = self.resumer_dir_path if "resumer_dir_path" in self.config else self.ingredients_dir_path
+        ConfigManager.resumer_dir_path = self.resumer_dir_path \
+                                        if self.resumer_dir_path[-1] == "/" else self.resumer_dir_path + "/"
+        ConfigManager.ingredient_file_name = self.ingredient_file_name
 
         metadata_url = ""
         if "inspire" in inp:
@@ -85,6 +96,10 @@ class Session:
         self.inspire = Inspire(metadata_url)
 
         self.recipe = recipe
+
+        # input files to import
+        self.files = self.parse_input(inp['paths'] if 'paths' in inp else [])
+
         self.input = inp
         self.wcs_service = config['service_url'] if "service_url" in config else None
         self.service_is_local = bool(config['service_is_local']) if "service_is_local" in config else True
@@ -109,28 +124,59 @@ class Session:
         self.insitu = config['insitu'] if "insitu" in config else None
         self.black_listed = config["black_listed"] if "black_listed" in config else None
         self.default_null_values = config['default_null_values'] if "default_null_values" in config else None
+        self.default_null_values = get_null_values(self.default_null_values)
         self.mock = False if "mock" not in config else bool(self.config["mock"])
         # By default, analyze all files then import (blocking import mode). With non_blocking_import mode, analyze and import each file separately.
         self.blocking = True if "blocking" not in config else bool(self.config["blocking"])
+        ConfigManager.blocking = self.blocking
 
         self.subset_correction = bool(self.config['subset_correction']) if "subset_correction" in self.config else False
-        self.skip = bool(self.config['skip']) if "skip" in self.config else False
+        self.skip = self.config['skip'] if "skip" in self.config else False
         self.retry = bool(self.config['retry']) if "retry" in self.config else False
         self.slice_restriction = self.config['slice_restriction'] if "slice_restriction" in self.config else None
         self.retries = int(self.config['retries']) if "retries" in self.config else 5
         self.retry_sleep = float(self.config['retry_sleep']) if "retry_sleep" in self.config else 1
-        self.resumer_dir_path = self.resumer_dir_path if "resumer_dir_path" in self.config else self.ingredients_dir_path
         self.description_max_no_slices = int(
             self.config['description_max_no_slices']) if "description_max_no_slices" in self.config else 5
         self.track_files = bool(self.config['track_files']) if "track_files" in self.config else True
+
+        # Pre/Post hooks to run before analyzing files/after import replaced files
+        # (original files are not used but processed files (e.g: by gdalwarp))
+        self.before_hooks = []
+        self.after_hooks = []
+
+        if hooks is not None:
+            for hook in hooks:
+                if "execute_if" in hook and hook["execute_if"] == "import_failed" and self.skip is False:
+                    raise RecipeValidationException(
+                            "\"execute_if\":\"import_failed\" setting can be used"
+                            " only when \"skip\" is set to true under \"config\" section. \n"
+                            "Hint: set \"skip\": true, or remove the \"execute_if\" filter.")
+
+                if hook["when"] == "before_import" or hook["when"] == "before_ingestion":
+                    if "execute_if" in hook:
+                        raise RecipeValidationException(
+                            "\"execute_if\" setting can be used only for \"after_import\" hook.")
+
+                    self.before_hooks.append(hook)
+                elif hook["when"] == "after_import" or hook["when"] == "after_ingestion":
+                    if "execute_if" not in hook:
+                        hook["execute_if"] = "import_succeeded"
+                    self.after_hooks.append(hook)
+                else:
+                    raise RecipeValidationException("Please specify \"before_import\" "
+                                                    "or \"after_import\" for \"when\" setting in a hook. Given: " + hook["when"])
+
+        # ConfigManager must be initialized before the overviews are processed,
+        # because overview processing uses CrsUtil which depends on ConfigManager.crs_resolver
+        self.setup_config_manager()
+
         self.pyramid_members = None
         self.pyramid_bases = None
         self.pyramid_harvesting = False
-
         self.wms_import = False
         self.import_overviews = []
         self.import_overviews_only = False
-
         if "options" in self.recipe:
             self.wms_import = True if "wms" not in self.recipe["options"] else bool(self.recipe["options"])
             self.pyramid_members = None if "pyramid_members" not in self.recipe["options"] else self.recipe["options"]["pyramid_members"]
@@ -147,24 +193,21 @@ class Session:
             self.__get_import_overviews()
             self.import_overviews_only = False if "import_overviews_only" not in self.recipe["options"] else bool(self.recipe["options"]["import_overviews_only"])
 
-        # Pre/Post hooks to run before analyzing files/after import replaced files
-        # (original files are not used but processed files (e.g: by gdalwarp))
-        self.before_hooks = []
-        self.after_hooks = []
-
-        if hooks is not None:
-            for hook in hooks:
-                if hook["when"] == "before_import" or hook["when"] == "before_ingestion":
-                    self.before_hooks.append(hook)
-                elif hook["when"] == "after_import" or hook["when"] == "after_ingestion":
-                    self.after_hooks.append(hook)
-                else:
-                    raise RecipeValidationException("Please specify \"before_import\" "
-                                                    "or \"after_import\" for \"when\" setting in a hook. Given: " + hook["when"])
-
-        self.setup_config_manager()
-
+        self.set_recipe_type()
         self.filter_imported_files()
+
+    def set_recipe_type(self):
+        """
+        If non general_recipe -> gdal, otherwise it can be gdal | netcdf | grib
+        """
+        from recipes.general_coverage.gdal_to_coverage_converter import GdalToCoverageConverter
+        result = GdalToCoverageConverter.RECIPE_TYPE
+        if "options" in self.recipe \
+            and "coverage" in self.recipe["options"] \
+            and "slicer" in self.recipe["options"]["coverage"]:
+            result = self.recipe["options"]["coverage"]["slicer"]["type"]
+
+        self.recipe_type = result
 
     def filter_imported_files(self):
         """
@@ -173,6 +216,7 @@ class Session:
         resumer = Resumer(self.coverage_id)
         not_imported_files = resumer.get_not_imported_files(self.files)
         self.files = not_imported_files
+        Session.total_files_to_import = len(self.files)
 
     def setup_config_manager(self):
         """
@@ -181,7 +225,7 @@ class Session:
         ConfigManager.automated = self.is_automated()
         ConfigManager.crs_resolver = self.crs_resolver
         ConfigManager.default_crs = self.default_crs
-        ConfigManager.default_null_values = get_null_values(self.default_null_values)
+        ConfigManager.default_null_values = self.default_null_values
         ConfigManager.insitu = self.insitu
         ConfigManager.black_listed = self.black_listed
         ConfigManager.mock = self.mock
@@ -201,10 +245,8 @@ class Session:
         ConfigManager.retries = self.retries if self.retry is True else 1
         ConfigManager.retry_sleep = self.retry_sleep
         ConfigManager.slice_restriction = self.slice_restriction
-        ConfigManager.resumer_dir_path = self.resumer_dir_path if self.resumer_dir_path[-1] == "/" else self.resumer_dir_path + "/"
         ConfigManager.description_max_no_slices = self.description_max_no_slices
         ConfigManager.track_files = self.track_files
-        ConfigManager.ingredient_file_name = self.ingredient_file_name
 
         self.validate()
 
@@ -235,10 +277,17 @@ class Session:
             self.import_overviews = self.recipe["options"]["import_overviews"] \
                 if "import_overviews" in self.recipe["options"] else []
 
-            if len(self.files) > 0 and ("import_all_overviews" in self.recipe["options"] or "import_overviews" in self.recipe["options"]):
+            import_overviews = "import_all_overviews" in self.recipe["options"] or \
+                               "import_overviews" in self.recipe["options"]
+            if len(self.files) > 0 and import_overviews:
 
                 from util.gdal_util import GDALGmlUtil
-                first_input_file_gdal = GDALGmlUtil(self.files[0].filepath)
+                from util.s2metadata_util import S2MetadataUtil
+                first_input_file_gdal = None
+                if S2MetadataUtil.enabled_in_ingredients(self.recipe):
+                    first_input_file_gdal = S2MetadataUtil.get(self.files[0].filepath)
+                if first_input_file_gdal is None:
+                    first_input_file_gdal = GDALGmlUtil.init(self.files[0].filepath)
 
                 if "import_all_overviews" in self.recipe["options"] \
                         and bool(self.recipe["options"]["import_all_overviews"]) is True:
@@ -263,9 +312,6 @@ class Session:
                                 "Overview index '{}' does not exist in the input file '{}'.".format(overview_index,
                                                                                                 first_input_file_gdal.gdal_file_path))
 
-
-
-                from util.gdal_util import GDALGmlUtil
                 # e.g 101140
                 gdal_version = int(GDALGmlUtil.get_gdal_version()[0:2])
                 if gdal_version < 20:
@@ -275,7 +321,7 @@ class Session:
                     raise RuntimeException("NOTE: Importing overviews is only supported since gdal version 2.0, "
                                            "and your system has GDAL version '" + version + "'.")
 
-    def __get_setting_value_from_properties_file(self, properties_file, setting_key):
+    def __get_setting_value_from_properties_file(self, properties_file, setting_key, default_setting_value=None):
         """
         Given a properties file, e.g. /opt/rasdaman/etc/petascope.properties and setting key, e.g. secore_urls
         return setting value of this key
@@ -296,7 +342,10 @@ class Session:
                     value = line.split("=")[1].strip()
                     return value
 
-        raise RuntimeException("Cannot find setting '" + setting_key + "' from properties file '" + properties_file + "'.")
+        if default_setting_value is None:
+            raise RuntimeException("Cannot find setting '" + setting_key + "' from properties file '" + properties_file + "'.")
+        
+        return default_setting_value
 
     def __get_crs_resolver_and_embedded_petascope_port_configuration(self):
         """
@@ -330,7 +379,8 @@ class Session:
                                                                                 "server.port")
 
         crs_resolver_urls = self.__get_setting_value_from_properties_file(petascope_properties_path, "secore_url").split(",")
-        crs_resolver = self.get_running_crs_resolver(crs_resolver_urls, embedded_petascope_port)
+        context_path = self.__get_setting_value_from_properties_file(petascope_properties_path, "server.contextPath", DEFAULT_PETASCOPE_CONTEXT_PATH).strip()
+        crs_resolver = self.get_running_crs_resolver(context_path, crs_resolver_urls, embedded_petascope_port)
 
         if crs_resolver is None:
             raise RuntimeException("Cannot find secore_urls configuration "
@@ -342,13 +392,19 @@ class Session:
 
         return (crs_resolver, embedded_petascope_port)
 
-    def get_running_crs_resolver(self, crs_resolvers, embedded_petascope_port):
+    def get_running_crs_resolver(self, context_path, crs_resolvers, embedded_petascope_port):
         """
         From a list of SECORE configured in petascope.properties, find the first running SECORE
         to be used for wcst_import
+        :param string context_path: petascope context path
         :param string[] crs_resolvers: list of SECORE URLs
         :return: string (the running SECORE)
         """
+        context_path = context_path.replace("/", "")
+
+        global INTERNAL_SECORE_URL, INTERNAL_SECORE_URL_CONTEXT_PATH
+        INTERNAL_SECORE_URL = INTERNAL_SECORE_URL.replace("rasdaman", context_path)
+        INTERNAL_SECORE_URL_CONTEXT_PATH = INTERNAL_SECORE_URL_CONTEXT_PATH.replace("rasdaman", context_path)
         i = 0
         crs_resolvers_tmp = []
         for url_prefix in crs_resolvers:
@@ -357,13 +413,13 @@ class Session:
             # NOTE: if secore_urls=internal in petascope.properties, it means
             # wcst_import will use the internal SECORE inside petascope with the sub endpoint at /rasdaman/def
             if url_prefix == INTERNAL_SECORE or url_prefix == DEFAULT_SECORE_URL:
-                url_prefix = INTERNAL_SECORE_URL
+                url_prefix = INTERNAL_SECORE_URL.replace("rasdaman", context_path)
 
                 crs_resolvers_tmp.append(url_prefix)
 
                 # Also, in case petascope runs at different port than 8080
                 if embedded_petascope_port != "8080":
-                    url_prefix = "http://localhost:" + embedded_petascope_port + INTERNAL_SECORE_URL_CONTEXT_PATH
+                    url_prefix = "http://localhost:" + embedded_petascope_port + INTERNAL_SECORE_URL_CONTEXT_PATH.replace("rasdaman", context_path)
                     crs_resolvers_tmp.append(url_prefix)
             else:
                 crs_resolvers_tmp.append(url_prefix)
@@ -386,7 +442,8 @@ class Session:
             i += 1
 
         # none of resolvers work, then assume there is SECORE embedded in petascope
-        internal_secore_url = self.wcs_service.replace("/rasdaman/ows", "/rasdaman/def").strip()
+        internal_secore_url = self.wcs_service.replace("/rasdaman/ows", "/rasdaman/def")\
+                                               .replace("/rasdaman", "/" + context_path).strip()
         try:
             test_url = internal_secore_url + "/crs/EPSG/0/4326"
             from util.crs_util import CRSUtil
@@ -422,9 +479,31 @@ class Session:
         file_paths = []
         for path in paths:
             path = path.strip()
-            if not path.startswith("/vsi"):
+
+            is_netcdf_or_hdf_imported_by_gdal_recipe = path.startswith("NETCDF:") \
+                                                       or path.startswith("HDF4_SDS:") \
+                                                       or path.startswith("HDF5:")
+
+            if not path.startswith("/vsi") and not is_netcdf_or_hdf_imported_by_gdal_recipe:
                 file_paths = file_paths + FileUtil.get_file_paths_by_regex(self.ingredients_dir_path, path)
             else:
+                if is_netcdf_or_hdf_imported_by_gdal_recipe:
+                    # e.g. NETCDF:subset-20200101.nc:sensor
+                    file_name_index = 1
+                    if path.startswith("HDF4_SDS:"):
+                        # HDF4, e.g. HDF4_SDS:MODIS_L1B:GSUB1.A2001124.0855.003.200219309451.hdf:16
+                        file_name_index = 2
+
+                    tmps = path.split(":")
+
+                    # e.g. MODIS_L1B:GSUB1.A2001124.0855.003.200219309451.hdf
+                    tmp_file_path = tmps[file_name_index]
+                    if not tmp_file_path.startswith("/"):
+                        # e.g. "NETCDF:subset-20200101.nc:sensor" -> changes to "NETCDF:/ingredients_dir/subset-20200101.nc:sensor"
+                        tmps[file_name_index] = self.ingredients_dir_path + "/" + tmp_file_path
+
+                    path = ":".join(tmps)
+
                 file_paths.append(path)
 
         return file_paths
@@ -442,7 +521,20 @@ class Session:
                      "a directory provided in the paths is empty or if a path regex returns no results. If this is not "
                      "the case, make sure the paths are correct and readable by the importer.")
 
-        file_paths.sort()
+        from recipes.general_coverage.abstract_to_coverage_converter import AbstractToCoverageConverter
+        if "options" in self.recipe and \
+                "import_order" in self.recipe["options"]:
+            if self.recipe["options"]["import_order"] == AbstractToCoverageConverter.IMPORT_ORDER_ASCENDING:
+                file_paths.sort()
+            elif self.recipe["options"]["import_order"] == AbstractToCoverageConverter.IMPORT_ORDER_DESCENDING:
+                file_paths.sort(reverse=True)
+            elif self.recipe["options"]["import_order"] == AbstractToCoverageConverter.IMPORT_ORDER_NONE:
+                # Don't sort if "import_order": "none"
+                pass
+        else:
+            # default always sorting files by ascending if import_order not specified
+            file_paths.sort()
+
         file_obs = [File(f) for f in file_paths]
         return file_obs
 
@@ -529,6 +621,23 @@ class Session:
         :rtype list
         """
         return self.default_null_values
+
+    def skip_file_that_fail_to_open(self):
+        """
+        Return true if "skip": true or "skip:" "files_that_fail_to_open"
+        :return: boolean
+        """
+        return self.skip is True or self.skip == Session.SKIP_FILES_THAT_FAIL_TO_OPEN
+
+    def skip_file_in_any_cases(self):
+        """
+        Return true if "skip": true
+        :return: boolean
+        """
+        return self.skip is True
+
+    def skip_is_enabled(self):
+        return self.skip is not False
 
 
     @staticmethod

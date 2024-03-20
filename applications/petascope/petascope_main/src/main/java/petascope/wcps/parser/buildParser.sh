@@ -27,10 +27,11 @@
 #  cd $PETASCOPE_SOURCES/wcps/parser && ./buildParser.sh
 #
 
-URL_TO_ANTLR="http://www.antlr.org/download/antlr-4.1-complete.jar"
-PATH_TO_ANTLR_TOOL="/tmp/antlr-4.1-complete.jar"
+JAR_FILE="antlr-4.13.0-complete.jar"
+URL_TO_ANTLR="https://www.antlr.org/download/$JAR_FILE"
+PATH_TO_ANTLR_TOOL="/tmp/$JAR_FILE"
 if [ ! -f "$PATH_TO_ANTLR_TOOL" ]; then
-    echo "downloading antlr-4.1 to $PATH_TO_ANTLR_TOOL"
+    echo "downloading ANTLR4 jar file to $PATH_TO_ANTLR_TOOL"
     wget "$URL_TO_ANTLR" -O "$PATH_TO_ANTLR_TOOL"
 fi
 echo "building parser..."
@@ -49,6 +50,12 @@ export CLASSPATH=".:$PATH_TO_ANTLR_TOOL:$CLASSPATH"
 $antlr4 -package petascope.wcps.parser wcps.g4
 $antlr4 -package petascope.wcps.parser -no-listener -visitor wcps.g4
 
+result=$?
+if [[ "$result" -ne 0 ]]; then
+    echo "[ERROR]ANTLR failed to compile WCPS langagues. Fix lexer / parser .g4 files first before retrying!"
+    exit 1
+fi
+
 #Compile the parser classes
 javac *.java
 
@@ -61,4 +68,4 @@ rm -rf backupEvaluator
 rm -f *.class
 rm -f *.tokens
 
-echo "done."
+echo "[OK]done."

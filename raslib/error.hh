@@ -23,19 +23,16 @@ rasdaman GmbH.
 
 #ifndef _D_ERROR_
 #define _D_ERROR_
+#include "raslib/mddtypes.hh"
+#include <exception>
+#include <string>
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
-
- This class implements partially the r_Error class of the
- C++ binding of ODMG-93 v.1.2. It extends exception
- handling through deriving special classes for MDD specific
- errors.
-
- In future, r_Error should be derived from the class exception
- defined in the C++ standard.
-
+/**
  The class allows the specification of an error number. The error number
  is used as an index to a generic textual description of the error which
  is read by <tt>setErrorTextOnNumber()</tt>. Error text is loaded from a
@@ -54,80 +51,79 @@ rasdaman GmbH.
  name expected is defined here. Ideally all programs using this mechanism should
  include error.hh to use the same settings.
 */
-
-#include "raslib/mddtypes.hh"
-#include <exception>
-#include <string>
-
 class r_Error : public std::exception
 {
 public:
-
     /// error kinds
-    enum kind { r_EGeneral,
-                r_Error_General,
-                r_Error_DatabaseClassMismatch,
-                r_Error_DatabaseClassUndefined,
-                r_Error_DatabaseClosed,
-                r_Error_DatabaseOpen,
-                r_Error_DateInvalid,
-                r_Error_IteratorExhausted,
-                r_Error_NameNotUnique,
-                r_Error_QueryParameterCountInvalid,
-                r_Error_QueryParameterTypeInvalid,
-                r_Error_RefInvalid,
-                r_Error_RefNull,
-                r_Error_TimeInvalid,
-                r_Error_TimestampInvalid,
-                r_Error_TransactionOpen,
-                r_Error_TransactionNotOpen,
-                r_Error_TypeInvalid,
-                r_Error_FileNotFound,
-                r_Error_OIdInvalid,
-                r_Error_OIdNotUnique,
+    enum kind
+    {
+        r_EGeneral,
+        r_Error_General,
+        r_Error_DatabaseClassMismatch,
+        r_Error_DatabaseClassUndefined,
+        r_Error_DatabaseClosed,
+        r_Error_DatabaseOpen,
+        r_Error_DateInvalid,
+        r_Error_IteratorExhausted,
+        r_Error_NameNotUnique,
+        r_Error_QueryParameterCountInvalid,
+        r_Error_QueryParameterTypeInvalid,
+        r_Error_RefInvalid,
+        r_Error_RefNull,
+        r_Error_TimeInvalid,
+        r_Error_TimestampInvalid,
+        r_Error_TransactionOpen,
+        r_Error_TransactionNotOpen,
+        r_Error_TypeInvalid,
+        r_Error_FileNotFound,
+        r_Error_OIdInvalid,
+        r_Error_OIdNotUnique,
 
-                r_Error_DatabaseUnknown,
-                r_Error_TransferFailed,
-                r_Error_HostInvalid,
-                r_Error_ServerInvalid,
-                r_Error_RpcInterfaceIncompatible,
-                r_Error_ClientUnknown,
-                r_Error_ObjectUnknown,
-                r_Error_ObjectInvalid,
+        r_Error_DatabaseUnknown,
+        r_Error_TransferFailed,
+        r_Error_HostInvalid,
+        r_Error_ServerInvalid,
+        r_Error_RpcInterfaceIncompatible,
+        r_Error_ClientUnknown,
+        r_Error_ObjectUnknown,
+        r_Error_ObjectInvalid,
 
-                r_Error_QueryExecutionFailed,
-                r_Error_BaseDBMSFailed,
-                r_Error_CollectionElementTypeMismatch,
-                r_Error_CreatingOIdFailed,
-                r_Error_TransactionReadOnly,
+        r_Error_QueryExecutionFailed,
+        r_Error_BaseDBMSFailed,
+        r_Error_CollectionElementTypeMismatch,
+        r_Error_CreatingOIdFailed,
+        r_Error_TransactionReadOnly,
 
-                r_Error_LimitsMismatch,
-                r_Error_NameInvalid,
-                r_Error_FeatureNotSupported,
-                // used for subclasses which can be serialised
-                // as strings for client / server transfer
-                r_Error_SerialisableException,
+        r_Error_LimitsMismatch,
+        r_Error_NameInvalid,
+        r_Error_FeatureNotSupported,
+        // used for subclasses which can be serialised
+        // as strings for client / server transfer
+        r_Error_SerialisableException,
 
-                r_Error_AccesDenied,
-                r_Error_SystemOverloaded,
+        r_Error_AccesDenied,
+        r_Error_SystemOverloaded,
 
-                r_Error_MemoryAllocation,
+        r_Error_MemoryAllocation,
 
-                r_Error_InvalidOptimizationLevel,
-                r_Error_InvalidBoundsStringContents,
-                r_Error_RuntimeProjectionError,
-                r_Error_InvalidSourceCRS,
-                r_Error_InvalidTargetCRS,
-                r_Error_InvalidProjectionResultGridExtents,
-                r_Error_FileTileStructureInconsistent,
-                r_Error_RasFedMessageParsingFailed,
+        r_Error_InvalidOptimizationLevel,
+        r_Error_InvalidBoundsStringContents,
+        r_Error_RuntimeProjectionError,
+        r_Error_InvalidSourceCRS,
+        r_Error_InvalidTargetCRS,
+        r_Error_InvalidProjectionResultGridExtents,
+        r_Error_FileTileStructureInconsistent,
+        r_Error_RasFedMessageParsingFailed,
 
-                r_Error_UDFInstallationDirectoryNotDefined,
+        r_Error_UDFInstallationDirectoryNotDefined,
 
-                r_Error_TileCannotBeLocked,
+        r_Error_TileCannotBeLocked,
 
-                r_Error_Conversion
-              };
+        r_Error_Conversion,
+        r_Error_RasfedConnectionFailed,
+        r_Error_RasfedConnectionTimeout,
+        r_Error_RasfedUnknownPeerHostname
+    };
 
     r_Error();
 
@@ -148,13 +144,13 @@ public:
 
     ~r_Error() noexcept override = default;
 
-    const char         *what() const noexcept override;
-    virtual const std::string  &what_str() const noexcept;
-    kind                get_kind() const;
-    unsigned long       get_errorno() const;
-    const std::string  &get_errorparam() const;
+    const char *what() const noexcept override;
+    virtual const std::string &what_str() const noexcept;
+    kind get_kind() const;
+    unsigned long get_errorno() const;
+    const std::string &get_errorparam() const;
 
-    void set_what(const char* what);
+    void set_what(const char *what);
 
     /// used to transfer exceptions of kind r_Error_SerialisableException to the client.
     virtual std::string serialiseError() const;
@@ -196,13 +192,6 @@ protected:
     std::string errorDetails;
 };
 
-/// Result is no interval.
-class r_Eno_interval : public r_Error
-{
-public:
-    r_Eno_interval();
-};
-
 /// General error with no error number/kind.
 class r_EGeneral : public r_Error
 {
@@ -216,9 +205,12 @@ class r_Eindex_violation : public r_Error
 public:
     /// constructor getting lower and upper bound, and the index
     r_Eindex_violation(r_Range dlow, r_Range dhigh, r_Range dindex);
+    r_Eindex_violation(r_Range dlow, r_Range dhigh, r_Range dindex, const std::string &details);
+
 protected:
     /// reset error text
     void resetErrorText() override;
+
 private:
     /// lower bound
     r_Range low;
@@ -234,9 +226,12 @@ class r_Edim_mismatch : public r_Error
 public:
     /// constructor getting two dimensionalities
     r_Edim_mismatch(r_Dimension pdim1, r_Dimension pdim2);
+    r_Edim_mismatch(r_Dimension pdim1, r_Dimension pdim2, const std::string &details);
+
 protected:
     /// reset error text
     void resetErrorText() override;
+
 private:
     /// first dimensionality
     r_Dimension dim1;
@@ -256,17 +251,6 @@ public:
 };
 
 /**
- * result is no cell, e.g. if the cast operator for casting to the base type
- * of class r_Marray is invoked on an object which is not 'zero-dimensional'.
- */
-class r_Eno_cell : public r_Error
-{
-public:
-    /// default constructor
-    r_Eno_cell();
-};
-
-/**
  * The class is used for errors occuring through query execution. In most cases, the position which
  * caused the error can be fixed. This position is specified by line number, column number, and
  * the token which is involved. Additionally, the class is generic concerning the error type.
@@ -281,17 +265,19 @@ public:
 
     unsigned int get_lineno() const;
     unsigned int get_columnno() const;
-    const char  *get_token() const;
+    const char *get_token() const;
+
 protected:
     /// reset error text
     void resetErrorText() override;
+
 private:
     /// line number in which the error is caused
     unsigned int lineNo;
     /// column number which caused the error or is near to the error position
     unsigned int columnNo;
     /// token which caused the error or is near to the error position
-    std::string  token;
+    std::string token;
 };
 
 /// The limits reported on the same array by two sources do not match (at least in one end).
@@ -300,14 +286,30 @@ class r_Elimits_mismatch : public r_Error
 public:
     /// constructor getting two limits on the same interval
     r_Elimits_mismatch(r_Range lim1, r_Range lim2);
+
 protected:
     /// reset error text
     void resetErrorText() override;
+
 private:
     /// first interval
     r_Range i1;
     /// second interval
     r_Range i2;
+};
+
+/// Lower bound > upper bound.
+class r_Einvalid_interval_bounds : public r_Error
+{
+public:
+    r_Einvalid_interval_bounds(r_Range lim1, r_Range lim2);
+
+protected:
+    void resetErrorText() override;
+
+private:
+    r_Range lim1;
+    r_Range lim2;
 };
 
 /**
@@ -322,9 +324,11 @@ class r_Ebase_dbms : public r_Error
 public:
     r_Ebase_dbms();
     r_Ebase_dbms(long newDbmsErrNum, const char *newErrTxt);
+
 protected:
     /// reset error text
     void resetErrorText() override;
+
 private:
     /// error number of the base DBMS.
     long dbmsErrNum;
@@ -344,7 +348,7 @@ public:
     r_Ecapability_refused();
 };
 
-class r_Ememory_allocation: public r_Error
+class r_Ememory_allocation : public r_Error
 {
 public:
     r_Ememory_allocation();
@@ -354,6 +358,7 @@ public:
 // constants for errors in bin/errtxts
 // ----------------------------------------------------------------------------------------------
 
+// clang-format off
 
 #define MEMMORYALLOCATIONERROR              66
 #define INTERNALDLPARSEERROR                100
@@ -405,6 +410,14 @@ public:
 #define TYPEISINUSE                         243
 #define STRUCTOFSTRUCTSDISABLED             244
 #define SERVEROCCUPIEDWITHOTHERCLIENT       245
+
+#define INVALIDINTERVALBOUNDS               246
+#define MISMATCHINGMINTERVALS               247
+#define INVALIDOFFSETINMINTERVAL            248
+
+#define DRIVERNOTSUPPORTEDERROR             249
+#define COMPLEXTYPESARENOTSUPPORTED         250
+#define HIGHDIMENSIONSARENOTSUPPORTED       251
 
 //300 -303
 #define PARSER_UNEXPECTEDTOKEN              300//used
@@ -586,6 +599,11 @@ public:
 #define COLORPALETTEFORNONCHAR              457
 
 #define SORT_RANKSOPINVALID                 460
+#define NOTAPPLICABLEONNONFLOATINGBANDS     461
+#define EXPECTEDMDDOPERANDS                 462
+#define EXPECTEDMDDOPERANDSOFSAMEDIM        463
+#define EXPECTEDMDDOPERANDSNONINTERSECT     464
+#define EXPECTEDMDDOPERANDSOFSAMETYPE       465
 
 #define FEATURENOTSUPPORTED                 499
 
@@ -612,6 +630,7 @@ public:
 #define AXISNUMBERSMUSTEXIST                525
 #define PROJDIMNOTMATCHINGMASKDIM           526
 #define MASKNOTALIGNEDWITHLINESTRING        527
+#define LINESTRINGDIFFERENTPOINTS           528
 
 
 //510 -511
@@ -645,7 +664,9 @@ public:
 #define EMPTYBLOBFILE                       720
 #define FILEDATADIR_NOTABSOLUTE             721
 #define FILENAMETOBLOBIDFAILED              722
-
+#define OUTPUTDIRECTORYNONEXISTENT          723
+#define ARCHIVATIONFAILED                   724
+#define OUTPUTFILECREATEDNOTFOUND           725
 
 //800 -804
 #define RASMANAGER_RASSERVERCONNECTIONFAIL  800//not used
@@ -655,7 +676,7 @@ public:
 #define CAPABILITY_REFUSED                  804//used
 
 //805 -808 - ALL UNUSED
-#define RASMANAGER_NOSUITABLESERVERSSTARTED     805
+#define RASMANAGER_NOSUITABLESERVERSSTARTED 805
 #define RASMANAGER_WRITEINPROGRESS          806
 #define RASMANAGER_DBUNKNOWN                807
 #define RASMANAGER_FORMATERROR              808
@@ -721,10 +742,8 @@ public:
 #define MARRAY_TYPE_NAME_LENGTH_EXCEEDED    975
 #define SET_TYPE_NAME_LENGTH_EXCEEDED       976
 #define CELL_TYPE_NAME_LENGTH_EXCEEDED      977
-
-//993 -999 - ALL UNUSED
-#define REFERENCEDFILE_READERROR            993
-#define REFERENCEDFILE_EMPTY                994
+#define REFERENCED_FILE_NOT_FOUND           993
+#define REFERENCED_FILE_EMPTY               994
 #define EXPAND_POSITION_INVALID             995
 #define EXPAND_DIRECTION_INVALID            996
 //997 - same as 974? -ignored.
@@ -749,6 +768,8 @@ public:
 #define COLLECTIONTYPEISNULL                1012
 #define TYPENAMEISTOOLONG                   1013
 #define INVALIDOBJECTNAME                   1014
+#define FEATURENOTENABLED                   1015
+
 #define DATABASE_OPEN                       2000
 #define INVALID_OIDTYPE                     2001
 #define STRUCTTYPE_ELEMENT_UNKNOWN          2002
@@ -785,5 +806,11 @@ public:
 
 //10000
 #define INTERNALSERVERERROR                 10000//used
+
+#ifndef SQLITE_NOTFOUND
+#define SQLITE_NOTFOUND 12
+#endif
+
+// clang-format on
 
 #endif

@@ -59,10 +59,16 @@ add_library(common_grpc STATIC
 find_package(LibDL REQUIRED)
 
 target_link_libraries(common_grpc
-    common_exceptions common_network common_logging
-    ${GRPCPP_LIBRARY} ${GRPC_LIBRARY} ${PROTOBUF_LIBRARY} ${LIBDL_LIBRARIES} ${ZLIB_LIBRARIES})
+    common_exceptions
+    common_network
+    common_logging
+    ${GRPCPP_LIBRARY}
+    ${GRPC_LIBRARY}
+    ${PROTOBUF_LIBRARY}
+    ${LIBDL_LIBRARIES}
+)
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(common_grpc REUSE_FROM common_logging)
 endif()
 

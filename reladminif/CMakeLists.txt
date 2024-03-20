@@ -33,8 +33,9 @@ target_link_libraries(reladminif_common
     PRIVATE
     raslib
     common_logging
+    ${FMT_LIBRARY}
     )
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(reladminif_common REUSE_FROM common_logging)
 endif()
 
@@ -90,9 +91,10 @@ target_link_libraries(reladminif
     relmddif
     relstorageif
     ${BASEDB_LIBRARIES}
+    ${FMT_LIBRARY}
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(reladminif REUSE_FROM common_logging)
 endif()
 

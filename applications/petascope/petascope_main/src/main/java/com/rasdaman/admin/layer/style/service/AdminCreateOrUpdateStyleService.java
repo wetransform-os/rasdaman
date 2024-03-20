@@ -53,6 +53,7 @@ import static petascope.core.KVPSymbols.KEY_WMS_WCPS_QUERY_FRAGMENT;
 import petascope.core.response.Response;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
 import petascope.util.SetUtil;
 import petascope.util.XMLUtil;
@@ -204,7 +205,9 @@ public class AdminCreateOrUpdateStyleService extends AbstractAdminService {
         
         String colorTableDefinition = AbstractController.getValueByKeyAllowNull(kvpParameters, KEY_WMS_COLOR_TABLE_DEFINITION);
         if (colorTableDefinition != null) {
-            if (XMLUtil.isXmlString(colorTableDefinition)) {
+            if (colorTableType.equalsIgnoreCase(Style.ColorTableType.SLD.toString())
+                && XMLUtil.isXmlString(colorTableDefinition)) {
+                // SLD XML
                 try {
                     new Builder().build(new StringReader(colorTableDefinition)).getRootElement();
                 } catch (Exception ex) {
@@ -212,6 +215,11 @@ public class AdminCreateOrUpdateStyleService extends AbstractAdminService {
                                                  "The provided SLD text is not valid XML format for style '" + styleName + "' of layer '" + layerName + "'"
                                                 + ". Reason: " + XMLUtil.enquoteCDATA(ex.getMessage()), ex);
                 }
+            } else if (colorTableType.equalsIgnoreCase(Style.ColorTableType.ColorMap.toString())
+                    && !JSONUtil.isJsonValid(colorTableDefinition)) {
+                // ColorMap JSON
+                throw new WMSException(ExceptionCode.InvalidRequest,
+                        "The provided color table definition text is not valid JSON format for style '" + styleName + "' of layer '" + layerName + "'.");
             }
             style.setColorTableDefinition(colorTableDefinition);
         }

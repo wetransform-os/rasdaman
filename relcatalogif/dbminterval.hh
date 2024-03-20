@@ -47,13 +47,13 @@ class DBMinterval : public DBObject, public r_Minterval
 public:
     DBMinterval();
 
-    DBMinterval(const OId &id);
+    explicit DBMinterval(const OId &id);
 
-    DBMinterval(r_Dimension dim);
+    explicit DBMinterval(r_Dimension dim);
 
-    DBMinterval(const char *dom);
+    explicit DBMinterval(const char *dom);
 
-    DBMinterval(const r_Minterval &);
+    explicit DBMinterval(const r_Minterval &);
 
     DBMinterval(const DBMinterval &);
 
@@ -72,7 +72,7 @@ public:
     replaces only the r_Minterval part of the object
     */
 
-    void updateMinterval(const r_Minterval& domain);
+    void updateMinterval(const r_Minterval &domain);
 
     r_Bytes getMemorySize() const override;
     /*@Doc:
@@ -86,7 +86,7 @@ protected:
      * @return the current dimension in RAS_DOMAINS.
      */
     r_Dimension getDimensionInDb() const;
-    
+
     /**
      * Set high and low based on the interval at dimension count.
      */

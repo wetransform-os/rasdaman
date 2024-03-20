@@ -21,14 +21,9 @@
  */
 package petascope.util.ras;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -42,6 +37,7 @@ import petascope.exceptions.PetascopeException;
 import petascope.rasdaman.exceptions.RasdamanException;
 import petascope.util.ListUtil;
 import petascope.util.StringUtil;
+import static petascope.util.ras.RasConstants.RASQL_BOUND_SEPARATION;
 
 /**
  * Keeps track of the types that exist in the tracked rasdaman instance.
@@ -92,16 +88,14 @@ public class TypeRegistry {
     }
 
     /**
-     * Create a struct type content, e.g: band0 float, band1 float, band2 short.
+     * Create a struct type content, e.g: red float, green float, blue short.
      */
-    private String generateStructStructure(List<String> bandBaseTypes) {
+    private String generateStructStructure(Map<String, String> bandBaseTypesMap) {
         List<String> bands = new ArrayList<>();
-        int i = 0;
-        for (String bandBaseType : bandBaseTypes) {
-            String band = ("band" + i) + " " + bandBaseType;
-            bands.add(band);
-            
-            i++;
+        for (Map.Entry<String, String> entry : bandBaseTypesMap.entrySet()) {
+            String bandName = entry.getKey();
+            String dataType = entry.getValue();
+            bands.add(bandName + " " + dataType);
         }
         
         String result = ListUtil.join(bands, ", ");
@@ -152,26 +146,40 @@ public class TypeRegistry {
     /**
      * @return the name of the created set (collection) type.
      */
-    public String createNewType(String collectionName, Integer dimNo, List<String> bandBaseTypes, List<List<NilValue>> nullValues) throws PetascopeException {
+    public String createNewType(String collectionName, Integer dimNo, Map<String, String> bandBaseTypesMap,
+                                List<List<NilValue>> nullValues) throws PetascopeException {
         log.debug("Creating new type for collection '" + collectionName + "' of dimension " + dimNo + 
-                  ", base types: " + bandBaseTypes.toString() + ", with null values: " + (!nullValues.isEmpty()) + ".");
+                  ", base types: " + bandBaseTypesMap.toString() + ", with null values: " + (!nullValues.isEmpty()) + ".");
         String cellName = collectionName + CELL_TYPE_SUFFIX;
         String marrayName = collectionName + ARRAY_TYPE_SUFFIX;
         String setName = collectionName + SET_TYPE_SUFFIX;
         
         final String EXIST_TYPE_ERROR_MESSAGE = "already exists";
+
+        if (structTypeDefinitions.get(cellName) != null) {
+            cellName = StringUtil.addDateTimeSuffix(cellName);
+        }
+
+        if (marrayTypeDefinitions.get(marrayName) != null) {
+            marrayName = StringUtil.addDateTimeSuffix(marrayName);
+        }
+
+        if (typeRegistry.get(setName) != null) {
+            setName = StringUtil.addDateTimeSuffix(setName);
+        }
         
-        if (bandBaseTypes.size() == 1) {
+        if (bandBaseTypesMap.size() == 1) {
+            Optional<String> dataType = bandBaseTypesMap.values().stream().findFirst();
             //simple types
             String queryMarray = QUERY_CREATE_MARRAY_TYPE.replace("$typeName", marrayName)
-                                 .replace("$typeStructure", bandBaseTypes.get(0))
+                                 .replace("$typeStructure", dataType.get())
                                  .replace("$dimensions", expandDimensions(dimNo));
             // create the marray type
             // e.g CREATE TYPE meris_lai_resolution_automatic AS float MDARRAY [D0,D1,D2]
             try {
                 RasUtil.executeRasqlQuery(queryMarray, ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS, true);
             } catch (RasdamanException ex) {
-                if (!ex.getMessage().contains(EXIST_TYPE_ERROR_MESSAGE)) {
+                if (!ex.getExceptionText().contains(EXIST_TYPE_ERROR_MESSAGE)) {
                     throw ex;
                 }
             }
@@ -180,12 +188,12 @@ public class TypeRegistry {
         } else {
             //struct types
             String queryStruct = QUERY_CREATE_STRUCT_TYPE.replace("$structTypeName", cellName)
-                                 .replace("$structStructure", generateStructStructure(bandBaseTypes));
+                                 .replace("$structStructure", generateStructStructure(bandBaseTypesMap));
             //create the struct type
             try {
                 RasUtil.executeRasqlQuery(queryStruct, ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS, true);
             }  catch (RasdamanException ex) {
-                if (!ex.getMessage().contains(EXIST_TYPE_ERROR_MESSAGE)) {
+                if (!ex.getExceptionText().contains(EXIST_TYPE_ERROR_MESSAGE)) {
                     throw ex;
                 }
             }
@@ -198,7 +206,7 @@ public class TypeRegistry {
             try {
                 RasUtil.executeRasqlQuery(queryMarray, ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS, true);
             } catch (RasdamanException ex) {
-                if (!ex.getMessage().contains(EXIST_TYPE_ERROR_MESSAGE)) {
+                if (!ex.getExceptionText().contains(EXIST_TYPE_ERROR_MESSAGE)) {
                     throw ex;
                 }
             }
@@ -214,7 +222,7 @@ public class TypeRegistry {
         try {
             RasUtil.executeRasqlQuery(querySet, ConfigManager.RASDAMAN_ADMIN_USER, ConfigManager.RASDAMAN_ADMIN_PASS, true);
         }  catch (RasdamanException ex) {
-            if (!ex.getMessage().contains(EXIST_TYPE_ERROR_MESSAGE)) {
+            if (!ex.getExceptionText().contains(EXIST_TYPE_ERROR_MESSAGE)) {
                 throw ex;
             }
         }
@@ -235,9 +243,9 @@ public class TypeRegistry {
      */
     public String getMddTypeForCollectionType(String collectionType) {
         String mddType = "";
-        for (Pair<String, String> i : setTypeDefinitions) {
-            if (collectionType.equals(i.fst)) {
-                mddType = i.snd;
+        for (Map.Entry<String, String> entry : setTypeDefinitions.entrySet()) {
+            if (collectionType.equals(entry.getKey())) {
+                mddType = entry.getValue();
                 break;
             }
         }
@@ -269,10 +277,10 @@ public class TypeRegistry {
                 
         List<String> nilValues = parseSetNullValues(setTypeQuery);
         setTypeNullValues.put(setName, nilValues);
-        
+
+        setTypeDefinitions.put(setName, marrayName);
+
         Pair<String, String> setTypePair = new Pair(setName, marrayName);
-        setTypeDefinitions.add(setTypePair);                
-        
         return setTypePair;
     }
 
@@ -435,14 +443,8 @@ public class TypeRegistry {
         if (this.typeRegistry.containsKey(setType)) {
             this.typeRegistry.remove(setType);
             this.setTypeNullValues.remove(setType);
+            this.setTypeDefinitions.remove(setType);
 
-            for (Iterator<Pair<String, String>> iterator = this.setTypeDefinitions.iterator(); iterator.hasNext();) {
-                Pair<String, String> pair = iterator.next();
-                if (pair.fst.equals(setType)) {
-                    // Remove the current element from the iterator and the list.
-                    iterator.remove();
-                }
-            }
             return true;
         }
         return false;
@@ -508,10 +510,11 @@ public class TypeRegistry {
      * Builds the registry from the collected types gathered by parsing the rasql output
      */
     private void buildRegistry() {
-        for (Pair<String, String> setTypePair : setTypeDefinitions) {
-            TypeRegistryEntry typeRegistryEntry = this.createTypeRegistryEntry(setTypePair);
+        for (Map.Entry<String, String> setTypeEntry : setTypeDefinitions.entrySet()) {
+            Pair<String, String> pair = new Pair<>(setTypeEntry.getKey(), setTypeEntry.getValue());
+            TypeRegistryEntry typeRegistryEntry = this.createTypeRegistryEntry(pair);
             if (typeRegistryEntry != null) {
-                typeRegistry.put(setTypePair.fst, typeRegistryEntry);
+                typeRegistry.put(setTypeEntry.getKey(), typeRegistryEntry);
             }
         }
     }
@@ -617,11 +620,11 @@ public class TypeRegistry {
     private static final String AS = " AS ";
     public static final String STRUCT = "struct";
 
-    private final Map<String, TypeRegistryEntry> typeRegistry = new LinkedHashMap<>();
-    private final Map<String, String> marrayTypeDefinitions = new LinkedHashMap<>();
-    private final List<Pair<String, String>> setTypeDefinitions = new ArrayList<>();
-    private Map<String, List<String>> setTypeNullValues = new LinkedHashMap<>();
-    private Map<String, String> structTypeDefinitions = new LinkedHashMap();
+    public static final Map<String, TypeRegistryEntry> typeRegistry = new LinkedHashMap<>();
+    public static final Map<String, String> marrayTypeDefinitions = new LinkedHashMap<>();
+    public static final Map<String, String> setTypeDefinitions = new LinkedHashMap<>();
+    public static final Map<String, List<String>> setTypeNullValues = new LinkedHashMap<>();
+    public static final Map<String, String> structTypeDefinitions = new LinkedHashMap();
     private final Logger log = LoggerFactory.getLogger(TypeRegistry.class);
     private final static String QUERY_MARRAY_TYPES = "SELECT a FROM RAS_MARRAY_TYPES a";
     private final static String QUERY_STRUCT_TYPES = "SELECT a FROM RAS_STRUCT_TYPES a";

@@ -26,24 +26,24 @@
 namespace rasmgr
 {
 /**
- * @brief The RandomGenerator class is used for reading old rasmgr.auth files and
- * should not be used in any part of the code.
- * This class is deprecated and should be removed in rasdaman - v10.
+ * Used for reading old rasmgr.auth files and should not be used in any part of
+ * the code. This class is deprecated and should be removed in rasdaman - v10.
  */
 class RandomGenerator
 {
 public:
     RandomGenerator();
 
-    bool setFileVersion(long); // false, if not supported encr. method
+    bool setFileVersion(long);  // false, if not supported encr. method
 
     void init(unsigned int);
     unsigned char operator()();
     bool insideTest();
+
 private:
     static unsigned char randomTable[1000];
     unsigned int seed;
     int fileVersion;
 };
-}
-#endif // RASMGR_X_SRC_RANDOMGENERATOR_HH
+}  // namespace rasmgr
+#endif  // RASMGR_X_SRC_RANDOMGENERATOR_HH

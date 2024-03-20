@@ -36,63 +36,11 @@ module rasdaman {
         public static $inject = ["$scope", "$rootScope", "$state", "rasdaman.AdminService"];
 
         public constructor(private $scope:WCSMainControllerScope, $rootScope:angular.IRootScopeService, $state:any, adminService:rasdaman.AdminService) {
-            this.initializeTabs($scope);
-
             
+            this.initializeTabs($scope);        
 
-            // NOTE: When petascope admin user logged in, then show Insert and Delete Coverage tabs in WCS tab
-            $scope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean) => {                
-                if (oldValue == true || newValue == true) {
-                    if ($scope.isSupportWCST) {
-
-                        let roles = $rootScope.adminStateInformation.roles;
-                        
-                        // petascope admin logged in
-                        if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WCS_INSERT_COV)) {
-                            $scope.wcsInsertCoverageTab.disabled = false;
-                        }
-                        if (AdminService.hasRole(roles, AdminService.PRIV_OWS_WCS_DELETE_COV)) {
-                            $scope.wcsDeleteCoverageTab.disabled = false;
-                        }
-
-                        // reload WCS to show all coverages
-                        $rootScope.$broadcast("reloadWCSServerCapabilities", true);
-                        // reload WMS to show all layers
-                        $rootScope.$broadcast("reloadWMSServerCapabilities", true);
-                    }
-                } else {
-                    // petascope admin logged out
-                    $scope.wcsInsertCoverageTab.disabled = true;
-                    $scope.wcsDeleteCoverageTab.disabled = true;     
-
-                    // reload WCS to show only non-blacklisted coverages
-                    $rootScope.$broadcast("reloadWCSServerCapabilities", true);
-                    // reload WMS to show only non-blacklisted layers
-                    $rootScope.$broadcast("reloadWMSServerCapabilities", true);
-                }
-            });
-
-            $scope.$watch("wcsStateInformation.serverCapabilities", (newValue:wcs.Capabilities, oldValue:wcs.Capabilities)=> {                
-                if (newValue) {
-                    $scope.wcsDescribeCoverageTab.disabled = false;
-                    $scope.wcsGetCoverageTab.disabled = false;
-                    $scope.wcsProcessCoverageTab.disabled = !WCSMainController.isProcessCoverageEnabled(newValue);
-                    $scope.isSupportWCST = WCSMainController.isCoverageTransactionEnabled(newValue)
-
-                    // Disable these WCS-T tabs by default if petascope admin did not log in
-                    if ($rootScope.adminStateInformation.loggedIn === false) {
-                        $scope.wcsInsertCoverageTab.disabled = true;
-                        $scope.wcsDeleteCoverageTab.disabled = true;
-                    }
-                } else {
-                    this.resetState();
-                }
-            });
-
-            $scope.$watch("wcsStateInformation.selectedCoverageDescription", (newValue:wcs.CoverageDescription, oldValue:wcs.CoverageDescription)=> {
-                $scope.wcsGetCoverageTab.disabled = newValue ? false : true;
-            });
-
+            $scope.wcsInsertCoverageTab.disabled = !AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_INSERT_COV);
+            $scope.wcsDeleteCoverageTab.disabled = !AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_DELETE_COV);;
 
             $scope.tabs = [$scope.wcsGetCapabilitiesTab, $scope.wcsDescribeCoverageTab, $scope.wcsGetCoverageTab, $scope.wcsProcessCoverageTab, $scope.wcsDeleteCoverageTab, $scope.wcsInsertCoverageTab];
 
@@ -101,8 +49,7 @@ module rasdaman {
             $scope.wcsStateInformation = {
                 serverCapabilities: null,                
                 selectedCoverageDescription: null,
-                selectedGetCoverageId: null,
-                reloadServerCapabilities: true
+                selectedGetCoverageId: null
             };
 
             // When click on the coverageId in the table of GetCapabilities tab,
@@ -111,6 +58,7 @@ module rasdaman {
                 $scope.wcsDescribeCoverageTab.active = true;
                 $rootScope.wcsSelectedGetCoverageId = coverageId;
             };
+
         }
 
         private initializeTabs($scope:WCSMainControllerScope) {
@@ -158,9 +106,9 @@ module rasdaman {
         }
 
         private resetState() {
-            this.$scope.wcsDescribeCoverageTab.disabled = true;
-            this.$scope.wcsGetCoverageTab.disabled = true;
-            this.$scope.wcsProcessCoverageTab.disabled = true;
+            this.$scope.wcsDescribeCoverageTab.disabled = false;
+            this.$scope.wcsGetCoverageTab.disabled = false;
+            this.$scope.wcsProcessCoverageTab.disabled = false;
             this.$scope.wcsDeleteCoverageTab.disabled = false;
             this.$scope.wcsInsertCoverageTab.disabled = false;
         }
@@ -179,11 +127,10 @@ module rasdaman {
     }
 
     export interface WCSMainControllerScope extends angular.IScope {
-        wcsStateInformation:{
+        wcsStateInformation: {
             serverCapabilities:wcs.Capabilities,            
             selectedCoverageDescription:wcs.CoverageDescription,
-            selectedGetCoverageId:string,
-            reloadServerCapabilities:boolean
+            selectedGetCoverageId:string
         };
 
         tabs:TabState[];
@@ -196,7 +143,6 @@ module rasdaman {
 
         //Implement a better way to navigate between tabs
         describeCoverage(coverageId:string);
-        isSupportWCST:boolean;
     }
 
     interface TabState {

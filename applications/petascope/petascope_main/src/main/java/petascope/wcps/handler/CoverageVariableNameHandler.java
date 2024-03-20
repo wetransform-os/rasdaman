@@ -22,12 +22,17 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.core.Pair;
+import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCPSException;
+import petascope.util.StringUtil;
 import petascope.wcps.metadata.service.CoverageAliasRegistry;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.metadata.service.AxisIteratorAliasRegistry;
@@ -38,6 +43,8 @@ import static petascope.util.ras.RasConstants.RASQL_OPEN_SUBSETS;
 import static petascope.util.ras.RasConstants.RASQL_CLOSE_SUBSETS;
 import petascope.wcps.metadata.service.LetClauseAliasRegistry;
 import petascope.wcps.subset_axis.model.WcpsSubsetDimension;
+
+import petascope.wcps.result.VisitorResult;
 
 /**
  * Class to translate a coverage variable name  <code>
@@ -81,10 +88,10 @@ public class CoverageVariableNameHandler extends Handler {
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult wcpsResult = null;
-        String coverageVariable = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        VisitorResult wcpsResult = null;
+        String coverageVariable = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+
         try {
             wcpsResult = letClauseAliasRegistry.get(coverageVariable);
             if (wcpsResult == null) {
@@ -101,27 +108,51 @@ public class CoverageVariableNameHandler extends Handler {
     private WcpsResult handle(String coverageAlias) throws PetascopeException {
         String rasql;
         WcpsCoverageMetadata metadata;
+
+        if (coverageAliasRegistry.existsInForClauseListMapping(coverageAlias)) {
+            // e.g. $c0 from the list of FOR clause ($c0, $c1 and $c2) is used in a subset expression -> copy $c0 to the map of used aliases
+            // $c1 and $c2 are not added to the final FROM clause in rasql query
+            coverageAliasRegistry.copyFromForClauseMappingToUsedCoverageAliasMapping(coverageAlias);
+        }
+
         String coverageName = coverageAliasRegistry.getCoverageName(coverageAlias);
         // NOTE: if coverageName is null then the coverage alias points to non-existing coverage
         // assume it is an axis iterator
         if (coverageName == null) {
             AxisIterator axisIterator = axisIteratorAliasRegistry.getAxisIterator(coverageAlias);
-            rasql = axisIterator.getRasqlAliasName() + RASQL_OPEN_SUBSETS + axisIterator.getAxisIteratorOrder() + RASQL_CLOSE_SUBSETS;
+            rasql = axisIterator.getRasqlRepresentation();
             axisIteratorAliasRegistry.addRasqlAxisIterator(rasql);
             //axis iterator, no coverage information, just pass the info up
             metadata = null;
         } else {
-            // coverage does exist, translate the persisted coverage to WcpsCoverageMetadata object
-            metadata = wcpsCoverageMetadataTranslator.translate(coverageName);
+            // coverage exists
+
+            rasql = StringUtil.stripDollarSign(coverageAlias);
+
+            metadata = this.wcpsCoverageMetadataTranslator.translate(coverageName);
             
-            if (metadata.getRasdamanCollectionName() != null) {
-                // coverage is persisted in database
-                rasql = coverageAlias.replace(WcpsSubsetDimension.AXIS_ITERATOR_DOLLAR_SIGN, "");
-            } else {
+            if (metadata.getRasdamanCollectionName() == null) {
                 // coverage is created temporarily from uploaded file path
                 rasql = metadata.getDecodedFilePath();
+
             }
         }
+
+        // Check if this coverageAlias registry doesn't have any ancestor which is ScaleExpression -> add it to a set
+        Handler parentHandler = this.getParent();
+        while (parentHandler != null) {
+            if (parentHandler instanceof ScaleExpressionByDimensionIntervalsHandler) {
+                break;
+            }
+
+            parentHandler = parentHandler.getParent();
+        }
+
+        if (parentHandler == null) {
+            // This coverage alias doesn't have any ancestor as SCALE(), e.g. return encode( avg(c), "csv" )
+            this.coverageAliasRegistry.addChildOfNonScaleNodesToSet(coverageAlias);
+        }
+
 
         WcpsResult result = new WcpsResult(metadata, rasql);
         return result;

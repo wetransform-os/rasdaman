@@ -35,9 +35,13 @@ module rasdaman {
         public static $inject = ["$scope", "$rootScope", "$state"];
 
         public constructor(private $scope:WMSMainControllerScope, $rootScope:angular.IRootScopeService, $state:any) {
+
             this.initializeTabs($scope);
+
+            $scope.wmsDeleteLayerTab.disabled = !AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_DELETE_LAYER);
+            $scope.wmsCreateLayerTab.disabled = !AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WMS_INSERT_LAYER);;
            
-            $scope.tabs = [$scope.wmsGetCapabilitiesTab, $scope.wmsDescribeLayerTab];
+            $scope.tabs = [$scope.wmsGetCapabilitiesTab, $scope.wmsDescribeLayerTab, $scope.wmsDeleteLayerTab, $scope.wmsCreateLayerTab];
                         
             // When click on the layerName in the table of GetCapabilities tab,
             // it will change to DescribeLayer tab and get metadata for this layer.
@@ -49,9 +53,10 @@ module rasdaman {
             // NOTE: must initialize wmsStateInformation first or watcher for serverCapabilities in GetCapabilities
             // from DescribeLayer controller will not work and return null.
             $scope.wmsStateInformation = {
-                serverCapabilities: null,
-                reloadServerCapabilities: true
+                serverCapabilities: null
             };
+
+
         }
 
         private initializeTabs($scope:WMSMainControllerScope) {            
@@ -68,19 +73,35 @@ module rasdaman {
                 active: false,
                 disabled: false
             };
+
+            $scope.wmsDeleteLayerTab = {
+                heading: "DeleteLayer",
+                view: "wms_delete_layer",
+                active: false,
+                disabled: true
+            };
+
+            $scope.wmsCreateLayerTab = {
+                heading: "CreateLayer",
+                view: "wms_create_layer",
+                active: false,
+                disabled: true
+            };
+
         }
+
     }
 
     export interface WMSMainControllerScope extends angular.IScope {
         wmsStateInformation:{
-            serverCapabilities: wms.Capabilities,
-            reloadServerCapabilities: boolean
+            serverCapabilities: wms.Capabilities
         };
 
         tabs:TabState[];
         wmsGetCapabilitiesTab:TabState;
         wmsDescribeLayerTab:TabState;
-        wmsGetLayerTab:TabState;  
+        wmsDeleteLayerTab:TabState;  
+        wmsCreateLayerTab:TabState;
 	    describeLayer(layerName:string):void;      
     }
 

@@ -1,17 +1,25 @@
-#include <limits.h> //PATH_MAX
-
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-
-#include <stdexcept>
-
-#include <logging.hh>
-
-#include "include/globals.hh"
-#include "common/exceptions/missingresourceexception.hh"
-#include "common/uuid/uuid.hh"
-
+/*
+ * This file is part of rasdaman community.
+ *
+ * Rasdaman community is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Rasdaman community is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with rasdaman community.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 Peter Baumann / rasdaman GmbH.
+ *
+ * For more information please see <http://www.rasdaman.org>
+ * or contact Peter Baumann via <baumann@rasdaman.com>.
+ */
+#include "configurationmanager.hh"
 #include "constants.hh"
 #include "controlcommandexecutor.hh"
 #include "databasehostmanager.hh"
@@ -19,19 +27,27 @@
 #include "peermanager.hh"
 #include "servermanager.hh"
 #include "usermanager.hh"
+#include "include/globals.hh"
+#include "common/exceptions/missingresourceexception.hh"
+#include "common/uuid/uuid.hh"
 
-#include "configurationmanager.hh"
+#include <limits.h>  //PATH_MAX
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <stdexcept>
+#include <logging.hh>
 
 namespace rasmgr
 {
 using std::runtime_error;
 
 ConfigurationManager::ConfigurationManager(std::shared_ptr<ControlCommandExecutor> commandExecutor,
-        std::shared_ptr<DatabaseHostManager> dbhManager,
-        std::shared_ptr<DatabaseManager> dbManager,
-        std::shared_ptr<PeerManager> peerManager,
-        std::shared_ptr<ServerManager> serverManager,
-        std::shared_ptr<UserManager> userManager)
+                                           std::shared_ptr<DatabaseHostManager> dbhManager,
+                                           std::shared_ptr<DatabaseManager> dbManager,
+                                           std::shared_ptr<PeerManager> peerManager,
+                                           std::shared_ptr<ServerManager> serverManager,
+                                           std::shared_ptr<UserManager> userManager)
     : commandExecutor_(commandExecutor),
       dbhManager_(dbhManager),
       dbManager_(dbManager),
@@ -40,13 +56,16 @@ ConfigurationManager::ConfigurationManager(std::shared_ptr<ControlCommandExecuto
       userManager_(userManager),
       rasmgrConfFilePath(std::string(CONFDIR) + "/" + std::string(RASMGR_CONF_FILE)),
       isDirty_(false)
-{}
+{
+}
 
 ConfigurationManager::~ConfigurationManager()
-{}
+{
+}
 
 void ConfigurationManager::saveConfiguration(bool backup)
 {
+    LDEBUG << "saving configuration...";
     if (backup)
     {
         if (this->isDirty())
@@ -63,6 +82,7 @@ void ConfigurationManager::saveConfiguration(bool backup)
     }
 
     this->setIsDirty(false);
+    LDEBUG << "saving configuration done.";
 }
 
 void ConfigurationManager::loadConfiguration()
@@ -105,7 +125,7 @@ void ConfigurationManager::loadRasMgrConf()
 
     LDEBUG << "Opening rasmanager configuration file:" << rasmgrConfFilePath;
 
-    std::ifstream ifs(rasmgrConfFilePath);    // open config file
+    std::ifstream ifs(rasmgrConfFilePath);  // open config file
 
     if (!ifs)
     {
@@ -125,6 +145,7 @@ void ConfigurationManager::loadRasMgrConf()
             if (!result.empty())
             {
                 LERROR << result;
+                // TODO: throw exception?
             }
         }
     }
@@ -161,17 +182,8 @@ void ConfigurationManager::saveDatabaseHosts(std::ofstream &out)
         DatabaseHostProto dbhData = dbhMgrData.database_hosts(i);
 
         out << "define dbh " << dbhData.host_name()
-            << " -connect " << dbhData.connect_string();
-        if (!dbhData.user_name().empty())
-        {
-            out << " -user " << dbhData.user_name();
-        }
-        if (!dbhData.password().empty())
-        {
-            out << " -passwd " << dbhData.password();
-        }
-
-        out << std::endl;
+            << " -connect " << dbhData.connect_string()
+            << std::endl;
     }
 }
 
@@ -288,4 +300,4 @@ void ConfigurationManager::savePeers(std::ofstream &out)
     }
 }
 
-}
+}  // namespace rasmgr

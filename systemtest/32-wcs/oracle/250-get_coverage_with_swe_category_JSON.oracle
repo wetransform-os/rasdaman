@@ -1,0 +1,117 @@
+{
+  "type" : "CoverageByDomainAndRangeType",
+  "id" : "test_rgb_categorial_bands_nil_values",
+  "envelope" : {
+    "type" : "EnvelopeByAxisType",
+    "srsName" : "http://localhost:8080/rasdaman/def/crs/OGC/0/Index2D",
+    "axisLabels" : [ "i", "j" ],
+    "axis" : [ {
+      "type" : "AxisExtentType",
+      "axisLabel" : "i",
+      "lowerBound" : 0,
+      "upperBound" : 0,
+      "uomLabel" : "GridSpacing"
+    }, {
+      "type" : "AxisExtentType",
+      "axisLabel" : "j",
+      "lowerBound" : 5,
+      "upperBound" : 6,
+      "uomLabel" : "GridSpacing"
+    } ]
+  },
+  "domainSet" : {
+    "type" : "DomainSetType",
+    "generalGrid" : {
+      "type" : "GeneralGridCoverageType",
+      "srsName" : "http://localhost:8080/rasdaman/def/crs/OGC/0/Index2D",
+      "axisLabels" : [ "i", "j" ],
+      "axis" : [ {
+        "type" : "RegularAxisType",
+        "axisLabel" : "i",
+        "lowerBound" : 0,
+        "upperBound" : 0,
+        "uomLabel" : "GridSpacing",
+        "resolution" : 1
+      }, {
+        "type" : "RegularAxisType",
+        "axisLabel" : "j",
+        "lowerBound" : 5,
+        "upperBound" : 6,
+        "uomLabel" : "GridSpacing",
+        "resolution" : -1
+      } ],
+      "gridLimits" : {
+        "type" : "GridLimitsType",
+        "srsName" : "http://www.opengis.net/def/crs/OGC/0/Index2D",
+        "axisLabels" : [ "i", "j" ],
+        "axis" : [ {
+          "type" : "IndexAxisType",
+          "axisLabel" : "i",
+          "lowerBound" : 0,
+          "upperBound" : 0
+        }, {
+          "type" : "IndexAxisType",
+          "axisLabel" : "j",
+          "lowerBound" : 338,
+          "upperBound" : 338
+        } ]
+      }
+    }
+  },
+  "rangeType" : {
+    "type" : "DataRecordType",
+    "field" : [ {
+      "type" : "QuantityType",
+      "name" : "red",
+      "description" : "Band 1 description",
+      "definition" : "ogcType:unsignedByte",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "I don't know",
+          "value" : "25"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      }
+    }, {
+      "type" : "CategoryType",
+      "name" : "green",
+      "description" : "",
+      "definition" : "Band 2 definition which is an attribute",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "35"
+        } ]
+      },
+      "codeSpace" : "http://code.list.org/"
+    }, {
+      "type" : "QuantityType",
+      "name" : "blue",
+      "description" : "",
+      "definition" : "ogcType:unsignedByte",
+      "nilValues" : {
+        "nilValues" : [ {
+          "reason" : "",
+          "value" : "248"
+        } ]
+      },
+      "uom" : {
+        "type" : "UnitReference",
+        "code" : "10^0"
+      }
+    } ]
+  },
+  "metadata" : {
+    "resolution" : "1"
+  },
+  "rangeSet" : {
+    "type" : "RangeSetType",
+    "dataBlock" : {
+      "type" : "VDataBlockType",
+      "values" : [ "119 208 25" ]
+    }
+  }
+}

@@ -49,13 +49,17 @@ import static petascope.core.KVPSymbols.WMS_SERVICE;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.rasdaman.exceptions.RasdamanException;
+import petascope.util.CrsUtil;
 import petascope.util.IOUtil;
 import petascope.util.StringUtil;
 import petascope.util.ras.RasUtil;
+import java.net.URL;
+import java.net.MalformedURLException;
 
 import org.gdal.gdal.gdal;
 import static petascope.util.CrsUtil.isInternalSecoreURL;
 import petascope.util.ListUtil;
+import rasj.global.Debug;
 
 /**
  * Configuration Manager class: a single entry point for all server settings.
@@ -78,10 +82,13 @@ public class ConfigManager {
 
     // For all exceptions, default language is english
     public static final String LANGUAGE = "en";
+    
+    public static final String KEY_PETASCOPE_CONF_DIR = "petascope.confDir";
+    public static final String KEY_SECORE_CONF_DIR = "secore.confDir";
 
     /* **** Default endpoint for controllers to handle services **** */
     // e.g: localhost:8080/rasdaman/ows
-    public static final String CONTEXT_PATH = "rasdaman"; 
+    public static String CONTEXT_PATH = "rasdaman";
     public static final String MIGRATION = "migration";
     public static final String OWS = "ows";
     public static final String WCPS = "wcps";
@@ -99,6 +106,24 @@ public class ConfigManager {
         
     // context path for OAPI endpoint (e.g: localhost:8080/rasdaman/oapi)
     public static final String OAPI = "oapi";
+
+    // context path for openEO endpoint (e.g: localhost:8080/rasdaman/openeo)
+    public static final String OPENEO = "openeo";
+
+    public static final String GDC = "gdc";
+
+    // context path for openEO endpoint (e.g: localhost:8080/rasdaman/credentials)
+    public static final String CREDENTIALS = "credentials";
+
+    // openEO https://openeo.org/documentation/1.0/developers/api/reference.html#tag/Account-Management/operation/authenticate-basic
+    public static final String CREDENTIALS_BASIC = CREDENTIALS + "/basic";
+
+    public static final String OPENEO_CREDENTIALS_BASIC = OPENEO + "/" + CREDENTIALS + "/basic";
+    public static final String GDC_CREDENTIALS_BASIC = GDC + "/" + CREDENTIALS + "/basic";
+
+    // Check if petascope has enabled authentication in petascope.properties
+    public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION = "authisactive";
+    public static final String CHECK_PETASCOPE_ENABLE_AUTHENTICATION_CONTEXT_PATH = ADMIN + "/authisactive";
 
     
     /* **** Default DMBS for petascope is Postgresql **** */
@@ -175,6 +200,11 @@ public class ConfigManager {
     public static final String SECORE_INTERNAL = "internal";
     // this is used internally inside petascope as a valid URI, loaded from secore.properties, default it is "http://localhost:8080/rasdaman/def"
     public static final String DEFAULT_SECORE_INTERNAL_URL = "http://localhost:8080/rasdaman/def";
+    public static final String DEFAULT_SECORE_INTERNAL_URL_TEMPLATE = "http://localhost:8080/$CONTEXT_PATH/def";
+    public static final String SECORE_INTERNAL_CONTEXT_PATH = "/rasdaman/def";
+
+    // by default, petascope runs embedded secore
+    public static boolean SECORE_INTERNAL_SHOULD_RUN = true;
     
     /* ***** AJP connector configuration for embedded tomcat ***** */
     public static int EMBEDDED_AJP_PORT = 0;
@@ -207,8 +237,10 @@ public class ConfigManager {
     public static final String KEY_PETASCOPE_DATASOURCE_JDBC_JAR_PATH = "spring.datasource.jdbc_jar_path";
     private static final String KEY_PETASCOPE_SERVLET_URL = "petascope_servlet_url";
     private static final String KEY_APPLICATION_NAME = "server.contextPath";
+    private static final String KEY_APPLICATION_NAME_NEW = "server.servlet.context-path";
     
     private static final String KEY_INSPIRE_METADATA_URL = "inspire_common_url";
+    private static final String KEY_INSPIRE_SPATIAL_DATASET_IDENTIFIER = "inspire_dls_spatial_dataset_identifier";
 
     // For old Petascopedb to migrate (source datasource)
     private static final String KEY_SOURCE_DATASOURCE_URL = "metadata_url";
@@ -227,8 +259,8 @@ public class ConfigManager {
     /* ***** Rasdaman configuration ***** */
     private static final String KEY_RASDAMAN_DATABASE = "rasdaman_database";
     private static final String KEY_RASDAMAN_URL = "rasdaman_url";
-    private static final String KEY_RASDAMAN_USER = "rasdaman_user";
-    private static final String KEY_RASDAMAN_PASS = "rasdaman_pass";
+    public static final String KEY_RASDAMAN_USER = "rasdaman_user";
+    public static final String KEY_RASDAMAN_PASS = "rasdaman_pass";
     private static final String KEY_RASDAMAN_ADMIN_USER = "rasdaman_admin_user";
     private static final String KEY_RASDAMAN_ADMIN_PASS = "rasdaman_admin_pass";
     private static final String KEY_RASDAMAN_RETRY_TIMEOUT = "rasdaman_retry_timeout";
@@ -239,7 +271,7 @@ public class ConfigManager {
     private static final String KEY_UPLOADED_FILE_DIR_TMP = "uploaded_files_dir_tmp";
 
     /* ***** SECORE configuration ***** */
-    private static final String KEY_SECORE_URLS = "secore_urls";
+    public static final String KEY_SECORE_URLS = "secore_urls";
     
     /* ***** WCS configuration ***** */
     // validate XML POST input request with XML Schema (not set to true when OGC CITE testing)
@@ -272,6 +304,26 @@ public class ConfigManager {
     public static String CONF_DIR = "";
 
     public static String INSPIRE_COMMON_URL = "";
+    public static String INSPIRE_SPATIAL_DATASET_IDENTIFIER = "rasdaman";
+
+    private static final String KEY_AUTHENTICATION_TYPE = "authentication_type";
+    public static final String AUTHENTICATION_TYPE_BASIC_HEADER = "basic_header";
+    public static String AUTHENTICATION_TYPE = AUTHENTICATION_TYPE_BASIC_HEADER;
+
+    // rasj 
+    private static final String KEY_RASJ_LOGGING_LEVEL = "rasj_logging_level";
+    public static String RASJ_LOGGING_LEVEL = RasjLoggingLevel.WARN.name();
+    
+    public enum RasjLoggingLevel {
+        ERROR(0), WARN(1), DEBUG(2), TRACE(3);
+        
+        public final int level;
+        
+        private RasjLoggingLevel(int level) {
+            this.level = level;
+        }
+    }
+
 
     /**
      * Initialize all the keys, values of petascope.properties
@@ -346,6 +398,10 @@ public class ConfigManager {
         initSecoreSettings();
         initTempUploadDirs();
         validateLogFilePath();
+        
+        initRasj();
+
+        initAuthenticationTypesSetting();
 
         printStartupMessage();
         
@@ -398,15 +454,46 @@ public class ConfigManager {
         
         return value;
     }
+
+    private boolean containsProperty(String key) {
+        return props.get(key) != null;
+    }
     
     private void initPetascopeSettings() throws PetascopeException {
         // server.port
         EMBEDDED_PETASCOPE_PORT = this.get(KEY_EMBEDDED_PETASCOPE_PORT);
+
+        String petascopeEndpointURL = get(KEY_PETASCOPE_SERVLET_URL);
+        this.setPetascopeEndpointUrl(petascopeEndpointURL);
+
+        if (PETASCOPE_ENDPOINT_URL != null && !PETASCOPE_ENDPOINT_URL.trim().isEmpty()) {
+            try {
+                URL url = new URL(PETASCOPE_ENDPOINT_URL);
+            } catch (MalformedURLException ex) {
+                throw new PetascopeException(ExceptionCode.InvalidPropertyValue, 
+                        "Value for key: " + KEY_PETASCOPE_SERVLET_URL + " must be a valid URL"
+                                + ". Given: " +  PETASCOPE_ENDPOINT_URL
+                                + ". Reason: " + ex.getMessage());
+            }
+        }
         
-        PETASCOPE_ENDPOINT_URL = get(KEY_PETASCOPE_SERVLET_URL);
+        
         INSPIRE_COMMON_URL = getOptionalPropertyValue(KEY_INSPIRE_METADATA_URL, "");
+        INSPIRE_SPATIAL_DATASET_IDENTIFIER = getOptionalPropertyValue(KEY_INSPIRE_SPATIAL_DATASET_IDENTIFIER, "rasdaman");
         
-        PETASCOPE_APPLICATION_CONTEXT_PATH = get(KEY_APPLICATION_NAME);
+        PETASCOPE_APPLICATION_CONTEXT_PATH = getOptionalPropertyValue(KEY_APPLICATION_NAME_NEW, "");
+        if (PETASCOPE_APPLICATION_CONTEXT_PATH.trim().isEmpty()) {
+            
+            // If new setting not found, then try again with old setting
+            PETASCOPE_APPLICATION_CONTEXT_PATH = getOptionalPropertyValue(KEY_APPLICATION_NAME, "");
+            
+            if (PETASCOPE_APPLICATION_CONTEXT_PATH.trim().isEmpty()) {
+                // No setting found, just use the default one
+                PETASCOPE_APPLICATION_CONTEXT_PATH = "/" + CONTEXT_PATH;
+                log.warn("Setting: " + KEY_APPLICATION_NAME_NEW + " not found in petascope.properties, "
+                        + "hence, it is set to default value: " + PETASCOPE_APPLICATION_CONTEXT_PATH);
+            }
+        }
 
         PETASCOPE_DATASOURCE_URL = get(KEY_PETASCOPE_DATASOURCE_URL);
         PETASCOPE_DATASOURCE_USERNAME = get(KEY_PETASCOPE_DATASOURCE_USERNAME);
@@ -505,6 +592,17 @@ public class ConfigManager {
         }
  
     }
+
+    public static void setPetascopeEndpointUrl(String petascopeEndpointUrl) {
+        if (!petascopeEndpointUrl.isEmpty()) {
+            PETASCOPE_ENDPOINT_URL = petascopeEndpointUrl;
+            if (SECORE_INTERNAL_SHOULD_RUN) {
+                // In case embedded SECORE should run under petascope, then the URL for it is dictated by petascope
+                String secoreEndpointUrl = StringUtil.replaceLast(petascopeEndpointUrl, OWS, CrsUtil.SECORE_CONTEXT_PATH);
+                org.rasdaman.secore.ConfigManager.getInstance().setServiceUrl(secoreEndpointUrl);
+            }
+        }
+    }
     
     private void initRasdamanSettings() throws PetascopeException {
         RASDAMAN_DATABASE = get(KEY_RASDAMAN_DATABASE);
@@ -530,8 +628,10 @@ public class ConfigManager {
      * Get the internal SECORE URLs (in case, embedded server.port is different than 8080,
      * then it is added as well to the result)
      */
-    public String getInternalSecoreURL() throws PetascopeException {
-        String tmp = DEFAULT_SECORE_INTERNAL_URL;
+    public static String getInternalSecoreURL() throws PetascopeException {
+        String tmp = DEFAULT_SECORE_INTERNAL_URL_TEMPLATE;
+        // e.g: http://localhost:8080/test/def and test from test.war
+        tmp = tmp.replace("$CONTEXT_PATH", ConfigManager.CONTEXT_PATH.replace("/", ""));
 
         if (!EMBEDDED_PETASCOPE_PORT.equals(DEFAULT_PETASCOPE_PORT)) {
             tmp = tmp.replace(DEFAULT_PETASCOPE_PORT, EMBEDDED_PETASCOPE_PORT);
@@ -577,6 +677,31 @@ public class ConfigManager {
             log.error("Cannot create WCS-T temp directory '" + ConfigManager.WCST_TMP_DIR + 
                     "', reason: " + ex.getMessage());
         }
+    }
+    
+    private void initRasj() {
+        
+        // -- set up logging level for rasj
+        
+        RASJ_LOGGING_LEVEL = getOptionalPropertyValue(KEY_RASJ_LOGGING_LEVEL, RasjLoggingLevel.WARN.name());
+        int loggingLevel = RasjLoggingLevel.WARN.level;
+        
+        boolean validLoggingLevel = false;
+        for (RasjLoggingLevel enumObj : RasjLoggingLevel.values()) {
+            if (enumObj.name().equals(RASJ_LOGGING_LEVEL)) {
+                validLoggingLevel = true;
+                loggingLevel = enumObj.level;
+                break;
+            }
+        }
+        
+        if (!validLoggingLevel) {
+            log.warn("Logging level for rasj in setting '" + KEY_RASJ_LOGGING_LEVEL + "' is not valid. "
+                    + "Given: " + RASJ_LOGGING_LEVEL + ". Hence, it is set to default level: " + RasjLoggingLevel.WARN);
+        }
+        
+        rasj.global.Debug.setDebugThreshold(loggingLevel);
+
     }
     
     /**
@@ -651,6 +776,27 @@ public class ConfigManager {
         log.info("WMS: " + VersionManager.getAllSupportedVersions(WMS_SERVICE));
 
         log.info("------------------------------------");
+    }
+
+    public static boolean enableAuthentication() {
+        return !AUTHENTICATION_TYPE.isEmpty();
+    }
+    
+    /**
+     * Initialize authentication types in Petascope (e.g: shibboleth and basic authentication header).
+     */
+    private void initAuthenticationTypesSetting() throws PetascopeException {
+        if (containsProperty(KEY_AUTHENTICATION_TYPE)) {
+            String value = get(KEY_AUTHENTICATION_TYPE).trim();
+            if (!value.isEmpty()) {
+                if (!value.equals(AUTHENTICATION_TYPE_BASIC_HEADER)) {
+                    throw new PetascopeException(ExceptionCode.InvalidPropertyValue,
+                            "Value for authentication setting '" + KEY_AUTHENTICATION_TYPE + "' is not supported. Given: '" + value + "'");
+                }
+            }
+
+            AUTHENTICATION_TYPE = value;
+        }
     }
 }
 

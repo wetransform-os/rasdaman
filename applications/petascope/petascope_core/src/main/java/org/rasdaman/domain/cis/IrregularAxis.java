@@ -28,15 +28,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import javax.persistence.*;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import petascope.core.AxisTypes;
+import petascope.core.CrsDefinition;
+import petascope.exceptions.PetascopeRuntimeException;
 import petascope.util.BigDecimalUtil;
 import petascope.core.Pair;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
 import petascope.exceptions.WCSException;
+import petascope.util.CrsUtil;
+import petascope.util.TimeUtil;
 
 /**
  * CIS 1.1
@@ -92,40 +96,162 @@ public class IrregularAxis extends GeoAxis implements Serializable {
     @OrderColumn
     private List<String> directPositions;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "irregular_axis_direct_positions_areas_of_validity_start")
+    @OrderColumn
+    private List<String> directPositionsAreaOfValidityStarts;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "irregular_axis_direct_positions_areas_of_validity_end")
+    @OrderColumn
+    private List<String> directPositionsAreaOfValidityEnds;
+
+//    This data structure is fast and takes around 0.03 ms to insert a value for 100k values,
+//    which happens once per every UpdateCoverage request. Initial reading of all the values
+//    from DB is as fast as ArrayList with addAll in setDirectPositionsAsNumbers().
+//    It needs to be CopyOnWriteArrayList because it can be concurrently modified by 
+//    UpdateCoverage and read by GetMap and other requests.   
+    @Transient    
+    private CopyOnWriteArrayList<BigDecimal> directPositionsAsNumbers;
+
+    @Transient
+    private CopyOnWriteArrayList<BigDecimal> directPositionsAreaOfValidityStartsAsNumbers;
+    @Transient
+    private CopyOnWriteArrayList<BigDecimal> directPositionsAreaOfValidityEndsAsNumbers;
+
     public IrregularAxis() {
 
     }
 
-    public IrregularAxis(List<String> directPositions, String axisLabel, String uomLabel, String srsName, String lowerBound, String upperBound, String resolution) {
-        super(axisLabel, uomLabel, srsName, lowerBound, upperBound, resolution, AxisTypes.UNKNOWN);
-        this.directPositions = directPositions;
+    public IrregularAxis(List<String> directPositions, List<String> directPositionsAreaOfValidityStarts,
+                         List<String> directPositionsAreaOfValidityEnds,
+                         String axisLabel, String uomLabel, String srsName, String lowerBound, String upperBound, String resolution, String axisType) {
+        super(axisLabel, uomLabel, srsName, lowerBound, upperBound, resolution, axisType);
+
+        this.setDirectPositions(directPositions);
+        this.setDirectPositionsAreaOfValidityStarts(directPositionsAreaOfValidityStarts);
+        this.setDirectPositionsAreaOfValidityEnds(directPositionsAreaOfValidityEnds);
+    }
+
+    public void setDirectPositions(List<String> directPositions) {
+        this.directPositions = new CopyOnWriteArrayList<>();
+        this.directPositionsAsNumbers = new CopyOnWriteArrayList<>();
+
+        for (String value : directPositions) {
+            this.directPositions.add(value);
+            this.directPositionsAsNumbers.add(new BigDecimal(value));
+        }
+    }
+
+    public void setDirectPositionsAsNumbers(List<BigDecimal> directPositions) {
+        this.directPositions = new CopyOnWriteArrayList<>();
+        this.directPositionsAsNumbers = new CopyOnWriteArrayList<>();
+
+        for (BigDecimal value : directPositions) {
+            this.directPositions.add(value.toPlainString());
+            this.directPositionsAsNumbers.add(value);
+        }
     }
     
     public List<String> getDirectPositions() {
         return this.directPositions;
     }
 
-    /**
-     * Ultility method to get direct positions in number
-     * @return 
-     */
     @JsonIgnore
+    public boolean isReversedDirectPositions() {
+        BigDecimal firstCoefficient = new BigDecimal(this.directPositions.get(0));
+        BigDecimal lastCoefficient = new BigDecimal(this.directPositions.get(this.directPositions.size() - 1));
+
+        return firstCoefficient.compareTo(lastCoefficient) > 0;
+    }
+    
+    @JsonIgnore
+    /**
+     * NOTE: if this list is to be modified you should best make a copy with addAll
+     */
     public List<BigDecimal> getDirectPositionsAsNumbers() {
-        List<BigDecimal> bigDecimalList = new ArrayList<>();
-        for (String value : directPositions) {
-            bigDecimalList.add(new BigDecimal(value));
-        }
+        if (this.directPositionsAsNumbers == null || this.directPositionsAsNumbers.isEmpty()
+            || this.directPositionsAsNumbers.size() != this.directPositions.size()) {
 
-        return bigDecimalList;
+            this.directPositionsAsNumbers = new CopyOnWriteArrayList<>();
+            for (String value : this.directPositions) {
+                this.directPositionsAsNumbers.add(new BigDecimal(value));
+            }
+        }
+        
+        return this.directPositionsAsNumbers;
     }
 
-    public void setDirectPositions(List<BigDecimal> directPositions) {
-        this.directPositions = new ArrayList<>();
-        for (BigDecimal value : directPositions) {
-            this.directPositions.add(value.toPlainString());
+
+    // ------- 2. List of directPositions areas of validity
+
+    // --------- 2.1 area of validity starts
+
+    public List<String> getDirectPositionsAreaOfValidityStarts() {
+        return this.directPositionsAreaOfValidityStarts;
+    }
+
+    public void setDirectPositionsAreaOfValidityStarts(List<String> directPositionsAreaOfValidityStarts) {
+        this.directPositionsAreaOfValidityStarts = new CopyOnWriteArrayList<>();
+        this.directPositionsAreaOfValidityStartsAsNumbers = new CopyOnWriteArrayList<>();
+
+        for (String value : directPositionsAreaOfValidityStarts) {
+            this.directPositionsAreaOfValidityStarts.add(value);
+            this.directPositionsAreaOfValidityStartsAsNumbers.add(new BigDecimal(value));
+        }
+    }
+
+
+    @JsonIgnore
+    /**
+     * NOTE: if this list is to be modified you should best make a copy with addAll
+     */
+    public List<BigDecimal> getDirectPositionsAreaOfValidityStartsAsNumbers() {
+        if (this.directPositionsAreaOfValidityStarts != null && this.directPositionsAreaOfValidityStartsAsNumbers == null) {
+            this.directPositionsAreaOfValidityStartsAsNumbers = new CopyOnWriteArrayList<>();
+
+            for (String value : directPositionsAreaOfValidityStarts) {
+                this.directPositionsAreaOfValidityStartsAsNumbers.add(new BigDecimal(value));
+            }
         }
 
+        return this.directPositionsAreaOfValidityStartsAsNumbers;
     }
+
+
+    // --------- 2.2 area of validity ends
+
+    public List<String> getDirectPositionsAreaOfValidityEnds() {
+        return this.directPositionsAreaOfValidityEnds;
+    }
+
+    public void setDirectPositionsAreaOfValidityEnds(List<String> directPositionsAreaOfValidityEnds) {
+        this.directPositionsAreaOfValidityEnds = new CopyOnWriteArrayList<>();
+        this.directPositionsAreaOfValidityEndsAsNumbers = new CopyOnWriteArrayList<>();
+
+        for (String value : directPositionsAreaOfValidityEnds) {
+            this.directPositionsAreaOfValidityEnds.add(value);
+            this.directPositionsAreaOfValidityEndsAsNumbers.add(new BigDecimal(value));
+        }
+    }
+
+
+    @JsonIgnore
+    /**
+     * NOTE: if this list is to be modified you should best make a copy with addAll
+     */
+    public List<BigDecimal> getDirectPositionsAreaOfValidityEndsAsNumbers() {
+        if (this.directPositionsAreaOfValidityEnds != null && this.directPositionsAreaOfValidityEndsAsNumbers == null) {
+            this.directPositionsAreaOfValidityEndsAsNumbers = new CopyOnWriteArrayList<>();
+
+            for (String value : directPositionsAreaOfValidityEnds) {
+                this.directPositionsAreaOfValidityEndsAsNumbers.add(new BigDecimal(value));
+            }
+        }
+
+        return this.directPositionsAreaOfValidityEndsAsNumbers;
+    }
+
     
     /**
      * Compare 2 big decimal numbers with a small epsilon to make sure the difference between numbers are acceptable.
@@ -207,6 +333,18 @@ public class IrregularAxis extends GeoAxis implements Serializable {
 
         Long i = Long.valueOf("0");
         List<BigDecimal> coefficients = this.getDirectPositionsAsNumbers();
+        
+        minIndex = BigDecimalUtil.getExactCoefficientIndex(coefficients, minInput);
+        maxIndex = BigDecimalUtil.getExactCoefficientIndex(coefficients, maxInput);
+                
+        if (minIndex != null && maxIndex != null) {
+            if (this.getIndexOfCoefficientZero() != 0) {
+                minIndex = minIndex - this.getIndexOfCoefficientZero();
+                maxIndex = maxIndex - this.getIndexOfCoefficientZero();
+            } 
+            
+            return new Pair<> (minIndex, maxIndex);
+        }
 
         // coefficient in numbers for legacy coverages
         for (BigDecimal coefficient : coefficients) {
@@ -286,7 +424,7 @@ public class IrregularAxis extends GeoAxis implements Serializable {
      * NOTE: This one is used as the anchor when needs to normalize other coefficients (greater than or lower than).
      */
     @JsonIgnore
-    public BigDecimal getCoefficientZeroBoundNumber() throws PetascopeException {        
+    public BigDecimal getCoefficientZeroValueAsNumber() throws PetascopeException {
         Long coefficientZeroIndex = this.getIndexOfCoefficientZero();
         BigDecimal lowestCoefficient = this.getDirectPositionsAsNumbers().get(0);
         // Distance value between lowest coefficient and coeffcient zero
@@ -313,8 +451,8 @@ public class IrregularAxis extends GeoAxis implements Serializable {
      * @throws petascope.exceptions.WCSException
      */
     public CoefficientStatus validateCoefficient(boolean isInsitu, BigDecimal coefficient) throws WCSException {
-        long index = BigDecimalUtil.listContainsCoefficient(this.getDirectPositionsAsNumbers(), coefficient);
-        if (index == -1) {
+        Long index = BigDecimalUtil.getApproximateCoefficientIndex(this.getDirectPositionsAsNumbers(), coefficient);
+        if (index == null) {
             // Check if coefficient > the upperBound of axis, if it is not then it is added between other coeffcients which is not valid
             int numberOfCoefficients = this.getDirectPositionsAsNumbers().size();
             BigDecimal upperBoundCoefficient = this.getDirectPositionsAsNumbers().get(numberOfCoefficients - 1);
@@ -327,7 +465,7 @@ public class IrregularAxis extends GeoAxis implements Serializable {
                 // insert on bottom
                 return CoefficientStatus.APPEND_TO_BOTTOM;
             } else {
-		// insert to middle of direct positions
+                // insert to middle of direct positions
 
                 throw new WCSException(ExceptionCode.NoApplicableCode, "Adding slice in between existing slices on irregular axis is not supported.");
             }

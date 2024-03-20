@@ -83,8 +83,8 @@ import nu.xom.Serializer;
 import nu.xom.Text;
 import nu.xom.XPathContext;
 import nu.xom.converters.DOMConverter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.codehaus.plexus.util.StringUtils;
 import org.rasdaman.config.ConfigManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1433,8 +1433,12 @@ public class XMLUtil {
      * Return XML label combined from namespace and label, e.g: wcs:CoverageDescriptions
      */
     public static String createXMLLabel(String namespace, String label) {
-        String result = namespace + ":" + label;
-        return result;
+        if (namespace != null) {
+            String result = namespace + ":" + label;
+            return result;
+        }
+        
+        return label;
     }
     
     /**

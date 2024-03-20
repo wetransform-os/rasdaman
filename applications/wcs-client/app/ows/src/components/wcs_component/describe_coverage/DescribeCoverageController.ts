@@ -58,8 +58,19 @@ module rasdaman {
             $scope.IRREGULAR_AXIS = "irregular";
             $scope.NOT_AVALIABLE = "N/A";
 
+            $scope.hasRoleUpdateCoverage = AdminService.hasRole($rootScope.userLoggedInRoles, AdminService.PRIV_OWS_WCS_UPDATE_COV);
+
             // default hide the div containing the Globe
             $scope.hideWebWorldWindGlobe = true;
+
+            $scope.avaiableCisTypes = [
+                    { "value": "CIS1.1", "text": "CIS 1.1 GeneralGridCoverage" },
+                    { "value": "CIS1.0", "text": "CIS 1.0 GridCoverage / RectifiedGridCoverage / RectifiedGridCoverage (legacy)" }
+                ];
+            $scope.selectedCisType = $scope.avaiableCisTypes[0].value;
+
+            // Show coverage's extent on the globe
+            let canvasId = "wcsCanvasDescribeCoverage";
 
             $scope.isCoverageIdValid = function():boolean {
                 if ($scope.wcsStateInformation.serverCapabilities) {
@@ -74,9 +85,10 @@ module rasdaman {
                 return false;
             };
 
-            $rootScope.$watch("wcsSelectedGetCoverageId", (coverageId:string)=> {
-                if (coverageId != null) {
-                    $scope.selectedCoverageId = coverageId;
+            // NOTE: it listens data changed from WCSMainController, when selecting a coverageId from smart table in WCS GetCapabilities tab
+            $rootScope.$watch("wcsSelectedGetCoverageId", (newValue:string, oldValue:string) => {                
+                if (newValue != null) {                    
+                    $scope.selectedCoverageId = newValue;                    
                     $scope.describeCoverage();
                 }
             });
@@ -98,27 +110,46 @@ module rasdaman {
                 }                
             });
 
+            // NOTE: When DeleteCoverageController broadcasts message -> do some cleanings
+            $rootScope.$on("deletedCoverageId", (event, coverageIdToDelete:string) => {
+                if (coverageIdToDelete != null) {
+                    for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                        if ($scope.availableCoverageIds[i] == coverageIdToDelete) {
+                            $scope.availableCoverageIds.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            });            
+
 
             // when GetCoverage triggers get coverage id, this function will be called to fill data for both DescribeCoverage and GetCoverage tabs
-            $scope.$watch("wcsStateInformation.selectedGetCoverageId", (getCoverageId:string)=> {
+            $scope.$watch("wcsStateInformation.selectedGetCoverageId", (getCoverageId:string) => {
                 if (getCoverageId) {
                     $scope.selectedCoverageId = getCoverageId;
                     $scope.describeCoverage();
                 }
             });
 
-            // When petascope admin user logged in, show the update coverage's metadata feature
-            $rootScope.$watch("adminStateInformation.loggedIn", (newValue:boolean, oldValue:boolean)=> {
-                if (newValue) {
-                    // Admin logged in
-                    $scope.adminUserLoggedIn = true;
 
-                    $scope.hasRole = AdminService.hasRole($rootScope.adminStateInformation.roles, AdminService.PRIV_OWS_WCS_UPDATE_COV);
-                } else {
-                    // Admin logged out
-                    $scope.adminUserLoggedIn = false;
+            /**
+             * Default CIS 1.1. is selected
+             */
+            $scope.updateGeneratedUrlForSelectedCisType = () => {
+                let coverageIds:string[] = [];
+                coverageIds.push($scope.selectedCoverageId);
+                let describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
+                let requestUrl:string = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
+
+                if ($scope.selectedCisType == "CIS1.1") {
+                    requestUrl += "&outputType=GeneralGridCoverage";
+
+                    // NOTE: only WCS 2.1.0 supports GeneralGridCoverage
+                    requestUrl = requestUrl.replace("2.0.1", "2.1.0");
                 }
-            });
+
+                $scope.generatedGETURL = requestUrl;
+            };
 
             /**
              * Update coverage's metadata from a text file
@@ -139,7 +170,7 @@ module rasdaman {
 
                 wcsService.updateCoverageMetadata(formData).then(
                     response => {
-                        alertService.success("Successfully update coverage's metadata from file.");
+                        alertService.success("Successfully updated coverage's metadata from file.");
                         // Reload DescribeCoverage to see new changes
                         $scope.describeCoverage();
                     }, (...args:any[])=> {                            
@@ -151,6 +182,7 @@ module rasdaman {
 
             /**
              * Rename coverage's id
+             * NOTE: update coverage's id -> update several places in both WCS and WMS controllers
              */
             $scope.renameCoverageId = () => {    
                 if ($scope.newCoverageId == null || $scope.newCoverageId.trim() == "") {
@@ -161,14 +193,30 @@ module rasdaman {
                 var formData = new FormData();
                 formData.append("coverageId", $scope.selectedCoverageId);
                 formData.append("newCoverageId", $scope.newCoverageId);
+                let tupleObj:any = {
+                    "oldCoverageId": $scope.selectedCoverageId,
+                    "newCoverageId": $scope.newCoverageId
+                }
 
                 wcsService.updateCoverageMetadata(formData).then(
                     response => {
                         alertService.success("Successfully rename coverage's id.");
+
+                        // NOTE: Update name in WCS / WMS GetCapabilies and coverage extents on it and WebWorldWind coverage extents caches
+                        $rootScope.$broadcast("renamedCoverageId", tupleObj);
+
                         // Reload DescribeCoverage to see new changes
                         $scope.selectedCoverageId = $scope.newCoverageId;
                         $scope.newCoverageId = null;
+
                         $scope.describeCoverage();
+
+                        for (let i = 0; i < $scope.availableCoverageIds.length; i++) {
+                            if ($scope.availableCoverageIds[i] == tupleObj.oldCoverageId) {
+                                $scope.availableCoverageIds[i] = tupleObj.newCoverageId;
+                                break;
+                            }
+                        }
                     }, (...args:any[])=> {                            
                         errorHandlingService.handleError(args);
                         $log.error(args);
@@ -179,12 +227,12 @@ module rasdaman {
             /**
              * Parse coverage metadata as string and show it to a dropdown
              */
-            $scope.parseCoverageMetadata = () => {
+            $scope.parseCoverageMetadata = (gmlResponse:string) => {
                 $scope.metadata = null;
                 
                 // Extract the metadata from the coverage document (inside <rasdaman:covMetadata></rasdaman:covMetadata>)
                 var parser = new DOMParser();
-                var xmlDoc = parser.parseFromString($scope.rawCoverageDescription, "text/xml");
+                var xmlDoc = parser.parseFromString(gmlResponse, "text/xml");
 
                 var elements = xmlDoc.getElementsByTagName("rasdaman:covMetadata");
                 if (elements.length == 0) {
@@ -217,55 +265,86 @@ module rasdaman {
                 }
             }
 
-            $scope.describeCoverage = function () {                
+            $scope.describeCoverage = function () {          
 
+                // Show the newly generated URL for DescribeCoverage
+                $scope.updateGeneratedUrlForSelectedCisType();
+                
                 //Create describe coverage request
-                var coverageIds:string[] = [];
+                let coverageIds:string[] = [];
                 coverageIds.push($scope.selectedCoverageId);
 
-                var describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
-                $scope.requestUrl = settings.wcsEndpoint + "?" + describeCoverageRequest.toKVP();
+                let describeCoverageRequest = new wcs.DescribeCoverage(coverageIds);
+                $scope.coverageBBox = "";
                 $scope.axes = [];                
 
                 // Clear selected file to upload
                 $("#coverageMetadataUploadFile").val("");
                 $("#uploadFileName").html("");
                 $("#btnUpdateCoverageMetadata").hide();
-                            
+
+                           
                 //Retrieve coverage description
                 wcsService.getCoverageDescription(describeCoverageRequest)
                     .then(
                         (response:rasdaman.common.Response<wcs.CoverageDescription>)=> {
                             // //Success handler                            
-                            $scope.coverageDescription = response.value;                           
-                            $scope.rawCoverageDescription = response.document.value;
+                            $scope.coverageDescription = response.value;    
+                            
+                            if ($scope.selectedCisType == "CIS1.0") {
+                                $scope.rawCoverageDescription = response.document.value;
+                            }
 
-                            $scope.parseCoverageMetadata();
-                    
-                            // Fetch the coverageExtent by coverageId to display on globe if possible
-                            var coverageExtentArray = webWorldWindService.getCoveragesExtentsByCoverageId($scope.selectedCoverageId);
-                            if (coverageExtentArray == null) {
+                            $scope.parseCoverageMetadata(response.document.value);
+
+                            let coverageExtent:any = webWorldWindService.getCoveragesExtentByCoverageId(webWorldWindService.wcsGetCapabilitiesWGS84CoverageExtents, $scope.selectedCoverageId);
+                            if (coverageExtent == null) {
+                                // coverage is not geo-referenced
                                 $scope.hideWebWorldWindGlobe = true;
                             } else {
-                                // Show coverage's extent on the globe
-                                var canvasId = "wcsCanvasDescribeCoverage";
+                                // coverage is referenced -> draw on globe
                                 $scope.hideWebWorldWindGlobe = false;
-                                // Also prepare for DescribeCoverage's globe with only 1 coverageExtent                                
-                                webWorldWindService.prepareCoveragesExtentsForGlobe(canvasId, coverageExtentArray);
-                                // Then, load the footprint of this coverage on the globe
-                                webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId);
-                            }
+                                webWorldWindService.showCoverageExtentOnGlobe(canvasId, $scope.selectedCoverageId, coverageExtent, true);
+                            } 
+               
                         },
                         (...args:any[])=> {                            
-                            $scope.coverageDescription = null;
+                            $scope.coverageDescription = null ;
 
                             errorHandlingService.handleError(args);
                             $log.error(args);
                         })
-                    .finally(()=> {
+                    .finally(() => {
                         $scope.wcsStateInformation.selectedCoverageDescription = $scope.coverageDescription;
                     });
-            };           
+
+
+                if ($scope.selectedCisType == "CIS1.1") {
+                
+                    // NOTE: now it always need to request twice if CIS1.1 is selected
+                    wcsService.getCoverageDescriptionCis11($scope.generatedGETURL)
+                        .then(
+                            (response:string)=> {
+                                // //Success handler                            
+                                let xmlResult:string = response;
+                                $scope.rawCoverageDescription = xmlResult;
+
+                            },
+                            (...args:any[])=> {                                                        
+
+                                errorHandlingService.handleError(args);
+                                $log.error(args);
+                            })
+                        .finally(() => {
+                            $scope.wcsStateInformation.selectedCoverageDescription = $scope.coverageDescription;
+                        });
+                };
+
+
+            };        
+                
+                
+
         }
     }
 
@@ -273,8 +352,6 @@ module rasdaman {
         // Not show the globe when coverage cannot reproject to EPSG:4326
         isCoverageDescriptionsDocumentOpen:boolean;
         hideWebWorldWindGlobe:boolean;
-
-        hasRole:boolean;
 
         coverageDescription:wcs.CoverageDescription;
         rawCoverageDescription:string;
@@ -287,20 +364,27 @@ module rasdaman {
         // Array of objects
         axes:any[];
 
-        requestUrl:string;
+        coverageBBox:string
 
         metadata:string;
         typeMetadata:string;
 
+        generatedGETURL:string;
+
+
+        avaiableCisTypes:any[];
+        selectedCisType:string;
 
         isCoverageIdValid():boolean;
         describeCoverage():void;
         getAxisResolution(number, any):string;
         getAxisType(number, any):string;
-        parseCoverageMetadata():void;
+        parseCoverageMetadata(string):void;
 
         adminUserLoggedIn:boolean;
         metadataFileToUpload:string;
         updateCoverageMetadata():void;
+
+        updateGeneratedUrlForSelectedCisType():void;
     }
 }

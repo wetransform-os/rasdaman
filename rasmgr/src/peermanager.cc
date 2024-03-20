@@ -1,4 +1,4 @@
-  /*
+/*
  * This file is part of rasdaman community.
  *
  * Rasdaman community is free software: you can redistribute it and/or modify
@@ -20,21 +20,18 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-
-#include "common/exceptions/rasexceptions.hh"
-
-#include "exceptions/rasmgrexceptions.hh"
-
+#include "peermanager.hh"
 #include "inpeer.hh"
 #include "outpeer.hh"
-
-#include "peermanager.hh"
+#include "common/exceptions/invalidargumentexception.hh"
+#include "common/exceptions/resourcebusyexception.hh"
+#include "exceptions/inexistentinpeerexception.hh"
+#include "exceptions/inexistentoutpeerexception.hh"
+#include "exceptions/inpeeralreadyexistsexception.hh"
+#include "exceptions/outpeeralreadyexistsexception.hh"
 
 namespace rasmgr
 {
-
-using std::list;
-using std::string;
 
 using common::InvalidArgumentException;
 using common::ResourceBusyException;
@@ -49,7 +46,7 @@ void PeerManager::defineInPeer(const std::string &peerHostName)
     std::lock_guard<std::mutex> lock(this->mut);
 
     // Check for duplicates
-    for (const auto &inPeer : this->inPeers)
+    for (const auto &inPeer: this->inPeers)
     {
         if (inPeer->getHostName() == peerHostName)
         {
@@ -97,7 +94,7 @@ void PeerManager::defineOutPeer(const std::string &peerHostName, const std::uint
     std::lock_guard<std::mutex> lock(this->mut);
 
     // Check for duplicates
-    for (const auto &outPeer : this->outPeers)
+    for (const auto &outPeer: this->outPeers)
     {
         if (outPeer->getHostName() == peerHostName)
         {
@@ -145,7 +142,7 @@ bool PeerManager::tryGetRemoteServer(const ClientServerRequest &request, ClientS
 {
     std::lock_guard<std::mutex> lock(this->mut);
 
-    for (const auto &outpeer : this->outPeers)
+    for (const auto &outpeer: this->outPeers)
     {
         if (outpeer->tryGetRemoteServer(request, out_reply))
         {
@@ -162,14 +159,14 @@ bool PeerManager::tryGetRemoteServer(const ClientServerRequest &request, ClientS
 bool PeerManager::isRemoteClientSession(const RemoteClientSession &clientSession)
 {
     std::lock_guard<std::mutex> lock(this->mut);
-    string sessionKey = this->remoteClientSessionToString(clientSession);
+    std::string sessionKey = this->remoteClientSessionToString(clientSession);
     return this->remoteSessions.find(sessionKey) != this->remoteSessions.end();
 }
 
 void PeerManager::releaseServer(const RemoteClientSession &clientSession)
 {
     std::lock_guard<std::mutex> lock(this->mut);
-    string sessionKey = this->remoteClientSessionToString(clientSession);
+    std::string sessionKey = this->remoteClientSessionToString(clientSession);
     auto session = this->remoteSessions.find(sessionKey);
     if (session != this->remoteSessions.end())
     {
@@ -183,14 +180,14 @@ PeerMgrProto PeerManager::serializeToProto()
     std::lock_guard<std::mutex> lock(this->mut);
 
     PeerMgrProto result;
-    for (const auto &outPeer : this->outPeers)
+    for (const auto &outPeer: this->outPeers)
     {
         OutPeerProto outPeerProto;
         outPeerProto.set_host_name(outPeer->getHostName());
         outPeerProto.set_port(outPeer->getPort());
         result.add_outpeers()->CopyFrom(outPeerProto);
     }
-    for (const auto &inPeer : this->inPeers)
+    for (const auto &inPeer: this->inPeers)
     {
         InPeerProto inPeerProto;
         inPeerProto.set_host_name(inPeer->getHostName());
@@ -202,6 +199,7 @@ PeerMgrProto PeerManager::serializeToProto()
 
 std::string PeerManager::remoteClientSessionToString(const RemoteClientSession &clientSession)
 {
-    return clientSession.getClientSessionId() + ":" + clientSession.getDbSessionId();
+    return std::to_string(clientSession.getClientSessionId()) + ":" + 
+            std::to_string(clientSession.getDbSessionId());
 }
-}
+}  // namespace rasmgr

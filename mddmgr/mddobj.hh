@@ -33,19 +33,20 @@ rasdaman GmbH.
 #ifndef _MDDOBJ_HH_
 #define _MDDOBJ_HH_
 
-#include "reladminif/oidif.hh"              // for OId
+#include "reladminif/oidif.hh"  // for OId
 #include "reladminif/dbref.hh"
-#include "relmddif/mddid.hh"                // for DBMDDObjId
-#include "raslib/mddtypes.hh"               // for r_Dimension
-#include "raslib/minterval.hh"              // for r_Minterval
-#include "raslib/point.hh"                  // for r_Point
+#include "relmddif/mddid.hh"    // for DBMDDObjId
+#include "raslib/mddtypes.hh"   // for r_Dimension
+#include "raslib/minterval.hh"  // for r_Minterval
+#include "raslib/point.hh"      // for r_Point
 #include "catalogmgr/nullvalues.hh"
 #include "catalogmgr/typeenum.hh"
+#include "common/tree/model/dbinfo.hh"
 
-#include <vector>                              // for vector
-#include <iosfwd>                              // for cout, ostream
-#include <string>                              // for string
-#include <memory>                              // for string
+#include <vector>  // for vector
+#include <iosfwd>  // for cout, ostream
+#include <string>  // for string
+#include <memory>  // for string
 
 class Tile;
 class BaseType;
@@ -263,10 +264,10 @@ public:
     //@Man: Miscellaneous Methods
     //@{
     ///This method is used to get around a bug in the qlparser.
-//      void setDoNotUseThisMethodItIsABugFix(bool yes);
+    //      void setDoNotUseThisMethodItIsABugFix(bool yes);
 
     ///This method is used to get around a bug in the qlparser.
-//      bool isDoNotUseThisMethodItIsABugFix() const;
+    //      bool isDoNotUseThisMethodItIsABugFix() const;
 
     /// Tells if object is persistent.
     bool isPersistent() const;
@@ -287,6 +288,9 @@ public:
     /// Return the storage layout of this object
     StorageLayout *getStorageLayout() const;
 
+    /// Set the storage layout of this object
+    void setStorageLayout(const StorageLayout &storageLayout);
+
     /// Override method in NullValuesHandler, in order to set null values to the
     /// underlying database object
     void setUpdateNullValues(r_Nullvalues *newNullValues);
@@ -298,8 +302,13 @@ public:
     /// A templated helper function addresses the stored data type.
     void fillTileWithNullvalues(char *resDataPtr, size_t cellCount) const;
 
-    std::string getArrayInfo(bool printTiles) const;
-    
+    std::string getArrayInfo(common::PrintTiles printTiles) const;
+    std::string getEmbeddedArrayInfo(common::PrintTiles printTiles) const;
+    std::string getJsonArrayInfo() const;
+    std::string getSvgArrayInfo() const;
+    void printArrayTiles(const std::unique_ptr<std::vector<std::shared_ptr<Tile>>> &tiles,
+                         std::ostream &os) const;
+
     /// sets the Collection Type
     void setCollType(const CollectionType *newCollType);
     /// returns pointer to the collection type
@@ -309,7 +318,6 @@ public:
     void setDbDomain(const r_Minterval &domain);
 
 protected:
-
     /// does some consistency checks for regular tiling with rc index
     const r_Minterval &checkStorage(const r_Minterval &domain);
 
@@ -321,11 +329,11 @@ protected:
 
     /// The storage class which is reponsible for the tiling
     StorageLayout *myStorageLayout;
-    
+
     //collection type
     const CollectionType *collType{NULL};
 
-//      bool doNotUseThisBugFix;
+    //      bool doNotUseThisBugFix;
     /**
         The qlparser deletes transient mdd objects also in some cases (when
        passing transient mddobjs to a transient

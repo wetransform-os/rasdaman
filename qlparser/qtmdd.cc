@@ -65,7 +65,6 @@ QtMDD::QtMDD(MDDObj *ptr)
     }
 }
 
-
 QtMDD::QtMDD(MDDObj *ptr, string name)
     : QtData(name),
       mddObject(ptr),
@@ -86,12 +85,11 @@ QtMDD::QtMDD(MDDObj *ptr, string name)
     }
 }
 
-
 QtMDD::QtMDD(QtOperation *mintervalOp, list<QtScalarData *> *literalList)
     : QtData(), mddObject(0), fromConversion(false)
 {
-    list<QtScalarData *>::iterator         elemIter;
-    QtScalarData                           *scalarElem = NULL;
+    list<QtScalarData *>::iterator elemIter;
+    QtScalarData *scalarElem = NULL;
 
     //
     // evaluate domain
@@ -99,12 +97,11 @@ QtMDD::QtMDD(QtOperation *mintervalOp, list<QtScalarData *> *literalList)
 
     if (mintervalOp)
     {
-
         QtData *operand = mintervalOp->evaluate(NULL);
 
         if (operand->getDataType() != QT_MINTERVAL)
         {
-            LERROR << "Error: QtMDD( QtOperation*, list<QtScalarData*>* ) - Can not evaluate domain expression to an minterval." ;
+            LERROR << "Error: QtMDD( QtOperation*, list<QtScalarData*>* ) - Can not evaluate domain expression to an minterval.";
             ParseInfo errorInfo = getParseInfo();
             errorInfo.setErrorNo(DOMAINEVALUATIONERROR);
             throw errorInfo;
@@ -127,14 +124,15 @@ QtMDD::QtMDD(QtOperation *mintervalOp, list<QtScalarData *> *literalList)
             scalarElem = *(literalList->begin());
             const BaseType *baseType = scalarElem->getValueType();
             //used to check if the MDDs are of the same type
-            char *baseStructure = baseType->getTypeStructure();
+            auto baseStructure = baseType->getTypeStructure();
 
             //
             // allocate memory and fill it with cell values of the list
             //
             unsigned long cellCount = 0;
-            unsigned long cellSize  = baseType->getSize();
-            char *cellBuffer   = static_cast<char *>(mymalloc(domain.cell_count() * cellSize));
+            unsigned long cellSize = baseType->getSize();
+            char *cellBuffer = static_cast<char *>(mymalloc(domain.cell_count() * cellSize));
+            ;
             char *bufferOffset = cellBuffer;
 
             for (elemIter = literalList->begin(); elemIter != literalList->end(); elemIter++)
@@ -146,12 +144,12 @@ QtMDD::QtMDD(QtOperation *mintervalOp, list<QtScalarData *> *literalList)
                 if (cellCount <= domain.cell_count())
                 {
                     char *scalarElemTypeStructure = scalarElem->getTypeStructure();
-                    if (strcmp(scalarElemTypeStructure, baseStructure) != 0)
+                    if (strcmp(scalarElemTypeStructure, baseStructure.c_str()) != 0)
                     {
                         LERROR << "Error: QtMDD() - All cell values of an MDD must be of the same type.";
                         free(cellBuffer);
-                        free(scalarElemTypeStructure);
                         cellBuffer = NULL;
+                        free(scalarElemTypeStructure);
                         ParseInfo errorInfo = getParseInfo();
                         errorInfo.setErrorNo(PARSER_MDDCELLTYPEMUSTBEUNIFORM);
                         throw errorInfo;
@@ -162,7 +160,6 @@ QtMDD::QtMDD(QtOperation *mintervalOp, list<QtScalarData *> *literalList)
                 }
             }
 
-            free(baseStructure);
             // delete literal list - done by caller
             //  delete literalList;
 
@@ -202,10 +199,7 @@ QtMDD::QtMDD(QtOperation *mintervalOp, list<QtScalarData *> *literalList)
         errorInfo.setErrorNo(MDDCONSTRUCTOR_DOMAINUNDEFINED);
         throw errorInfo;
     }
-
 }
-
-
 
 QtMDD::QtMDD(__attribute__((unused)) int constantNo)
     : QtData(),
@@ -216,7 +210,6 @@ QtMDD::QtMDD(__attribute__((unused)) int constantNo)
 
     if (mddConstants)
     {
-
         MDDCollIter *mddIter = mddConstants->createIterator();
         //for( mddIter->reset(); mddIter->notDone(); mddIter->advance() )
         mddIter->reset();
@@ -242,10 +235,7 @@ QtMDD::QtMDD(__attribute__((unused)) int constantNo)
         errorInfo.setErrorNo(UNSATISFIEDMDDCONSTANT);
         throw errorInfo;
     }
-
 }
-
-
 
 QtMDD::QtMDD(const QtMDD &obj)
     : QtData(obj),
@@ -253,7 +243,6 @@ QtMDD::QtMDD(const QtMDD &obj)
       fromConversion(false)
 {
 }
-
 
 QtMDD::~QtMDD()
 {
@@ -272,8 +261,7 @@ QtMDD::getCollType() const
     return mddObject->getCollType();
 }
 
-void
-QtMDD::setCollType(const CollectionType *newCollType)
+void QtMDD::setCollType(const CollectionType *newCollType)
 {
     mddObject->setCollType(newCollType);
 }
@@ -284,15 +272,11 @@ QtMDD::getCellType() const
     return const_cast<BaseType *>(mddObject->getCellType());
 }
 
-
-
 unsigned long
 QtMDD::getCellSize() const
 {
     return mddObject->getCellType()->getSize();
 }
-
-
 
 QtDataType
 QtMDD::getDataType() const
@@ -300,10 +284,7 @@ QtMDD::getDataType() const
     return QT_MDD;
 }
 
-
-
-bool
-QtMDD::equal(const QtData * /*obj*/) const
+bool QtMDD::equal(const QtData * /*obj*/) const
 {
     int returnValue = false;  // not equal by initialization
 
@@ -311,8 +292,6 @@ QtMDD::equal(const QtData * /*obj*/) const
 
     return returnValue;
 }
-
-
 
 string
 QtMDD::getSpelling() const
@@ -324,13 +303,11 @@ QtMDD::getSpelling() const
     return result;
 }
 
-
-
 char *QtMDD::getTypeStructure() const
 {
     if (mddObject)
     {
-        return mddObject->getMDDBaseType()->getTypeStructure();
+        return strdup(mddObject->getMDDBaseType()->getTypeStructure().c_str());
     }
     else
     {
@@ -338,10 +315,7 @@ char *QtMDD::getTypeStructure() const
     }
 }
 
-
-
-void
-QtMDD::printStatus(ostream &stream) const
+void QtMDD::printStatus(ostream &stream) const
 {
     if (mddObject)
     {

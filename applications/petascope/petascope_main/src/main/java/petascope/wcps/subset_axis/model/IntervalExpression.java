@@ -23,6 +23,8 @@ package petascope.wcps.subset_axis.model;
 
 import petascope.wcps.result.ParameterResult;
 
+import java.util.List;
+
 /**
  * Translation node from wcps interval  rasql
  * Example:
@@ -50,6 +52,12 @@ public class IntervalExpression extends ParameterResult {
         this.high = high;
     }
 
+    public IntervalExpression(String low, String high, List<String> directPositions) {
+        this.low = low;
+        this.high = high;
+        this.directPositions = directPositions;
+    }
+
     /**
      * Returns the lower bound of the interval
      *
@@ -68,6 +76,13 @@ public class IntervalExpression extends ParameterResult {
         return this.high;
     }
 
+    public List<String> getDirectPositions() {
+        return this.directPositions;
+    }
+
     private String low;
     private String high;
+
+    // In case this interval comes from irregular axis time
+    private List<String> directPositions;
 }

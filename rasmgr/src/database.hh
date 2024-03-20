@@ -20,7 +20,6 @@
  * or contact Peter Baumann via <baumann@rasdaman.com>.
  */
 
-
 #ifndef RASMGR_X_SRC_DATABASE_HH_
 #define RASMGR_X_SRC_DATABASE_HH_
 
@@ -34,8 +33,9 @@
 namespace rasmgr
 {
 /**
- * @brief The Database class Represents a database hosted by this rasmgr.
- * A database can have multiple client sessions opened.
+ * Represents a database with a given *name* hosted by this rasmgr. A database
+ * can have multiple client sessions opened, represented as a list of (clientId,
+ * sessionId) pairs.
  */
 class Database
 {
@@ -45,7 +45,7 @@ public:
      * This object is not thread safe.
      * @param dbName Name of the database that will uniquely identify it.
      */
-    Database(const std::string &dbName);
+    explicit Database(const std::string &dbName);
 
     virtual ~Database() = default;
 
@@ -54,13 +54,13 @@ public:
      * This allows for preventing the removal of the database while it still has running
      * transactions.
      */
-    void addClientSession(const std::string &clientId, const std::string &sessionId);
+    void addClientSession(std::uint32_t clientId, std::uint32_t sessionId);
 
     /**
      * @brief removeClientSession Remove the session with the given client ID and session ID
      * @return The number of sessions removed.
      */
-    int removeClientSession(const std::string &clientId, const std::string &sessionId);
+    int removeClientSession(std::uint32_t clientId, std::uint32_t sessionId);
 
     /**
      * Check if there are running transactions on this database
@@ -78,13 +78,17 @@ public:
 
     const std::string &getDbName() const;
 
+    /**
+     * @throws DbBusyException
+     * @throws common::LogicException if value is empty
+     */
     void setDbName(const std::string &value);
 
 private:
     std::string dbName; /*!< Name of this database */
-    
-    std::set<std::pair<std::string, std::string>> sessionList; /*! List of <clientId,sessionId> pairs representing open sessions on the db*/
-    mutable boost::shared_mutex sessionListMutex; /*! For thread-safe access to sessionList */
+
+    std::set<std::pair<std::uint32_t, std::uint32_t>> sessionList; /*! List of <clientId,sessionId> pairs representing open sessions on the db*/
+    mutable boost::shared_mutex sessionListMutex;                  /*! For thread-safe access to sessionList */
 };
 
 } /* namespace rasmgr */

@@ -22,6 +22,7 @@
 package org.rasdaman.repository.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,7 +46,6 @@ import org.rasdaman.domain.cis.BaseLocalCoverage;
 import org.rasdaman.domain.cis.Coverage;
 import org.rasdaman.domain.cis.CoveragePyramid;
 import org.rasdaman.domain.cis.DomainSet;
-import org.rasdaman.domain.cis.Envelope;
 import org.rasdaman.domain.cis.EnvelopeByAxis;
 import org.rasdaman.domain.cis.Field;
 import org.rasdaman.domain.cis.GeneralGrid;
@@ -61,22 +61,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
-import petascope.exceptions.SecoreException;
-import petascope.util.CrsUtil;
+import petascope.exceptions.PetascopeRuntimeException;
+import petascope.util.*;
 import org.rasdaman.repository.interfaces.CoverageRepository;
 import org.rasdaman.repository.interfaces.EnvelopeByAxisRepository;
 import org.rasdaman.repository.interfaces.RasdamanRangeSetRepository;
 import org.rasdaman.repository.interfaces.Wgs84BoundingBoxRepository;
 import org.springframework.transaction.annotation.Transactional;
-import petascope.core.AxisTypes;
 import petascope.core.BoundingBox;
 import petascope.core.GeoTransform;
 import petascope.core.Pair;
-import petascope.util.CrsProjectionUtil;
+
 import static petascope.util.CrsUtil.EPSG_4326_AUTHORITY_CODE;
-import petascope.util.ListUtil;
 import static petascope.util.StringUtil.TEMP_COVERAGE_PREFIX;
-import petascope.util.ThreadUtil;
+
 import petascope.util.ras.RasUtil;
 import petascope.util.ras.TypeRegistry;
 import petascope.util.ras.TypeRegistry.TypeRegistryEntry;
@@ -118,7 +116,7 @@ public class CoverageRepositoryService {
     // it is not good as there is no chance to update or delete one of the cached coverage from this cache, then has to
     // define this map manually.
     // map of qualified coverage id (e.g: hostname:7000:covA) -> coverage
-    private static final Map<String, Pair<Coverage, Boolean>> localCoveragesCacheMap = new ConcurrentSkipListMap<>();
+    public static final Map<String, Pair<Coverage, Boolean>> localCoveragesCacheMap = new ConcurrentSkipListMap<>();
     
 
     public CoverageRepositoryService() {
@@ -218,7 +216,7 @@ public class CoverageRepositoryService {
 
         return coverage;
     }
-    
+
     /**
      * Read the basic metadata for coverage object from local cache
      */
@@ -258,6 +256,8 @@ public class CoverageRepositoryService {
         
         long start = System.currentTimeMillis();
 
+        boolean isValidCoverage = false;
+
         Coverage coverage = this.coverageRepository.findOneByCoverageId(coverageId);
         
         long end = System.currentTimeMillis();
@@ -268,7 +268,19 @@ public class CoverageRepositoryService {
         } else {
             log.debug("Coverage '" + coverageId + "' is read from database.");
 
-            this.addRasdamanDataTypesForRangeQuantities(coverage);
+            try {
+                this.addRasdamanDataTypesForRangeQuantities(coverage);
+                isValidCoverage = true;
+            } catch (PetascopeException ex) {
+                // Coverage is invalid, don't show it to GetCapabilities result
+                if (!ex.getExceptionCode().equals(ExceptionCode.RasdamanSetTypeNotFound)) {
+                    log.error("Failed to persist rasdaman data types in range set of coverage: " + coverageId + ". Reason: " + ex.getMessage(), ex);
+                    throw ex;
+                } else {
+                    // if coverage's set type does not exist in rasdaman -> log an warning for admin
+                    log.warn(ex.getMessage());
+                }
+            }
 
             if (coverage.getRasdamanRangeSet().getTiling() == null) {
                 this.addRasdamanTilingConfiguration(coverage);
@@ -276,7 +288,11 @@ public class CoverageRepositoryService {
         }
         
         // e.g: vm1:7000:covA
-        this.putToLocalCacheMap(coverageId, new Pair<>(coverage, true));
+        if (isValidCoverage) {
+            this.putToLocalCacheMap(coverageId, new Pair<>(coverage, true));
+        } else {
+            this.localCoveragesCacheMap.remove(coverageId);
+        }
         
         // NOTE: without it, after coverage's crs is replaced from $SECORE_URL$ to localhost:8080 (from petascope.properties)
         // with a DescribeCoverage request, after the replacement, 
@@ -285,7 +301,7 @@ public class CoverageRepositoryService {
         
         // NOTE: As coverage is saved with a placeholder for SECORE prefix, so after reading coverage from database, 
         // replace placeholder with SECORE configuration endpoint from petascope.properties.
-        CoverageRepositoryService.addCrsPrefix(coverage);
+        CoverageRepositoryService.replaceCrsPrefix(coverage);
 
         return coverage;
     }
@@ -317,13 +333,17 @@ public class CoverageRepositoryService {
         return result;
         
     } 
-    
+
     /**
      * Calculate the size of a coverage in bytes from number of pixels and number of bits per band.
      */
     public long calculateCoverageSizeInBytes(Coverage coverage) throws PetascopeException {
         long result = 0;
-        
+
+        if (coverage.getRasdamanRangeSet() == null || coverage.getRasdamanRangeSet().getCollectionType() == null) {
+            return result;
+        }
+
         String setType = coverage.getRasdamanRangeSet().getCollectionType();
         if (setType != null) {
             TypeRegistryEntry typeEntry = null;
@@ -332,11 +352,11 @@ public class CoverageRepositoryService {
             } catch (PetascopeException ex) {
                 log.warn("Cannot find type entry from registry for set type '" + setType + "'. Reason: " + ex.getMessage());
             }
-            
-            if (typeEntry != null) {            
+
+            if (typeEntry != null) {
                 List<String> bandsTypes = typeEntry.getBandsTypes();
                 List<Byte> bandsSizes = typeEntry.getBandsSizesInBytes(bandsTypes);
-                
+
                 GeneralGridCoverage geneneralGridCoverage = (GeneralGridCoverage)coverage;
                 List<Object[]> gridBounds = new ArrayList<>();
                 if (geneneralGridCoverage.getDomainSet() != null) {
@@ -369,11 +389,11 @@ public class CoverageRepositoryService {
         } else {
             log.warn("Cannot find rasdaman set type for coverage '" + coverage.getCoverageId() + "'.");
         }
-               
+
         return result;
     }
-    
-    
+
+
     /**
      * This persists rasdaman data types for range quantities as they were not saved to petascopedb when inserting coverages
      * before v9.8.
@@ -383,10 +403,16 @@ public class CoverageRepositoryService {
         String setType = coverage.getRasdamanRangeSet().getCollectionType();
         
         Field firstField = fields.get(0);
-        
+
         if (firstField.getQuantity().getDataType() == null) {
             // Need to update rasdaman type for range
             TypeRegistryEntry typeEntry = TypeRegistry.getInstance().getTypeRegistry().get(setType);
+            if (typeEntry == null) {
+                throw new PetascopeException(ExceptionCode.RasdamanSetTypeNotFound,
+                                            "Set type '"  + setType + "' does not exist in rasdaman, " +
+                                            "but is required for coverage '" + coverage.getCoverageId()
+                                            + "'. Hint: create the missing set type, or delete the coverage in petascopedb with a DeleteCoverage request.");
+            }
             List<String> bandsTypes = typeEntry.getBandsTypes();
             
             for (int i = 0; i < fields.size(); i++) {
@@ -457,7 +483,7 @@ public class CoverageRepositoryService {
             
             long end = System.currentTimeMillis();
             
-            log.info("Time to load all basic local coverage from database is " + (end - start) +  " ms.");
+            log.debug("Time to load all basic local coverage from database is " + (end - start) +  " ms.");
             
             // NOTE: to update SECORE_URL of Envelope = the one configured in petascope.properties without persisting this configured URL to database
             entityManager.clear();
@@ -468,14 +494,14 @@ public class CoverageRepositoryService {
                 Coverage coverage = new GeneralGridCoverage(baseCoverage);
                 coverage.setRasdamanRangeSet(rasdamanRangeSet);
                 
-                this.addCrsPrefix(coverage);
+                this.replaceCrsPrefix(coverage);
                 
                 this.localCoveragesCacheMap.put(coverageId, new Pair<>(coverage, false));
             }
             
             log.debug("Time to read all base local coverages from database is: " + String.valueOf(end - start) + " ms.");
         }
-        
+
         List<Pair<Coverage, Boolean>> coverages = new ArrayList<>(localCoveragesCacheMap.values());
 
         long end = System.currentTimeMillis();
@@ -513,9 +539,10 @@ public class CoverageRepositoryService {
     }
     
     /**
-     * Return the list of basic coverage metadata object
+     * Return the list of local basic coverage metadata objects
+     * NOTE: used only when petascope starts
      */
-    public List<Coverage> readAllCoveragesBasicMetadata() throws PetascopeException {
+    public List<Coverage> readAllCoveragesBasicMetadataWhenPetascopeStarts() throws PetascopeException {
         
         if (this.localCoveragesCacheMap.isEmpty()) {
             this.readAllLocalCoveragesBasicMetatata();
@@ -534,11 +561,11 @@ public class CoverageRepositoryService {
      * Create a coverage's extent by cached coverage's metadata
      * (EnvelopeByAxis). The XY axes' BoundingBox is reprojected to EPSG:4326.
      */
-    public void createCoverageExtent(Coverage coverage) throws PetascopeException, SecoreException {
+    public void createCoverageExtent(Coverage coverage) throws PetascopeException {
         Wgs84BoundingBox wgs84BoundingBox = null;
         String coverageId = coverage.getCoverageId();
 
-        addCrsPrefix(coverage);
+        replaceCrsPrefix(coverage);
         BoundingBox bbox = ((GeneralGridCoverage) coverage).getEnvelope().getEnvelopeByAxis().getGeoXYBoundingBox();
 
         // Don't transform the XY extents to EPSG:4326 if it is not EPSG code or it is not at least 2D
@@ -569,6 +596,11 @@ public class CoverageRepositoryService {
                 } else {
                     // coverage in different CRS than EPSG:4326
                     String sourceCRSWKT = CrsUtil.getWKT(bbox.getGeoXYCrs());
+                    if (sourceCRSWKT == null) {
+                        // e.g. Index2D CRS
+                        return;
+                    }
+
                     int gridWidth = (int)(indexAxisX.getUpperBound() - indexAxisX.getLowerBound() + 1);
                     int gridHigh = (int)(indexAxisY.getUpperBound() - indexAxisY.getLowerBound() + 1);
                     GeoTransform sourceGeoTransform = new GeoTransform(sourceCRSWKT, geoAxisX.getLowerBoundNumber(), geoAxisY.getUpperBoundNumber(), 
@@ -614,7 +646,7 @@ public class CoverageRepositoryService {
             }
         }
     }
-    
+
     /**
      * Return the size of base coverage size + all its pyramid sizes
      */
@@ -631,12 +663,12 @@ public class CoverageRepositoryService {
                 }
             }
         }
-        
+
         coverage.setCoverageSizeInBytesWithPyramid(sizeInBytesWithPyramidLevels);
-        
+
         return sizeInBytesWithPyramidLevels;
-    }    
-    
+    }
+
     
     /**
      * Add a new coverage to database
@@ -650,9 +682,33 @@ public class CoverageRepositoryService {
             this.save(coverage);     
         }        
     }
+    
+    /**
+     * Update geo bounds for AxisExtents from the input IndexAxes
+     */
+    public void updateGeoBoundsForAxisExtents(EnvelopeByAxis envelopeByAxis, List<GeoAxis> geoAxes) {
+        for (GeoAxis geoAxis : geoAxes) {
+            AxisExtent axisExtent = envelopeByAxis.getAxisExtentByLabel(geoAxis.getAxisLabel());
+            axisExtent.setLowerBound(geoAxis.getLowerBound());
+            axisExtent.setUpperBound(geoAxis.getUpperBound());
+            axisExtent.setResolution(geoAxis.getResolution());
+        }        
+    }    
+    
+    /**
+     * Update grid bounds for AxisExtents from the input IndexAxes
+     */
+    public void updateGridBoundsForAxisExtents(EnvelopeByAxis envelopeByAxis, List<IndexAxis> indexAxes) {
+        for (IndexAxis indexAxis : indexAxes) {
+            AxisExtent axisExtent = envelopeByAxis.getAxisExtentByLabel(indexAxis.getAxisLabel());
+            axisExtent.setGridLowerBound(indexAxis.getLowerBound());
+            axisExtent.setGridUpperBound(indexAxis.getUpperBound());
+            axisExtent.setGridAxisOrder(indexAxis.getAxisOrder());
+        }        
+    }
 
     /**
-     * Persit a coverage to database if it is new or existing coverage
+     * Persist a coverage to database if it is new or existing coverage
      */
     @Transactional
     public void save(Coverage coverage) throws PetascopeException {
@@ -662,16 +718,14 @@ public class CoverageRepositoryService {
             // don't push temp coverage to database
             return;
         }
-        
-        // NOTE: Don't save coverage with fixed CRS (e.g: http://localhost:8080/def/crs/epsg/0/4326)
-        // it must use a string placeholder so when setting up Petascope with a different SECORE endpoint, it will replace the placeholder
-        // with new SECORE endpoint or otherwise the persisted URL will throw exception as non-existing URL.
-        CoverageRepositoryService.removeCrsPrefix(coverage);
-        
+
         long coverageSize = this.calculateCoverageSizeInBytes(coverage);
         coverage.setCoverageSizeInBytes(coverageSize);
-        
+
         this.calculateCoverageSizeInBytesWithPyramid(coverage);
+
+        // NOTE: Recalculate the wgs84 bbox if it should be when updating the coverage (!)
+        this.createCoverageExtent(coverage);
         
         long start = System.currentTimeMillis();
         // then it can save (insert/update) the coverage to database
@@ -681,8 +735,8 @@ public class CoverageRepositoryService {
 
         entityManager.flush();
         entityManager.clear();
-        
-        CoverageRepositoryService.addCrsPrefix(coverage);
+
+        CoverageRepositoryService.replaceCrsPrefix(coverage);
 
         localCoveragesCacheMap.put(coverageId, new Pair(coverage, true));
         
@@ -709,44 +763,11 @@ public class CoverageRepositoryService {
     }
 
     /**
-     * NOTE: Don't save coverage with fixed CRS (e.g:
-     * http://localhost:8080/def/crs/epsg/0/4326) It must use a string
-     * placeholder so when setting up Petascope with a different SECORE
-     * endpoint, it will replace the placeholder with new SECORE endpoint or
-     * otherwise the persisted URL will throw exception as non-existing URL.
-     *
-     * @param coverage
-     */
-    public static void removeCrsPrefix(Coverage coverage) {
-        // + Start with EnvelopeByAxis first
-        EnvelopeByAxis envelopeByAxis = coverage.getEnvelope().getEnvelopeByAxis();
-        String strippedCRS = CrsUtil.CrsUri.toDbRepresentation(envelopeByAxis.getSrsName());
-        envelopeByAxis.setSrsName(strippedCRS);
-
-        for (AxisExtent axisExtent : envelopeByAxis.getAxisExtents()) {
-            strippedCRS = CrsUtil.CrsUri.toDbRepresentation(axisExtent.getSrsName());
-            axisExtent.setSrsName(strippedCRS);
-        }
-
-        // + Then with geoAxes of GeneralGridDomainSet as only support GeneralGridCoverage now
-        DomainSet generalGridDomainSet = ((GeneralGridCoverage) coverage).getDomainSet();
-        if (generalGridDomainSet != null) {
-            GeneralGrid generalGrid = ((GeneralGridDomainSet) generalGridDomainSet).getGeneralGrid();
-            generalGrid.setSrsName(CrsUtil.CrsUri.toDbRepresentation(generalGrid.getSrsName()));
-            for (Axis geoAxis : generalGrid.getGeoAxes()) {
-                strippedCRS = CrsUtil.CrsUri.toDbRepresentation(geoAxis.getSrsName());
-                geoAxis.setSrsName(strippedCRS);
-            }
-        }
-    }
-
-    /**
-     * NOTE: As coverage is saved with a placeholder for SECORE prefix, so after
-     * reading coverage from database, replace placeholder with SECORE
-     * configuration endpoint from petascope.properties.
+     * Use the working CRS set in secore_urls setting in petascope.properties
+     * to set the CRS prefix, e.g. https://crs.rasdaman.com/def/crs
      *
      */
-    public static void addCrsPrefix(Coverage coverage) {
+    public static void replaceCrsPrefix(Coverage coverage) {
         // + Start with EnvelopeByAxis first
         EnvelopeByAxis envelopeByAxis = coverage.getEnvelope().getEnvelopeByAxis();
         String addedCRS = CrsUtil.CrsUri.fromDbRepresentation(envelopeByAxis.getSrsName());

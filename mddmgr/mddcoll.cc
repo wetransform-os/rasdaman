@@ -20,61 +20,50 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * SOURCE: mddcoll.cc
- *
- * MODULE: cachetamgr
- * CLASS:  MDDColl
- *
- * COMMENTS:
- *   none
- *
-*/
 
 #include "mddcoll.hh"
 
 #include "mymalloc/mymalloc.h"
-#include "mddcolliter.hh"                         // for MDDCollIter
-#include "mddobj.hh"                              // for MDDObj
-#include "tilemgr/tile.hh"                        // for Tile
-#include "relcatalogif/typefactory.hh"              // for TypeFactory, TypeFac...
-#include "reladminif/databaseif.hh"               // for ostream
-#include "reladminif/dbobjectiterator.hh"         // for DBObjectIterator
-#include "reladminif/dbref.hh"                    // for DBRef
-#include "reladminif/eoid.hh"                     // for EOId
-#include "reladminif/lists.h"                     // for OIdSet
-#include "reladminif/objectbroker.hh"             // for ObjectBroker
-#include "reladminif/oidif.hh"                    // for OId, operator<<, OId...
+#include "mddcolliter.hh"                  // for MDDCollIter
+#include "mddobj.hh"                       // for MDDObj
+#include "tilemgr/tile.hh"                 // for Tile
+#include "relcatalogif/typefactory.hh"     // for TypeFactory, TypeFac...
+#include "reladminif/databaseif.hh"        // for ostream
+#include "reladminif/dbobjectiterator.hh"  // for DBObjectIterator
+#include "reladminif/dbref.hh"             // for DBRef
+#include "reladminif/eoid.hh"              // for EOId
+#include "reladminif/lists.h"              // for OIdSet
+#include "reladminif/objectbroker.hh"      // for ObjectBroker
+#include "reladminif/oidif.hh"             // for OId, operator<<, OId...
 #include "relmddif/dbmddset.hh"
 #include "relmddif/dbmddobj.hh"
 #include "relmddif/dbmddset.hh"
-#include "relcatalogif/mdddomaintype.hh"          // for MDDDomainType
-#include "relcatalogif/settype.hh"                // for SetType
-#include "relcatalogif/chartype.hh"               // for CharType, CharType::...
-#include "relcatalogif/collectiontype.hh"         // for CollectionType
-#include "relcatalogif/dbnullvalues.hh"           // for DBNullvalues
-#include "relcatalogif/mddtype.hh"                // for MDDType
-#include "relcatalogif/structtype.hh"             // for StructType
-#include "relmddif/dbmddset.hh"                   // for DBMDDSet
-#include "raslib/error.hh"                        // for r_Error, COLLTYPE_NULL
-#include "raslib/mddtypes.hh"                     // for r_Ptr, r_Array, r_Bytes
-#include "raslib/minterval.hh"                    // for r_Minterval
-#include "raslib/sinterval.hh"                    // for r_Sinterval
+#include "relcatalogif/mdddomaintype.hh"   // for MDDDomainType
+#include "relcatalogif/settype.hh"         // for SetType
+#include "relcatalogif/chartype.hh"        // for CharType, CharType::...
+#include "relcatalogif/collectiontype.hh"  // for CollectionType
+#include "relcatalogif/dbnullvalues.hh"    // for DBNullvalues
+#include "relcatalogif/mddtype.hh"         // for MDDType
+#include "relcatalogif/structtype.hh"      // for StructType
+#include "relmddif/dbmddset.hh"            // for DBMDDSet
+#include "raslib/error.hh"                 // for r_Error, COLLTYPE_NULL
+#include "raslib/mddtypes.hh"              // for r_Ptr, r_Array, r_Bytes
+#include "raslib/minterval.hh"             // for r_Minterval
+#include "raslib/sinterval.hh"             // for r_Sinterval
 #include "common/util/vectorutils.hh"
 #include "common/string/stringutil.hh"
-#include "logging.hh"                             // for LTRACE
+#include "logging.hh"  // for LTRACE
 
-#include <iostream>                               // for operator<<, ostream
-#include <stdlib.h>                               // for free, size_t
-#include <string>                                 // for string, basic_string
-#include <utility>                                // for pair
+#include <iostream>  // for operator<<, ostream
+#include <stdlib.h>  // for free, size_t
+#include <string>    // for string, basic_string
+#include <utility>   // for pair
 #include <unordered_set>
 
 // MDD and SET names required for returning the list of types
 // they can be any string and are required just by the internal structure
 #define MOCK_MDD_COLLECTION_NAME "RAS_NAMETYPE"
 #define MOCK_SET_COLLECTION_NAME "RAS_NAMESETTYPE"
-
 
 MDDColl::MDDColl(const CollectionType *newType, const char *name)
 {
@@ -100,7 +89,6 @@ void MDDColl::setCollectionType(const CollectionType *collType)
 {
     return dbColl->setCollType(collType);
 }
-
 
 unsigned long MDDColl::getCardinality() const
 {
@@ -166,7 +154,8 @@ MDDColl::~MDDColl()
     // else released by release transfer structures
 }
 
-MDDColl::MDDColl(const DBMDDSetId &coll) : dbColl(coll) {}
+MDDColl::MDDColl(const DBMDDSetId &coll)
+    : dbColl(coll) {}
 
 DBMDDSetId MDDColl::getDBMDDSet() const
 {
@@ -331,9 +320,9 @@ MDDColl *MDDColl::createMDDCollection(const char *name, const OId &o,
     if (!ct->isPersistent())
     {
         r_Error t(RASTYPEUNKNOWN);
-        t.setTextParameter("type", ct->getName());
+        t.setTextParameter("$type", ct->getName());
         LTRACE << "createMDDColl(" << name << ", " << o << ", " << ct->getName()
-               << " not persistent)";
+               << ") - is not persistent";
         throw t;
     }
     DBMDDSetId newDBColl = new DBMDDSet(name, o, ct);
@@ -371,8 +360,8 @@ bool MDDColl::isVirtual(const char *collName)
 bool MDDColl::isVirtual(const std::string &collName)
 {
     static std::unordered_set<std::string> virtualColls{
-            "RAS_COLLECTIONNAMES", "RAS_STRUCT_TYPES", "RAS_MARRAY_TYPES",
-            "RAS_SET_TYPES", "RAS_TYPES"};
+        "RAS_COLLECTIONNAMES", "RAS_STRUCT_TYPES", "RAS_MARRAY_TYPES",
+        "RAS_SET_TYPES", "RAS_TYPES"};
     return virtualColls.count(collName) > 0;
 }
 
@@ -402,9 +391,10 @@ std::vector<std::string> MDDColl::getVirtualCollection(const char *collName)
 
     if (strcmp(collName, AllCollectionnamesName) == 0)
     {
+        //get the db collections first
         std::unique_ptr<OIdSet> list(ObjectBroker::getAllObjects(OId::MDDCOLLOID));
         ret.reserve(list->size());
-        for (const auto &tmpdbset : *list)
+        for (const auto &tmpdbset: *list)
         {
             const auto dbmddsetId = static_cast<DBMDDSetId>(tmpdbset);
             ret.emplace_back(dbmddsetId->getName());
@@ -420,9 +410,7 @@ std::vector<std::string> MDDColl::getVirtualCollection(const char *collName)
             if (!common::StringUtil::startsWithExactCase(
                     typePtr->getTypeName(), TypeFactory::ANONYMOUS_CELL_TYPE_PREFIX))
             {
-                char *tmpTypeStructure = typePtr->getNewTypeStructure();
-                std::string typeStructure{tmpTypeStructure};
-                free(tmpTypeStructure);
+                auto typeStructure = typePtr->getNewTypeStructure();
 
                 std::string result = "";
                 result.append("CREATE TYPE ");
@@ -441,12 +429,10 @@ std::vector<std::string> MDDColl::getVirtualCollection(const char *collName)
         while (mddIter.not_done())
         {
             MDDType *typePtr = mddIter.get_element();
-            char *tmpTypeStructure = typePtr->getNewTypeStructure();
-            std::string typeStructure{tmpTypeStructure};
-            free(tmpTypeStructure);
+            auto typeStructure = typePtr->getNewTypeStructure();
 
             if (typePtr->getSubtype() == MDDType::MDDBASETYPE ||
-                    typePtr->getSubtype() == MDDType::MDDONLYTYPE)
+                typePtr->getSubtype() == MDDType::MDDONLYTYPE)
             {
                 LDEBUG << "Internal MDD type cannot be serialized: " << typeStructure;
                 mddIter.advance();
@@ -512,28 +498,21 @@ MDDColl *MDDColl::getMDDCollection(const char *collName)
         CollectionType *ct = new SetType(MOCK_SET_COLLECTION_NAME, mt);
         TypeFactory::addTempType(ct);
         retval = new MDDColl(ct, AllCollectionnamesName);
-        OIdSet *list = ObjectBroker::getAllObjects(OId::MDDCOLLOID);
+        auto colNames = getVirtualCollection(AllCollectionnamesName);
         MDDObj *transObj = nullptr;
         std::shared_ptr<Tile> transTile;
-        const char *nameBuffer = nullptr;
         size_t namelen = 0;
-        while (!list->empty())
+        for (const auto &colName: colNames)
         {
-            dbset = *(list->begin());
-            LTRACE << "Coll OId     : " << dbset.getOId();
-            nameBuffer = dbset->getName();
-            LTRACE << "Coll Name    : " << nameBuffer;
-            namelen = strlen(nameBuffer);
+            namelen = colName.length();
             LTRACE << "Coll Name Len: " << namelen;
             LTRACE << "Domain       : " << namelen;
             nameDomain[0].set_high(static_cast<r_Range>(namelen));
             transObj = new MDDObj(mt, nameDomain);
-            transTile.reset(new Tile(nameDomain, bt, nameBuffer, (r_Bytes)0, r_Array));
+            transTile.reset(new Tile(nameDomain, bt, colName.c_str(), (r_Bytes)0, r_Array));
             transObj->insertTile(transTile);
             retval->insert(transObj);
-            list->erase(list->begin());
         }
-        delete list;
     }
     else if (strcmp(collName, AllStructTypesName) == 0)
     {
@@ -566,7 +545,7 @@ MDDColl *MDDColl::getMDDCollection(const char *collName)
                 continue;
             }
 
-            char *typeStructure = typePtr->getNewTypeStructure();
+            auto typeStructure = typePtr->getNewTypeStructure();
 
             if (!common::StringUtil::startsWithExactCase(typePtr->getTypeName(), TypeFactory::ANONYMOUS_CELL_TYPE_PREFIX))
             {
@@ -582,8 +561,6 @@ MDDColl *MDDColl::getMDDCollection(const char *collName)
                 transObj->insertTile(transTile);
                 retval->insert(transObj);
             }
-            free(typeStructure);
-            typeStructure = NULL;
 
             structIter.advance();
         }
@@ -620,12 +597,10 @@ MDDColl *MDDColl::getMDDCollection(const char *collName)
                 continue;
             }
 
-            char *tmpTypeStructure = typePtr->getNewTypeStructure();
-            std::string typeStructure{tmpTypeStructure};
-            free(tmpTypeStructure);
+            auto typeStructure = typePtr->getNewTypeStructure();
 
             if (typePtr->getSubtype() == MDDType::MDDBASETYPE ||
-                    typePtr->getSubtype() == MDDType::MDDONLYTYPE)
+                typePtr->getSubtype() == MDDType::MDDONLYTYPE)
             {
                 LDEBUG << "Internal MDD type cannot be serialized: " << typeStructure;
                 mddIter.advance();
@@ -703,7 +678,7 @@ MDDColl *MDDColl::getMDDCollection(const char *collName)
             setIter.advance();
         }
     }
-    else if (strcmp(collName,AllTypesName)==0)
+    else if (strcmp(collName, AllTypesName) == 0)
     {
         r_Minterval transDomain("[0:*]");
         r_Minterval nameDomain("[0:0]");
@@ -716,7 +691,7 @@ MDDColl *MDDColl::getMDDCollection(const char *collName)
         auto typesRet = getVirtualCollection(AllTypesName);
         MDDObj *transObj = nullptr;
         Tile *transTile = nullptr;
-        
+
         while (!typesRet.empty())
         {
             auto result = typesRet.back();
@@ -761,4 +736,3 @@ bool MDDColl::removeMDDObject(const OId &collOId, const OId &mddOId)
     }
     return retval;
 }
-

@@ -43,7 +43,7 @@ class UserAxisType:
 
 class UserAxis:
     def __init__(self, name, resolution, order, min, max=None, type=UserAxisType.NUMBER,
-                 dataBound=True, statements=[]):
+                 dataBound=True, statements=[], evaluated_areas_of_validity=False):
         """
         A user axis is a an axis containing information collected from an user. The connection to the crs axis
         can be done by checking the axis name
@@ -64,6 +64,7 @@ class UserAxis:
         self.type = type
         self.dataBound = dataBound
         self.statements = statements
+        self.evaluated_areas_of_validity = False
 
     def to_json(self):
         """

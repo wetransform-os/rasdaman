@@ -1,0 +1,9 @@
+for c in (test_eobstest)
+return encode(
+
+coverage x
+over $pt ansi("1950-01-01":"1950-01-01")
+
+values c[t($pt)],
+
+"csv")

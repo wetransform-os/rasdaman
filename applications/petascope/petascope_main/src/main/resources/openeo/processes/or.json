@@ -1,0 +1,107 @@
+{
+    "id": "or",
+    "summary": "Logical or",
+    "description": "Performs logical disjunction on `x` and `y` (*`x or y`*).\n\nEach operand can be a scalar number, or a datacube. If both operands are datacubes, they must have matching domain sets.\n\n\nThe result is a scalar number if both operands are scalars, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element types of the operands:\n\n```\n| first operand type   | second operand type   | result type   |\n|----------------------|-----------------------|---------------|\n| bool                 | bool                  | bool          |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The first operand: a boolean scalar or datacube.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "y",
+            "description": "The second operand: a boolean scalar or datacube.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "null where `x` or `y` is null, true where at least one of `x` or `y` is true, false otherwise.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": true,
+                "y": true
+            },
+            "returns": true
+        },
+        {
+            "arguments": {
+                "x": true,
+                "y": false
+            },
+            "returns": true
+        },
+        {
+            "arguments": {
+                "x": true,
+                "y": "DatacubeA"
+            },
+            "returns": "DatacubeB"
+        },
+        {
+            "arguments": {
+                "x": "DatacubeA",
+                "y": "DatacubeB"
+            },
+            "returns": "DatacubeC"
+        },
+        {
+            "arguments": {
+                "x": null,
+                "y": true
+            },
+            "returns": null
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "https://en.wikipedia.org/wiki/Boolean_algebra",
+            "title": "Boolean algebra explained by Wikipedia"
+        }
+    ],
+    "wcps": "<x> or <y>",
+    "categories": [
+        "Logical"
+    ]
+}

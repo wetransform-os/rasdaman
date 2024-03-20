@@ -20,21 +20,21 @@
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
-#include "blobfile.hh"               // for BlobFile
-#include "blobfscommon.hh"           // for BlobFSConfig, INVALID_BLOB_ID
+#include "blobfile.hh"      // for BlobFile
+#include "blobfscommon.hh"  // for BlobFSConfig, INVALID_BLOB_ID
 #include "blobfstransaction.hh"
 #include "blobfstransactionlock.hh"  // for BlobFSTransactionLock
 #include "dirwrapper.hh"             // for DirEntryIterator, DirWrapper
 #include "reladminif/sqlitewrapper.hh"
-#include "raslib/error.hh"           // for r_Error, BLOBFILENOTFOUND, FAILE...
+#include "raslib/error.hh"  // for r_Error, BLOBFILENOTFOUND, FAILE...
 #include "common/string/stringutil.hh"
-#include "logging.hh"                // for LINFO, LERROR, LDEBUG
+#include "logging.hh"  // for LINFO, LERROR, LDEBUG
 
-#include <errno.h>                   // for errno
-#include <stdlib.h>                  // for mkdtemp
-#include <string.h>                  // for strerror
-#include <ostream>                   // for stringstream, basic_ostream, ope...
-#include <climits>                   // for CHAR_BIT
+#include <errno.h>   // for errno
+#include <stdlib.h>  // for mkdtemp
+#include <string.h>  // for strerror
+#include <ostream>   // for stringstream, basic_ostream, ope...
+#include <climits>   // for CHAR_BIT
 #include <cassert>
 
 using std::string;
@@ -64,7 +64,8 @@ BlobFSTransaction::BlobFSTransaction(
     }
 }
 
-BlobFSTransaction::BlobFSTransaction(BlobFSConfig &cfg) : config(cfg)
+BlobFSTransaction::BlobFSTransaction(BlobFSConfig &cfg)
+    : config(cfg)
 {
 }
 
@@ -126,19 +127,21 @@ string BlobFSTransaction::getFinalBlobPath(long long blobId)
 
 void BlobFSTransaction::finalizeUncompleted()
 {
+    LTRACE << "finalize uncompleted transactions";
+
     if (!transactionLock)
     {
         LWARNING << "Transaction lock not initialized for " << transactionPath
                  << ", cannot finalize interrupted transaction.";
         return;
     }
-    
+
     // collect blob ids from the blob files in the transaction directory;
     collectBlobIds();
     // nothing to do if no blob files are found
     if (blobIds.empty())
         return;
-    
+
     if (!transactionLock->isValid(TransactionLockType::Commit))
     {
         NNLINFO << "invalid transaction commit state; finalizing commit procedure...";
@@ -161,25 +164,27 @@ void BlobFSTransaction::finalizeUncompleted()
 
 void BlobFSTransaction::finalizeRasbaseCrash()
 {
+    LTRACE << "finalize post RASBASE crash";
+
     // it was already checked in finalizeUncompleted that blobIds is not empty
     assert(!blobIds.empty());
-    
+
     bool tilesTableExists = SQLiteQuery::returnsRows(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='RAS_TILES'");
     if (tilesTableExists)
     {
         BLINFO << "\n";
 
-        for (auto blobId : blobIds)
+        for (auto blobId: blobIds)
         {
             const auto tmpBlobPath = getTmpBlobPath(blobId);
 
-            auto checkQuery = "SELECT BlobId FROM RAS_TILES WHERE BlobId = " + 
+            auto checkQuery = "SELECT BlobId FROM RAS_TILES WHERE BlobId = " +
                               std::to_string(blobId);
             if (SQLiteQuery::returnsRows(checkQuery))
             {
                 // blob still in RASBASE, needs to be restored to the TILES dir
-                LINFO << " restoring blob file " << getFinalBlobPath(blobId) 
+                LINFO << " restoring blob file " << getFinalBlobPath(blobId)
                       << " from " << tmpBlobPath;
                 try
                 {
@@ -238,7 +243,7 @@ bool BlobFSTransaction::addBlobId(const std::string &blobPath)
 
     if (blobId != INVALID_BLOB_ID)
     {
-        blobIds.push_back(blobId);
+        blobIds.insert(blobId);
         return true;
     }
     else
@@ -257,16 +262,16 @@ void BlobFSTransaction::initTransactionDirectory(const string &trSubdir)
 
 void BlobFSTransaction::createTransactionDir(const string &trSubdir)
 {
-    static const size_t suffixSize = 7; // ".XXXXXX"
-    const auto tempDirPathSize = 
-            config.transactionsPath.size() + trSubdir.size() + suffixSize;
+    static const size_t suffixSize = 7;  // ".XXXXXX"
+    const auto tempDirPathSize =
+        config.transactionsPath.size() + trSubdir.size() + suffixSize;
     transactionPath.clear();
     transactionPath.reserve(tempDirPathSize + 1);
-    
+
     auto tempDirPath = std::unique_ptr<char[]>(new char[tempDirPathSize + 1]);
-    sprintf(tempDirPath.get(), "%s%s.XXXXXX", 
+    sprintf(tempDirPath.get(), "%s%s.XXXXXX",
             config.transactionsPath.c_str(), trSubdir.c_str());
-    
+
     char *tempDirPathRes = mkdtemp(tempDirPath.get());
     if (tempDirPathRes == NULL)
     {
@@ -292,12 +297,12 @@ void BlobFSTransaction::validateTransactionDir(const string &transactionSubdir, 
 {
     if (DirWrapper::directoryExists(transactionPath.c_str()))
     {
-        LDEBUG << "Created " << transactionSubdir 
+        LDEBUG << "Created " << transactionSubdir
                << " transaction path: " << transactionPath;
     }
     else if (first)
     {
-        LWARNING << "Successfully created " << transactionSubdir 
+        LWARNING << "Successfully created " << transactionSubdir
                  << " transaction path: " << transactionPath
                  << ", however, now it cannot be found on the filesystem; retrying...";
         transactionLock.reset();
@@ -305,7 +310,7 @@ void BlobFSTransaction::validateTransactionDir(const string &transactionSubdir, 
     }
     else
     {
-        LERROR << "Successfully created " << transactionSubdir 
+        LERROR << "Successfully created " << transactionSubdir
                << " transaction path: " << transactionPath
                << ", however, it still cannot be found on the filesystem.";
         throw r_Error(static_cast<unsigned int>(FAILEDCREATINGDIR));
@@ -321,14 +326,14 @@ BlobFSTransaction::getBlobFSTransaction(const string &trPath, BlobFSConfig &conf
     char transactionType = trPath[config.transactionsPath.size()];
     switch (transactionType)
     {
-        case 'i': return new BlobFSInsertTransaction(config, trPath);
-        case 'u': return new BlobFSUpdateTransaction(config, trPath);
-        case 'r': return new BlobFSRemoveTransaction(config, trPath);
-        default:
-        {
-            LWARNING << "invalid transaction path: " << trPath;
-            return nullptr;
-        }
+    case 'i': return new BlobFSInsertTransaction(config, trPath);
+    case 'u': return new BlobFSUpdateTransaction(config, trPath);
+    case 'r': return new BlobFSRemoveTransaction(config, trPath);
+    default:
+    {
+        LWARNING << "invalid transaction path: " << trPath;
+        return nullptr;
+    }
     }
 }
 
@@ -344,19 +349,21 @@ BlobFSInsertTransaction::BlobFSInsertTransaction(
 
 void BlobFSInsertTransaction::add(BlobData &blob)
 {
+    LTRACE << "add blob to insert transaction: " << blob.blobId;
     const string blobPath = getTmpBlobPath(blob.blobId);
     BlobFile blobFile(blobPath);
     blobFile.insertData(blob);
-    blobIds.push_back(blob.blobId);
+    blobIds.insert(blob.blobId);
 }
 
 void BlobFSInsertTransaction::postRasbaseCommit()
 {
+    LTRACE << "commiting insert transaction post RASBASE commit";
     if (blobIds.empty())
         return;
 
     transactionLock->lock(TransactionLockType::Commit);
-    for (auto blobId : blobIds)
+    for (auto blobId: blobIds)
     {
         BlobFile::moveFile(getTmpBlobPath(blobId), getFinalBlobPath(blobId));
     }
@@ -366,11 +373,12 @@ void BlobFSInsertTransaction::postRasbaseCommit()
 
 void BlobFSInsertTransaction::postRasbaseAbort()
 {
+    LTRACE << "aborting insert transaction post RASBASE abort";
     if (blobIds.empty())
         return;
 
     transactionLock->lock(TransactionLockType::Abort);
-    for (auto blobId : blobIds)
+    for (auto blobId: blobIds)
     {
         BlobFile::removeFile(getTmpBlobPath(blobId));
     }
@@ -388,19 +396,21 @@ BlobFSUpdateTransaction::BlobFSUpdateTransaction(
 
 void BlobFSUpdateTransaction::add(BlobData &blob)
 {
+    LTRACE << "add blob to update transaction: " << blob.blobId;
     const string blobPath = getTmpBlobPath(blob.blobId);
     BlobFile blobFile(blobPath);
     blobFile.updateData(blob);
-    blobIds.push_back(blob.blobId);
+    blobIds.insert(blob.blobId);
 }
 
 void BlobFSUpdateTransaction::postRasbaseCommit()
 {
+    LTRACE << "commiting update transaction post RASBASE commit";
     if (blobIds.empty())
         return;
 
     transactionLock->lock(TransactionLockType::Commit);
-    for (auto blobId : blobIds)
+    for (auto blobId: blobIds)
     {
         BlobFile::moveFile(getTmpBlobPath(blobId), getFinalBlobPath(blobId));
     }
@@ -410,11 +420,12 @@ void BlobFSUpdateTransaction::postRasbaseCommit()
 
 void BlobFSUpdateTransaction::postRasbaseAbort()
 {
+    LTRACE << "aborting update transaction post RASBASE abort";
     if (blobIds.empty())
         return;
 
     transactionLock->lock(TransactionLockType::Abort);
-    for (auto blobId : blobIds)
+    for (auto blobId: blobIds)
     {
         BlobFile::removeFile(getTmpBlobPath(blobId));
     }
@@ -432,9 +443,10 @@ BlobFSRemoveTransaction::BlobFSRemoveTransaction(
 
 void BlobFSRemoveTransaction::add(BlobData &blob)
 {
+    LTRACE << "add blob to remove transaction: " << blob.blobId;
     if (blob.blobId > 0)
     {
-        blobIds.push_back(blob.blobId);
+        blobIds.insert(blob.blobId);
     }
     else
     {
@@ -445,11 +457,12 @@ void BlobFSRemoveTransaction::add(BlobData &blob)
 
 void BlobFSRemoveTransaction::preRasbaseCommit()
 {
+    LTRACE << "commiting remove transaction before RASBASE commit";
     if (blobIds.empty())
         return;
 
     transactionLock->lock(TransactionLockType::Abort);
-    for (auto blobId : blobIds)
+    for (auto blobId: blobIds)
     {
         try
         {
@@ -468,11 +481,12 @@ void BlobFSRemoveTransaction::preRasbaseCommit()
 
 void BlobFSRemoveTransaction::postRasbaseCommit()
 {
+    LTRACE << "commiting remove transaction post RASBASE commit";
     if (blobIds.empty())
         return;
 
     transactionLock->lock(TransactionLockType::Commit);
-    for (auto blobId : blobIds)
+    for (auto blobId: blobIds)
     {
         BlobFile::removeFile(getTmpBlobPath(blobId));
     }
@@ -482,11 +496,12 @@ void BlobFSRemoveTransaction::postRasbaseCommit()
 
 void BlobFSRemoveTransaction::postRasbaseAbort()
 {
+    LTRACE << "aborting remove transaction post RASBASE abort";
     if (blobIds.empty())
         return;
 
     transactionLock->lock(TransactionLockType::Abort);
-    for (auto blobId : blobIds)
+    for (auto blobId: blobIds)
     {
         const string tmpBlobPath = getTmpBlobPath(blobId);
         if (!BlobFile::fileExists(tmpBlobPath))
@@ -517,6 +532,7 @@ BlobFSSelectTransaction::BlobFSSelectTransaction(BlobFSConfig &configArg)
 
 void BlobFSSelectTransaction::add(BlobData &blob)
 {
+    LTRACE << "add blob to select transaction: " << blob.blobId;
     const string blobPath = getFinalBlobPath(blob.blobId);
     BlobFile blobFile(blobPath);
     blobFile.readData(blob);

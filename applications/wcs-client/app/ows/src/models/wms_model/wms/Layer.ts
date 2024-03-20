@@ -66,7 +66,14 @@ module wms {
             this.title = title;
             this.abstract = abstract;
             this.customizedMetadata = customizedMetadata;
-            this.coverageExtent = new CoverageExtent(name, westBoundLongitude, southBoundLatitude, eastBoundLongitude, northBoundLatitude);
+
+            let sizeInBytes:number = 0;
+            if (customizedMetadata != null) {
+                sizeInBytes = customizedMetadata.getSizeInBytes();
+            }
+
+
+            this.coverageExtent = new wms.CoverageExtent(name, westBoundLongitude, southBoundLatitude, eastBoundLongitude, northBoundLatitude, sizeInBytes);
             this.crs = crs;
             this.minx = minx;
             this.miny = miny;
@@ -124,6 +131,8 @@ module wms {
                 
                 // extract the name of the dimenisonal axis
                 dim.name = this.gmlDocument.substr(posNameStart, posNameEnd - posNameStart);
+                // e.g. cloud_top_height" units="GridSpacing -> cloud_top_height
+                dim.name = dim.name.substring(0, dim.name.indexOf('"'));
                 
                 // search for the end of the elements of the dimensioal axis
                 var posElementsStart = posNameEnd + 2;
@@ -165,7 +174,7 @@ module wms {
 
                         // push all the possible values into the array of elements as Strings because it will be used after
                         // NOTE: here I also used the assumption that all the dates are in ISO format
-                        for(var i = minElementAsDate; i <= maxElementAsDate; i.setMilliseconds(i.getMilliseconds() + stepAsNumber)) {
+                        for (let i = minElementAsDate; i <= maxElementAsDate; i = new Date(i.getTime() + stepAsNumber)) {
                             dim.array.push(i.toISOString());
                         }
                     }
@@ -319,7 +328,7 @@ module wms {
                     legendGraphicURL = legendURL.find("OnlineResource").attr("xlink:href");
                 }
 
-                let style = new Style(name, userAbstract, queryType, query, colorTableType, colorTableDefinition, defaultStyle, legendGraphicURL);
+                let style = new Style(name, userAbstract, queryType, query, colorTableType, colorTableDefinition, defaultStyle, legendGraphicURL, null);
                 this.styles.push(style);
             }
         }

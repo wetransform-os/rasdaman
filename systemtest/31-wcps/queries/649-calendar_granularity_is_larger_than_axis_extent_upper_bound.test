@@ -1,0 +1,5 @@
+for c in (test_wcps_12_months_netcdf_irregular)
+
+return encode(
+
+c[ansi("2023-12" : "2023-12")], "csv")

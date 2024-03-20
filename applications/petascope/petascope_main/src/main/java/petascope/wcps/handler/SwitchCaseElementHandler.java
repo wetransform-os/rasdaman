@@ -24,6 +24,8 @@ package petascope.wcps.handler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import org.rasdaman.domain.cis.Quantity;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -54,9 +56,9 @@ public class SwitchCaseElementHandler extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        WcpsResult booleanCoverageExpression = (WcpsResult) this.getFirstChild().handle();
-        WcpsResult returnValueCoverageExpression = (WcpsResult) this.getSecondChild().handle();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult booleanCoverageExpression = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        WcpsResult returnValueCoverageExpression = (WcpsResult) this.getSecondChild().handle(serviceRegistries);
         
         VisitorResult result = this.handle(booleanCoverageExpression, returnValueCoverageExpression);
         return result;
@@ -71,7 +73,8 @@ public class SwitchCaseElementHandler extends Handler {
         if (returnedValueMetadata == null) {
             // e.g. return 3 (scalar value)
             returnedValueMetadata = new WcpsCoverageMetadata();
-            RangeField rangeField = new RangeField(RangeField.DATA_TYPE, null, null, new ArrayList<>(), RangeField.UOM_CODE, null, null);
+            RangeField rangeField = new RangeField(RangeField.DATA_TYPE, null, null, new ArrayList<>(), RangeField.UOM_CODE, null, null,
+                                                    Quantity.ObservationType.NUMERICAL, null);
             returnedValueMetadata.setRangeFields(Arrays.asList(rangeField));
         }
         

@@ -31,6 +31,7 @@ import javax.persistence.PrimaryKeyJoinColumn;
 import javax.persistence.Table;
 import petascope.core.AxisTypes;
 import petascope.exceptions.PetascopeException;
+import petascope.util.BigDecimalUtil;
 import petascope.util.CrsUtil;
 import petascope.util.TimeUtil;
 
@@ -114,6 +115,21 @@ public class GeoAxis extends Axis implements Serializable {
     
 
     // Helpers Method
+
+    @JsonIgnore
+    public BigDecimal getBoundNumber(String bound) throws PetascopeException {
+        BigDecimal number = null;
+        if (BigDecimalUtil.isNumber(bound)) {
+            return new BigDecimal(bound);
+        } else {
+            // assume it is temporal
+            String axisUoM = this.getUomLabel();
+            String datumOrigin = CrsUtil.getDatumOrigin(this.getSrsName());
+            number = TimeUtil.countOffsets(datumOrigin, bound, axisUoM, BigDecimal.ONE);
+            return number;
+        }
+    }
+
     /**
      * Return the geo lower bound in numbers (as they could be in Datetime
      * string also)
@@ -121,15 +137,8 @@ public class GeoAxis extends Axis implements Serializable {
      */
     @JsonIgnore
     public BigDecimal getLowerBoundNumber() throws PetascopeException {
-        BigDecimal number = null;
-        if (this.lowerBound.contains("\"")) {
-            String axisUoM = this.getUomLabel();
-            String datumOrigin = CrsUtil.getDatumOrigin(this.getSrsName());
-            number = TimeUtil.countOffsets(datumOrigin, this.lowerBound, axisUoM, BigDecimal.ONE);
-            return number;
-        } else {
-            return new BigDecimal(this.lowerBound);
-        }
+        BigDecimal result = this.getBoundNumber(this.lowerBound);
+        return result;
     }
 
     /**
@@ -138,15 +147,8 @@ public class GeoAxis extends Axis implements Serializable {
      */
     @JsonIgnore
     public BigDecimal getUpperBoundNumber() throws PetascopeException {
-        BigDecimal number = null;
-        if (this.upperBound.contains("\"")) {
-            String axisUoM = this.getUomLabel();
-            String datumOrigin = CrsUtil.getDatumOrigin(this.getSrsName());
-            number = TimeUtil.countOffsets(datumOrigin, this.upperBound, axisUoM, BigDecimal.ONE);
-            return number;
-        } else {
-            return new BigDecimal(this.upperBound);
-        }
+        BigDecimal result = this.getBoundNumber(this.upperBound);
+        return result;
     }
 
     /**

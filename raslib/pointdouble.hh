@@ -20,19 +20,9 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: point.hh
- *
- * MODULE:  raslib
- * CLASS:   r_PointDouble
- *
- * COMMENTS:
- *
-*/
 
 #ifndef R_DOUBLEPOINT_HH
 #define R_DOUBLEPOINT_HH
-
 
 #include "raslib/mddtypes.hh"
 #include "raslib/point.hh"
@@ -41,10 +31,13 @@ rasdaman GmbH.
 #include <vector>
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
 
- Class \Ref{r_Point} represents an n-dimensional point std::vector.
+ Class r_PointDouble represents an n-dimensional point of double coordinates.
 
 */
 
@@ -52,7 +45,7 @@ class r_PointDouble
 {
 public:
     /// constructor getting dimensionality for stream initializing
-    r_PointDouble(r_Dimension);
+    explicit r_PointDouble(r_Dimension);
 
     r_PointDouble(r_Dimension dim, double value);
 
@@ -60,9 +53,9 @@ public:
     ///
     //@}
 
-    r_PointDouble(const r_Point &pt);
+    explicit r_PointDouble(const r_Point &pt);
 
-    r_PointDouble(const std::vector<double> &content);
+    explicit r_PointDouble(const std::vector<double> &content);
 
     /// copy constructor
     r_PointDouble(const r_PointDouble &vectorArg);
@@ -71,15 +64,15 @@ public:
     ~r_PointDouble();
 
     /// subscriptor for read access
-    double  operator[](size_t) const ;
+    double operator[](size_t) const;
     /// subscriptor for write access
-    double &operator[](size_t) ;
+    double &operator[](size_t);
 
     /// assignment: cleanup + copy
-    const r_PointDouble &operator= (const r_PointDouble &);
+    const r_PointDouble &operator=(const r_PointDouble &);
 
     /// compares this point with the given point.
-    int compare_with(const  r_PointDouble &p) const;
+    int compare_with(const r_PointDouble &p) const;
     /**
       Returns 0 if this == p, -1 if this < p, 1 if this > p (considering
       the coordinates in lexicographic order).
@@ -107,13 +100,13 @@ public:
 
     /// scalar multiplication
     r_PointDouble operator*(double scalarArg) const;
-    
+
     /**
      * Same as above but of the form PointA op= PointB; PointA is modified in place.
      */
-    r_PointDouble &operator+=(const r_PointDouble& a) noexcept(false);
-    r_PointDouble &operator-=(const r_PointDouble& a) noexcept(false);
-    r_PointDouble &operator*=(const r_PointDouble& a) noexcept(false);
+    r_PointDouble &operator+=(const r_PointDouble &a) noexcept(false);
+    r_PointDouble &operator-=(const r_PointDouble &a) noexcept(false);
+    r_PointDouble &operator*=(const r_PointDouble &a) noexcept(false);
     r_PointDouble &operator*=(double a) noexcept;
 
     /// scalar product
@@ -130,7 +123,6 @@ public:
 
     /// converts the stored vector to an r_Point (integer vertices)
     r_Point toIntPoint() const;
-
 
 private:
     /// array holding the point coordinates

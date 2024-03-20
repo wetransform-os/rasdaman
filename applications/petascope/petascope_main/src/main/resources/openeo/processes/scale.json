@@ -1,0 +1,166 @@
+{
+    "id": "scale",
+    "summary": "Resample a datacube",
+    "description": "Resample a datacube to a new resolution. The up- or down-scaling can be specified in several ways:\n\n\n- A list of target grid extents per dimension. If only one of the x/y spatial axes is specified,\nthe other one will be auto-scaled to preserve the original ratio, while any other non-specified dimensions are not changed in the result.\n\n- Another datacube can provide the target grid extents, which allows to easily match datacubes for binary operations.\n\n- A factor by which all dimensions are resampled equally (factor > 1 for scaling up, 0 < factor < 1 for scaling down).\n\n- A factor per dimension (factor > 1 for scaling up, 0 < factor < 1 for scaling down).\n\n\nOnly nearest-neighbour interpolation is supported currently.",
+    "parameters": [
+        {
+            "name": "data",
+            "description": "A datacube",
+            "schema": {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        },
+        {
+            "name": "scale_spec",
+            "description": "A specification for the how to scale `data`.",
+            "schema": [
+                {
+                    "title": "Target dimension grid extents.",
+                    "type": "array",
+                    "subtype": "extend-list",
+                    "description": "A list of target grid extents per dimension. If only one of the x/y spatial axes is specified, the other one will be auto-scaled to preserve the original ratio, while any other non-specified dimensions are not changed in the result.",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "object",
+                        "subtype": "trim-spec",
+                        "title": "A dimension target grid extent.",
+                        "description": "A dimension name and target lower and upper grid extents.",
+                        "required": [
+                            "dimension",
+                            "lower",
+                            "upper"
+                        ],
+                        "properties": {
+                            "dimension": {
+                                "type": "string",
+                                "description": "The name of the dimension to be scaled."
+                            },
+                            "lower": {
+                                "type": "integer",
+                                "description": "The lower grid bound."
+                            },
+                            "upper": {
+                                "type": "integer",
+                                "description": "The upper grid bound."
+                            }
+                        },
+                        "examples": [
+                            {
+                                "dimension": "Lat",
+                                "lower": 0,
+                                "upper": 1280
+                            },
+                            {
+                                "dimension": "ansi",
+                                "lower": 0,
+                                "upper": 100
+                            }
+                        ]
+                    },
+                    "examples": [
+                        [
+                            {
+                                "dimension": "Lat",
+                                "lower": 0,
+                                "upper": 1280
+                            },
+                            {
+                                "dimension": "ansi",
+                                "lower": 0,
+                                "upper": 100
+                            }
+                        ]
+                    ]
+                },
+                {
+                    "title": "Target datacube.",
+                    "type": "object",
+                    "subtype": "datacube",
+                    "description": "A datacube that provides the target grid extents."
+                },
+                {
+                    "title": "A scale factor.",
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "A factor by which all dimensions are resampled equally (factor > 1 for scaling up, 0 < factor < 1 for scaling down)"
+                },
+                {
+                    "type": "array",
+                    "subtype": "slice-list",
+                    "title": "Per-dimension scale factors.",
+                    "description": "A factor per dimension (factor > 1 for scaling up, 0 < factor < 1 for scaling down).",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "object",
+                        "subtype": "slice-spec",
+                        "title": "A dimension scale factor.",
+                        "description": "A scale factor for a specific dimension.",
+                        "required": [
+                            "dimension",
+                            "factor"
+                        ],
+                        "properties": {
+                            "dimension": {
+                                "type": "string",
+                                "description": "The name of the dimension to be scaled."
+                            },
+                            "factor": {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "description": "The factor by which to scale the dimension."
+                            }
+                        },
+                        "examples": [
+                            {
+                                "dimension": "Lat",
+                                "factor": 0.5,
+                                "description": "Downscale spatial dimension Lat by 2x."
+                            },
+                            {
+                                "dimension": "ansi",
+                                "factor": 3,
+                                "description": "Upscale temporal dimension ansi by 3x."
+                            }
+                        ]
+                    },
+                    "examples": [
+                        [
+                            {
+                                "dimension": "Lat",
+                                "factor": 0.5,
+                                "description": "Downscale spatial dimension Lat by 2x."
+                            },
+                            {
+                                "dimension": "ansi",
+                                "factor": 3,
+                                "description": "Upscale temporal dimension ansi by 3x."
+                            }
+                        ]
+                    ]
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "The resampled datacube, with same dimension names and CRS but new resolutions on some or all dimensions.",
+        "schema": {
+            "type": "object",
+            "subtype": "datacube"
+        }
+    },
+    "examples": [],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/11_cheatsheets.html#coverage-operations",
+            "title": "The scale coverage operation in rasdaman"
+        }
+    ],
+    "wcps": "scale(<data>,<scale_spec>)",
+    "categories": [
+        "Geometric"
+    ]
+}

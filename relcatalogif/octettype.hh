@@ -25,9 +25,9 @@ rasdaman GmbH.
 #ifndef _OCTETTYPE_HH_
 #define _OCTETTYPE_HH_
 
-#include <iosfwd>         // for ostream
-#include "integraltype.hh"  // for IntegralType
-#include "raslib/odmgtypes.hh"     // for r_Long
+#include <iosfwd>               // for ostream
+#include "integraltype.hh"      // for IntegralType
+#include "raslib/odmgtypes.hh"  // for r_Long
 
 class OId;
 
@@ -44,7 +44,7 @@ The value of a Octet is stored in one char.
 class OctetType : public IntegralType
 {
 public:
-    OctetType(const OId &id);
+    explicit OctetType(const OId &id);
 
     OctetType();
 
@@ -63,7 +63,6 @@ public:
     char *makeFromCULong(char *cell, const r_ULong *value) const override;
 
     static const char *Name;
-
 };
 
 #endif

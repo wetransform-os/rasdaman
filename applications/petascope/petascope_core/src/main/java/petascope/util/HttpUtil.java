@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -90,7 +91,7 @@ public class HttpUtil {
     /**
      * Get input stream from an external URL
      */
-    public static InputStream getInputStream(String inputUrl) throws IOException {
+    public static InputStream getInputStream(String inputUrl, int connectionTimeout, int readTimeout) throws IOException {
         URL url = new URL(inputUrl);
         HttpURLConnection con = (HttpURLConnection)(url.openConnection());
         con.setConnectTimeout(ConfigManager.CRSRESOLVER_CONN_TIMEOUT);
@@ -109,5 +110,21 @@ public class HttpUtil {
         InputStream result = con.getInputStream();
         return result;        
     }
+    
+    /**
+     * Given a SECORE CRS URL -> return the input stream
+     */
+    public static InputStream getSECOREInputStream(String inputURL) throws IOException {
+        return getInputStream(inputURL, ConfigManager.CRSRESOLVER_CONN_TIMEOUT, ConfigManager.CRSRESOLVER_READ_TIMEOUT);
+    }
+    
+    /**
+     * Return the last segment of an URL, e.g: http://localhost:8080/rasdaman/ows -> ows
+     */
+    public static String getLastSegmentOfURL(String inputURL) {
+        String result = FilenameUtils.getName(inputURL);
+        return result;
+    }
+    
 
 }

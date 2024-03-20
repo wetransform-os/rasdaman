@@ -1,0 +1,81 @@
+{
+    "id": "not",
+    "summary": "Logical negation",
+    "description": "Computes the logical negation of `x` (*`not x`*).\n\nThe operand can be a scalar number or a datacube.\n\n\nThe result is a scalar number if the operand is scalar, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type   | result type   |\n|----------------|---------------|\n| bool           | bool          |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "Null where `x` is null, true where `x` is false, false otherwise.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": true
+            },
+            "returns": false
+        },
+        {
+            "arguments": {
+                "x": false
+            },
+            "returns": true
+        },
+        {
+            "arguments": {
+                "x": "DatacubeA"
+            },
+            "returns": "DatacubeB"
+        },
+        {
+            "arguments": {
+                "x": null
+            },
+            "returns": null
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "https://en.wikipedia.org/wiki/Boolean_algebra",
+            "title": "Boolean algebra explained by Wikipedia"
+        }
+    ],
+    "wcps": "not <x>",
+    "categories": [
+        "Logical"
+    ]
+}

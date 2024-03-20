@@ -35,29 +35,24 @@
  ************************************************************/
 
 #include <iostream>
-#include "raslib/rmdebug.hh"
-
-
-RMINITGLOBALS('C')
 
 using namespace std;
 
 class Exp
 {
-
 public:
-    Exp(char* name);
+    Exp(char *name);
 
     void useTimer();
 
     ~Exp();
 
-    RMTimer* t1;
+    RMTimer *t1;
     RMTimer t2;
-    char* name;
+    char *name;
 };
 
-Exp::Exp(char* n)
+Exp::Exp(char *n)
     : t2("Test Timer ", "t2"), name(n)
 {
     t1 = new RMTimer("Test Timer ", "t1");
@@ -83,7 +78,6 @@ static const Exp exp1("Static Exp Object");
 
 int main()
 {
-
     /*
     RMTimer tt(  "Test Timer ", "tt" );
 
@@ -95,7 +89,7 @@ int main()
     Exp e("Exp Object");
     e.useTimer();
 
-    Exp* ep = new Exp("Pointer to Exp Object");
+    Exp *ep = new Exp("Pointer to Exp Object");
     ep->useTimer();
     delete ep;
 

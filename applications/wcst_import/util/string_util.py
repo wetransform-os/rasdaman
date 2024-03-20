@@ -78,7 +78,10 @@ def escape_metadata_nested_dicts(metadata_dict):
         if type(value_parent) is dict:
             # e.g: "band1": { "key_1": "value_1", "key_2": "value_2" }
             for key_child, value_child in value_parent.items():
-                metadata_dict[key_parent][key_child] = escape(str(value_child))
+                if isinstance(value_child, list):
+                    metadata_dict[key_parent][key_child] = value_child
+                else:
+                    metadata_dict[key_parent][key_child] = escape(str(value_child))
         else:
             # e.g: ${netcdf:variable:lat:metadata}
             metadata_dict[key_parent] = escape(str(value_parent))
@@ -198,3 +201,6 @@ def get_petascope_endpoint_without_ows(petascope_endpoint):
 
     return endpoint
 
+
+def enquote_start_and_end_regex(str):
+    return '^' + str + '$'

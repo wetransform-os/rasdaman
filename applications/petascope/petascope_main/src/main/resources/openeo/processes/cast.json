@@ -1,0 +1,89 @@
+{
+    "id": "cast",
+    "summary": "Type conversion",
+    "description": "Change the type of `x` to a new type `y` (*`(y)x`*); the type conversion rules of C++ apply.\n\nThe operand can be a scalar number or a datacube.\n\n\nThe result is a scalar number if the operand is scalar, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| first operand type   | second operand type   | result type   |\n|----------------------|-----------------------|---------------|\n| X                    | Y                     | Y             |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        },
+        {
+            "name": "y",
+            "description": "The new type. [unsigned] char, short, and int are 8, 16, and 32-bit integer respectively; cint16 and cint32 are complex of 16 and 32-bit integer respectively; complex and complex2 are complex of single and double-precision floating-point.",
+            "schema": {
+                "type": "string",
+                "enum": [
+                    "boolean",
+                    "char",
+                    "short",
+                    "int",
+                    "unsigned char",
+                    "unsigned short",
+                    "unsigned int",
+                    "float",
+                    "double",
+                    "cint16",
+                    "cint32",
+                    "complex",
+                    "complex2"
+                ]
+            }
+        }
+    ],
+    "returns": {
+        "description": "Null where `x` is null, otherwise the original values of `x` cast to the new type specified by `y`.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": 5.4,
+                "y": "int"
+            },
+            "returns": 5
+        },
+        {
+            "arguments": {
+                "x": "DatacubeA",
+                "y": "float"
+            },
+            "returns": "DatacubeB"
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        }
+    ],
+    "wcps": "(<y>)<x>",
+    "categories": [
+        "Type conversion"
+    ]
+}

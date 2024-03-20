@@ -22,12 +22,14 @@
 package org.rasdaman.secore.controller;
 
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.io.IOUtils;
 import org.rasdaman.secore.req.ResolveRequest;
 import org.rasdaman.secore.req.ResolveResponse;
 import org.rasdaman.secore.Resolver;
@@ -35,14 +37,17 @@ import net.opengis.ows.v_1_0_0.ExceptionReport;
 import net.opengis.ows.v_1_0_0.ExceptionType;
 import static org.rasdaman.secore.Constants.EMPTY;
 import static org.rasdaman.secore.Constants.QUERY_SEPARATOR;
+
+import org.rasdaman.secore.util.HttpUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.rasdaman.secore.util.StringUtil;
 import org.rasdaman.secore.db.DbManager;
 import static org.rasdaman.secore.Constants.NEW_LINE;
 import static org.rasdaman.secore.Constants.XML_DECL;
+import static org.rasdaman.secore.util.HttpUtil.*;
+
 import org.rasdaman.secore.util.ExceptionCode;
 import org.rasdaman.secore.util.SecoreException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -64,7 +69,8 @@ public class SecoreController {
 
     private static final Logger log = LoggerFactory.getLogger(SecoreController.class);
 
-    private static final String CONTENT_TYPE = "text/xml; charset=utf-8";
+    private static final String DEFAULT_CONTENT_TYPE_XML = "text/xml; charset=utf-8";
+    private static final String CONTENT_TYPE_GML = "application/gml+xml";
     /**
      * cached the request and the result of the request
      */
@@ -73,23 +79,19 @@ public class SecoreController {
     /**
      * NOTE: Any rest, kvp requests which will not return .jsp files will be handled in this method
      * 
-     * @param req
-     * @param resp
-     * @throws ServletException
-     * @throws IOException 
      */
     @RequestMapping("/**")
-    public void handle(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    public void handle(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException, SecoreException {
         this.handleRequest(req, resp);
     }
     
-    public void handleRequest(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    public void handleRequest(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException, SecoreException {
         String uri = req.getRequestURL().toString();        
         String qs = req.getQueryString();
         if (qs != null && !qs.equals(EMPTY)) {
             uri += QUERY_SEPARATOR + qs;
         }
-        log.info("Received request: " + uri);
+        log.debug("Received request: " + uri);
         long start = System.currentTimeMillis();
         
         try {
@@ -113,40 +115,47 @@ public class SecoreController {
                 cache.put(uri, result);
             }
 
+            if (result.equals(XML_DECL + NEW_LINE)) {
+                throw new SecoreException(ExceptionCode.NoSuchDefinition, "The requested resource was not found");
+            }
+
             long end = System.currentTimeMillis();
             long totalTime = end - start;
-            log.info("Request processed in '" + String.valueOf(totalTime) + "' ms.");
+            log.debug("Request processed in '" + String.valueOf(totalTime) + "' ms.");
             
-            writeResult(resp, result);
+            writeResult(req, resp, result);
         } catch (SecoreException ex) {
-            writeError(resp, ex);
+            log.error("Exception caught when resolving URI: " + uri + ". Reason: " + ex.getExceptionText(), ex);
+            String result = exceptionToXml(ex);
+            writeResult(req, resp, result);
         }
     }
 
-    public void writeResult(HttpServletResponse resp, String result) throws ServletException, IOException {
-        PrintWriter out = resp.getWriter();
-        resp.setContentType(CONTENT_TYPE);
-        if (result.equals(XML_DECL + NEW_LINE)) {
-            SecoreException ce = new SecoreException(ExceptionCode.NoSuchDefinition, "The requested resource was not found");
-            writeError(resp, ce);
+    public void writeResult(HttpServletRequest req, HttpServletResponse resp, String result) throws ServletException, IOException, SecoreException {
+        byte[] bytesArray = result.getBytes();
+
+        String compressionHeaderValue = req.getHeader(ACCEPT_ENCODING_HEADER_NAME);
+        if (HttpUtil.containGZIPHeaderValue(compressionHeaderValue)) {
+            resp.addHeader(CONTENT_ENCODING_HEADER_NAME, COMPRESSION_GZIP_HEADER);
+            bytesArray = HttpUtil.compressBytesArrayToGZIP(bytesArray);
+        }
+
+        OutputStream os = resp.getOutputStream();
+        String requestAcceptHeaderValue = req.getHeader("Accept");
+        if (requestAcceptHeaderValue != null && requestAcceptHeaderValue.contains(CONTENT_TYPE_GML)) {
+            resp.setContentType(CONTENT_TYPE_GML);
         } else {
-            out.write(result);
+            resp.setContentType(DEFAULT_CONTENT_TYPE_XML);
         }
-        out.flush();
-        out.close();
+                
+        IOUtils.write(bytesArray, os);
     }
 
-    public void writeError(HttpServletResponse resp, SecoreException ex) throws IOException {
-        log.error("Exception caught:", ex);
-        String output = exceptionToXml(ex);
-        resp.setContentType(CONTENT_TYPE);
-        resp.setStatus(ex.getExceptionCode().getHttpErrorCode());
-        PrintWriter out = resp.getWriter();
-        out.println(output);
-        out.close();
+    public static void clearCache() {
+        cache.clear();
     }
 
-    public String exceptionToXml(SecoreException ex) {
+    private String exceptionToXml(SecoreException ex) {
         ExceptionReport report = ex.getReport();
         StringBuilder ret = new StringBuilder(500);
         ret.append(XML_DECL);

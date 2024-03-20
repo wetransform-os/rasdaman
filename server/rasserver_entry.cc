@@ -21,49 +21,49 @@ rasdaman GmbH.
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
-
 #include "rasserver_entry.hh"
 #include "raslib/error.hh"
 #include "raslib/oid.hh"
 #include "servercomm/cliententry.hh"
 #include "servercomm/accesscontrol.hh"
 #include "reladminif/adminif.hh"
-#include "mymalloc/mymalloc.h"
 
 #include <logging.hh>
 #include <limits>
+#include <grpc++/grpc++.h>
 
 using namespace std;
 
 extern AccessControl accessControl;
 
-unsigned long RasServerEntry::clientCount = 0;
-const unsigned long RasServerEntry::noClientConnected = numeric_limits<unsigned long>::max();
-
-RasServerEntry& RasServerEntry::getInstance()
+RasServerEntry &RasServerEntry::getInstance()
 {
     static RasServerEntry instance;
     return instance;
 }
 
-void RasServerEntry::connectToRasbase()
+void RasServerEntry::connectToRasbase(const std::shared_ptr<rasserver::RasmgrComm> &rasmgrComm)
 {
     auto *admin = AdminIf::instance();
     if (!admin)
         throw r_Error(r_Error::r_Error_BaseDBMSFailed);
     server.setAdmin(admin);
+    server.setRasmgrComm(rasmgrComm);
 }
 
-void RasServerEntry::connectNewClient(const char* capability)
+void RasServerEntry::connectNewClient(std::uint32_t clientId, const char *capability)
 {
     if (!currentClientContext)
     {
-        currentClientContext = new ClientTblElt(ClientType::Regular, ++clientCount);
-        currentClientIdx = clientCount;
-        server.addClientTblEntry(currentClientContext);
-    
         if (accessControl.crunchCapability(capability) == CAPABILITY_REFUSED)
+        {
+            LWARNING << "Invalid capability: '" << capability << "'";
             throw r_Ecapability_refused();
+        }
+        clientConnected = true;
+        currentClientIdx = clientId;
+        currentClientContext = new ClientTblElt(ClientType::Regular, currentClientIdx);
+        server.addClientTblEntry(currentClientContext);
     }
     else
     {
@@ -80,11 +80,11 @@ ClientTblElt *RasServerEntry::getClientContext()
 void RasServerEntry::disconnectClient()
 {
     server.deleteClientTblEntry(currentClientIdx);
-    currentClientIdx = noClientConnected;
+    clientConnected = false;
     currentClientContext = nullptr;
 }
 
-void RasServerEntry::openDB(const char* databaseName)
+void RasServerEntry::openDB(const char *databaseName)
 {
     server.openDB(currentClientIdx, databaseName, "");
 }
@@ -114,18 +114,18 @@ bool RasServerEntry::isOpenTA()
     return server.isTAOpen(currentClientIdx);
 }
 
-long RasServerEntry::compat_executeQueryHttp(const char* httpParams, int httpParamsLen, char*& resultBuffer)
+long RasServerEntry::compat_executeQueryHttp(const char *httpParams, int httpParamsLen, char *&resultBuffer)
 {
     currentClientContext->clientType = ClientType::Http;
     return server.processRequest(currentClientIdx, httpParams, httpParamsLen, resultBuffer);
 }
 
-int RasServerEntry::compat_executeQueryRpc(const char* query, ExecuteQueryRes& queryResult)
+int RasServerEntry::compat_executeQueryRpc(const char *query, ExecuteQueryRes &queryResult, bool insert)
 {
-    return server.executeQuery(currentClientIdx, query, queryResult);
+    return server.executeQuery(currentClientIdx, query, queryResult, insert);
 }
 
-int RasServerEntry::compat_getNextElement(char*& buffer, unsigned int&  bufferSize)
+int RasServerEntry::compat_getNextElement(char *&buffer, unsigned int &bufferSize)
 {
     return server.getNextElement(currentClientIdx, buffer, bufferSize);
 }
@@ -135,22 +135,22 @@ int RasServerEntry::compat_endTransfer()
     return server.endTransfer(currentClientIdx);
 }
 
-int RasServerEntry::compat_getNextMDD(r_Minterval& mddDomain, char*& typeName, char*& typeStructure, r_OId& oid, unsigned short& currentFormat)
+int RasServerEntry::compat_getNextMDD(r_Minterval &mddDomain, std::string &typeName, std::string &typeStructure, r_OId &oid, unsigned short &currentFormat)
 {
     return server.getNextMDD(currentClientIdx, mddDomain, typeName, typeStructure, oid, currentFormat);
 }
-int RasServerEntry::compat_getNextTile(RPCMarray** rpcMarray)
+int RasServerEntry::compat_getNextTile(RPCMarray **rpcMarray)
 {
     return server.getNextTile(currentClientIdx, rpcMarray);
 }
 
-int RasServerEntry::compat_ExecuteUpdateQuery(const char* query, ExecuteUpdateRes& returnStructure)
+int RasServerEntry::compat_ExecuteUpdateQuery(const char *query, ExecuteUpdateRes &returnStructure)
 {
     // update query (and insert < v9.1), does not return results
     return server.executeUpdate(currentClientIdx, query, returnStructure);
 }
 
-int RasServerEntry::compat_ExecuteInsertQuery(const char* query, ExecuteQueryRes& queryResult)
+int RasServerEntry::compat_ExecuteInsertQuery(const char *query, ExecuteQueryRes &queryResult)
 {
     // insert query (>= v9.1), returns results
     return server.executeInsert(currentClientIdx, query, queryResult);
@@ -161,13 +161,13 @@ int RasServerEntry::compat_InitUpdate()
     return server.initExecuteUpdate(currentClientIdx);
 }
 
-int RasServerEntry::compat_StartInsertTransMDD(const char* domain, int typeLength, const char* typeName)
+int RasServerEntry::compat_StartInsertTransMDD(const char *domain, int typeLength, const char *typeName)
 {
     r_Minterval mddDomain(domain);
     return server.startInsertTransMDD(currentClientIdx, mddDomain, static_cast<unsigned int>(typeLength), typeName);
 }
 
-int RasServerEntry::compat_InsertTile(bool persistent, RPCMarray* rpcMarray)
+int RasServerEntry::compat_InsertTile(bool persistent, RPCMarray *rpcMarray)
 {
     return server.insertTile(currentClientIdx, persistent, rpcMarray);
 }
@@ -177,72 +177,72 @@ int RasServerEntry::compat_EndInsertMDD(int persistent)
     return server.endInsertMDD(currentClientIdx, persistent);
 }
 
-int RasServerEntry::compat_GetTypeStructure(const char* typeName, int typeType, char*& typeStructure)
+int RasServerEntry::compat_GetTypeStructure(const char *typeName, int typeType, std::string &typeStructure)
 {
     return server.getTypeStructure(currentClientIdx, typeName, static_cast<unsigned short>(typeType), typeStructure);
 }
 
-int RasServerEntry::compat_StartInsertPersMDD(const char* collName, r_Minterval& mddDomain, int typeLength, const char* typeName, r_OId& oid)
+int RasServerEntry::compat_StartInsertPersMDD(const char *collName, r_Minterval &mddDomain, int typeLength, const char *typeName, r_OId &oid)
 {
     return server.startInsertPersMDD(currentClientIdx, collName, mddDomain, static_cast<unsigned int>(typeLength), typeName, oid);
 }
 
-int RasServerEntry::compat_InsertMDD(const char* /*collName*/, RPCMarray* /*rpcMarray*/, const char* /*typeName*/, r_OId& /*oid*/)
+int RasServerEntry::compat_InsertMDD(const char * /*collName*/, RPCMarray * /*rpcMarray*/, const char * /*typeName*/, r_OId & /*oid*/)
 {
     LERROR << "Invoked unsupported server functionality 'insert whole MDD'.";
-    throw r_Error(INTERNALSERVERERROR); // Internal error
+    throw r_Error(INTERNALSERVERERROR);  // Internal error
 }
 
-int RasServerEntry::compat_InsertCollection(const char* collName, const char* typeName, r_OId& oid)
+int RasServerEntry::compat_InsertCollection(const char *collName, const char *typeName, r_OId &oid)
 {
     return server.insertColl(currentClientIdx, collName, typeName, oid);
 }
 
-int RasServerEntry::compat_DeleteCollByName(const char* collName)
+int RasServerEntry::compat_DeleteCollByName(const char *collName)
 {
     return server.deleteCollByName(currentClientIdx, collName);
 }
 
-int RasServerEntry::compat_DeleteObjByOId(r_OId& oid)
+int RasServerEntry::compat_DeleteObjByOId(r_OId &oid)
 {
     return server.deleteObjByOId(currentClientIdx, oid);
 }
 
-int RasServerEntry::compat_RemoveObjFromColl(const char* collName, r_OId& oid)
+int RasServerEntry::compat_RemoveObjFromColl(const char *collName, r_OId &oid)
 {
     return server.removeObjFromColl(currentClientIdx, collName, oid);
 }
 
-int RasServerEntry::compat_GetCollectionByName(const char* collName, char*& typeName, char*& typeStructure, r_OId& oid)
+int RasServerEntry::compat_GetCollectionByName(const char *collName, std::string &typeName, std::string &typeStructure, r_OId &oid)
 {
     return server.getCollByName(currentClientIdx, collName, typeName, typeStructure, oid);
 }
 
-int RasServerEntry::compat_GetCollectionByName(r_OId oid, char*& typeName, char*& typeStructure, char*& collName)
+int RasServerEntry::compat_GetCollectionByName(r_OId oid, std::string &typeName, std::string &typeStructure, std::string &collName)
 {
     return server.getCollByOId(currentClientIdx, oid, typeName, typeStructure, collName);
 }
 
-int RasServerEntry::compat_GetCollectionOidsByName(const char* collName, char*& typeName, char*& typeStructure, r_OId& oid, RPCOIdEntry*& oidTable, unsigned int& oidTableSize)
+int RasServerEntry::compat_GetCollectionOidsByName(const char *collName, std::string &typeName, std::string &typeStructure, r_OId &oid, RPCOIdEntry *&oidTable, unsigned int &oidTableSize)
 {
     return server.getCollOIdsByName(currentClientIdx, collName, typeName, typeStructure, oid, oidTable, oidTableSize);
 }
 
-int RasServerEntry::compat_GetCollectionOidsByOId(r_OId oid, char*& typeName, char*& typeStructure, RPCOIdEntry*& oidTable, unsigned int& oidTableSize, char*& collName)
+int RasServerEntry::compat_GetCollectionOidsByOId(r_OId oid, std::string &typeName, std::string &typeStructure, RPCOIdEntry *&oidTable, unsigned int &oidTableSize, std::string &collName)
 {
     return server.getCollOIdsByOId(currentClientIdx, oid, typeName, typeStructure, oidTable, oidTableSize, collName);
 }
 
-int RasServerEntry::compat_GetObjectType(r_OId& oid, unsigned short& objType)
+int RasServerEntry::compat_GetObjectType(r_OId &oid, unsigned short &objType)
 {
     return server.getObjectType(currentClientIdx, oid, objType);
 }
 
-int RasServerEntry::compat_SetTransferFormat(int format, const char* params)
+int RasServerEntry::compat_SetTransferFormat(int format, const char *params)
 {
     return server.setTransferMode(currentClientIdx, static_cast<unsigned short>(format), params);
 }
-int RasServerEntry::compat_SetStorageFormat(int format, const char* params)
+int RasServerEntry::compat_SetStorageFormat(int format, const char *params)
 {
     return server.setStorageMode(currentClientIdx, static_cast<unsigned short>(format), params);
 }
@@ -253,17 +253,16 @@ r_OId RasServerEntry::compat_getNewOId(unsigned short objType)
     return result;
 }
 
-
 #include "server/createinitmdd.hh"
 
-r_OId RasServerEntry::createCollection(const char* collName, const char* collTypeName)
+r_OId RasServerEntry::createCollection(const char *collName, const char *collTypeName)
 {
     FastCollectionCreator fcc(collName, collTypeName);
     return fcc.createCollection();
 }
-r_OId RasServerEntry::createMDD(const char* collName, const char* mddTypeName, 
-                                const char* definitionDomain,
-                                const char* tileDomain, bool rcindex)
+r_OId RasServerEntry::createMDD(const char *collName, const char *mddTypeName,
+                                const char *definitionDomain,
+                                const char *tileDomain, bool rcindex)
 {
     FastMDDCreator fc;
 
@@ -274,14 +273,23 @@ r_OId RasServerEntry::createMDD(const char* collName, const char* mddTypeName,
     else
         return fc.createMDD(definitionDomain);
 }
-void  RasServerEntry::extendMDD(r_OId mddOId, const char* stripeDomain, const char* tileDomain)
+void RasServerEntry::extendMDD(r_OId mddOId, const char *stripeDomain, const char *tileDomain)
 {
     FastMDDCreator fc;
     fc.addStripe(mddOId, stripeDomain, tileDomain);
 }
-vector<r_Minterval> RasServerEntry::getTileDomains(r_OId mddOId, const char* stripeDomain)
+vector<r_Minterval> RasServerEntry::getTileDomains(r_OId mddOId, const char *stripeDomain)
 {
     FastMDDCreator fc;
     return fc.getTileDomains(mddOId, stripeDomain);
 }
 
+void RasServerEntry::setServerContext(grpc::ServerContext *serverContext)
+{
+    context = serverContext;
+}
+
+grpc::ServerContext *RasServerEntry::getServerContext()
+{
+    return context;
+}

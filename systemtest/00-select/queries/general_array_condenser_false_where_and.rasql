@@ -1,0 +1,1 @@
+select condense and over i in [100:101,100:101] where false using false

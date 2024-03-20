@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: stattiling.hh
- *
- * MODULE:  rasodmg
- * CLASS:   r_Stat_Tiling r_Access
- *
- * COMMENTS:
- *      None
-*/
 
 #ifndef _R_STATTILING_HH_
 #define _R_STATTILING_HH_
@@ -45,10 +36,10 @@ class r_Stat_Tiling;
 
 //@ManMemo: Module: {\bf rasodmg}
 
-/*@Doc:
+/**
 
   This class represents an access pattern to a certain object.
-  \c r_Stat_Tiling receives a list of this objects so that
+  r_Stat_Tiling receives a list of this objects so that
   an appropriate tiling can be defined.
 */
 
@@ -58,9 +49,8 @@ class r_Stat_Tiling;
 class r_Access
 {
 public:
-
     /// Class constructor
-    r_Access(const r_Minterval &pattern, r_ULong accesses = 1);
+    explicit r_Access(const r_Minterval &pattern, r_ULong accesses = 1);
     /**
       It takes as parameter the interval and the number of times
       that interval was accessed.
@@ -95,7 +85,6 @@ public:
     bool operator!=(const r_Access &other) const;
 
 private:
-
     /// The user can't use the default constructor
     r_Access() = default;
 
@@ -111,7 +100,6 @@ private:
     Prints the status of a Access object to a stream
 */
 extern std::ostream &operator<<(std::ostream &os, const r_Access &access);
-
 
 //@ManMemo: Module: {\bf rasodmg}
 
@@ -136,8 +124,7 @@ class r_Stat_Tiling : public r_Dimension_Tiling
 {
     // ******************* PUBLIC SECTION *******************
 
-public: // constants
-
+public:  // constants
     /// Default threshold for two borders being considered the same
     const static r_Area DEF_BORDER_THR;
 
@@ -146,12 +133,12 @@ public: // constants
 
     /// read everything from an encoded string
     /// e.g. "2;[0:9,0:9],3;[100:109,0:9],2;2;0.3;100"
-    r_Stat_Tiling(const char *encoded);
+    explicit r_Stat_Tiling(const char *encoded);
 
     /// Class constructor
     r_Stat_Tiling(r_Dimension dim,
                   const std::vector<r_Access> &stat_info,
-                  r_Bytes ts = RMInit::clientTileSize,
+                  r_Bytes ts = r_Tiling::defaultTileSize,
                   r_Area border_threshold = DEF_BORDER_THR,
                   r_Double interesting_threshold = DEF_INTERESTING_THR);
     /**
@@ -186,18 +173,17 @@ public: // constants
       threshold, will be considered interest areas when performing tiling.
     */
 
-    virtual void print_status(std::ostream &os) const;
+    void print_status(std::ostream &os) const override;
 
-    virtual std::vector<r_Minterval> compute_tiles(const r_Minterval &obj_domain, r_Bytes cell_size) const;
+    std::vector<r_Minterval> compute_tiles(const r_Minterval &obj_domain, r_Bytes cell_size) const override;
 
-    virtual r_Tiling *clone() const;
+    r_Tiling *clone() const override;
 
-    virtual r_Tiling_Scheme get_tiling_scheme() const;
+    r_Tiling_Scheme get_tiling_scheme() const override;
 
     static const char *description;
 
 protected:  // methods
-
     /// Filters and access pattern table (list)
     /// throws exception if dimensions of access patterns are not the same
     void filter(std::vector<r_Access> &patterns) const;

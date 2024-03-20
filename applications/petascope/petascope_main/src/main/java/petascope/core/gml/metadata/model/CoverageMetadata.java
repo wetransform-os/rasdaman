@@ -30,6 +30,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 import petascope.core.XMLSymbols;
+import petascope.exceptions.PetascopeRuntimeException;
+import petascope.util.JSONUtil;
+import petascope.util.XMLUtil;
 import petascope.wcps.encodeparameters.model.AxesMetadata;
 import petascope.wcps.encodeparameters.model.BandsMetadata;
 /**
@@ -76,7 +79,8 @@ public class CoverageMetadata {
      * to not show in the result if serialization
      */
     public void stripEmptyProperties() {
-        if (this.axesMetadata != null && this.axesMetadata.getAxesAttributesMap().isEmpty()) {
+        if (this.axesMetadata != null
+                && this.axesMetadata.getAxesAttributesMap().isEmpty()) {
             this.setAxesMetadata(null);
         }
         if (this.bandsMetadata != null && this.bandsMetadata.getBandsAttributesMap().isEmpty()) {
@@ -137,8 +141,20 @@ public class CoverageMetadata {
             return true;
         } else {
             if (this.axesMetadata != null && this.bandsMetadata != null && this.localMetadata != null) {
+                boolean isGlobalMetadataAttributesMapEmpty = true;
+
+                for (Map.Entry<String, String> entry : this.globalMetadataAttributesMap.entrySet()) {
+                    String key = entry.getKey();
+                    String value = entry.getValue();
+                    if (value != null && !value.trim().isEmpty()) {
+                        isGlobalMetadataAttributesMapEmpty = false;
+                        break;
+                    }
+                }
+
+
                 if (this.axesMetadata.getAxesAttributesMap().isEmpty() && this.bandsMetadata.getBandsAttributesMap().isEmpty()
-                    && this.localMetadata.getLocalMetadataChildList().isEmpty() && this.globalMetadataAttributesMap.isEmpty()) {
+                    && this.localMetadata.getLocalMetadataChildList().isEmpty() && isGlobalMetadataAttributesMapEmpty == true) {
                     return true;
                 }
             }
@@ -168,7 +184,7 @@ public class CoverageMetadata {
      * Add a new localMetadata to list of local metadata root.
      */
     public void addLocalMetadataToList(LocalMetadataChild localMetadata) {
-        if (this.localMetadata != null) {
+        if (this.localMetadata != null && localMetadata.getBoundedBy() != null && localMetadata.getLocalMetadataAttributesMap() != null) {
             this.localMetadata.getLocalMetadataChildList().add(localMetadata);
         }
     }
@@ -179,17 +195,30 @@ public class CoverageMetadata {
      * from this list to 1 map of keys:concatenated values (concatenated values are comma separated values,
      * e.g: "fileReferenceHistory": "file_path_1,file_path_2,file_path_3" from list of LocalMetadataChild with 3 elements.
      */
-    public Map<String, String> flattenMetadataMap() {
+    public Map<String, String> flattenMetadataMap(String coverageMetadataStr, boolean isGMLForSerializedOutput) {
         
         Map<String, String> resultMap = new LinkedHashMap<>();
         resultMap.putAll(this.globalMetadataAttributesMap);
         
         if (this.localMetadata != null) {
-            // Iterate keys, values in LocalMetadataChild list to aggreate them by keys
+            // Iterate keys, values in LocalMetadataChild list to aggregate them by keys
             for (LocalMetadataChild localMetadataChild : this.localMetadata.getLocalMetadataChildList()) {
-                for (Entry<String, String> entry : localMetadataChild.getLocalMetadataAttributesMap().entrySet()) {
+                for (Entry<String, Object> entry : localMetadataChild.getLocalMetadataAttributesMap().entrySet()) {
                     String key = entry.getKey();
-                    String value = entry.getValue();
+
+                    String value = "";
+                    try {
+                        boolean isCoverageMetadataInXML = XMLUtil.isXmlString(coverageMetadataStr);
+
+                        if (isGMLForSerializedOutput && isCoverageMetadataInXML) {
+                            value = XMLUtil.serializeObjectToXMLString(entry.getValue());
+                        } else {
+                            value = JSONUtil.serializeObjectToJSONString(entry.getValue());
+                        }
+                    } catch (Exception ex) {
+                        throw new PetascopeRuntimeException("Cannot serialize coverage's local metadata object to string. " +
+                                                            "Reason: " + ex.getMessage(), ex);
+                    }
 
                     if (!resultMap.containsKey(key)) {
                         resultMap.put(key, value);
@@ -199,6 +228,7 @@ public class CoverageMetadata {
                         concatedValue = concatedValue + "," + value;
                         resultMap.put(key, concatedValue);
                     }
+
                 }
             }
         }

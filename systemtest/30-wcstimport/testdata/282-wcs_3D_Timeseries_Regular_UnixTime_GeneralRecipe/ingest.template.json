@@ -1,0 +1,67 @@
+{
+  "config": {
+    "service_url": "PETASCOPE_URL",
+    "tmp_directory": "/tmp/",
+    "automated": true,
+    "track_files": false,
+    "subset_correction": false,
+    "blocking": false,
+    "insitu" : false,
+    "mock": false
+  },
+  "input": {
+    "coverage_id": "test_wcs_3D_Timeseries_Regular_UnixTime_GeneralRecipe",
+    "paths": [
+      "*.TIFF"
+    ]
+  },
+  "recipe": {
+    "name": "general_coverage",
+    "options": {
+      "tiling": "ALIGNED [0:*, 0:*, 0:*] tile size 4194304",    
+      "coverage": {
+        "crs": "OGC/0/UnixTime?axis-label=\"unix\"@EPSG/0/4326",
+        "metadata": {
+          "type": "xml",
+          "global": {
+            "Title": "'This is a test coverage'"
+          }
+        },
+        "slicer": {
+          "type": "gdal",
+          "bands": [
+            {
+              "name": "red",
+              "identifier": "red"
+            }, {
+              "name": "green",
+              "identifier": "green"
+            }, {
+              "name": "blue",
+              "identifier": "blue"
+            }
+          ],
+          "axes": {
+            "unix": {
+              "min": "datetime(regex_extract('${file:name}', '(.+?)_(.+?)_(.+?)_(.+?).TIFF', 4), 'YYYY-MM-DDTHH:mm:ss')",
+	          "dataBound": false,
+	          "resolution": 5
+            },
+            "Lat": {
+              "min": "${gdal:minY}",
+              "max": "${gdal:maxY}",
+              "resolution": "${gdal:resolutionY}"
+            },
+            "Long": {
+              "min": "${gdal:minX}",
+              "max": "${gdal:maxX}",
+              "resolution": "${gdal:resolutionX}"
+            }
+            
+            
+          }
+        }
+      }
+     }
+    }
+}

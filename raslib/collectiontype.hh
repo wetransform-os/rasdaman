@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: collectiontype.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Collection_Type
- *
- * COMMENTS:
- *      None
-*/
 
 #ifndef D_COLLECTION_TYPE_HH
 #define D_COLLECTION_TYPE_HH
@@ -36,18 +27,22 @@ rasdaman GmbH.
 #include "raslib/type.hh"
 
 //@ManMemo: Module: {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
   This class represents the collection type in the ODMG conformant
   representation of the RasDaMan type system.
 */
-
-
 class r_Collection_Type : public r_Type
 {
 public:
     /// Set type in the only one needed right now.
-    typedef enum { SET } r_Kind;
+    typedef enum
+    {
+        SET
+    } r_Kind;
 
     /// copy constructor
     /// the exception is only raised when the element type of the copied type is NULL.
@@ -55,8 +50,8 @@ public:
     r_Collection_Type(const r_Collection_Type &);
 
     /// constructor getting element type
-    r_Collection_Type(r_Type &newType);
-    
+    explicit r_Collection_Type(r_Type &newType);
+
     /// destructor
     ~r_Collection_Type() override;
 
@@ -103,4 +98,3 @@ protected:
 extern std::ostream &operator<<(std::ostream &str, const r_Collection_Type &type);
 
 #endif
-

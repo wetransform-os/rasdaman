@@ -24,21 +24,25 @@
 #ifndef _COMMON_SYSTEM_HH_
 #define _COMMON_SYSTEM_HH_
 
-#include <unistd.h> // sysconf
+#include <unistd.h>  // sysconf
 #include <sys/types.h>
+#include "fileutils.hh"
 
-namespace common {
+namespace common
+{
 
-class SystemUtil {
-
- public:
-
-  /**
+class SystemUtil
+{
+public:
+    /**
    * @return true if the server process is still available on the system.
    */
-  static bool isProcessAlive(pid_t processId);
+    static bool isProcessAlive(pid_t processId);
+
+    /// Execute system command cmd, return empty string on success or error message otherwise
+    static std::string executeSystemCommand(const char *cmd);
 };
 
-}
+}  // namespace common
 
 #endif

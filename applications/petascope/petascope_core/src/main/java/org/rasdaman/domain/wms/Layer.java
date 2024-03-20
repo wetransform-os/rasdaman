@@ -39,6 +39,8 @@ import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.OrderColumn;
 import javax.persistence.Table;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 /**
  *
@@ -92,6 +94,7 @@ public class Layer implements Serializable {
     // One, but its properties are optional values (use default)
     @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = LayerAttribute.COLUMN_ID)
+    @NotFound(action = NotFoundAction.IGNORE)
     private LayerAttribute layerAttribute;
 
     // Zero or One, optional
@@ -114,6 +117,7 @@ public class Layer implements Serializable {
 
     // One, mandatory
     @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = EXGeographicBoundingBox.COLUMN_ID)
     private EXGeographicBoundingBox exGeographicBoundingBox;
 

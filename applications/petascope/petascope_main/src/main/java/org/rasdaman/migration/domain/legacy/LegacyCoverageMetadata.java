@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import petascope.core.CrsDefinition;
+import petascope.exceptions.PetascopeException;
 import petascope.util.CrsUtil;
 
 /**
@@ -1065,7 +1066,7 @@ public class LegacyCoverageMetadata implements Cloneable {
      * Return the compound of axis CRSs of coverage
      * @return 
      */
-    public String getCompoundCrs() {
+    public String getCompoundCrs() throws PetascopeException {
         String compoundCrs = CrsUtil.CrsUri.createCompound(this.getCrsUris());
         return compoundCrs;
     }

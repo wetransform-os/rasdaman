@@ -35,5 +35,33 @@ liquibase.change-log=classpath:/database_versions/db.changelog-master.xml
 spring.jpa.hibernate.naming.implicit-strategy=org.rasdaman.CustomImplicitNamingStrategyImpl
 spring.jpa.hibernate.naming.physical-strategy=org.rasdaman.CustomPhysicalNamingStrategyImpl
 
+# Required for Spring Boot 2.7.10
+spring.main.allow-circular-references=true
+spring.mvc.hiddenmethod.filter.enabled=true
+spring.datasource.type=org.apache.tomcat.jdbc.pool.DataSource
+spring.jpa.open-in-view=false
+logging.level.liquibase=WARN
+
+# This is used to allow multiple slashes before context path, e.g. http://localhost:8080//////rasdaman/ows is valid
+spring.mvc.pathmatch.matching-strategy=ant-path-matcher
+
 # default is /opt/rasdaman/etc
 secore.confDir=@CONF_DIR@
+
+##### Overridable settings in petascope.properties
+
+# Default configuration for all DBMS.
+spring.jpa.database=default
+spring.jpa.hibernate.ddl-auto=none
+
+# configurations for Tomcat JDBC Connection Pool
+spring.datasource.tomcat.initial-size=30
+spring.datasource.tomcat.max-active=70
+spring.datasource.tomcat.max-idle=30
+
+# Only for embedded petascope
+server.contextPath=/rasdaman
+
+# Hot reload to provide changed in classpath of petascope_core directly to petascope_main when developing with IDE
+spring.devtools.restart.additional-paths=../petascope_core
+

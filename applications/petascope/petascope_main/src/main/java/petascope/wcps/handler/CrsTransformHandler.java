@@ -26,21 +26,27 @@ import java.util.ArrayList;
 import petascope.util.CrsUtil;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
+import org.rasdaman.config.ConfigManager;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 import petascope.core.AxisTypes;
+import petascope.core.BoundingBox;
 import petascope.core.CrsDefinition;
 import petascope.core.GeoTransform;
+import petascope.core.Pair;
+import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
+import petascope.exceptions.WCPSException;
+import petascope.util.BigDecimalUtil;
 import petascope.util.CrsProjectionUtil;
 import petascope.util.StringUtil;
+import petascope.util.ras.RasUtil;
 import petascope.wcps.exception.processing.IdenticalAxisNameInCrsTransformException;
 import petascope.wcps.exception.processing.InvalidOutputCrsProjectionInCrsTransformException;
 import petascope.wcps.exception.processing.Not2DCoverageForCrsTransformException;
@@ -49,11 +55,15 @@ import petascope.wcps.exception.processing.NotGeoReferenceAxisNameInCrsTransform
 import petascope.wcps.exception.processing.NotIdenticalCrsInCrsTransformException;
 import static petascope.wcps.handler.AbstractOperatorHandler.checkOperandIsCoverage;
 import petascope.wcps.metadata.model.Axis;
+import petascope.wcps.metadata.model.CrsTransformTargetGeoXYBoundingBox;
+import petascope.wcps.metadata.model.CrsTransformTargetGeoXYResolutions;
 import petascope.wcps.metadata.model.NumericSubset;
 import petascope.wcps.metadata.model.NumericTrimming;
 import petascope.wcps.metadata.model.RegularAxis;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
+import petascope.wcps.result.WcpsMetadataResult;
 import petascope.wcps.result.WcpsResult;
+import petascope.wcps.subset_axis.model.WcpsTrimSubsetDimension;
 
 /**
  * Class to handle an crsTransform coverage expression  <code>
@@ -81,28 +91,54 @@ public class CrsTransformHandler extends Handler {
     public CrsTransformHandler create(Handler coverageExpressionHandler,
                                     StringScalarHandler axisLabelXHandler, StringScalarHandler crsXHandler,
                                     StringScalarHandler axisLabelYHandler, StringScalarHandler crsYHandler,
-                                    StringScalarHandler interpolationTypeHandler) {
+                                    StringScalarHandler interpolationTypeHandler,
+                                    CrsTransformTargetGeoXYResolutionsHandler targetGeoXYResolutionsHandler,
+                                    CrsTransformTargetGeoXYBoundingBoxHandler targetGeoXYBoundingBoxHandler) {
+        
         CrsTransformHandler result = new CrsTransformHandler();
         result.setChildren(Arrays.asList(coverageExpressionHandler, 
                             axisLabelXHandler, crsXHandler,
                             axisLabelYHandler, crsYHandler,
-                            interpolationTypeHandler));
+                            interpolationTypeHandler,
+                            targetGeoXYResolutionsHandler,
+                            targetGeoXYBoundingBoxHandler));
         
         return result;
     }
     
     @Override
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle());
-        String axisLabelX = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        String crsX = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpression = ((WcpsResult)this.getFirstChild().handle(serviceRegistries));
+        String axisLabelX = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String crsX = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
-        String axisLabelY = ((WcpsResult)this.getFourthChild().handle()).getRasql();
-        String crsY = ((WcpsResult)this.getFifthChild().handle()).getRasql();
+        String axisLabelY = ((WcpsResult)this.getFourthChild().handle(serviceRegistries)).getRasql();
+        String crsY = ((WcpsResult)this.getFifthChild().handle(serviceRegistries)).getRasql();
         
-        String interpolationType = ((WcpsResult)this.getSixthChild().handle()).getRasql();
+        String interpolationType = ((WcpsResult)this.getSixthChild().handle(serviceRegistries)).getRasql();
         
-        WcpsResult result = this.handle(coverageExpression, axisLabelX, crsX, axisLabelY, crsY, interpolationType);
+        
+        CrsTransformTargetGeoXYResolutions targetGeoXYResolutions = null;
+        if (this.getSeventhChild() != null) {
+            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getSeventhChild().handle(serviceRegistries);
+            if (wcpsMetadataResult.getTmpObject() instanceof CrsTransformTargetGeoXYResolutions) {
+                targetGeoXYResolutions = (CrsTransformTargetGeoXYResolutions) wcpsMetadataResult.getTmpObject();
+            }
+        }
+        
+        
+        CrsTransformTargetGeoXYBoundingBox targetGeoXYBBox = null;
+        if (this.getEighthChild()!= null) {
+            WcpsMetadataResult wcpsMetadataResult = (WcpsMetadataResult) this.getEighthChild().handle(serviceRegistries);
+            if (wcpsMetadataResult.getTmpObject() instanceof CrsTransformTargetGeoXYBoundingBox) {
+                targetGeoXYBBox = (CrsTransformTargetGeoXYBoundingBox) wcpsMetadataResult.getTmpObject();
+            }
+        }        
+        
+        
+        WcpsResult result = this.handle(coverageExpression, axisLabelX, crsX, axisLabelY, crsY, interpolationType,
+                                        targetGeoXYResolutions,
+                                        targetGeoXYBBox);
         return result;
     }
 
@@ -110,32 +146,100 @@ public class CrsTransformHandler extends Handler {
      * Constructor for the class
      *
      * @param coverageExpression the coverage expression that is encoded
-     * @param axisCrss List of 2 coverage's axes and their CRS (e.g:
-     * http://opengis.net/def/crs/epsg/0/4326)
-     * @param interpolationType resample algorithm (e.g: "near", "bilinear",...). 
+     * @param interpolationType resample algorithm (e.g: "near", "bilinear",...).
      * If interpolation type is null, use default type = near.
      * @return
      */
     public WcpsResult handle(WcpsResult coverageExpression, 
                             String axisLabelX, String crsX,
                             String axisLabelY, String crsY, 
-                            String interpolationType) throws PetascopeException {
+                            String interpolationType,
+                            CrsTransformTargetGeoXYResolutions targetGeoXYResolutions,
+                            CrsTransformTargetGeoXYBoundingBox targetGeoXYBBox
+                            ) throws PetascopeException {
         
         checkOperandIsCoverage(coverageExpression, OPERATOR);
+        
         int numberOfAxes = coverageExpression.getMetadata().getAxes().size();
         if (numberOfAxes != 2) {
             throw new Not2DCoverageForCrsTransformException(numberOfAxes);
         }
+        
+        String username = ConfigManager.RASDAMAN_ADMIN_USER;
+        String password = ConfigManager.RASDAMAN_ADMIN_PASS;
+        
+        String geoResolutionAxisLabelX = null, geoResolutionX = null, geoResolutionAxisLabelY = null, geoResolutionY = null;
+
+        
+        if (targetGeoXYResolutions != null) {
+        
+            geoResolutionX = targetGeoXYResolutions.getGeoResolutionX();
+            if (!BigDecimalUtil.isNumber(geoResolutionX)) {
+                // e.g. 3 + 2.5
+                geoResolutionX = RasUtil.executeQueryToReturnString("SELECT " + geoResolutionX, username, password);
+            }
+
+            geoResolutionY = targetGeoXYResolutions.getGeoResolutionY();
+            if (!BigDecimalUtil.isNumber(geoResolutionY)) {
+                // e.g. 3 + 2.5
+                geoResolutionY = RasUtil.executeQueryToReturnString("SELECT " + geoResolutionY, username, password);
+            }
+            
+            geoResolutionAxisLabelX = targetGeoXYResolutions.getGeoResolutionAxisLabelX();
+            geoResolutionAxisLabelY = targetGeoXYResolutions.getGeoResolutionAxisLabelY();
+            
+            if (new BigDecimal(geoResolutionX).equals(BigDecimal.ZERO)) {
+                throw new WCPSException(ExceptionCode.InvalidRequest, "Target resolution for axis " + geoResolutionAxisLabelX + " must be a non-zero number.");
+            }
+            if (new BigDecimal(geoResolutionY).equals(BigDecimal.ZERO)) {
+                throw new WCPSException(ExceptionCode.InvalidRequest, "Target resolution for axis " + geoResolutionAxisLabelY + " must be a non-zero number.");
+            }
+        }
+        
+        
         
         Map<String, String> axisCrss = new LinkedHashMap<>();
         axisCrss.put(axisLabelX, crsX);
         axisCrss.put(axisLabelY, crsY);
         
         checkValid(axisCrss);
-        String rasql = getRasqlExpression(coverageExpression, axisCrss, interpolationType);
-        String outputCrs = axisCrss.values().toArray()[0].toString();
 
         WcpsCoverageMetadata metadata = coverageExpression.getMetadata();
+        
+        // Target geoXY resolutions, e.g. {Lat:0.5, Lon:0.3}
+        Pair<String, String> inputTargetGeoXYResolutionPair = null;
+        if (targetGeoXYResolutions != null) {
+            if (metadata.getAxisByName(targetGeoXYResolutions.getGeoResolutionAxisLabelX()).isXAxis()) {
+                // e.g. input from user is: {Lon:30.5, Lat:50.6}
+                inputTargetGeoXYResolutionPair = new Pair<>(geoResolutionX, geoResolutionY);
+            } else {
+                // e.g. input from user is: {Lat:30.5, Lon:60.7}
+                inputTargetGeoXYResolutionPair = new Pair<>(geoResolutionY, geoResolutionX);
+            }
+        }
+        
+        
+        // Target geoXY bbox, e.g. {Lat(0:30), Lon(50:60)}
+        BoundingBox inputTargetGeoXYBoundingBox = null;
+        
+        if (targetGeoXYBBox != null && !targetGeoXYBBox.getGeoXYSubsets().isEmpty()) {
+            WcpsTrimSubsetDimension geoXYSubset1 = targetGeoXYBBox.getGeoXYSubsets().get(0);
+            WcpsTrimSubsetDimension geoXYSubset2 = targetGeoXYBBox.getGeoXYSubsets().get(1);
+            
+            if (metadata.getAxisByName(geoXYSubset1.getAxisName()).isXAxis()) {
+                // e.g. input bbox from user is: {Lon(30.5:60.5), Lat(50.6:60.6)}
+                inputTargetGeoXYBoundingBox = new BoundingBox(new BigDecimal(geoXYSubset1.getLowerBound()), new BigDecimal(geoXYSubset2.getLowerBound()),
+                                                        new BigDecimal(geoXYSubset1.getUpperBound()), new BigDecimal(geoXYSubset2.getUpperBound()));
+            } else {
+                // e.g. input bbox from user is: {Lat(50.6:60.6), Lon(30.5:60.5)}
+                inputTargetGeoXYBoundingBox = new BoundingBox(new BigDecimal(geoXYSubset2.getLowerBound()), new BigDecimal(geoXYSubset1.getLowerBound()),
+                                                        new BigDecimal(geoXYSubset2.getUpperBound()), new BigDecimal(geoXYSubset1.getUpperBound()));
+            }
+        }        
+        
+        String rasql = getRasqlExpression(coverageExpression, axisCrss, interpolationType, inputTargetGeoXYResolutionPair, inputTargetGeoXYBoundingBox);
+        String outputCrs = axisCrss.values().toArray()[0].toString();
+
         //from this point onwards, the coverage has the new crs uri
         metadata.setCrsUri(outputCrs);
         
@@ -143,7 +247,7 @@ public class CrsTransformHandler extends Handler {
             // NOTE: after this crsTransform operator, the coverage's axes will need to updated with values from outputCRS also.
             // e.g: crsTransform(c, {Lat:"http://localhost:8080/def/crs/epsg/0/4326", Long:"http://localhost:8080/def/crs/epsg/0/4326"})
             // with c has X, Y axes (CRS:3857), then output of crsTransform is a 2D coverage with Lat, Long axes (CRS:4326).
-            this.updateAxesByOutputCRS(metadata);
+            this.updateAxesByOutputCRS(metadata, inputTargetGeoXYResolutionPair, inputTargetGeoXYBoundingBox);
         }
         
         WcpsResult result = new WcpsResult(metadata, rasql);
@@ -227,13 +331,30 @@ public class CrsTransformHandler extends Handler {
      * Update the values of 2D geo, grid axes of current coverage to the corresponding values in OutputCRS.
      * e.g: coverage with 2 axes in EPSG:4326 Lat, Long order and outputCRS is EPSG:3857 X, Y order.
      */
-    private void updateAxesByOutputCRS(WcpsCoverageMetadata covMetadata) throws PetascopeException {
+    private void updateAxesByOutputCRS(WcpsCoverageMetadata covMetadata, 
+                                    Pair<String, String> inputTargetGeoXYResolutionsPair,
+                                    BoundingBox inputTargetGeoXYBoundingBox) throws PetascopeException {
         List<Axis> xyAxes = covMetadata.getXYAxes();        
         GeoTransform sourceGeoTransform = this.createGeoTransform(xyAxes);
 
         // Do the geo transform for this 2D geo, grid domains from source CRS to output CRS by GDAL
         String outputCRS = covMetadata.getCrsUri();
-        GeoTransform targetGeoTransform = CrsProjectionUtil.getGeoTransformInTargetCRS(sourceGeoTransform, outputCRS);
+        GeoTransform targetGeoTransform = null;
+        if (inputTargetGeoXYResolutionsPair == null && inputTargetGeoXYBoundingBox == null) {
+            targetGeoTransform = CrsProjectionUtil.getGeoTransformInTargetCRS(sourceGeoTransform, outputCRS);
+        } else {
+            // if gdalwarp -tr -te provided or only one of them provided
+            BigDecimal targetGeoResolutionX = null, targetGeoResolutionY = null;
+            if (inputTargetGeoXYResolutionsPair != null) {
+                targetGeoResolutionX = new BigDecimal(inputTargetGeoXYResolutionsPair.fst);
+                targetGeoResolutionY = new BigDecimal(inputTargetGeoXYResolutionsPair.snd);
+            }
+            targetGeoTransform = CrsProjectionUtil.getGeoTransformInTargetCRS(sourceGeoTransform, outputCRS,
+                                                    targetGeoResolutionX,
+                                                    targetGeoResolutionY,
+                                                    inputTargetGeoXYBoundingBox);
+        }
+        
         CrsDefinition crsDefinition = CrsUtil.getCrsDefinition(outputCRS);
         
         CrsDefinition.Axis firstCRSAxis, secondCRSAxis;
@@ -248,12 +369,19 @@ public class CrsTransformHandler extends Handler {
             secondCRSAxis = crsDefinition.getAxes().get(0);
         }
         
+        
+        List<Axis> beforeXYAxes = covMetadata.getXYAxes();
+        Axis beforeXAxis = beforeXYAxes.get(0);
+        Axis beforeYAxis = beforeXYAxes.get(1);
+        
         BigDecimal geoLowerBoundX = targetGeoTransform.getUpperLeftGeoX();
         BigDecimal geoUpperBoundX = targetGeoTransform.getLowerRightGeoX();
         
         NumericSubset geoBoundsX = new NumericTrimming(geoLowerBoundX, geoUpperBoundX);
-        NumericSubset originalGridBoundX = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(targetGeoTransform.getGridWidth() - 1));
-        NumericSubset gridBoundX = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(targetGeoTransform.getGridWidth() - 1));
+        NumericSubset originalGridBoundX = new NumericTrimming(beforeXAxis.getOriginalGridBounds().getLowerLimit(), 
+                                                               beforeXAxis.getOriginalGridBounds().getLowerLimit().add(new BigDecimal(targetGeoTransform.getGridWidth() - 1)));
+        NumericSubset gridBoundX = new NumericTrimming(beforeXAxis.getGridBounds().getLowerLimit(), 
+                                                    beforeXAxis.getGridBounds().getLowerLimit().add(new BigDecimal(targetGeoTransform.getGridWidth() - 1)));
         
         Axis axisX = new RegularAxis(firstCRSAxis.getAbbreviation(), geoBoundsX, originalGridBoundX, gridBoundX, 
                 outputCRS, crsDefinition, 
@@ -264,8 +392,10 @@ public class CrsTransformHandler extends Handler {
         BigDecimal geoLowerBoundY = targetGeoTransform.getLowerRightGeoY();
         
         NumericSubset geoBoundsY = new NumericTrimming(geoLowerBoundY, geoUpperBoundY);
-        NumericSubset originalGridBoundY = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(targetGeoTransform.getGridHeight() - 1));
-        NumericSubset gridBoundY = new NumericTrimming(BigDecimal.ZERO, new BigDecimal(targetGeoTransform.getGridHeight() - 1));
+        NumericSubset originalGridBoundY = new NumericTrimming(beforeYAxis.getOriginalGridBounds().getLowerLimit(), 
+                                                            beforeYAxis.getOriginalGridBounds().getLowerLimit().add(new BigDecimal(targetGeoTransform.getGridHeight() - 1)));
+        NumericSubset gridBoundY = new NumericTrimming(beforeYAxis.getGridBounds().getLowerLimit(), 
+                                                    beforeYAxis.getGridBounds().getLowerLimit().add(new BigDecimal(targetGeoTransform.getGridHeight() - 1)));
 
         Axis axisY = new RegularAxis(secondCRSAxis.getAbbreviation(), geoBoundsY, originalGridBoundY, gridBoundY, 
                 outputCRS, crsDefinition, 
@@ -284,7 +414,7 @@ public class CrsTransformHandler extends Handler {
     /**
      * Check if crsTrasnformExpression is valid
      */
-    private void checkValid(Map<String, String> axisCrss) {
+    private void checkValid(Map<String, String> axisCrss) throws PetascopeException {
 
         Set<String> keys = axisCrss.keySet();
         String[] axisNameArray = keys.toArray(new String[keys.size()]);
@@ -333,7 +463,9 @@ public class CrsTransformHandler extends Handler {
         return result;
     }
 
-    public String getRasqlExpression(WcpsResult coverageExpression, Map<String, String> axisCrss, String interpolationType) throws PetascopeException {
+    public String getRasqlExpression(WcpsResult coverageExpression, Map<String, String> axisCrss, String interpolationType, 
+                                    Pair<String, String> geoXYResolutionPair,
+                                    BoundingBox inputTargetGeoXYBoundingBox) throws PetascopeException {
         String outputStr = "";
 
         // Get the calculated coverage in grid axis with Rasql
@@ -341,20 +473,20 @@ public class CrsTransformHandler extends Handler {
 
         // Get bounding box of calculated coverage
         WcpsCoverageMetadata covMetadata = coverageExpression.getMetadata();
-        List<Axis> axisList = covMetadata.getXYAxes();
+        List<Axis> xyAxes = covMetadata.getXYAxes();
 
         // NOTE: only trimming subset is used to set bounding box and axisList need to have 2 axes (X,Y)
         // It can support 3D netCdf, so need to handle this in EncodedCoverageHandler as well
-        if (axisList.size() < 2) {
-            throw new Not2DXYGeoreferencedAxesCrsTransformException(axisList.size());
+        if (xyAxes.size() < 2) {
+            throw new Not2DXYGeoreferencedAxesCrsTransformException(xyAxes.size());
         }
-        String xMin = String.valueOf(((NumericTrimming) axisList.get(0).getGeoBounds()).getLowerLimit().toPlainString());
-        String xMax = String.valueOf(((NumericTrimming) axisList.get(0).getGeoBounds()).getUpperLimit().toPlainString());
-        String yMin = String.valueOf(((NumericTrimming) axisList.get(1).getGeoBounds()).getLowerLimit().toPlainString());
-        String yMax = String.valueOf(((NumericTrimming) axisList.get(1).getGeoBounds()).getUpperLimit().toPlainString());
-
+        String xMin = String.valueOf(((NumericTrimming) xyAxes.get(0).getGeoBounds()).getLowerLimit().toPlainString());
+        String xMax = String.valueOf(((NumericTrimming) xyAxes.get(0).getGeoBounds()).getUpperLimit().toPlainString());
+        String yMin = String.valueOf(((NumericTrimming) xyAxes.get(1).getGeoBounds()).getLowerLimit().toPlainString());
+        String yMax = String.valueOf(((NumericTrimming) xyAxes.get(1).getGeoBounds()).getUpperLimit().toPlainString());
+        
         // Handle bounding_box to project
-        String bbox = xMin + "," + yMin + "," + xMax + "," + yMax;
+        String sourceBBoxRepresentation = xMin + "," + yMin + "," + xMax + "," + yMax;
 
         // Handle source_crs, target_crs to project
         // (NOTE: sourceCrs can be compoundCrs, e.g: irr_cube_2) then need to get the crsUri from axis not from coverage metadata
@@ -368,14 +500,47 @@ public class CrsTransformHandler extends Handler {
         // 2. If the WKT is returned, then it needs to be enquoted e.g. "CRS[\"GeodeticCRS\": ...]"
         String sourceCRSParam = getEscapedAuthorityEPSGCodeOrWKT(sourceCRS);
         String targetCRSParam = getEscapedAuthorityEPSGCodeOrWKT(outputCRS);
-        
+
         if (interpolationType == null) {
             interpolationType = DEFAULT_INTERPOLATION_TYPE;
         }
         
-        outputStr = TEMPLATE.replace("$COVERAGE_EXPRESSION", covRasql).replace("$BOUNDING_BOX", bbox)
-                            .replace("$SOURCE_CRS", sourceCRSParam).replace("$TARGET_CRS", targetCRSParam)
-                            .replace("$INTERPOLATION_TYPE", interpolationType);
+        if (geoXYResolutionPair == null) {
+
+            if ((sourceCRSParam.equalsIgnoreCase(CrsUtil.EPSG_4326_AUTHORITY_CODE) && targetCRSParam.equalsIgnoreCase(CrsUtil.OGC_WGS84_CRS))
+                    || (sourceCRSParam.equalsIgnoreCase(CrsUtil.OGC_WGS84_CRS) && targetCRSParam.equalsIgnoreCase(CrsUtil.EPSG_4326_AUTHORITY_CODE))
+                    || sourceCRSParam.equals(targetCRSParam)) {
+                // As EPSG:4326 and WGS84 are the same CRS, no point to add project() to collection expression
+                String rasql = coverageExpression.getRasql();
+                return rasql;
+            }
+
+
+            outputStr = TEMPLATE.replace("$COVERAGE_EXPRESSION", covRasql).replace("$BOUNDING_BOX", sourceBBoxRepresentation)
+                                .replace("$SOURCE_CRS", sourceCRSParam).replace("$TARGET_CRS", targetCRSParam)
+                                .replace("$INTERPOLATION_TYPE", interpolationType);
+        } else {
+            GeoTransform sourceGeoTransform = this.createGeoTransform(xyAxes);
+            // In case there are target geo resolutions XY
+            String targetGeoResolutionX = new BigDecimal(geoXYResolutionPair.fst).abs().toPlainString();
+            String targetGeoResolutionY = new BigDecimal(geoXYResolutionPair.snd).abs().toPlainString();
+
+            // Convert sourceBBox from sourceCRS to targetBBox in targetCRS            
+            BoundingBox targetBBox = inputTargetGeoXYBoundingBox;
+            if (inputTargetGeoXYBoundingBox == null) {
+                targetBBox = CrsProjectionUtil.transform(sourceGeoTransform, targetCRSParam, 
+                                                                new BigDecimal(geoXYResolutionPair.fst), new BigDecimal(geoXYResolutionPair.snd));
+            }
+            // Always in XY CRS order
+            String targetBBoxRepresentation = StringUtil.stripQuotes(targetBBox.getRepresentation());
+            
+            outputStr = TEMPLATE_FULL
+                                .replace("$COVERAGE_EXPRESSION", covRasql)
+                                .replace("$SOURCE_BOUNDING_BOX", sourceBBoxRepresentation).replace("$SOURCE_CRS", sourceCRSParam)
+                                .replace("$TARGET_BOUNDING_BOX", targetBBoxRepresentation).replace("$TARGET_CRS", targetCRSParam)
+                                .replace("$INTERPOLATION_TYPE", interpolationType)
+                                .replace("$TARGET_GEO_RESOLUTION_X", targetGeoResolutionX).replace("$TARGET_GEO_RESOLUTION_Y", targetGeoResolutionY);
+        }
 
         return outputStr;
     }
@@ -386,4 +551,12 @@ public class CrsTransformHandler extends Handler {
     // e.g Rasql query: select encode(project( c[0,-10:10,51:71], "20.0,40.0,30.0,50.0", "EPSG:4326", "EPSG:32633" ),
     // "GTiff", "xmin=20000.0;xmax=300000.0;ymin=400000.0;ymax=500000.0;crs=EPSG:32633") from eobstest AS c where oid(c)=1537
     private static final String TEMPLATE = "project( $COVERAGE_EXPRESSION, \"$BOUNDING_BOX\", \"$SOURCE_CRS\", \"$TARGET_CRS\", $INTERPOLATION_TYPE )";
+    
+    // e.g. rasql query: project(c, "20.0,40.0,30.0,50.0", "EPSG:4326", "111120.0,222240.0,333330.0,55550.0", "EPSG:32633", bilinear, 25.6, 456.7, 0.125
+    private static final String TEMPLATE_FULL = "project( $COVERAGE_EXPRESSION, "
+                                                + "\"$SOURCE_BOUNDING_BOX\", \"$SOURCE_CRS\", "
+                                                + "\"$TARGET_BOUNDING_BOX\", \"$TARGET_CRS\", "
+                                                + "$TARGET_GEO_RESOLUTION_X, $TARGET_GEO_RESOLUTION_Y, "
+                                                + "$INTERPOLATION_TYPE, 0.125 )";
+    
 }

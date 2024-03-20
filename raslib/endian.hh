@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: endian.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Endian
- *
- * COMMENTS:
- *      None
-*/
 
 #ifndef _R_ENDIANTOOLS_HH_
 #define _R_ENDIANTOOLS_HH_
@@ -41,13 +32,15 @@ class r_Base_Type;
 class r_Primitive_Type;
 
 //@ManMemo: Module {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
   Class to check the endianness of the host machine and to
   swap the endianness of types and arrays. Don't instantiate,
   static members only.
 */
-
 class r_Endian
 {
 public:
@@ -73,8 +66,8 @@ public:
     static void swap_array(const r_Primitive_Type *type, r_Bytes size, const void *src, void *dest);
 
     /// change the endianness of a linear array of size `size`, type implicit
-    static void swap_array(r_Bytes size, const r_Octet *src, r_Octet *dest);   // dummy
-    static void swap_array(r_Bytes size, const r_Char *src, r_Char *dest);   // dummy
+    static void swap_array(r_Bytes size, const r_Octet *src, r_Octet *dest);  // dummy
+    static void swap_array(r_Bytes size, const r_Char *src, r_Char *dest);    // dummy
     static void swap_array(r_Bytes size, const r_Short *src, r_Short *dest);
     static void swap_array(r_Bytes size, const r_UShort *src, r_UShort *dest);
     static void swap_array(r_Bytes size, const r_Long *src, r_Long *dest);
@@ -113,6 +106,5 @@ public:
   Output stream operator for enum of type <tt>const</tt> r_Minterval.
   */
 extern std::ostream &operator<<(std::ostream &s, r_Endian::r_Endianness &e);
-
 
 #endif

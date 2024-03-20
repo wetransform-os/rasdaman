@@ -28,23 +28,23 @@
 namespace rasmgr
 {
 /**
- * @brief The RemoteClientSession struct contains information identifying a remote client session
+ * Contains information identifying a remote client session: client session id 
+ * and a database session id.
  */
 class RemoteClientSession
 {
 public:
-    RemoteClientSession(const std::string &clientSessionId, const std::string &dbSessionId);
+    RemoteClientSession(std::uint32_t clientSessionId,
+                        std::uint32_t dbSessionId);
 
-    std::string getClientSessionId() const;
-
-    std::string getDbSessionId() const;
+    std::uint32_t getClientSessionId() const;
+    std::uint32_t getDbSessionId() const;
 
 private:
-    std::string clientSessionId;/*!< String identifying the client session on the remote rasmgr */
-
-    std::string dbSessionId;/*!< String identifying the database session on the remote rasmgr*/
+    std::uint32_t clientSessionId; /*!< String identifying the client session on the remote rasmgr */
+    std::uint32_t dbSessionId;     /*!< String identifying the database session on the remote rasmgr*/
 };
 
-}
+}  // namespace rasmgr
 
-#endif // REMOTECLIENTSESSION_HH
+#endif  // REMOTECLIENTSESSION_HH

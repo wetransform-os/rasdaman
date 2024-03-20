@@ -1,0 +1,36 @@
+{
+
+  "config": {
+
+    "service_url": "PETASCOPE_URL",
+    "tmp_directory": "/tmp/",
+    "default_crs": "SECORE_URL/crs/EPSG/0/4326",
+    "mock": false,
+    "track_files": false,
+    "default_null_values": [ "30, 40, 50", "333:600", 333.5  ],
+
+    "automated": true
+
+  },
+
+  "input": {
+
+    "coverage_id": "test_wms_world_temperature_out_of_range_null_values_NEW", 
+    "paths": [
+      "test.tiff"
+    ]
+
+  },
+
+  "recipe": {
+
+    "name": "map_mosaic", 
+
+    "options": {
+      "wms_import": true,
+ 	  "tiling": "ALIGNED [0:500, 0:500]"
+    }
+
+  }
+
+}

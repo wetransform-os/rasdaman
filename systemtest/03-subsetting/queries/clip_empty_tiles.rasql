@@ -1,0 +1,1 @@
+select add_cells( clip( c[-984:-968,-669:-571], POLYGON((-984 -592,-968 -571,-977 -575)) ) ) from test_subsetting_holes as c

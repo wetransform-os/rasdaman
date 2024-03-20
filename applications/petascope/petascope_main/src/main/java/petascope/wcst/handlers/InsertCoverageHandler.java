@@ -21,7 +21,6 @@
  */
 package petascope.wcst.handlers;
 
-import com.rasdaman.accesscontrol.service.AuthenticationService;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,6 +41,7 @@ import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import petascope.controller.AuthenticationController;
 import petascope.controller.PetascopeController;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.SecoreException;
@@ -103,7 +103,7 @@ public class InsertCoverageHandler {
      */
     public Response handle(InsertCoverageRequest request) throws Exception {
         log.debug("Handling coverage insertion...");
-        this.petascopeController.validateWriteRequestFromIP(httpServletRequest);
+        this.petascopeController.validateWriteRequestByRoleOrAllowedIP(httpServletRequest, AuthenticationController.READ_WRITE_RIGHTS);
         
         if (request.getGMLCoverage() != null) {
             return handleGMLCoverageInsert(request);
@@ -224,6 +224,7 @@ public class InsertCoverageHandler {
         String username = ConfigManager.RASDAMAN_ADMIN_USER;
         String password = ConfigManager.RASDAMAN_ADMIN_PASS;
         
+        List<Field> rangeFields = coverage.getRangeType().getDataRecord().getFields();
 
         if (rangeSet.getChildElements(XMLSymbols.LABEL_DATABLOCK,
                 XMLSymbols.NAMESPACE_GML).size() != 0) {
@@ -233,7 +234,7 @@ public class InsertCoverageHandler {
 
             long start = System.currentTimeMillis();
             Pair<String, List<String>> collectionTypePair
-                    = TypeResolverUtil.guessCollectionType(collectionName, numberOfBands, numberOfDimensions, nullValues, pixelDataType);
+                    = TypeResolverUtil.guessCollectionType(collectionName, rangeFields, numberOfDimensions, nullValues, pixelDataType);
             rasCollectionType = collectionTypePair.fst;
             long end = System.currentTimeMillis();
             log.debug("Time for guessing collection type: " + String.valueOf(end - start) + " ms.");
@@ -283,10 +284,10 @@ public class InsertCoverageHandler {
             String mimetype = GMLCIS10ParserService.parseMimeType(rangeSet);
             //pass it to gdal to get the collection type
             if (pixelDataType != null) {
-                rasCollectionType = TypeResolverUtil.guessCollectionType(collectionName, numberOfBands, numberOfDimensions, nullValues, pixelDataType).fst;
+                rasCollectionType = TypeResolverUtil.guessCollectionType(collectionName, rangeFields, numberOfDimensions, nullValues, pixelDataType).fst;
             } else {
                 //read it from file
-                rasCollectionType = TypeResolverUtil.guessCollectionTypeFromFile(collectionName, tmpFile.getAbsolutePath(), numberOfDimensions, nullValues);
+                rasCollectionType = TypeResolverUtil.guessCollectionTypeFromFile(collectionName, tmpFile.getAbsolutePath(), numberOfDimensions, nullValues, rangeFields);
             }
             //insert it into rasdaman
             rasdamanCollectionCreator = new RasdamanDefaultCollectionCreator(collectionName, rasCollectionType);
@@ -325,13 +326,17 @@ public class InsertCoverageHandler {
         int numberOfDimensions = coverage.getNumberOfDimensions();
         int numberOfBands = coverage.getNumberOfBands();
         List<List<NilValue>> bandNullValues = coverage.getNilValues();
+
+        List<Field> rangeFields = coverage.getRangeType().getDataRecord().getFields();
         
         // e.g: Byte (all bands have same data type) or Float32,Int16 (each band has different data type)
         String pixelDataType = coverage.getPixelDataType();
         
         Pair<String, List<String>> collectionTypePair
-                    = TypeResolverUtil.guessCollectionType(coverageId, numberOfBands, numberOfDimensions, bandNullValues, pixelDataType);
+                    = TypeResolverUtil.guessCollectionType(coverageId, rangeFields, numberOfDimensions, bandNullValues, pixelDataType);
         String rasCollectionType = collectionTypePair.fst;
+        coverage.getRasdamanRangeSet().setCollectionType(rasCollectionType);
+        
         // e.g: c, d, f,...
         List<String> typeSuffixes = collectionTypePair.snd;
         
@@ -413,7 +418,7 @@ public class InsertCoverageHandler {
             String nullValue = DEFAUL_NULL_VALUE;
             // e.g: c
             String suffix = typeSuffixes.get(i);
-            if (!bandNullValues.isEmpty()) {
+            if (!bandNullValues.isEmpty() && !mergedList.isEmpty()) {
                 nullValue = mergedList.get(i).getValue();
                 if (nullValue.endsWith(FLOAT_ZERO_SUFFIX)) {
                     nullValue = nullValue.replace(FLOAT_ZERO_SUFFIX, "");

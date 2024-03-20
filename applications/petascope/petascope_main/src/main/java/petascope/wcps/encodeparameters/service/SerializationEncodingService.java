@@ -22,22 +22,27 @@
 package petascope.wcps.encodeparameters.service;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import liquibase.pro.packaged.N;
+import org.rasdaman.domain.cis.NilValue;
 import org.rasdaman.repository.service.CoverageRepositoryService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import static petascope.core.XMLSymbols.LABEL_GENERAL_GRID_COVERAGE;
+
 import petascope.exceptions.PetascopeException;
 import petascope.util.JSONUtil;
 import petascope.util.MIMEUtil;
 import petascope.core.gml.metadata.model.CoverageMetadata;
 import petascope.exceptions.ExceptionCode;
+import petascope.util.StringUtil;
 import petascope.wcps.encodeparameters.model.ColorPalette;
 import static petascope.wcps.encodeparameters.model.ColorPalette.COLOR_PALETTE_TABLE_COVERAGE_METADATA;
 import static petascope.wcps.encodeparameters.model.ColorPalette.COLOR_PALETTE_TABLE_SIZE;
@@ -125,15 +130,9 @@ public class SerializationEncodingService {
 
     /**
      * Generate Rasql extra parameters in Json string from *old style* extra params of WCPS query (e.g: "nodata=0,1,2,3")
-     * @param rasqlFormat
-     * @param wcpsCoverageMetadata
-     * @param netCDFExtraParams
-     * @param geoReference
-     * @return
-     * @throws com.fasterxml.jackson.core.JsonProcessingException
      */
     public String serializeOldStyleExtraParamsToJson(String rasqlFormat, WcpsCoverageMetadata wcpsCoverageMetadata,
-                                            NetCDFExtraParams netCDFExtraParams, GeoReference geoReference, boolean hasNoData,
+                                            NetCDFExtraParams netCDFExtraParams, GeoReference geoReference, String extraParams,
                                                     boolean isGML) throws PetascopeException {
         JsonExtraParams jsonExtraParams = new JsonExtraParams();
         if (netCDFExtraParams != null) {
@@ -141,12 +140,25 @@ public class SerializationEncodingService {
             jsonExtraParams.setVariables(new Variables(netCDFExtraParams.getVariables()));
         }
 
-        jsonExtraParams.setNoData(new NoData(wcpsCoverageMetadata.getNodata()));
-        
         // Extra metadata of coverage
         CoverageMetadata coverageMetadata = wcpsCoverageMetadata.getCoverageMetadata();
         if (coverageMetadata != null) {
-            jsonExtraParams.setMetadata(coverageMetadata.flattenMetadataMap());        
+            jsonExtraParams.setMetadata(coverageMetadata.flattenMetadataMap(wcpsCoverageMetadata.getMetadata(), isGML));
+        }
+
+        if (extraParams != null && !extraParams.isEmpty()) {
+            List<NilValue> nilValues = new ArrayList<>();
+            extraParams = StringUtil.removeWhiteSpaces(extraParams);
+            String[] tmps = extraParams.split("nodata=");
+            if (tmps.length == 2) {
+                String[] valuesTmp = tmps[1].split(",");
+                for (String valueTmp : valuesTmp) {
+                    nilValues.add(new NilValue(valueTmp));
+                }
+
+                NoData nodata = new NoData(nilValues);
+                jsonExtraParams.setNoData(nodata);
+            }
         }
         
         jsonExtraParams.setGeoReference(geoReference);
@@ -165,7 +177,7 @@ public class SerializationEncodingService {
         }
         
         this.customizeEncodeForGML(isGML, jsonExtraParams);
-        
+
         String jsonOutput = JSONUtil.serializeObjectToJSONStringNoIndentation(jsonExtraParams);
         return jsonOutput;
     }
@@ -196,10 +208,10 @@ public class SerializationEncodingService {
         }
 
         // update each range of coverage with value from passing nodata_values
-        encodeCoverageHandler.updateNoDataInRangeFileds(jsonExtraParams.getNoData().getNilValues(), wcpsCoverageMetadata);      
+        encodeCoverageHandler.updateNoDataInRangeFields(jsonExtraParams.getNoData().getNilValues(), wcpsCoverageMetadata);
         // parse coverage's metadata XML/JSON string to a CoverageMetadata object
         CoverageMetadata coverageMetadata = wcpsCoverageMetadata.getCoverageMetadata();
-        Map<String, String> metadataMap = coverageMetadata.flattenMetadataMap();
+        Map<String, String> metadataMap = coverageMetadata.flattenMetadataMap(wcpsCoverageMetadata.getMetadata(), isGML);
 
         if (jsonExtraParams.getMetadata().isEmpty()) {
             // If there is no metadata in extra params of encode() then metadata of encode() comes from coverage's metadata.
@@ -237,7 +249,7 @@ public class SerializationEncodingService {
         this.addColorPalleteToJSONExtraParamIfPossible(rasqlFormat, coverageMetadata, jsonExtraParams);
         
         this.customizeEncodeForGML(isGML, jsonExtraParams);
-        
+
         String jsonOutput = JSONUtil.serializeObjectToJSONStringNoIndentation(jsonExtraParams);
         return jsonOutput;
     }
@@ -247,8 +259,8 @@ public class SerializationEncodingService {
      * and can be displayable (2D image).
      */
     private Boolean outputNeedsTranspose(String rasqlFormat, JsonExtraParams jsonExtraParams, WcpsCoverageMetadata metadata) {
-        if (jsonExtraParams.getTranspose().isEmpty() && metadata.getAxes().size() == 2 
-                && !metadata.isXYOrder() 
+        if (jsonExtraParams.getTranspose().isEmpty() && metadata.hasXYAxes() && metadata.getAxes().size() == 2
+                && !metadata.isXYGridOrder()
                 && MIMEUtil.displayableMIME(rasqlFormat)) {
             // YX output grid axes and displayable image
             return true;
@@ -286,4 +298,5 @@ public class SerializationEncodingService {
             
         }
     }
+
 }

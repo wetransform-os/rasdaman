@@ -37,6 +37,8 @@ LOWER_BOUND: ('l'|'L')('o'|'O');
 FOR: (('f'|'F')('o'|'O')('r'|'R'));
 ABSOLUTE_VALUE: ('a'|'A')('b'|'B')('s'|'S');
 ADD: ('a'|'A')('d'|'D')('d'|'D');
+ATAN2: ('a'|'A')('t'|'T')('a'|'A')('n'|'N')('2');
+ARCTAN2: ('a'|'A')('r'|'R')('c'|'C')('t'|'T')('a'|'A')('n'|'N')('2');
 ALL: ('a'|'A')('l'|'L')('l'|'L');
 ALONG: ('a'|'A')('l'|'L')('o'|'O')('n'|'N')('g'|'G');
 AND: ('a'|'A')('n'|'N')('d'|'D');
@@ -48,6 +50,8 @@ AVG: ('a'|'A')('v'|'V')('g'|'G');
 BIT: ('b'|'B')('i'|'I')('t'|'T');
 BY: ('b'|'B')('y'|'Y');
 CASE: ('c'|'C')('a'|'A')('s'|'S')('e'|'E');
+CEIL: ('c'|'C')('e'|'E')('i'|'I')('l'|'L');
+CELLCOUNT: ('c'|'C')('e'|'E')('l'|'L')('l'|'L')('c'|'C')('o'|'O')('u'|'U')('n'|'N')('t'|'T');
 CLIP: ('c'|'C')('l'|'L')('i'|'I')('p'|'P');
 COLON : ':';
 COMMA : ',';
@@ -73,6 +77,7 @@ EXP: ('e'|'E')('x'|'X')('p'|'P');
 EXTEND: ('e' | 'E')('x' | 'X')('t' | 'T')('e' | 'E')('n' | 'N')('d' | 'D');
 FALSE : ('F' | 'f')('A' | 'a')('L' | 'l')('S' | 's')('E' | 'e');
 FLIP: ('f'|'F')('l'|'L')('i'|'I')('p'|'P');
+FLOOR: ('f'|'F')('l'|'L')('o'|'O')('o'|'O')('r'|'R');
 GREATER_THAN: '>';
 GREATER_OR_EQUAL_THAN: '>=';
 IMAGINARY_PART: ('i'|'I')('m'|'M');
@@ -108,9 +113,11 @@ QUOTE: '"';
 ESCAPED_QUOTE: '\\"';
 PLUS: '+';
 POWER: ('p'|'P')('o'|'O')('w'|'W');
+POLYGONIZE: ('p'|'P')('o'|'O')('l'|'L')('y'|'Y')('g'|'G')('o'|'O')('n'|'N')('i'|'I')('z'|'Z')('e'|'E');
 REAL_PART: ('r'|'R')('e'|'E');
 ROUND: ('r'|'R')('o'|'O')('u'|'U')('n'|'N')('d'|'D');
 RETURN: ('r'|'R')('e'|'E')('t'|'T')('u'|'U')('r'|'R')('n'|'N');
+RESOLUTION: ('r'|'R')('e'|'E')('s'|'S')('o'|'O')('l'|'L')('u'|'U')('t'|'T')('i'|'I')('o'|'O')('n'|'N');
 RIGHT_BRACE: '}';
 RIGHT_BRACKET: ']';
 RIGHT_PARENTHESIS: ')';
@@ -129,6 +136,7 @@ SOME: ('s'|'S')('o'|'O')('m'|'M')('e'|'E');
 SORT: ('s'|'S')('o'|'O')('r'|'R')('t'|'T');
 SQUARE_ROOT: ('s'|'S')('q'|'Q')('r'|'R')('t'|'T');
 STRUCT: ('s'|'S')('t'|'T')('r'|'R')('u'|'U')('c'|'C')('t'|'T');
+SUM: ('s'|'S')('u'|'U')('m'|'M');
 SWITCH: ('s'|'S')('w'|'W')('i'|'I')('t'|'T')('c'|'C')('h'|'H');
 TAN: ('t'|'T')('a'|'A')('n'|'N');
 TANH: ('t'|'T')('a'|'A')('n'|'N')('h'|'H');
@@ -146,14 +154,38 @@ MULTIPOLYGON: ('m'|'M')('u'|'U')('l'|'L')('t'|'T')('i'|'I')('p'|'P')('o'|'O')('l
 
 PROJECTION: ('p'|'P')('r'|'R')('o'|'O')('j'|'J')('e'|'E')('c'|'C')('t'|'T')('i'|'I')('o'|'O')('n'|'N');
 WITH_COORDINATES: ('w'|'W')('i'|'I')('t'|'T')('h'|'H')(' ')+('c'|'C')('o'|'O')('o'|'O')('r'|'R')('d'|'D')('i'|'I')('n'|'N')('a'|'A')('t'|'T')('e'|'E')('s'|'S');
+VERTICAL_BAR: ('|');
+
+
+// Time extractors
+
+YEARS: ('y'|'Y')('e'|'E')('a'|'A')('r'|'R')('s'|'S');
+MONTHS: ('m'|'M')('o'|'O')('n'|'N')('t'|'T')('h'|'H')('s'|'S');
+DAYS: ('d'|'D')('a'|'A')('y'|'Y')('s'|'S');
+HOURS: ('h'|'H')('o'|'O')('u'|'U')('r'|'R')('s'|'S');
+MINUTES: ('m'|'M')('i'|'I')('n'|'N')('u'|'U')('t'|'T')('e'|'E')('s'|'S');
+SECONDS: ('s'|'S')('e'|'E')('c'|'C')('o'|'O')('n'|'N')('d'|'D')('s'|'S');
+
+// Time truncators
+
+ALL_YEARS: ('a'|'A')('l'|'L')('l'|'L')('y'|'Y')('e'|'E')('a'|'A')('r'|'R')('s'|'S');
+ALL_MONTHS: ('a'|'A')('l'|'L')('l'|'L')('m'|'M')('o'|'O')('n'|'N')('t'|'T')('h'|'H')('s'|'S');
+ALL_DAYS: ('a'|'A')('l'|'L')('l'|'L')('d'|'D')('a'|'A')('y'|'Y')('s'|'S');
+ALL_HOURS: ('a'|'A')('l'|'L')('l'|'L')('h'|'H')('o'|'O')('u'|'U')('r'|'R')('s'|'S');
+ALL_MINUTES: ('a'|'A')('l'|'L')('l'|'L')('m'|'M')('i'|'I')('n'|'N')('u'|'U')('t'|'T')('e'|'E')('s'|'S');
+ALL_SECONDS: ('a'|'A')('l'|'L')('l'|'L')('s'|'S')('e'|'E')('c'|'C')('o'|'O')('n'|'N')('d'|'D')('s'|'S');
+
 
 INTEGER: [0-9]+;
 REAL_NUMBER_CONSTANT: [0-9]+('.'[0-9]*)?;
 SCIENTIFIC_NUMBER_CONSTANT: [0-9]+('.'[0-9]*)?('e'|'E')(('+'|'-'))?[0-9]+;
 POSITIONAL_PARAMETER: [$0-9]+;
 //COVERAGE_VARIABLE_NAME: '$'[a-zA-Z0-9_]+; disabled for backwards compatibility with WCPS1
-COVERAGE_VARIABLE_NAME: [$a-zA-Z0-9_]+; // added $ for backwards compatibility with WCPS1
+COVERAGE_VARIABLE_NAME: [$a-zA-Z0-9_]+;
+COVERAGE_NAME: ([a-zA-Z0-9_][a-zA-Z0-9_\\.-]*':'([0-9]+':')?)?[a-zA-Z_][a-zA-Z0-9_]*;
+
 STRING_LITERAL: '"' [a-zA-Z0-9!#$&.+-^_/ ]+? '"';
+
 WS: [ \n\t\r]+ -> channel(HIDDEN);
 EXTRA_PARAMS:  '"' (~[\\"] | '\\' [\\"])* '"';
 

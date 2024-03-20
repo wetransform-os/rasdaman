@@ -52,10 +52,10 @@ public class WKTPolygonHandler extends Handler {
     }
     
     @Override
-    public VisitorResult handle() throws PetascopeException {
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
         List<WKTCompoundPoints> wktCompoundPointsList = new ArrayList<>();
         
-        WKTCompoundPoints wktCompoundPoints = (WKTCompoundPoints)this.getFirstChild().handle();
+        WKTCompoundPoints wktCompoundPoints = (WKTCompoundPoints)this.getFirstChild().handle(serviceRegistries);
         wktCompoundPointsList.add(wktCompoundPoints);
         
         WKTPolygon wktPolygon = new WKTPolygon(wktCompoundPointsList);        

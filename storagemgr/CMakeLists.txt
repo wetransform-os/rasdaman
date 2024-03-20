@@ -34,7 +34,7 @@ target_link_libraries(storagemgr
 #    common_logging
     )
 
-if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+if (USE_PRECOMPILED_HEADERS)
 target_precompile_headers(storagemgr REUSE_FROM common_logging)
 endif()
 

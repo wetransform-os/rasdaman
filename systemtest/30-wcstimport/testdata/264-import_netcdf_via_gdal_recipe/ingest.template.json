@@ -1,0 +1,55 @@
+{
+  "config": {
+	"service_url": "PETASCOPE_URL",
+    "tmp_directory": "/tmp/",
+    "automated": true,
+    "track_files": false
+  },
+  "input": {
+    "coverage_id": "test_import_netcdf_via_gdal_recipe",
+    "paths": [ 
+"NETCDF:subset-20200101.nc:sensor" ]
+  },
+  "recipe": {
+    "name": "general_coverage",
+    "options": {
+        "coverage": {
+          "crs": "OGC/0/AnsiDate@EPSG/0/4326",          
+          "slicer": {
+            "type": "gdal",
+
+              "bands": [
+                {
+                  "name": "sensor",
+                  "identifier": "sensor"
+                }
+              ],
+
+            "axes": {
+
+                "ansi": {
+                  "min": "datetime(regex_extract('${file:name}', 'subset-(.*)', 1), 'YYYYMMDD')",
+                  "gridOrder": 0,
+                  "irregular": true,
+                  "dataBound": false
+                },
+
+              "Long": {
+                "min": "${gdal:minX}",
+                "max": "${gdal:maxX}",
+                "gridOrder": 1,
+                "resolution": "${gdal:resolutionX}"
+              },
+              "Lat": {
+                "min": "${gdal:minY}",
+                "max": "${gdal:maxY}",
+                "gridOrder": 2,
+                "resolution": "${gdal:resolutionY}"
+              }
+          }
+        }      
+      },
+      "tiling": "aligned [0:0,0:999,0:1999] tile size 20000000"
+    }
+  }
+}

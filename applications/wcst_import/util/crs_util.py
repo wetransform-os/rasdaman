@@ -159,7 +159,7 @@ class CRSUtil:
         Initializes the crs util
         :param str crs_url: the crs url
         """
-        self.crs_url = crs_url
+        self.crs_url = CRSUtil.convert_shorthand_crs_to_full_url(crs_url)
         self.axes = []
         self.individual_crs_axes = OrderedDict()
         self._parse()
@@ -192,12 +192,32 @@ class CRSUtil:
             for crs in self.individual_crs_axes:
                 axis_uri = axis.uri
                 if axis_uri == crs and axis_uri not in found_crses:
-                    found_crses.append(axis.uri)
+                    found_crses.append( self.convert_shorthand_crs_to_full_url(axis.uri) )
                     break
         if len(found_crses) > 1:
             return self.get_compound_crs(found_crses)
         elif len(found_crses) == 1:
             return found_crses[0]
+
+    @staticmethod
+    def convert_shorthand_crs_to_full_url(crs):
+        """
+        Covnert a shorthand CRS to full URL
+        """
+        result = crs
+        if ":" in crs and "/" not in crs:
+            # e.g. crs=EPSG:4326
+            tmps = crs.split(":")
+            if len(tmps) != 2:
+                raise RuntimeException("Invalid CRS format: " + crs)
+            else:
+                # e.g. http://localhost:8080/rasdaman/def/crs/EPSG/0/4326
+                result = ConfigManager.crs_resolver + "/crs/" + tmps[0] + "/0/" + tmps[1]
+        elif "/" in crs and "http://" not in crs and "https://" not in crs:
+            # e.g. OGC/0/AnsiDate
+            result = ConfigManager.crs_resolver + "/crs/" + crs
+
+        return result
 
     @staticmethod
     def axis_label_match(axis_label1, axis_label2):
@@ -233,6 +253,7 @@ class CRSUtil:
         if len(crses) > 1:
             # at least 2 CRSs
             for crs in crses:
+                crs = CRSUtil.convert_shorthand_crs_to_full_url(crs)
                 crs_list.append(str(index) + "=" + crs)
                 index += 1
             compound = ConfigManager.crs_resolver + "crs-compound?" + "&".join(crs_list)

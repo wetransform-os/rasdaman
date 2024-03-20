@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.5.xsd">
+<changeSet author="rasdaman (generated)" id="1689581420570-1">
+<renameColumn  
+            newColumnName="null_value"  
+            oldColumnName="value"  
+            remarks="NOTE: This column named: value does not work with H2 database. It is written as lowercase in H2 database and it has column not found when Hibernate tried to insert row to the table."  
+            tableName="nil_value"/>  
+</changeSet>
+</databaseChangeLog>

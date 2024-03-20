@@ -1,0 +1,76 @@
+{
+    "id": "log",
+    "summary": "Common logarithm",
+    "description": "Computes the common logarithm of `x` (*`log(x)`*); \n\nThe operand can be a scalar number or a datacube.\n\n\nThe result is a scalar number if the operand is scalar, and otherwise a datacube. Operand elements which are null result in a null element in the result.\n\nThe element type of the result depends on the element type of the operand:\n\n```\n| operand type                | result type   |\n|-----------------------------|---------------|\n| [unsigned] char,short,float | float         |\n| [unsigned] int,double       | double        |\n```",
+    "parameters": [
+        {
+            "name": "x",
+            "description": "The operand.",
+            "schema": [
+                {
+                    "type": [
+                        "boolean",
+                        "number",
+                        "null"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "subtype": "datacube"
+                }
+            ]
+        }
+    ],
+    "returns": {
+        "description": "Null where `x` is null, otherwise the computed common logarithm of `x`.",
+        "schema": [
+            {
+                "type": [
+                    "boolean",
+                    "number",
+                    "null"
+                ]
+            },
+            {
+                "type": "object",
+                "subtype": "datacube"
+            }
+        ]
+    },
+    "examples": [
+        {
+            "arguments": {
+                "x": 5
+            },
+            "returns": 0.6989700043360189
+        },
+        {
+            "arguments": {
+                "x": "DatacubeA"
+            },
+            "returns": "DatacubeB"
+        },
+        {
+            "arguments": {
+                "x": null
+            },
+            "returns": null
+        }
+    ],
+    "links": [
+        {
+            "rel": "about",
+            "href": "https://doc.rasdaman.org/04_ql-guide.html#induced-operations",
+            "title": "Documentation on induced operations in rasdaman"
+        },
+        {
+            "rel": "about",
+            "href": "https://mathworld.wolfram.com/CommonLogarithm.html",
+            "title": "Common logarithm explained by Wolfram MathWorld"
+        }
+    ],
+    "wcps": "log(<x>)",
+    "categories": [
+        "Exponential"
+    ]
+}

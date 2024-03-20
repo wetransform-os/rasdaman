@@ -40,5 +40,5 @@ public class ScaleValueLessThanZeroException extends WCPSException {
         super(ExceptionCode.InvalidRequest, ERROR_TEMPLATE.replace("$axisName", axisName).replace("$scaleValue", scaleValue));
     }
 
-    private static final String ERROR_TEMPLATE = "Scaling value for axis: $axisName must be > 0, given: $scaleValue.";
+    private static final String ERROR_TEMPLATE = "Scaling value for axis '$axisName' must be > 0, given: $scaleValue.";
 }

@@ -24,60 +24,65 @@ rasdaman GmbH.
 #define _COMMON_TIMER_HH_
 
 #include <chrono>
-#include <ctime>
 #include <string>
 
-namespace common {
+namespace common
+{
 
 /**
  * Creating the object automatically starts the timer. Calling restart() resets
  * the timer. You can get the elapsed time with the elapsed* methods.
  */
-class Stopwatch {
-
- public:
-  Stopwatch() : startTime{getCurrentTimestamp()} {}
-
-  double elapsedS() const {
-    return double(elapsedNs()) * 1e-9;
-  }
-
-  double elapsedMs() const {
-    return double(elapsedNs()) * 1e-6;
-  }
-
-  long elapsedNs() const {
-    return getCurrentTimestamp() - startTime;
-  }
-
-  void restart() { startTime = getCurrentTimestamp(); }
-
- private:
-  static long getCurrentTimestamp() {
-    return std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  }
-
-  long startTime;
-};
-
-class TimerUtil {
+class Stopwatch
+{
 public:
-  static std::string getCurrentDateTime() {
-    using system_clock = std::chrono::system_clock;
-    auto currTime = system_clock::to_time_t(system_clock::now());
-    char buf[80];
-    auto tstruct = *localtime(&currTime);
-    strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct);
-    return std::string(buf);
-  }
-  
-  static uintmax_t getSecondsSinceEpoch() {
-    auto result = time(NULL);
-    return uintmax_t(result);
-  }
+    Stopwatch()
+        : startTime{getCurrentTimestamp()} {}
+
+    double elapsedS() const
+    {
+        return double(elapsedNs()) * 1e-9;
+    }
+
+    double elapsedMs() const
+    {
+        return double(elapsedNs()) * 1e-6;
+    }
+
+    long elapsedNs() const
+    {
+        return getCurrentTimestamp() - startTime;
+    }
+
+    void restart() { startTime = getCurrentTimestamp(); }
+
+private:
+    static long getCurrentTimestamp()
+    {
+        return std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    }
+
+    long startTime;
 };
 
-}
+class TimerUtil
+{
+public:
+    static std::string getCurrentDateTime();
+
+    /// @return current UTC time, e.g. "2017-03-30 17:05:13.400455"
+    static std::string getCurrentDateTimeUTC();
+
+    static uintmax_t getSecondsSinceEpoch();
+
+    /// @return count of milliseconds until 01 of the next month.
+    static int getCurrentMonth();
+
+    /// @return count of milliseconds until 01 of the next month.
+    static size_t getMillisecondsUntilNextMonth();
+};
+
+}  // namespace common
 
 // Enabled only if REPORT_PERF is defined
 #ifdef REPORT_PERF

@@ -22,22 +22,21 @@ rasdaman GmbH.
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
 
-#include "basetype.hh"                // for BaseType
-#include "structtype.hh"              // for StructType
-#include "compositetype.hh"           // for CompositeType
-#include "type.hh"                    // for Type
-#include "reladminif/oidif.hh"        // for OId
-#include "reladminif/dbnamedobject.hh"// for DBNamedObject
-#include "reladminif/objectbroker.hh" // for ObjectBroker
-#include "raslib/odmgtypes.hh"        // for STRUCT
-#include "raslib/mddtypes.hh"         // for r_Bytes
-#include "mymalloc/mymalloc.h"
+#include "basetype.hh"                  // for BaseType
+#include "structtype.hh"                // for StructType
+#include "compositetype.hh"             // for CompositeType
+#include "type.hh"                      // for Type
+#include "reladminif/oidif.hh"          // for OId
+#include "reladminif/dbnamedobject.hh"  // for DBNamedObject
+#include "reladminif/objectbroker.hh"   // for ObjectBroker
+#include "raslib/odmgtypes.hh"          // for STRUCT
+#include "raslib/mddtypes.hh"           // for r_Bytes
 #include <logging.hh>
 
-#include <cstring>                    // for strlen, strcat, strcpy, strdup
-#include <ostream>                    // for operator<<, basic_ostream, ostr...
-#include <string>                     // for char_traits, string
-#include <vector>                     // for vector
+#include <cstring>  // for strlen, strcat, strcpy, strdup
+#include <ostream>  // for operator<<, basic_ostream, ostr...
+#include <string>   // for char_traits, string
+#include <vector>   // for vector
 
 StructType::StructType()
     : StructType("unnamed structtype", 0)
@@ -111,7 +110,7 @@ void StructType::generateCTypePos(std::vector<int> &positions, int offset) const
     for (unsigned int i = 0; i < numElems; i++)
     {
         elements[i]->generateCTypePos(positions, offset +
-                                      static_cast<int>(elementOffsets[i]));
+                                                     static_cast<int>(elementOffsets[i]));
     }
 }
 
@@ -124,42 +123,34 @@ void StructType::getTypes(std::vector<const BaseType *> &types) const
     }
 }
 
-char *StructType::getTypeStructure() const
+std::string StructType::getTypeStructure() const
 {
-    std::ostringstream ss;
-    ss << "struct { ";
+    std::string ret = "struct { ";
     for (unsigned int i = 0; i < numElems; i++)
     {
         if (i > 0)
-            ss << ", ";
-
-        char *elType = elements[i]->getTypeStructure();
-        ss << elType << " " << elementNames[i];
-        free(elType);
+            ret += ", ";
+        ret += elements[i]->getTypeStructure();
+        ret += " ";
+        ret += elementNames[i];
     }
-    ss << " }";
-
-    std::string result = ss.str();
-    return strdup(result.c_str());
+    ret += " }";
+    return ret;
 }
 
-char *StructType::getNewTypeStructure() const
+std::string StructType::getNewTypeStructure() const
 {
-    std::ostringstream ss;
-    ss << "(";
+    std::string ret = "(";
     for (unsigned int i = 0; i < numElems; i++)
     {
         if (i > 0)
-            ss << ", ";
-
-        char *elType = elements[i]->getTypeStructure();
-        ss << elementNames[i] << " " << elType;
-        free(elType);
+            ret += ", ";
+        ret += elementNames[i];
+        ret += " ";
+        ret += elements[i]->getTypeStructure();
     }
-    ss << ")";
-
-    std::string result = ss.str();
-    return strdup(result.c_str());
+    ret += ")";
+    return ret;
 }
 
 unsigned int StructType::addElement(const char *elemName, const char *elemType)
@@ -379,15 +370,15 @@ int StructType::compatibleWith(const Type *aType) const
 
 bool StructType::operator==(const Type &o) const
 {
-  if (o.getType() != STRUCT)
-    return false;
-  const auto &stype = static_cast<const StructType &>(o);
-  if (getNumElems() != stype.getNumElems())
-    return false;
-  for (size_t i = 0; i < elements.size(); ++i)
-    if (!(*getElemType(i) == *stype.getElemType(i)))
-      return false;
-  return true;
+    if (o.getType() != STRUCT)
+        return false;
+    const auto &stype = static_cast<const StructType &>(o);
+    if (getNumElems() != stype.getNumElems())
+        return false;
+    for (size_t i = 0; i < elements.size(); ++i)
+        if (!(*getElemType(i) == *stype.getElemType(i)))
+            return false;
+    return true;
 }
 
 void StructType::calcSize()
@@ -402,10 +393,10 @@ void StructType::calcSize()
 r_Bytes StructType::getMemorySize() const
 {
     r_Bytes retval = DBNamedObject::getMemorySize() + sizeof(int) +
-                     sizeof(int) + 
+                     sizeof(int) +
                      sizeof(std::vector<BaseType *>) +
                      sizeof(std::vector<unsigned int>) +
-                     sizeof(std::vector<char *>) + 
+                     sizeof(std::vector<char *>) +
                      sizeof(int) * numElems +
                      sizeof(BaseType *) * numElems;
     for (unsigned int i = 0; i < numElems; i++)

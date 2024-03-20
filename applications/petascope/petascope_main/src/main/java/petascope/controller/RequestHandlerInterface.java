@@ -21,6 +21,8 @@
  */
 package petascope.controller;
 
+import petascope.exceptions.PetascopeException;
+
 /**
  * Any controllers extends AbstractController should handle the request APIs
  * using lambda expression with this functional interfal.
@@ -30,5 +32,5 @@ package petascope.controller;
 @FunctionalInterface
 public interface RequestHandlerInterface {
 
-    public void handle();
+    public void handle() throws PetascopeException;
 }

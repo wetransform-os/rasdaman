@@ -1,0 +1,11 @@
+for $c in (test_wcps_12_months_netcdf_irregular)
+
+return encode(
+
+    coverage x
+    over $m ansi( "2023-01" : "2023-12" . "P-1M" )
+    values max( $c[ ansi( $m : $m . "P1M"  ) ] )
+
+
+
+, "csv")

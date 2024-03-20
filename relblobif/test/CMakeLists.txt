@@ -36,16 +36,16 @@ macro(AddRelblobifTest TEST_NAME)
         clientcomm 
         storagemgr 
         mddmgr
+        catalogmgr 
         relblobif 
         relindexif 
         relcatalogif 
-        catalogmgr
         relmddif 
         relstorageif 
         reladminif
     )
     
-    if (${CMAKE_VERSION} GREATER_EQUAL "3.16.1")
+    if (USE_PRECOMPILED_HEADERS)
     target_precompile_headers(${TEST_NAME}_test REUSE_FROM common_logging)
     endif()
 

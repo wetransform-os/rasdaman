@@ -20,15 +20,6 @@ rasdaman GmbH.
 * For more information please see <http://www.rasdaman.org>
 * or contact Peter Baumann via <baumann@rasdaman.com>.
 */
-/**
- * INCLUDE: parseparams.hh
- *
- * MODULE:  raslib
- * CLASS:   r_Parse_Params
- *
- * COMMENTS:
- *
-*/
 
 #ifndef PARSE_PARAMS_HH_
 #define PARSE_PARAMS_HH_
@@ -37,15 +28,17 @@ rasdaman GmbH.
 #include <string>
 
 //@ManMemo: Module {\bf raslib}
+/**
+  * \ingroup raslib
+  */
 
-/*@Doc:
+/**
   Class for parsing a string consisting of key=value pairs separated by ",".
 */
 
 class r_Parse_Params
 {
 public:
-
     /// the possible parameter types used for add()
     enum parse_param_type
     {
@@ -67,7 +60,7 @@ public:
 
     r_Parse_Params(void) = default;
     /// constructor, gets descriptor of the values to scan for
-    r_Parse_Params(unsigned int num);
+    explicit r_Parse_Params(unsigned int num);
     /// destructor
     ~r_Parse_Params(void);
     /// add parameters to the list
@@ -114,6 +107,5 @@ protected:
   Output stream operator for objects of type <tt>const</tt> r_Parse_Params::parse_param_type.
   */
 extern std::ostream &operator<<(std::ostream &s, const r_Parse_Params::parse_param_type &d);
-
 
 #endif

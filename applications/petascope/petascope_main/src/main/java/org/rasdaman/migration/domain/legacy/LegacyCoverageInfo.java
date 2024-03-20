@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import petascope.util.CrsUtil;
 import org.rasdaman.migration.domain.legacy.LegacyWcsUtil;
 import org.rasdaman.migration.domain.legacy.LegacyWcpsConstants;
+import petascope.exceptions.PetascopeException;
 
 public class LegacyCoverageInfo {
 
@@ -69,7 +70,7 @@ public class LegacyCoverageInfo {
         gridded = other.isGridded();
     }
 
-    public LegacyCoverageInfo(LegacyCoverageMetadata m) {
+    public LegacyCoverageInfo(LegacyCoverageMetadata m) throws PetascopeException {
         cellDomains = new ArrayList<LegacyCellDomainElement>();
         domains = new ArrayList<LegacyDomainElement>();
         Iterator<LegacyCellDomainElement> itcde = m.getCellDomainIterator();

@@ -40,13 +40,16 @@ public class LocalMetadataChild {
     
     public static final String LOCAL_METADATA_TAG = "slice";
 
-    private Map<String, String> localMetadataAttributesMap;
+    // Used to store the metadata per WCS-T UpdateCoverage request
+    public static final String LOCAL_METADATA_CHILD_AXES = "axes";
+
+    private Map<String, Object> localMetadataAttributesMap;
     
     private BoundedBy boundedBy;
 
     @JsonAnySetter
     // NOTE: To map an unknown list of properties, must use this annotation
-    public void addKeyValue(String key, String value) {
+    public void addKeyValue(String key, Object value) {
         this.localMetadataAttributesMap.put(key, value);
     }
 
@@ -57,20 +60,22 @@ public class LocalMetadataChild {
 
     @JsonAnyGetter
     // NOTE: to unwrap the "map" from { "map": { "key": "value" } }, only keep { "key": "value" }
-    public Map<String, String> getLocalMetadataAttributesMap() {
+    public Map<String, Object> getLocalMetadataAttributesMap() {
         return localMetadataAttributesMap;
     }
+
+    public void setLocalMetadataAttributesMap(Map<String, Object> localMetadataAttributesMap) {
+        this.localMetadataAttributesMap = localMetadataAttributesMap;
+    }
+
     
     public BoundedBy getBoundedBy() {
         return this.boundedBy;
     }
 
+
     public void setBoundedBy(BoundedBy boundedBy) {
         this.boundedBy = boundedBy;
     }
 
-    public LocalMetadataChild(Map<String, String> localMetadataAttributesMap, BoundedBy boundedBy) {
-        this.localMetadataAttributesMap = localMetadataAttributesMap;
-        this.boundedBy = boundedBy;
-    }
 }

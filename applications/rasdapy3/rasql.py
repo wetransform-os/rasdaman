@@ -30,6 +30,7 @@ from rasdapy.query_executor import QueryExecutor
 from rasdapy.models.result_array import ResultArray
 from rasdapy.query_result import QueryResult
 from rasdapy.cores.utils import encoded_bytes_to_str
+from rasdapy.cores.format_utils import format_scalar
 
 SUCCESS = 0
 ERROR = 1
@@ -149,15 +150,17 @@ class Main:
             res_arr = res
 
             # Depend on the output (string, file) to write the result from rasserver
-            self.__handle_result(res_arr)
+            return self.__handle_result(res_arr)
         except Exception as e:
-            if "error message" in str(e):
+            if " error message " in str(e):
                 """ e.g: Error executing query 'select stddev_samp(1f)',
                 error message 'rasdaman error 353: Execution error 353 in line 1, column 8, near token stddev_samp: Operand.'
                 """
-                error_message = re.findall(r"([^']*)'?", str(e), re.M)[-2]
+                error_message = str(e).split(' error message ')[1]
+                error_message = error_message[1:-1]  # remove single quotes
                 # Write error to stderr
                 print_error(error_message)
+                return ERROR
             else:
                 raise
         finally:
@@ -170,7 +173,7 @@ class Main:
         if isinstance(res_arr, QueryResult):
             if res_arr.with_error:
                 print_error(res_arr.error_message())
-                return
+                return ERROR
 
         """
         Handle the result of query from rasserver
@@ -179,10 +182,18 @@ class Main:
         """
         if self.validator.out == OUTPUT_STRING:
             # Output list of results to console
-            self.__handle_result_as_string(res_arr)
+            return self.__handle_result_as_string(res_arr)
         elif self.validator.out == OUTPUT_FILE:
             # Output list of results as files
-            self.__handle_result_as_file(res_arr)
+            return self.__handle_result_as_file(res_arr)
+        else:
+            return ERROR
+
+    def __result_to_string(self, res_arr, res):
+        if res_arr.is_object:
+            return res_arr.to_string(res)
+        else:
+            return format_scalar(res, res_arr.data_type)
 
     def __handle_result_as_string(self, res_arr):
         """
@@ -201,9 +212,10 @@ class Main:
         output = "Query result collection has {} element(s): \n".format(res_arr.size)
         if res_arr.size > 0:
             for index, res in enumerate(res_arr):
-                msg = res_arr.to_string(res) if res_arr.is_object else res
+                msg = self.__result_to_string(res_arr, res)
                 output += "  Result {} {}: {}\n".format(res_arr.nature, index + 1, msg)
         print(output.strip())
+        return SUCCESS
 
     def __handle_result_as_file(self, res_arr):
         """
@@ -257,15 +269,15 @@ class Main:
                     binary_file.write(res_arr.to_binary(cur_data))
             else:
                 with open(file_name, "w") as text_file:
-                    output = "  Result {} {}: {}\n".format(res_arr.nature, i + 1, cur_data)
+                    msg = self.__result_to_string(res_arr, cur_data)
+                    output = "  Result {} {}: {}\n".format(res_arr.nature, i + 1, msg)
                     # If it is scalar value then just write it
                     text_file.write(output)
+        return SUCCESS
 
 
 if __name__ == "__main__":
     main = Main()
     # Execute the rasql query and return result to console/file
-    main.execute()
-
-
-
+    rc = main.execute()
+    sys.exit(rc)

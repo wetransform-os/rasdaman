@@ -1,0 +1,2 @@
+for c in (wcps_areas_of_validity_different_files_same_coefficient)
+return encode(c[ansi("2001-01-01")], "jpeg")

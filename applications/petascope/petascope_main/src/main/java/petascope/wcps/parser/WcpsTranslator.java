@@ -31,7 +31,10 @@ import petascope.exceptions.ExceptionCode;
 import petascope.exceptions.PetascopeException;
 import petascope.exceptions.WCPSException;
 import petascope.wcps.handler.Handler;
+import petascope.wcps.handler.RootHandler;
 import petascope.wcps.result.VisitorResult;
+
+import java.util.ArrayList;
 
 /**
  * Class to translate a wcps query into a rasql query using the antlr generated
@@ -95,8 +98,7 @@ public class WcpsTranslator {
             // When the tree is parsed, it will traverse to each node to evaluate
             // And throw WCPSProcessingError or other kind of Exceptions if possible
             Handler rootHandler = this.wcpsEvaluator.visit(parseTree);
-            translationTree = rootHandler.handle();
-
+            translationTree = rootHandler.handle(new ArrayList<>());
         } catch (WCPSException ex) {
             throw new PetascopeException(ex.getExceptionCode(), ex.getMessage(), ex);
         }

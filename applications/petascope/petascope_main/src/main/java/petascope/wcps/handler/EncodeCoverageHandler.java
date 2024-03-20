@@ -24,13 +24,19 @@ package petascope.wcps.handler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+
+import org.apache.tomcat.util.http.fileupload.util.mime.MimeUtility;
 import org.rasdaman.domain.cis.NilValue;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
+import petascope.exceptions.ExceptionCode;
+import petascope.core.KVPSymbols;
 import petascope.exceptions.PetascopeException;
+import petascope.util.ras.TypeResolverUtil;
 import petascope.wcps.parameters.model.netcdf.NetCDFExtraParams;
 import petascope.wcps.metadata.model.WcpsCoverageMetadata;
 import petascope.wcps.result.WcpsResult;
@@ -43,6 +49,8 @@ import petascope.wcps.exception.processing.InvalidJsonDeserializationException;
 import petascope.wcps.exception.processing.InvalidNumberOfNodataValuesException;
 import petascope.wcps.metadata.model.RangeField;
 import petascope.wcps.parameters.netcdf.service.NetCDFParametersService;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * Class to translate a WCPS expression with encode() *
@@ -73,6 +81,13 @@ public class EncodeCoverageHandler extends Handler {
     private SerializationEncodingService serializationEncodingService;
     @Autowired
     private NetCDFParametersService netCDFParametersFactory;
+    @Autowired
+    private HttpServletRequest httpServletRequest;
+
+    private static Set<String> image2DFormatsSet = Set.of(
+                                                        MIMEUtil.MIME_PNG, MIMEUtil.MIME_JP2,
+                                                        MIMEUtil.MIME_JPEG, MIMEUtil.MIME_TIFF
+                                                        );
     
     public EncodeCoverageHandler() {
         
@@ -82,15 +97,16 @@ public class EncodeCoverageHandler extends Handler {
         EncodeCoverageHandler result = new EncodeCoverageHandler();
         result.serializationEncodingService = this.serializationEncodingService;
         result.netCDFParametersFactory = this.netCDFParametersFactory;
+        result.httpServletRequest = this.httpServletRequest;
         result.setChildren(Arrays.asList(coverageExpressionHandler, formatTypeStringScalarHandler, extraParamsStringScalarHandler));
         
         return result;
     }
     
-    public WcpsResult handle() throws PetascopeException {
-        WcpsResult coverageExpressionVisitorResult = (WcpsResult) this.getFirstChild().handle();
-        String formatType = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        String extraParams = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+    public WcpsResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        WcpsResult coverageExpressionVisitorResult = (WcpsResult) this.getFirstChild().handle(serviceRegistries);
+        String formatType = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql().toLowerCase();
+        String extraParams = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         WcpsResult result = this.handle(coverageExpressionVisitorResult, formatType, extraParams, coverageExpressionVisitorResult.withCoordinates());
         return result;
@@ -99,6 +115,16 @@ public class EncodeCoverageHandler extends Handler {
     private WcpsResult handle(WcpsResult coverageExpression, String format, String extraParams, boolean widthCoordinates) throws PetascopeException {
         // get the mime-type before modifying the rasqlFormat
         String mimeType = MIMEUtil.getMimeType(format);
+
+        if (coverageExpression.getMetadata() != null) {
+            int numberOfDimensions = coverageExpression.getMetadata().getAxes().size();
+
+            if (coverageExpression.getMetadata().getAxes().size() != 2 && image2DFormatsSet.contains(mimeType)) {
+                String errorMessage = "Data format " + mimeType + " only supports 2D data, but the coverage to be encoded is " + numberOfDimensions + "D. " +
+                    "Hint: specify a data format suitable for non-2D data, such as " + MIMEUtil.MIME_NETCDF;
+                throw new PetascopeException(ExceptionCode.InvalidRequest, errorMessage);
+            }
+        }
         
         boolean isGML = false;
         
@@ -112,6 +138,18 @@ public class EncodeCoverageHandler extends Handler {
             isGML = true;
         }
 
+        // get the mime-type before modifying the rasqlFormat
+        if (isGML) {
+            mimeType = MIMEUtil.MIME_GML;
+        }
+
+        if (this.httpServletRequest.getAttribute(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE) != null
+            && this.httpServletRequest.getAttribute(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE).equals(KVPSymbols.KEY_INTERNAL_OAPI_GET_COVERAGE)) {
+            // NOTE: in this case this is /oapi/coverageId/coverage, hence the output format is influenced by petascope
+            format = this.getOutputFormatBasedOnOAPIGetCoverageRequest(coverageExpression.getMetadata());
+        }
+
+
         // NOTE: we have 2 cases for extra params:
         // + In old style: for c in (test_eobstest) return encode(c, "netcdf", "nodata=0"), then extra params will need to be built in JSON format
         // + In json style: for c in (test_eobstest) return encode(c, "netcdf", "{\"dimensions\":....}"), then
@@ -122,8 +160,8 @@ public class EncodeCoverageHandler extends Handler {
         //get the right template for rasql string (the dem() encode still use the old format, other will use the new JSON format)
         String template = getTemplate(format);
         String resultRasql = template.replace("$covExpression", coverageExpression.getRasql())
-                .replace("$format", '"' + format + '"')
-                .replace("$otherParams", otherParamsString);
+                                     .replace("$format", '"' + format + '"')
+                                     .replace("$otherParams", otherParamsString);
         WcpsResult wcpsResult = new WcpsResult(coverageExpression.getMetadata(), resultRasql);
         wcpsResult.setWithCoordinates(widthCoordinates);
         wcpsResult.setMimeType(mimeType);
@@ -170,8 +208,7 @@ public class EncodeCoverageHandler extends Handler {
                 throw new InvalidJsonDeserializationException();
             } else {
                 // extra params is old style (check if it has "nodata" as parameter to add to metadata)
-                boolean hasNoData = parseNoDataFromExtraParams(extraParams, metadata);
-                jsonOutput = serializationEncodingService.serializeOldStyleExtraParamsToJson(rasqlFormat, metadata, netCDFExtraParams, geoReference, hasNoData,
+                jsonOutput = serializationEncodingService.serializeOldStyleExtraParamsToJson(rasqlFormat, metadata, netCDFExtraParams, geoReference, extraParams,
                                                                                              isGML);
             }
 
@@ -216,7 +253,7 @@ public class EncodeCoverageHandler extends Handler {
             }
 
             // Update the nodata values in range fields as well
-            updateNoDataInRangeFileds(noDataValues, metadata);
+            updateNoDataInRangeFields(noDataValues, metadata);
 
             return true;                
         }
@@ -227,11 +264,8 @@ public class EncodeCoverageHandler extends Handler {
     /**
      * Update the range filed's nodata value from passing nodata values as extra
      * parameter
-     *
-     * @param noDataValues
-     * @param metadata
      */
-    public void updateNoDataInRangeFileds(List<NilValue> noDataValues, WcpsCoverageMetadata metadata) {
+    public void updateNoDataInRangeFields(List<NilValue> noDataValues, WcpsCoverageMetadata metadata) {
         if (!noDataValues.isEmpty()) {
             // We update the range fields of coverages with the passing nodata values
             if (noDataValues.size() == 1) {
@@ -283,6 +317,40 @@ public class EncodeCoverageHandler extends Handler {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Only used for /oapi/coverageId/coverage request, based on the output's dimension and data types
+     1D: JSON
+     2D 1, 3, or 4 char bands: PNG
+     2D otherwise: TIFF
+     else: NetCDF
+     */
+    private String getOutputFormatBasedOnOAPIGetCoverageRequest(WcpsCoverageMetadata metadata) {
+        String result = MIMEUtil.MIME_NETCDF;
+        if (metadata.getAxes().size() == 1) {
+            return MIMEUtil.MIME_JSON;
+        } else if (metadata.getAxes().size() == 2) {
+            // PNG or TIFF
+
+            if (metadata.getRangeFields().size() < 4) {
+                boolean returnPNG = true;
+                for (RangeField rangeField : metadata.getRangeFields()) {
+                    if (!rangeField.getDataType().equals(TypeResolverUtil.R_Char)) {
+                        returnPNG = false;
+                        break;
+                    }
+                }
+
+                if (returnPNG) {
+                    return MIMEUtil.MIME_PNG;
+                }
+            }
+
+            return MIMEUtil.MIME_TIFF;
+        }
+
+        return result;
     }
 
     public static final String NO_DATA = "nodata";

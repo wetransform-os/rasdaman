@@ -22,6 +22,8 @@
 package petascope.wcps.handler;
 
 import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
@@ -47,7 +49,7 @@ public class TrimScaleDimensionIntervalElement extends Handler {
     }
     
     public TrimScaleDimensionIntervalElement create(StringScalarHandler axisLabelHandler,
-                                                    StringScalarHandler lowerBoundHandler, StringScalarHandler upperBoundhandler) {
+                                                    Handler lowerBoundHandler, Handler upperBoundhandler) {
         TrimScaleDimensionIntervalElement result = new TrimScaleDimensionIntervalElement();
         result.setChildren(Arrays.asList(axisLabelHandler, lowerBoundHandler, upperBoundhandler));
         
@@ -55,10 +57,10 @@ public class TrimScaleDimensionIntervalElement extends Handler {
     }
 
     @Override
-    public VisitorResult handle() throws PetascopeException {
-        String axisLabel = ((WcpsResult)this.getFirstChild().handle()).getRasql();
-        String lowerBound = ((WcpsResult)this.getSecondChild().handle()).getRasql();
-        String upperBound = ((WcpsResult)this.getThirdChild().handle()).getRasql();
+    public VisitorResult handle(List<Object> serviceRegistries) throws PetascopeException {
+        String axisLabel = ((WcpsResult)this.getFirstChild().handle(serviceRegistries)).getRasql();
+        String lowerBound = ((WcpsResult)this.getSecondChild().handle(serviceRegistries)).getRasql();
+        String upperBound = ((WcpsResult)this.getThirdChild().handle(serviceRegistries)).getRasql();
         
         VisitorResult result = this.handle(axisLabel, lowerBound, upperBound);
         return result;
